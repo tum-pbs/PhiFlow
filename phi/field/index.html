@@ -107,7 +107,7 @@ __pdoc__ = {
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.field.abs"><code class="name flex">
-<span>def <span class="ident">abs</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
+<span>def <span class="ident">abs</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>||x||<sub>1</sub></em>.
@@ -125,7 +125,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def abs_(x) -&gt; Union[Tensor, PhiTreeNode]:
+<pre><code class="python">def abs_(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34;
     Computes *||x||&lt;sub&gt;1&lt;/sub&gt;*.
     Complex `x` result in matching precision float values.
@@ -317,7 +317,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.ceil"><code class="name flex">
-<span>def <span class="ident">ceil</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
+<span>def <span class="ident">ceil</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>⌈x⌉</em> of the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code>.</p></div>
@@ -325,7 +325,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def ceil(x) -&gt; Union[Tensor, PhiTreeNode]:
+<pre><code class="python">def ceil(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34; Computes *⌈x⌉* of the `Tensor` or `phiml.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.ceil)</code></pre>
 </details>
@@ -547,7 +547,7 @@ a <code>Mesh</code> by connecting proximate elements of a <code><a title="phi.fi
 </details>
 </dd>
 <dt id="phi.field.cos"><code class="name flex">
-<span>def <span class="ident">cos</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
+<span>def <span class="ident">cos</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>cos(x)</em> of the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code>.</p></div>
@@ -555,7 +555,7 @@ a <code>Mesh</code> by connecting proximate elements of a <code><a title="phi.fi
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def cos(x) -&gt; Union[Tensor, PhiTreeNode]:
+<pre><code class="python">def cos(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34; Computes *cos(x)* of the `Tensor` or `phiml.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.cos)</code></pre>
 </details>
@@ -750,7 +750,7 @@ The new values are determined via linear interpolation.</p>
 </details>
 </dd>
 <dt id="phi.field.exp"><code class="name flex">
-<span>def <span class="ident">exp</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
+<span>def <span class="ident">exp</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>exp(x)</em> of the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code>.</p></div>
@@ -758,7 +758,7 @@ The new values are determined via linear interpolation.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def exp(x) -&gt; Union[Tensor, PhiTreeNode]:
+<pre><code class="python">def exp(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34; Computes *exp(x)* of the `Tensor` or `phiml.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.exp)</code></pre>
 </details>
@@ -814,7 +814,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 </details>
 </dd>
 <dt id="phi.field.floor"><code class="name flex">
-<span>def <span class="ident">floor</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
+<span>def <span class="ident">floor</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>⌊x⌋</em> of the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code>.</p></div>
@@ -822,7 +822,7 @@ If <code>values</code> is a StaggeredGrid, its components get extrapolated indep
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def floor(x) -&gt; Union[Tensor, PhiTreeNode]:
+<pre><code class="python">def floor(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34; Computes *⌊x⌋* of the `Tensor` or `phiml.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.floor)</code></pre>
 </details>
@@ -1092,7 +1092,7 @@ If not specified, the gradient will be computed w.r.t. the first positional argu
 </details>
 </dd>
 <dt id="phi.field.imag"><code class="name flex">
-<span>def <span class="ident">imag</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
+<span>def <span class="ident">imag</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns the imaginary part of <code>x</code>.
@@ -1110,7 +1110,7 @@ If <code>x</code> does not store complex numbers, returns a zero tensor with the
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def imag(x) -&gt; Union[Tensor, PhiTreeNode]:
+<pre><code class="python">def imag(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34;
     Returns the imaginary part of `x`.
     If `x` does not store complex numbers, returns a zero tensor with the same shape and dtype as this tensor.
@@ -1170,7 +1170,7 @@ Depending on the <code><a title="phi.field.sample" href="#phi.field.sample">samp
 </details>
 </dd>
 <dt id="phi.field.is_finite"><code class="name flex">
-<span>def <span class="ident">is_finite</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
+<span>def <span class="ident">is_finite</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> matching <code>x</code> with values <code>True</code> where <code>x</code> has a finite value and <code>False</code> otherwise.</p></div>
@@ -1178,13 +1178,13 @@ Depending on the <code><a title="phi.field.sample" href="#phi.field.sample">samp
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def is_finite(x) -&gt; Union[Tensor, PhiTreeNode]:
+<pre><code class="python">def is_finite(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34; Returns a `Tensor` or `phiml.math.magic.PhiTreeNode` matching `x` with values `True` where `x` has a finite value and `False` otherwise. &#34;&#34;&#34;
     return _backend_op1(x, Backend.isfinite)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.isfinite"><code class="name flex">
-<span>def <span class="ident">isfinite</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
+<span>def <span class="ident">isfinite</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> matching <code>x</code> with values <code>True</code> where <code>x</code> has a finite value and <code>False</code> otherwise.</p></div>
@@ -1192,7 +1192,7 @@ Depending on the <code><a title="phi.field.sample" href="#phi.field.sample">samp
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def is_finite(x) -&gt; Union[Tensor, PhiTreeNode]:
+<pre><code class="python">def is_finite(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34; Returns a `Tensor` or `phiml.math.magic.PhiTreeNode` matching `x` with values `True` where `x` has a finite value and `False` otherwise. &#34;&#34;&#34;
     return _backend_op1(x, Backend.isfinite)</code></pre>
 </details>
@@ -2128,7 +2128,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 </details>
 </dd>
 <dt id="phi.field.real"><code class="name flex">
-<span>def <span class="ident">real</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
+<span>def <span class="ident">real</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
 </code></dt>
 <dd>
 <div class="desc"><p>See Also:
@@ -2144,7 +2144,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def real(x) -&gt; Union[Tensor, PhiTreeNode]:
+<pre><code class="python">def real(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34;
     See Also:
         `imag()`, `conjugate()`.
@@ -2323,7 +2323,7 @@ True
 </details>
 </dd>
 <dt id="phi.field.round"><code class="name flex">
-<span>def <span class="ident">round</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
+<span>def <span class="ident">round</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Rounds the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code> to the closest integer.</p></div>
@@ -2331,7 +2331,7 @@ True
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def round_(x) -&gt; Union[Tensor, PhiTreeNode]:
+<pre><code class="python">def round_(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34; Rounds the `Tensor` or `phiml.math.magic.PhiTreeNode` `x` to the closest integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.round)</code></pre>
 </details>
@@ -2450,7 +2450,7 @@ Grids also support 6th order implicit sampling at mid-points.</dd>
 </details>
 </dd>
 <dt id="phi.field.sign"><code class="name flex">
-<span>def <span class="ident">sign</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
+<span>def <span class="ident">sign</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The sign of positive numbers is 1 and -1 for negative numbers.
@@ -2466,7 +2466,7 @@ The sign of 0 is undefined.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sign(x) -&gt; Union[Tensor, PhiTreeNode]:
+<pre><code class="python">def sign(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34;
     The sign of positive numbers is 1 and -1 for negative numbers.
     The sign of 0 is undefined.
@@ -2481,7 +2481,7 @@ The sign of 0 is undefined.</p>
 </details>
 </dd>
 <dt id="phi.field.sin"><code class="name flex">
-<span>def <span class="ident">sin</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
+<span>def <span class="ident">sin</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>sin(x)</em> of the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code>.</p></div>
@@ -2489,7 +2489,7 @@ The sign of 0 is undefined.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sin(x) -&gt; Union[Tensor, PhiTreeNode]:
+<pre><code class="python">def sin(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34; Computes *sin(x)* of the `Tensor` or `phiml.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sin)</code></pre>
 </details>
@@ -2671,7 +2671,7 @@ These arguments are treated as auxiliary arguments and can be of any type.</dd>
 
         def _matrix_solve_forward(y, solve: Solve, matrix: Tensor, is_backprop=False):
             backend_matrix = native_matrix(matrix, choose_backend_t(*y_tensors, matrix))
-            pattern_dims_in = channel(**dual(matrix).untyped_dict).names
+            pattern_dims_in = dual(matrix).as_channel().names
             pattern_dims_out = non_dual(matrix).names  # batch dims can be sparse or batched matrices
             result = _linear_solve_forward(y, solve, backend_matrix, pattern_dims_in, pattern_dims_out, preconditioner, backend, is_backprop)
             return result  # must return exactly `x` so gradient isn&#39;t computed w.r.t. other quantities
@@ -2919,7 +2919,7 @@ Otherwise, an explicit stencil is used.</dd>
 </details>
 </dd>
 <dt id="phi.field.sqrt"><code class="name flex">
-<span>def <span class="ident">sqrt</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
+<span>def <span class="ident">sqrt</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes <em>sqrt(x)</em> of the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code>.</p></div>
@@ -2927,7 +2927,7 @@ Otherwise, an explicit stencil is used.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sqrt(x) -&gt; Union[Tensor, PhiTreeNode]:
+<pre><code class="python">def sqrt(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34; Computes *sqrt(x)* of the `Tensor` or `phiml.math.magic.PhiTreeNode` `x`. &#34;&#34;&#34;
     return _backend_op1(x, Backend.sqrt)</code></pre>
 </details>
@@ -3162,7 +3162,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 </details>
 </dd>
 <dt id="phi.field.to_float"><code class="name flex">
-<span>def <span class="ident">to_float</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
+<span>def <span class="ident">to_float</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Converts the given tensor to floating point format with the currently specified precision.</p>
@@ -3181,7 +3181,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_float(x) -&gt; Union[Tensor, PhiTreeNode]:
+<pre><code class="python">def to_float(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34;
     Converts the given tensor to floating point format with the currently specified precision.
     
@@ -3202,7 +3202,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 </details>
 </dd>
 <dt id="phi.field.to_int32"><code class="name flex">
-<span>def <span class="ident">to_int32</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
+<span>def <span class="ident">to_int32</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Converts the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code> to 32-bit integer.</p></div>
@@ -3210,13 +3210,13 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_int32(x) -&gt; Union[Tensor, PhiTreeNode]:
+<pre><code class="python">def to_int32(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34; Converts the `Tensor` or `phiml.math.magic.PhiTreeNode` `x` to 32-bit integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_int32)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.to_int64"><code class="name flex">
-<span>def <span class="ident">to_int64</span></span>(<span>x) ‑> Union[phiml.math._tensors.Tensor, phiml.math.magic.PhiTreeNode]</span>
+<span>def <span class="ident">to_int64</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Converts the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code> to 64-bit integer.</p></div>
@@ -3224,7 +3224,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def to_int64(x) -&gt; Union[Tensor, PhiTreeNode]:
+<pre><code class="python">def to_int64(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34; Converts the `Tensor` or `phiml.math.magic.PhiTreeNode` `x` to 64-bit integer. &#34;&#34;&#34;
     return _backend_op1(x, Backend.to_int64)</code></pre>
 </details>
