@@ -14,7 +14,7 @@ from ..field._embed import FieldEmbedding
 from ..field._grid import GridType, StaggeredGrid
 from phiml.math import extrapolation, NUMPY, batch, shape, non_channel, expand
 from phiml.math._magic_ops import copy_with
-from phiml.math.extrapolation import combine_sides, Extrapolation
+from phiml.math.extrapolation import Extrapolation
 
 
 class Obstacle:
@@ -240,12 +240,7 @@ def _accessible_extrapolation(vext: Extrapolation):
         return extrapolation.ZERO
     elif isinstance(vext, FieldEmbedding):
         return extrapolation.ONE
-    elif isinstance(vext, extrapolation._MixedExtrapolation):
-        return combine_sides(**{dim: (_accessible_extrapolation(lo), _accessible_extrapolation(hi)) for dim, (lo, hi) in vext.ext.items()})
-    elif isinstance(vext, extrapolation._NormalTangentialExtrapolation):
-        return _accessible_extrapolation(vext.normal)
-    else:
-        raise ValueError(f"Unsupported extrapolation: {type(vext)}")
+    return extrapolation.map(_accessible_extrapolation, vext)
 
 
 def incompressible_rk4(pde: Callable, velocity: GridType, pressure: CenteredGrid, dt, pressure_order=4, pressure_solve=Solve('CG'), **pde_aux_kwargs):
