@@ -55,6 +55,9 @@ This will check for compatible PyTorch, Jax and TensorFlow installations as well
 &nbsp; • &nbsp; [**Demos**](https://github.com/tum-pbs/PhiFlow/tree/master/demos)
 &nbsp; • &nbsp; [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16> **Playground**](https://colab.research.google.com/drive/1zBlQbmNguRt-Vt332YvdTqlV4DBcus2S#offline=true&sandboxMode=true)
 
+Φ-Flow builds on the tensor functionality from [Φ<sub>ML</sub>](https://github.com/tum-pbs/PhiML).
+To understand how Φ<sub>Flow</sub> works, check [named and typed dimensions](https://tum-pbs.github.io/PhiML/Introduction.html) first.
+
 To get started, check out our YouTube tutorial series and the following Jupyter notebooks:
 
 * [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16>](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Math_Introduction.ipynb) [Tensors](https://tum-pbs.github.io/PhiFlow/Math_Introduction.html): Introduction to tensors.
