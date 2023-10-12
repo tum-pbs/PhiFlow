@@ -135,6 +135,8 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
         else:
             return scatter_to_centers(field, geometry, **kwargs)
     elif at == 'face':
+        if field.is_staggered and field.geometry.shallow_equals(geometry) and field.geometry.face_shape == geometry.face_shape and field.geometry.shallow_equals(dot_face_normal):
+            return field.values
         if dot_face_normal is not None and channel(field):
             if _are_axis_aligned(dot_face_normal.face_normals):
                 components = unstack(field, field.shape.channel.name)
@@ -143,13 +145,12 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
                 return math.stack(sampled, dual(dot_face_normal.face_shape))
             else:
                 raise NotImplementedError
-        if field.is_staggered and field.geometry.shallow_equals(geometry) and field.geometry.face_shape == geometry.face_shape:
-            return field.values
         if field.is_grid and field.is_centered:
             return sample_grid_at_faces(field, geometry, boundary, **kwargs)
         elif field.is_grid and field.is_staggered:
-            # return sample_staggered_grid(field, geom)
-            raise NotImplementedError
+            faces = math.unstack(slice_off_constant(geometry.faces, geometry.boundary_faces, boundary), dual)
+            sampled = [sample(field, face, **kwargs) for face in faces]
+            return math.stack(sampled, dual(geometry.face_shape))
         if field.is_mesh and field.is_centered:
             if not field.geometry.shallow_equals(geometry):
                 raise NotImplementedError("Resampling to different mesh is not yet supported")

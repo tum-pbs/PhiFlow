@@ -8,26 +8,25 @@ Examples:
 * runge_kutta_4 (particle)
 """
 from phi import math
-from phi.field import Field, PointCloud, Grid, spatial_gradient, unstack, stack, resample, reduce_sample
+from phi.field import Field, PointCloud, Grid, spatial_gradient, unstack, stack, resample, reduce_sample, sample
 from phi.math import Solve, channel
 from phiml.math import Tensor
 
 
 def euler(data: Field, velocity: Field, dt: float, v0: Tensor = None) -> Tensor:
     """ Euler integrator. """
-    # ToDo requires extrapolation for staggered
     if v0 is None:
-        v0 = resample(velocity, to=data).values
+        v0 = sample(velocity, data.geometry, at=data.sampled_at, boundary=data.boundary)
     return data.points + v0 * dt
 
 
 def rk4(data: Field, velocity: Field, dt: float, v0: Tensor = None) -> Tensor:
     """ Runge-Kutta-4 integrator. """
     if v0 is None:
-        v0 = resample(velocity, to=data).values
-    v_half = reduce_sample(velocity, data.points + 0.5 * dt * v0)
-    v_half2 = reduce_sample(velocity, data.points + 0.5 * dt * v_half)
-    v_full = reduce_sample(velocity, data.points + dt * v_half2)
+        v0 = sample(velocity, data.geometry, at=data.sampled_at, boundary=data.boundary)
+    v_half = sample(velocity, data.points + 0.5 * dt * v0, at=data.sampled_at, boundary=data.boundary)
+    v_half2 = sample(velocity, data.points + 0.5 * dt * v_half, at=data.sampled_at, boundary=data.boundary)
+    v_full = sample(velocity, data.points + dt * v_half2, at=data.sampled_at, boundary=data.boundary)
     v_rk4 = (1 / 6.) * (v0 + 2 * (v_half + v_half2) + v_full)
     return data.points + dt * v_rk4
 
@@ -35,10 +34,10 @@ def rk4(data: Field, velocity: Field, dt: float, v0: Tensor = None) -> Tensor:
 def finite_rk4(data: Field, velocity: Grid, dt: float, v0: math.Tensor = None) -> Tensor:
     """ Runge-Kutta-4 integrator with Euler fallback where velocity values are NaN. """
     if v0 is None:
-        v0 = resample(velocity, to=data).values
-    v_half = reduce_sample(velocity, data.points + 0.5 * dt * v0)
-    v_half2 = reduce_sample(velocity, data.points + 0.5 * dt * v_half)
-    v_full = reduce_sample(velocity, data.points + dt * v_half2)
+        v0 = sample(velocity, data.geometry, at=data.sampled_at, boundary=data.boundary)
+    v_half = sample(velocity, data.points + 0.5 * dt * v0, at=data.sampled_at, boundary=data.boundary)
+    v_half2 = sample(velocity, data.points + 0.5 * dt * v_half, at=data.sampled_at, boundary=data.boundary)
+    v_full = sample(velocity, data.points + dt * v_half2, at=data.sampled_at, boundary=data.boundary)
     v_rk4 = (1 / 6.) * (v0 + 2 * (v_half + v_half2) + v_full)
     v_nan = math.where(math.is_finite(v_rk4), v_rk4, v0)
     return data.points + dt * v_nan

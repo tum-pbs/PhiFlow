@@ -1,6 +1,6 @@
 import warnings
 from numbers import Number
-from typing import Callable, Union, Tuple, Dict
+from typing import Callable, Union, Tuple, Dict, Any
 
 from phi import math
 from phi.geom import Geometry, Box, Point, BaseBox, UniformGrid, UnstructuredMesh, Sphere
@@ -594,7 +594,7 @@ def as_boundary(obj: Union[Extrapolation, Tensor, float, Field, None]) -> Extrap
         return math.extrapolation.as_extrapolation(obj)
 
 
-def slice_off_constant(obj, boundary_slices: Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]], boundary: Extrapolation):
+def slice_off_constant(obj, boundary_slices: Dict[Any, Dict[str, slice]], boundary: Extrapolation):
     determined_slices = [s for k, s in boundary_slices.items() if boundary.determines_boundary_values(k)]
     return math.slice_off(obj, *determined_slices)
 

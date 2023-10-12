@@ -86,7 +86,7 @@ def StaggeredGrid(values: Any = 0.,
                   extrapolation: float or Extrapolation = 0,
                   bounds: Box or float = None,
                   resolution: Shape or int = None,
-                  **resolution_: int or Tensor):
+                  **resolution_: int or Tensor) -> Field:
     """
     N-dimensional grid whose vector components are sampled at the respective face centers.
     A staggered grid is defined through its values tensor, its bounds describing the physical size, and its extrapolation.
