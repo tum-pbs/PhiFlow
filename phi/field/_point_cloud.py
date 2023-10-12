@@ -39,6 +39,8 @@ def PointCloud(elements: Union[Tensor, Geometry], values: Any = 1., extrapolatio
         extrapolation: values outside elements
         bounds: Deprecated. Has no use since 2.5.
     """
+    if bounds is not None:
+        warnings.warn("bounds argument is deprecated since 2.5 and will be ignored.")
     if dual(values):
         assert dual(values).rank == 1, f"PointCloud cannot convert values with more than 1 dual dimension."
         non_dual_name = dual(values).name[1:]
@@ -90,7 +92,7 @@ def distribute_points(geometries: Union[tuple, list, Geometry, float],
         from phi.field._field_math import data_bounds
         radius = math.mean(data_bounds(initial_points).size) * 0.005
     from phi.geom import Sphere
-    return PointCloud(Sphere(initial_points, radius=radius), extrapolation=geometries.extrapolation, bounds=geometries.bounds)
+    return PointCloud(Sphere(initial_points, radius=radius), extrapolation=geometries.extrapolation)
 
 
 def _distribute_points(mask: math.Tensor, dim: Shape, points_per_cell: int = 1, center: bool = False) -> math.Tensor:
