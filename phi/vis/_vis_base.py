@@ -465,7 +465,7 @@ def title_label(idx: dict):
 
 
 def common_index(*indices: dict, exclude=()):
-    return {k: v for k, v in indices[0].items() if k not in exclude and all([i[k] == v for i in indices])}
+    return {k: v for k, v in indices[0].items() if k not in exclude and all([k in i and i[k] == v for i in indices])}
 
 
 def select_channel(value: Union[Field, Tensor, tuple, list], channel: Union[str, None]):
