@@ -55,7 +55,7 @@ class SceneLog:
 
         Args:
             frame: step
-            values: Values and names to append to the curves, must be numbers or `phi.math.Tensor`.
+            values: Values and names to append to the curves, must be numbers or `phiml.math.Tensor`.
                 If a curve does not yet exists, a new one is created.
         """
         for name, value in values.items():

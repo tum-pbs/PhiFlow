@@ -1,8 +1,8 @@
 """
 PyTorch integration.
 
-Importing this module registers the PyTorch backend with `phi.math`.
-Without this, PyTorch tensors cannot be handled by `phi.math` functions.
+Importing this module registers the PyTorch backend with `phiml.math`.
+Without this, PyTorch tensors cannot be handled by `phiml.math` functions.
 
 To make PyTorch the default backend, import `phi.torch.flow`.
 """

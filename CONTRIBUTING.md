@@ -34,8 +34,6 @@ For commits, we use the following tags in the header:
 If the commit modifies the main codebase (`phi/`), use one of the following tags:
 
 * `[vis]` for general changes in `phi.vis` as well as changes to any GUI, e.g. dash, widgets, console.
-* `[math]` for changes to `phi.math`
-* `[backend]` for changes specific to `phi.math.backend` which leave the `phi.math` API untouched.
 * `[geom]` for changes to `phi.geom`
 * `[field]` for changes to `phi.field` except Scene
 * `[io]` for changes to Scenes, data layout

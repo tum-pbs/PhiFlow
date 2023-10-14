@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from phi.field import AngularVelocity, CenteredGrid, StaggeredGrid
-from phi.math import channel, vec
+from phiml.math import channel, vec
 
 
 class TestAngularVelocity(TestCase):

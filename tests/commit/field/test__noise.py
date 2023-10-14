@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from phi.math import tensor, batch, is_finite
+from phiml.math import tensor, batch, is_finite
 from phi.field import *
 
 

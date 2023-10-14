@@ -7,7 +7,7 @@ Extends the import `from phi.flow import *` by TensorFlow-related functions and 
 The following TensorFlow modules are included: `tensorflow` / `tf`, `keras`, `layers`.
 
 Importing this module registers the TensorFlow backend as the default backend unless called within a backend context.
-New tensors created via `phi.math` functions will be backed by TensorFlow tensors.
+New tensors created via `phiml.math` functions will be backed by TensorFlow tensors.
 
 See `phi.flow`, `phi.torch.flow`, `phi.jax.flow`.
 """
@@ -22,7 +22,7 @@ import tensorflow
 from tensorflow import keras
 from tensorflow.keras import layers
 
-from ..math.backend import ML_LOGGER as _LOGGER
+from phiml.backend import ML_LOGGER as _LOGGER
 
 tf = tensorflow
 

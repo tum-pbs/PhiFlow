@@ -4,7 +4,7 @@ from typing import Union
 from phi import math
 from phi.geom import Geometry
 from ._field import Field
-from ..math import Tensor
+from phiml.math import Tensor
 
 
 class HardGeometryMask(Field):

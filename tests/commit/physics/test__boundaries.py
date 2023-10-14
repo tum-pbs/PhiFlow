@@ -4,7 +4,7 @@ import numpy
 
 from phi import math
 from phi.field import Noise, CenteredGrid, StaggeredGrid
-from phi.math import spatial, channel
+from phiml.math import spatial, channel
 
 
 class TestFieldMath(TestCase):

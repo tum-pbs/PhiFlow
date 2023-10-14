@@ -4,8 +4,8 @@ from phi import math, geom
 from phi import field
 from phi.field import Noise, CenteredGrid, StaggeredGrid, Field
 from phi.geom import Box, Sphere
-from phi.math import extrapolation, spatial, channel, batch
-from phi.math.magic import PhiTreeNode
+from phiml.math import extrapolation, spatial, channel, batch
+from phiml.math.magic import PhiTreeNode
 
 
 class GridTest(TestCase):

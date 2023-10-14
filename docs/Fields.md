@@ -96,7 +96,7 @@ Additionally, there are two functions for sampling field values at given locatio
 Sampled fields, such as [`CenteredGrid`](phi/field/#phi.field.CenteredGrid),
 [`StaggeredGrid`](phi/field/#phi.field.StaggeredGrid)
 [`PointCloud`](phi/field/#phi.field.PointCloud) all have an `extrapolation` member variable of type 
-[`Extrapolation`](phi/math/extrapolation.html#phi.math.extrapolation.Extrapolation).
+[`Extrapolation`](phi/math/extrapolation.html#phiml.math.extrapolation.Extrapolation).
 The extrapolation determines the values outside the region in which the field is sampled.
 It takes the place of the boundary condition (e.g. Neumann / Dirichlet) which would be used in a mathematical formulation.
 
@@ -121,13 +121,13 @@ Standard extrapolation types are listed [here](phi/math/extrapolation.html#heade
   For a boundary condition *u=c*, the first padded value is exact and values padded further out are accurate to first order.
 
 Custom extrapolations can be implemented by extending the
-[`Extrapolation`](phi/math/extrapolation.html#phi.math.extrapolation.Extrapolation) class.
+[`Extrapolation`](phi/math/extrapolation.html#phiml.math.extrapolation.Extrapolation) class.
 Extrapolations also support a limited set of arithmetic operations, e.g. `PERIODIC * ZERO = ZERO`.
 
 ### Specifying Extrapolations per Side
 
 Different extrapolation types can be chosen for each side of a domain, e.g. a closed box with an open top.
-This can be achieved using [`combine_sides()`](phi/math/extrapolation.html#phi.math.extrapolation.combine_sides)
+This can be achieved using [`combine_sides()`](phi/math/extrapolation.html#phiml.math.extrapolation.combine_sides)
 which allows the extrapolations to be specified by dimension.
 
 The following example uses 0 for the upper face along `y` and 1 everywhere else.

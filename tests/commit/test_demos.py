@@ -6,8 +6,8 @@ import phi
 import phi.vis._vis_base as display
 from phi.field import Field
 from phi.geom import Geometry
-from phi.math import Tensor
-from phi.math.backend import Backend
+from phiml.math import Tensor
+from phiml.backend import Backend
 from phi.vis._vis import force_use_gui
 
 DEMOS_DIR = join(dirname(dirname(dirname(abspath(__file__)))), 'demos')

@@ -33,9 +33,6 @@ class TestWildcardImportDocs(TestCase):
     def test_phi_flow(self):
         self.assert_less_undocumented_wc('phi.flow', 0)
 
-    def test_phi_math(self):
-        self.assert_less_undocumented_wc('phi.math', 0)
-
     def test_phi_physics(self):
         self.assert_less_undocumented_wc('phi.physics', 0)
 
