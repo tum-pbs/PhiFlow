@@ -77,10 +77,10 @@ class GridTest(TestCase):
         self.assertEqual(grid.resolution, grid_0.resolution)
         grid_ = grid_0.with_extrapolation(extrapolation.BOUNDARY)
         self.assertEqual(grid.resolution, grid_.resolution)
-        math.assert_close(grid_.values.vector['x'].x[0], 0)
-        math.assert_close(grid_.values.vector['x'].x[-1], 0)
-        math.assert_close(grid_.values.vector['y'].y[0], 0)
-        math.assert_close(grid_.values.vector['y'].y[-1], 0)
+        math.assert_close(grid_.values.vector.dual['x'].x[0], 0)
+        math.assert_close(grid_.values.vector.dual['x'].x[-1], 0)
+        math.assert_close(grid_.values.vector.dual['y'].y[0], 0)
+        math.assert_close(grid_.values.vector.dual['y'].y[-1], 0)
 
     def test_grid_constant_extrapolation(self):
         grid = CenteredGrid(math.random_uniform(spatial(x=50, y=10)), 0., Box['x,y', 0:1, 0:1])

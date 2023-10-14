@@ -12,7 +12,7 @@ from phi import field
 from phi.math import extrapolation, instance, channel, spatial, batch
 from phi.math.backend import Backend
 from phi.math.extrapolation import combine_by_direction, REFLECT, SYMMETRIC
-from phiml.math import Tensor
+from phiml.math import Tensor, wrap
 
 BACKENDS = phi.detect_backends()
 
@@ -205,17 +205,21 @@ class TestFieldMath(TestCase):
         density = CenteredGrid(Box(x=None, y=(2, 3)), x=4, y=3)
         math.assert_close(field.center_of_mass(density), (2, 2.5))
 
-    def test_curl_2d_centered_to_staggered(self):
-        pot = CenteredGrid(Box['x,y', 1:2, 1:2], x=4, y=3)
-        curl = field.curl(pot, at='face')
-        math.assert_close(field.mean(curl), 0)
-        math.assert_close(curl.values.vector.dual[0].x[1], [1, -1])
-        math.assert_close(curl.values.vector.dual[1].y[1], [-1, 1, 0])
+    def test_staggered2d_curl_at_corners(self):
+        pot = StaggeredGrid(Box['x,y', 1:2, 1:2], x=3, y=3)
+        curl = field.curl(pot, at='corner')
+        math.assert_close(wrap([[0, 0, 0, 0],
+                                [0, 0, -2, 0],
+                                [0, 2, 0, 0],
+                                [0, 0, 0, 0]], spatial('y,x')), curl.values)
 
-    def test_curl_2d_staggered_to_centered(self):
-        velocity = StaggeredGrid((2, 0), extrapolation.BOUNDARY, x=2, y=2)
-        curl = field.curl(velocity)
-        self.assertEqual(spatial(x=3, y=3), curl.resolution)
+    def test_centered2d_curl_at_corners(self):
+        pot = CenteredGrid(Box['x,y', 1:2, 1:2], x=3, y=3) * (1, 0)
+        curl = field.curl(pot, at='corner')
+        math.assert_close(wrap([[0, 0, 0, 0],
+                                [0, -1, -1, 0],
+                                [0, 1, 1, 0],
+                                [0, 0, 0, 0]], spatial('y,x')), curl.values)
 
     def test_integrate_all(self):
         grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box['x,y', 0:10, 0:10])

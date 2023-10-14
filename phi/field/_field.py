@@ -290,7 +290,7 @@ class Field:
         """ Returns a copy of this field with `values` replaced. """
         return Field(self._geometry, values, self._boundary)
 
-    def with_boundary(self, boundary: Extrapolation):
+    def with_boundary(self, boundary):
         """ Returns a copy of this field with the `boundary` replaced. """
         boundary = as_boundary(boundary)
         boundary_elements = 'boundary_faces' if self.is_staggered else 'boundary_elements'
@@ -302,8 +302,7 @@ class Field:
         to_remove = [sl for sl in new_determined_slices if sl not in old_determined_slices]
         values = math.slice_off(self._values, *to_remove)
         if to_add:
-            raise NotImplementedError
-            # values = math.pad(values, to_add, self._boundary, bounds=self.bounds)
+            values = math.pad(values, to_add, self._boundary, bounds=self.bounds)
         return Field(self._geometry, values, boundary)
 
     with_extrapolation = with_boundary

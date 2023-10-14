@@ -1,19 +1,15 @@
-import warnings
 from numbers import Number
 from typing import Callable, List, Tuple, Optional, Union, Sequence
 
+from phiml.math import Tensor, spatial, instance, tensor, channel, Shape, unstack, solve_linear, jit_compile_linear, shape, Solve, extrapolation, dual, wrap
 from phi import geom
 from phi import math
-from phi.geom import Box, Geometry, UniformGrid, Point, UnstructuredMesh
-from phi.math import Tensor, spatial, instance, tensor, channel, Shape, unstack, solve_linear, jit_compile_linear, shape, Solve, extrapolation, jit_compile, rename_dims, flatten, batch, dual
-from ._embed import FieldEmbedding
+from phi.geom import Box, Geometry, UniformGrid
 from ._field import Field, as_boundary
 from ._grid import CenteredGrid, StaggeredGrid, grid
 from ._point_cloud import PointCloud
-from ..geom._stack import GeometryStack
-from phiml.math._tensors import may_vary_along
-from ..math.extrapolation import Extrapolation, SYMMETRIC, REFLECT, ANTIREFLECT, ANTISYMMETRIC, combine_by_direction, ConstantExtrapolation
 from ._resample import sample
+from ..math.extrapolation import Extrapolation, SYMMETRIC, REFLECT, ANTIREFLECT, ANTISYMMETRIC, combine_by_direction
 
 
 def bake_extrapolation(grid: Field) -> Field:
@@ -379,7 +375,7 @@ def divergence(field: Field, order=2, implicit: Solve = None) -> CenteredGrid:
     return CenteredGrid(result, field.extrapolation.spatial_gradient(), field.bounds)
 
 
-def curl(field: Field, at='center'):
+def curl(field: Field, at='corner'):
     """
     Computes the finite-difference curl of the give 2D `StaggeredGrid`.
 
@@ -387,31 +383,54 @@ def curl(field: Field, at='center'):
         field: `Field`
         at: Either `center` or `face`.
     """
+    assert 'vector' in field.shape, f"curl requires a vector field but got {field}"
     assert field.spatial_rank in (2, 3), "curl is only defined in 2 and 3 spatial dimensions."
-    if field.is_grid and not field.is_staggered and field.spatial_rank == 2:
-        if 'vector' not in field.shape and at == 'face':
-            # 2D curl of scalar field
-            grad = math.spatial_gradient(field.values, dx=field.dx, difference='forward', padding=None, stack_dim=channel('vector'))
-            result = grad.vector[::-1] * (1, -1)  # (d/dy, -d/dx)
-            bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
-            return StaggeredGrid(result, bounds=bounds, extrapolation=field.extrapolation.spatial_gradient())
-        if 'vector' in field.shape and at == 'center':
-            # 2D curl of vector field
-            x, y = field.resolution.names
-            vy_dx = math.spatial_gradient(field.values.vector[1], dx=field.dx.vector[0], padding=field.extrapolation, dims=x, stack_dim=None)
-            vx_dy = math.spatial_gradient(field.values.vector[0], dx=field.dx.vector[1], padding=field.extrapolation, dims=y, stack_dim=None)
-            c = vy_dx - vx_dy
-            return field.with_values(c)
-    elif field.is_grid and field.is_staggered and field.spatial_rank == 2:
-        if at == 'center':
-            values = bake_extrapolation(field).values
-            x_padded = math.pad(values.vector['x'], {'y': (1, 1)}, field.extrapolation[{'vector': 'x'}], bounds=field.bounds)
-            y_padded = math.pad(values.vector['y'], {'x': (1, 1)}, field.extrapolation[{'vector': 'y'}], bounds=field.bounds)
-            vx_dy = math.spatial_gradient(x_padded, field.dx, 'forward', None, dims='y', stack_dim=None)
-            vy_dx = math.spatial_gradient(y_padded, field.dx, 'forward', None, dims='x', stack_dim=None)
-            result = vy_dx - vx_dy
-            return CenteredGrid(result, field.extrapolation.spatial_gradient(), field.bounds)
-    raise NotImplementedError()
+    if field.is_grid and field.is_staggered and field.spatial_rank == 2 and at == 'corner':
+        x, y = field.vector.item_names
+        values = field.with_boundary(None).values
+        vx = math.pad(values.vector.dual[x], {y: (1, 1)}, field.extrapolation[{'vector': y}])
+        vy = math.pad(values.vector.dual[y], {x: (1, 1)}, field.extrapolation[{'vector': x}])
+        vy_dx = math.spatial_gradient(vy, dims=x, dx=field.dx[x], padding=None, stack_dim=None, difference='forward')
+        vx_dy = math.spatial_gradient(vx, dims=y, dx=field.dx[y], padding=None, stack_dim=None, difference='forward')
+        curl_val = vy_dx - vx_dy
+        corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx/2, field.bounds.upper + field.dx/2))
+        return Field(corners, curl_val, field.boundary.spatial_gradient())
+    elif field.is_grid and field.is_centered and field.spatial_rank == 2 and at == 'corner':
+        x, y = field.vector.item_names
+        values = pad(field, 1).values
+        diag_basis = wrap([(1, 1), (1, -1)], channel(diag='pos,neg'), dual(vector=[x, y]))
+        diag_comp = diag_basis @ values
+        ll = diag_comp[{x: slice(-1), y: slice(-1), 'diag': 'neg'}]
+        ul = diag_comp[{x: slice(-1), y: slice(1, None), 'diag': 'pos'}]
+        lr = diag_comp[{x: slice(1, None), y: slice(-1), 'diag': 'pos'}]
+        ur = diag_comp[{x: slice(1, None), y: slice(1, None), 'diag': 'neg'}]
+        curl_val = ll - ul + lr - ur
+        corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx/2, field.bounds.upper + field.dx/2))
+        return Field(corners, curl_val, field.boundary.spatial_gradient())
+    # if field.is_grid and not field.is_staggered and field.spatial_rank == 2:
+    #     if 'vector' not in field.shape and at == 'face':
+    #         # 2D curl of scalar field
+    #         grad = math.spatial_gradient(field.values, dx=field.dx, difference='forward', padding=None, stack_dim=channel('vector'))
+    #         result = grad.vector[::-1] * (1, -1)  # (d/dy, -d/dx)
+    #         bounds = Box(field.bounds.lower + 0.5 * field.dx, field.bounds.upper - 0.5 * field.dx)  # lose 1 cell per dimension
+    #         return StaggeredGrid(result, bounds=bounds, extrapolation=field.extrapolation.spatial_gradient())
+    #     if 'vector' in field.shape and at == 'center':
+    #         # 2D curl of vector field
+    #         x, y = field.resolution.names
+    #         vy_dx = math.spatial_gradient(field.values.vector[1], dx=field.dx[0], padding=field.extrapolation, dims=x, stack_dim=None)
+    #         vx_dy = math.spatial_gradient(field.values.vector[0], dx=field.dx[1], padding=field.extrapolation, dims=y, stack_dim=None)
+    #         c = vy_dx - vx_dy
+    #         return field.with_values(c)
+    # elif field.is_grid and field.is_staggered and field.spatial_rank == 2:
+    #     if at == 'center':
+    #         values = bake_extrapolation(field).values
+    #         x_padded = math.pad(values.vector['x'], {'y': (1, 1)}, field.extrapolation[{'vector': 'x'}], bounds=field.bounds)
+    #         y_padded = math.pad(values.vector['y'], {'x': (1, 1)}, field.extrapolation[{'vector': 'y'}], bounds=field.bounds)
+    #         vx_dy = math.spatial_gradient(x_padded, field.dx, 'forward', None, dims='y', stack_dim=None)
+    #         vy_dx = math.spatial_gradient(y_padded, field.dx, 'forward', None, dims='x', stack_dim=None)
+    #         result = vy_dx - vx_dy
+    #         return CenteredGrid(result, field.extrapolation.spatial_gradient(), field.bounds)
+    raise NotImplementedError("Only 2D curl at corner currently supported")
 
 
 def fourier_laplace(grid: Field, times=1) -> Field:
