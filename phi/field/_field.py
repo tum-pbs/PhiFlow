@@ -458,14 +458,9 @@ class Field:
             return other._values is None
         if other._values is None:
             return False
-        if not math.all_available(self._values) or not math.all_available(other._values):  # tracers involved
-            if math.all_available(self._values) != math.all_available(other._values):
-                return False
-            else:  # both tracers
-                return self._values.shape == other._values.shape
-        if self._values.shape != other._values.shape:
+        if self._values.shape == other._values.shape:
             return False
-        return bool((self._values == other._values).all)
+        return math.always_close(self._values, other._values)
 
     def __mul__(self, other):
         return self._op2(other, lambda d1, d2: d1 * d2)
