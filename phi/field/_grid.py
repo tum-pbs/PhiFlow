@@ -122,7 +122,7 @@ def StaggeredGrid(values: Any = 0.,
             If `bounds` is given as a `Box`, the resolution may be specified as an `int` to be equal along all axes.
         **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
     """
-    extrapolation = as_boundary(extrapolation)
+    extrapolation = as_boundary(extrapolation, UniformGrid)
     if resolution is None and not resolution_:
         assert isinstance(values, Tensor), "Grid resolution must be specified when 'values' is not a Tensor."
         if not all(extrapolation.valid_outer_faces(d)[0] != extrapolation.valid_outer_faces(d)[1] for d in spatial(values).names):  # non-uniform values required

@@ -6,6 +6,7 @@ from phi import math
 from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape, Extrapolation
 from phiml.math._magic_ops import variable_attributes, expand
 from phi.math.magic import BoundDim, slicing_dict
+from phiml.math.magic import Sliceable
 
 
 class Geometry:
@@ -115,18 +116,25 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def integrate_surface(self, values: Tensor) -> Tensor:
+    def integrate_surface(self, face_values: Tensor, divide_volume=False) -> Tensor:
         """
         Multiplies `values´ by the corresponding face area, computes the sum over all faces and divides by the cell volume.
-        ∑ values * A / V.
+        ∑ values * A.
 
         Args:
-            values: Values sampled at the face centers.
+            face_values: Values sampled at the face centers.
+            divide_volume: Whether to divide by the cell `volume´
 
         Returns:
             `Tensor` of values sampled at the centroids.
         """
-        return math.sum(values * self.face_areas, self.face_shape.dual) / self.volume
+        result = math.sum(face_values * self.face_areas, self.face_shape.dual)
+        return result / self.volume if divide_volume else result
+
+    def integrate_flux(self, flux: Tensor, divide_volume=False) -> Tensor:
+        assert 'vector' in flux.shape, f"flux must have a 'vector' dimension but got {flux.shape}"
+        result = math.sum(flux.vector @ (self.face_normals * self.face_areas).vector, self.face_shape.dual)
+        return result / self.volume if divide_volume else result
 
     # def resample_to_faces(self, values: Tensor, boundary: Extrapolation, **kwargs):
     #     raise NotImplementedError(self.__class__)
@@ -758,3 +766,19 @@ def rotate(geometry: Geometry, rot: Union[float, Tensor], pivot: Tensor = None) 
         return geometry.rotated(rot)
     center = pivot + math.rotate_vector(geometry.center - pivot, rot)
     return geometry.rotated(rot).at(center)
+
+
+def slice_off_constant_faces(obj, boundary_slices: Dict[Any, Dict[str, slice]], boundary: Extrapolation):
+    """
+    Removes slices of `obj` where the boundary conditions fully determine the values.
+
+    Args:
+        obj: Sliceable object of full
+        boundary_slices: Boundary slices.
+        boundary: `phiml.math.Extrapolation` implementing `determines_boundary_values()`.
+
+    Returns:
+
+    """
+    determined_slices = [s for k, s in boundary_slices.items() if boundary.determines_boundary_values(k)]
+    return math.slice_off(obj, *determined_slices)

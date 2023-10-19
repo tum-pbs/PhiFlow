@@ -1,10 +1,9 @@
-from typing import Callable, Union
 from numbers import Number
+from typing import Callable, Union
 
 from phi import math
-
-from ._field import FieldInitializer, slice_off_constant, get_sample_points
-from ..geom import Geometry, UniformGrid
+from ._field import FieldInitializer, get_sample_points
+from ..geom import Geometry
 from ..math import Shape, spatial, instance, Tensor, wrap, Extrapolation
 
 

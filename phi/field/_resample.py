@@ -5,8 +5,8 @@ from phi import math
 from phi.geom import Geometry, Box, Point, UniformGrid, UnstructuredMesh
 from phi.math import Shape, Tensor, instance, spatial, Solve, dual, si2d
 from phi.math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
-from phiml.math import unstack, channel
-from ._field import Field, FieldInitializer, as_boundary, slice_off_constant
+from phiml.math import unstack, channel, rename_dims
+from ._field import Field, FieldInitializer, as_boundary, slice_off_constant_faces
 from phiml.math._tensors import may_vary_along
 
 
@@ -102,7 +102,7 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
     if at == 'face':
         assert boundary is not None, "boundaries must be given when sampling at faces"
     geometry = _get_geometry(geometry)
-    boundary = as_boundary(boundary) if boundary is not None else None
+    boundary = as_boundary(boundary, geometry) if boundary is not None else None
     if dot_face_normal is True:
         dot_face_normal = geometry
     if isinstance(field, Geometry):
@@ -137,27 +137,28 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
     elif at == 'face':
         if field.is_staggered and field.geometry.shallow_equals(geometry) and field.geometry.face_shape == geometry.face_shape and field.geometry.shallow_equals(dot_face_normal):
             return field.values
-        if dot_face_normal is not None and channel(field):
+        elif dot_face_normal is not None and channel(field):
             if _are_axis_aligned(dot_face_normal.face_normals):
                 components = unstack(field, field.shape.channel.name)
-                faces = math.unstack(slice_off_constant(geometry.faces, geometry.boundary_faces, boundary), dual)
+                faces = math.unstack(slice_off_constant_faces(geometry.faces, geometry.boundary_faces, boundary), dual)
                 sampled = [sample(c, p, **kwargs) for c, p in zip(components, faces)]
                 return math.stack(sampled, dual(dot_face_normal.face_shape))
             else:
                 raise NotImplementedError
-        if field.is_grid and field.is_centered:
+        elif field.is_grid and field.is_centered:
             return sample_grid_at_faces(field, geometry, boundary, **kwargs)
         elif field.is_grid and field.is_staggered:
-            faces = math.unstack(slice_off_constant(geometry.faces, geometry.boundary_faces, boundary), dual)
+            faces = math.unstack(slice_off_constant_faces(geometry.faces, geometry.boundary_faces, boundary), dual)
             sampled = [sample(field, face, **kwargs) for face in faces]
             return math.stack(sampled, dual(geometry.face_shape))
-        if field.is_mesh and field.is_centered:
+        elif field.is_mesh and field.is_centered:
             if not field.geometry.shallow_equals(geometry):
                 raise NotImplementedError("Resampling to different mesh is not yet supported")
             return centroid_to_faces(field, boundary, **kwargs)
+        elif field.is_mesh and field.is_staggered and field.geometry.shallow_equals(geometry):
+            return field.with_boundary(boundary)
         else:
             return scatter_to_faces(field, geometry, boundary, **kwargs)
-        raise NotImplementedError
         # geom_ch = channel(geometry).without('vector')
         # assert all(dim not in field.shape for dim in geom_ch)
         # if geom_ch:
@@ -349,26 +350,43 @@ def _shift_resample(self: Field, resolution: Shape, bounds: Box, threshold=1e-5,
     return data
 
 
-def centroid_to_faces(field: Field, extrapolation: Extrapolation, scheme='upwind-linear', upwind_vectors: Field = None, gradient: Field = None):
-    mesh: UnstructuredMesh = field.geometry
-    neighbor_val = mesh.pad_boundary(field.values, extrapolation)
-    if scheme == 'upwind-linear':
-        flows_out = (upwind_vectors or field).values.vector @ mesh.face_normals.vector >= 0
+def centroid_to_faces(field: Field, boundary: Extrapolation, interpolation='upwind-linear', upwind_vectors: Field = None, gradient: Field = None):
+    mesh = field.geometry
+    val = field.values
+    if '~neighbors' in val.shape:
+        return val
+    neighbor_val = mesh.pad_boundary(val, mode=field.boundary)
+    if interpolation == 'upwind-linear':
+        flows_out = (upwind_vectors or val).vector @ mesh.face_normals.vector >= 0
         if gradient is None:
-            from ._field_math import spatial_gradient
-            gradient = spatial_gradient(field)
-        neighbor_grad = mesh.pad_boundary(gradient.values, gradient.extrapolation)
-        interpolated_from_self = field.values + gradient.values.vector.dual @ (mesh.face_centers - mesh.center).vector
-        interpolated_from_neighbor = neighbor_val + neighbor_grad.vector.dual @ (mesh.face_centers - (mesh.center + mesh.neighbor_offsets)).vector
+            from phi.field._field_math import green_gauss_gradient
+            gradient = green_gauss_gradient(field, interpolation='linear', stack_dim=dual('vector'))  # we cannot pass same interpolation here
+        neighbor_grad = mesh.pad_boundary(gradient.values, mode=gradient.boundary)
+        interpolated_from_self = val + gradient.values.vector.dual @ (mesh.face_centers - mesh.center).vector
+        interpolated_from_neighbor = neighbor_val + neighbor_grad.vector @ (mesh.face_centers - (mesh.center + mesh.neighbor_offsets)).vector
         # ToDo limiter
-        return math.where(flows_out, interpolated_from_self, interpolated_from_neighbor)
-    elif scheme == 'upwind':
-        flows_out = (upwind_vectors or field).values.vector @ mesh.face_normals.vector >= 0
-        return math.where(flows_out, field.values, neighbor_val)
-    elif scheme == 'linear':
-        return (1 - mesh.relative_face_distance) * field.values + mesh.relative_face_distance * neighbor_val
+        result = math.where(flows_out, interpolated_from_self, interpolated_from_neighbor)
+        return slice_off_constant_faces(result, mesh.boundary_faces, boundary)
+    elif interpolation == 'upwind':
+        flows_out = (upwind_vectors or val).vector @ mesh.face_normals.vector >= 0
+        return math.where(flows_out, val, neighbor_val)
+    elif interpolation == 'skewfree-linear':  # does not take skewness into account
+        relative_face_distance = slice_off_constant_faces(mesh.relative_face_distance, mesh.boundary_faces, boundary)
+        return (1 - relative_face_distance) * field.values + relative_face_distance * neighbor_val
+    elif interpolation == 'linear':
+        nb_center = math.replace_dims(mesh.center, 'cells', math.dual('~neighbors'))
+        cell_deltas = math.pairwise_distances(mesh.center, format=mesh.cell_connectivity, default=None)  # x_N - x_P
+        face_distance = nb_center - mesh.face_centers[mesh.interior_faces]  # x_N - x_f
+        # face_distance = mesh.face_centers[mesh.interior_faces] - mesh.center  # x_f - x_P
+        normals = mesh.face_normals[mesh.interior_faces]
+        w_interior = (face_distance.vector @ normals.vector) / (cell_deltas.vector @ normals.vector)  # n·(x_N - x_f) / n·(x_N - x_P)
+        w = math.concat([w_interior, math.tensor_like(mesh.boundary_connectivity, 0)], '~neighbors')
+        w = slice_off_constant_faces(w, mesh.boundary_faces, boundary)  # ToDo first padding, then slicing is inefficient
+        # w = mesh.pad_boundary(w_interior, {k: s for k, s in mesh.boundary_faces.items() if not boundary.determines_boundary_values(k)}, boundary) this is only for vectors
+        # b0 = math.tensor_like(slice_off_constant_faces(mesh.connectivity, mesh.boundary_faces, boundary), 0)
+        return w * val + (1 - w) * neighbor_val
     else:
-        raise NotImplementedError(f"Scheme '{scheme}' not supported for resampling mesh values to faces")
+        raise NotImplementedError(f"Interpolation scheme '{interpolation}' not supported for resampling mesh values to faces")
 
 
 def sample_function(f: Callable, elements: Geometry, at: str, extrapolation: Extrapolation) -> Tensor:
@@ -391,9 +409,9 @@ def sample_function(f: Callable, elements: Geometry, at: str, extrapolation: Ext
     except ValueError as err:  # signature not available for all functions
         pass_varargs = False
     if at == 'center':
-        pos = slice_off_constant(elements.center, elements.boundary_elements, extrapolation)
+        pos = slice_off_constant_faces(elements.center, elements.boundary_elements, extrapolation)
     else:
-        pos = slice_off_constant(elements.face_centers, elements.boundary_faces, extrapolation)
+        pos = slice_off_constant_faces(elements.face_centers, elements.boundary_faces, extrapolation)
     if pass_varargs:
         values = math.map_s2b(f)(*pos.vector)
     else:

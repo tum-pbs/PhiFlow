@@ -4,6 +4,7 @@ from typing import Callable, Union, Tuple, Dict, Any
 
 from phi import math
 from phi.geom import Geometry, Box, Point, BaseBox, UniformGrid, UnstructuredMesh, Sphere
+from phi.geom._geom import slice_off_constant_faces
 from phi.math import Shape, Tensor, channel, non_batch, expand, instance, spatial, wrap, dual, non_dual
 from phi.math.extrapolation import Extrapolation
 from phi.math.magic import BoundDim, slicing_dict
@@ -43,7 +44,7 @@ class Field:
           extrapolation: values outside elements
         """
         assert isinstance(geometry, Geometry), f"geometry must be a Geometry object but got {type(geometry).__name__}"
-        self._boundary: Extrapolation = as_boundary(boundary)
+        self._boundary: Extrapolation = as_boundary(boundary, geometry)
         self._geometry: Geometry = geometry
         if isinstance(values, (Tensor, Number, bool)):
             values = wrap(values)
@@ -68,8 +69,28 @@ class Field:
         return self._geometry
 
     @property
+    def mesh(self) -> UnstructuredMesh:
+        assert isinstance(self._geometry, UnstructuredMesh), f"Geometry is not a mesh but {type(self._geometry)}"
+        return self._geometry
+
+    @property
     def faces(self):
         return get_faces(self._geometry, self._boundary)
+
+    @property
+    def face_centers(self):
+        return self._geometry.face_centers
+        # return slice_off_constant_faces(self._geometry.face_centers, self._geometry.boundary_faces, self._boundary)
+
+    @property
+    def face_normals(self):
+        return self._geometry.face_normals
+        # return slice_off_constant_faces(self._geometry.face_normals, self._geometry.boundary_faces, self._boundary)
+
+    @property
+    def face_areas(self):
+        return self._geometry.face_areas
+        # return slice_off_constant_faces(self._geometry.face_areas, self._geometry.boundary_faces, self._boundary)
 
     @property
     def sampled_elements(self) -> Geometry:
@@ -87,25 +108,27 @@ class Field:
 
     @property
     def is_centered(self):
-        return dual(self._values).is_empty
+        return not self.is_staggered
 
     @property
     def is_staggered(self):
         return is_staggered(self._values, self._geometry)
 
     @property
-    def points(self) -> Tensor:
+    def center(self) -> Tensor:
         """ Returns the center points of the `elements` of this `Field`. """
         # { ~vector, x }      for staggered grid
         # { ~cells }          for unstructured mesh
         # { particles }       for graph
         # { ~particles }      for graph edges
         if self.is_centered:
-            return slice_off_constant(self._geometry.center, self._geometry.boundary_elements, self.extrapolation)
+            return slice_off_constant_faces(self._geometry.center, self._geometry.boundary_elements, self.extrapolation)
         elif self.is_staggered:
-            return slice_off_constant(self._geometry.face_centers, self._geometry.boundary_faces, self.extrapolation)
+            return slice_off_constant_faces(self._geometry.face_centers, self._geometry.boundary_faces, self.extrapolation)
         else:
             raise NotImplementedError
+
+    points = center
 
     @property
     def values(self) -> Tensor:
@@ -152,7 +175,7 @@ class Field:
         """
         if self.is_staggered:
             return batch(self._geometry) & self.resolution & non_dual(self._values).without(self.resolution) & self._geometry.shape['vector']
-        return self._geometry.shape.non_channel & non_dual(self._values)
+        return self._geometry.shape.non_channel & self._values
 
     @property
     def resolution(self):
@@ -233,12 +256,13 @@ class Field:
         values = sample(self, self._geometry, at='center', boundary=self._boundary, **kwargs)
         return Field(self._geometry, values, self._boundary)
 
-    def at_faces(self, **kwargs) -> 'Field':
-        if self.is_staggered:
+    def at_faces(self, boundary=None, **kwargs) -> 'Field':
+        if self.is_staggered and not boundary:
             return self
+        boundary = as_boundary(boundary, self._geometry) if boundary else self._boundary
         from ._resample import sample
-        values = sample(self, self._geometry, at='face', boundary=self._boundary, **kwargs)
-        return Field(self._geometry, values, self._boundary)
+        values = sample(self, self._geometry, at='face', boundary=boundary, **kwargs)
+        return Field(self._geometry, values, boundary)
 
     @property
     def sampled_at(self):
@@ -292,17 +316,20 @@ class Field:
 
     def with_boundary(self, boundary):
         """ Returns a copy of this field with the `boundary` replaced. """
-        boundary = as_boundary(boundary)
+        boundary = as_boundary(boundary, self._geometry)
         boundary_elements = 'boundary_faces' if self.is_staggered else 'boundary_elements'
-        old_determined_slices = [s for k, s in getattr(self._geometry, boundary_elements).items() if self._boundary.determines_boundary_values(k)]
-        new_determined_slices = [s for k, s in getattr(self._geometry, boundary_elements).items() if boundary.determines_boundary_values(k)]
-        if old_determined_slices == new_determined_slices:
+        old_determined_slices = {k: s for k, s in getattr(self._geometry, boundary_elements).items() if self._boundary.determines_boundary_values(k)}
+        new_determined_slices = {k: s for k, s in getattr(self._geometry, boundary_elements).items() if boundary.determines_boundary_values(k)}
+        if old_determined_slices.values() == new_determined_slices.values():
             return Field(self._geometry, self._values, boundary)  # ToDo unnecessary once the rest is implemented
-        to_add = [sl for sl in old_determined_slices if sl not in new_determined_slices]
-        to_remove = [sl for sl in new_determined_slices if sl not in old_determined_slices]
+        to_add = {k: sl for k, sl in old_determined_slices.items() if sl not in new_determined_slices.values()}
+        to_remove = [sl for sl in new_determined_slices.values() if sl not in old_determined_slices.values()]
         values = math.slice_off(self._values, *to_remove)
         if to_add:
-            values = math.pad(values, to_add, self._boundary, bounds=self.bounds)
+            if self.is_mesh:
+                values = self.mesh.pad_boundary(values, to_add, self._boundary)
+            else:
+                values = math.pad(values, list(to_add.values()), self._boundary, bounds=self.bounds)
         return Field(self._geometry, values, boundary)
 
     with_extrapolation = with_boundary
@@ -538,7 +565,7 @@ class Field:
             else:
                 other = math.wrap(other)
             try:
-                boundary = operator(self._boundary, as_boundary(other))
+                boundary = operator(self._boundary, as_boundary(other, self._geometry))
             except TypeError:  # e.g. ZERO_GRADIENT + constant
                 boundary = self._boundary
             if 'vector' in self.shape and 'vector' not in self.values.shape and '~vector' in self.values.shape:
@@ -567,7 +594,7 @@ class Field:
         return grid_scatter(self, *args, **kwargs)
 
 
-def as_boundary(obj: Union[Extrapolation, Tensor, float, Field, None]) -> Extrapolation:
+def as_boundary(obj: Union[Extrapolation, Tensor, float, Field, None], geometry: Union[type, Geometry]) -> Extrapolation:
     """
     Returns an `Extrapolation` representing `obj`.
 
@@ -585,25 +612,20 @@ def as_boundary(obj: Union[Extrapolation, Tensor, float, Field, None]) -> Extrap
         from ._embed import FieldEmbedding
         return FieldEmbedding(obj)
     else:
-        return math.extrapolation.as_extrapolation(obj)
-
-
-def slice_off_constant(obj, boundary_slices: Dict[Any, Dict[str, slice]], boundary: Extrapolation):
-    determined_slices = [s for k, s in boundary_slices.items() if boundary.determines_boundary_values(k)]
-    return math.slice_off(obj, *determined_slices)
+        return math.extrapolation.as_extrapolation(obj, two_sided=isinstance(geometry, UniformGrid) or geometry == UniformGrid)
 
 
 def is_staggered(values: Tensor, geometry: Geometry):
-    return bool(dual(values)) and dual(values) in geometry.face_shape
+    return bool(dual(values)) and geometry.face_shape.dual in dual(values)
 
 
 def get_faces(geometry: Geometry, boundary: Extrapolation):
-    return slice_off_constant(geometry.faces, geometry.boundary_faces, boundary)
+    return slice_off_constant_faces(geometry.faces, geometry.boundary_faces, boundary)
 
 
 def get_sample_points(geometry: Geometry, at: str, boundary: Extrapolation):
     if at == 'center':
-        return slice_off_constant(geometry.center, geometry.boundary_elements, boundary)
+        return slice_off_constant_faces(geometry.center, geometry.boundary_elements, boundary)
     elif at == 'face':
-        return slice_off_constant(geometry.face_centers, geometry.boundary_faces, boundary)
+        return slice_off_constant_faces(geometry.face_centers, geometry.boundary_faces, boundary)
     raise ValueError(at)

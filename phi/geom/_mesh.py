@@ -4,7 +4,8 @@ from typing import Tuple, Dict, List, Sequence, Union
 
 import numpy as np
 
-from ._geom import Geometry
+from phiml.math.extrapolation import as_extrapolation
+from ._geom import Geometry, Point
 from .. import math
 from ..math import Tensor, Shape, channel, NUMPY, shape, instance, dual, rename_dims, expand, spatial, pack_dims, wrap, sparse_tensor, vec, stack, vec_length, tensor_like, \
     pairwise_distances, concat, Extrapolation
@@ -24,7 +25,7 @@ class UnstructuredMesh(Geometry):
     def __init__(self, vertices: Tensor,
                  polygons: Tensor,
                  vertex_count: float or Tensor,
-                 boundaries: Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]],
+                 boundaries: Dict[str, Dict[str, slice]],
                  center: Tensor,
                  volume: Tensor,
                  faces: Face,
@@ -91,11 +92,11 @@ class UnstructuredMesh(Geometry):
         return self.face_areas.shape
 
     @property
-    def boundary_elements(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+    def boundary_elements(self) -> Dict[str, Dict[str, slice]]:
         return {}
 
     @property
-    def boundary_faces(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+    def boundary_faces(self) -> Dict[str, Dict[str, slice]]:
         return self._boundaries
 
     @property
@@ -106,21 +107,25 @@ class UnstructuredMesh(Geometry):
     def interior_faces(self) -> Dict[str, slice]:
         return {'~neighbors': slice(0, instance(self).volume)}
 
-    def pad_boundary(self, value: Tensor, ext: Extrapolation or Tensor or Number, widths: dict = None, **kwargs) -> Tensor:
-        if widths is None:
-            widths = self.boundary_faces
+    def pad_boundary(self, value: Tensor, widths: Dict[str, Dict[str, slice]] = None, mode: Extrapolation or Tensor or Number = 0, **kwargs) -> Tensor:
+        mode = as_extrapolation(mode)
         if '~neighbors' not in value.shape:
             value = math.replace_dims(value, instance, dual('neighbors'))
-        dim = next(iter(next(iter(widths.values()))[0]))
+        else:
+            raise NotImplementedError
+        if widths is None:
+            widths = self.boundary_faces
+        if isinstance(widths, (tuple, list)):
+            if len(widths) == 0 or isinstance(widths[0], dict):  # add sliced-off slices
+                pass
+        dim = next(iter(next(iter(widths.values()))))
         slices = [slice(0, value.shape.get_size(dim))]
         values = [value]
         connectivity = self.connectivity
-        for name, b_slices in widths.items():
-            for b_slice, is_upper in zip(b_slices, [False, True]):
-                if b_slice[dim].stop - b_slice[dim].start > 0:
-                    slices.append(b_slice[dim])
-                    b_connectivity = connectivity[b_slice]
-                    values.append(ext.sparse_pad_values(value, b_connectivity, name, is_upper, **kwargs))
+        for name, b_slice in widths.items():
+            if b_slice[dim].stop - b_slice[dim].start > 0:
+                slices.append(b_slice[dim])
+                values.append(mode.sparse_pad_values(value, connectivity[b_slice], name, **kwargs))
         perm = np.argsort([s.start for s in slices])
         ordered_pieces = [values[i] for i in perm]
         return concat(ordered_pieces, dim, expand_values=True)
@@ -180,7 +185,8 @@ class UnstructuredMesh(Geometry):
     def neighbor_distances(self):
         return vec_length(self._neighbor_offsets)
 
-    def faces(self) -> Tuple[Tensor, Tensor, Tensor]:
+    @property
+    def faces(self) -> 'Geometry':
         """
         Assembles information about the boundaries of the polygons that make up the surface.
         For 2D polygons, the faces are edges, for 3D polygons, the faces are planar polygons.
@@ -194,7 +200,7 @@ class UnstructuredMesh(Geometry):
                 Unconnected polygons are assigned the vector 0.
                 The vector points out of polygon and into ~polygon.
         """
-        raise NotImplementedError
+        return Point(self.face_centers)
 
     @property
     def vertices(self):
@@ -264,9 +270,7 @@ def load_su2(file_or_mesh: str, cell_dim=instance('cells'), face_format: str = '
         face_format: Sparse storage format for cell connectivity.
 
     Returns:
-        surface: `UnstructuredMesh`
-        markers: Edges/Faces marked
-            sparse (vertices, vertices) -> int
+        `UnstructuredMesh`
     """
     if isinstance(file_or_mesh, str):
         from ezmesh import import_from_file
@@ -277,15 +281,31 @@ def load_su2(file_or_mesh: str, cell_dim=instance('cells'), face_format: str = '
         points = mesh.points[..., :2]
     else:
         points = mesh.points
-    boundaries = {name.strip(): (markers, []) for name, markers in mesh.markers.items()}
+    boundaries = {name.strip(): markers for name, markers in mesh.markers.items()}
     return mesh_from_numpy(points, mesh.elements, boundaries, cell_dim, face_format=face_format)
 
 
 def mesh_from_numpy(points: Union[list, np.ndarray],
                     polygons: list,
-                    boundaries: Dict[str, Tuple[List[Sequence], List[Sequence]]],
-                    cell_dim: Shape,
-                    face_format: str) -> UnstructuredMesh:
+                    boundaries: Dict[str, List[Sequence]],
+                    cell_dim: Shape = instance('cells'),
+                    face_format: str = 'csc') -> UnstructuredMesh:
+    """
+    Construct an unstructured mesh from vertices.
+
+    Args:
+        points: 2D numpy array of shape (num_points, point_coord).
+            The last dimension must have length 2 for 2D meshes and 3 for 3D meshes.
+        polygons: List of polygons. Each polygon is defined as a sequence of point indices mapping into `points'.
+            E.g. `[(0, 1, 2)]` denotes a single triangle connecting points 0, 1, and 2.
+        boundaries: An unstructured mesh can have multiple boundaries, each defined by a name `str` and a list of faces, defined by their vertices.
+            The `boundaries` `dict` maps boundary names to a list of edges (point pairs) in 2D and faces (3 or more points) in 3D (not yet supported).
+        cell_dim: Dimension along which to list the cells. This should be an instance dimension.
+        face_format: Sparse storage format for cell connectivity.
+
+    Returns:
+        `UnstructuredMesh`
+    """
     cell_dim = cell_dim.with_size(len(polygons))
     points = np.asarray(points)
     dim = points.shape[-1]
@@ -323,7 +343,7 @@ def mesh_from_numpy(points: Union[list, np.ndarray],
 
 def build_faces_2d(points: np.ndarray,
                    polygons: list,
-                   boundaries: Dict[str, Tuple[List[Sequence], List[Sequence]]],
+                   boundaries: Dict[str, List[Sequence]],
                    vector_dim: Shape,
                    poly_dim: Shape,
                    face_format: str):
@@ -354,30 +374,27 @@ def build_faces_2d(points: np.ndarray,
     points1, points2 = points1 + points2, points2 + points1
     # --- Add boundary faces ---
     # dual_poly_dim = dual(**poly_dim.untyped_dict).with_size(len(polygons) + sum([len(b) for bs in boundaries.values() for b in bs]))
-    dual_poly_dim = dual(neighbors=len(polygons) + sum([len(b) for bs in boundaries.values() for b in bs]))
+    dual_poly_dim = dual(neighbors=len(polygons) + sum([len(b) for b in boundaries.values()]))
     boundary_idx = len(polygons)
     boundary_slices = {}
-    for boundary_name, pair_lists in boundaries.items():
-        boundary_slices[boundary_name] = ()
-        for pair_list in pair_lists:
-            boundary_start_idx = boundary_idx
-            for pair in pair_list:
-                v1, v2 = pair
-                poly_idx = poly_by_face.get((v1, v2), None)
-                if poly_idx is None:
-                    poly_idx = poly_by_face[(v2, v1)]
-                    del poly_by_face[(v2, v1)]
-                    points1.append(v2)
-                    points2.append(v1)
-                else:
-                    del poly_by_face[(v1, v2)]
-                    points1.append(v1)
-                    points2.append(v2)
-                poly1.append(poly_idx)
-                poly2.append(boundary_idx)
-                boundary_idx += 1
-            slicing_dict = {dual_poly_dim.name: slice(boundary_start_idx, boundary_idx)}
-            boundary_slices[boundary_name] += (slicing_dict,)
+    for boundary_name, pair_list in boundaries.items():
+        boundary_start_idx = boundary_idx
+        for pair in pair_list:
+            v1, v2 = pair
+            poly_idx = poly_by_face.get((v1, v2), None)
+            if poly_idx is None:
+                poly_idx = poly_by_face[(v2, v1)]
+                del poly_by_face[(v2, v1)]
+                points1.append(v2)
+                points2.append(v1)
+            else:
+                del poly_by_face[(v1, v2)]
+                points1.append(v1)
+                points2.append(v2)
+            poly1.append(poly_idx)
+            poly2.append(boundary_idx)
+            boundary_idx += 1
+        boundary_slices[boundary_name] = {dual_poly_dim.name: slice(boundary_start_idx, boundary_idx)}
     assert not poly_by_face, f"{len(poly_by_face)} edges are not marked and do not have a neighbor cell."
     # --- wrap results as Φ-Flow tensors ---
     poly_pairs = np.asarray([poly1, poly2]).T

@@ -59,7 +59,7 @@ class FieldEmbedding(Extrapolation):
     def is_flexible(self) -> bool:
         return False
 
-    def sparse_pad_values(self, value: Tensor, connectivity: Tensor, dim: str, upper_edge: bool, **kwargs) -> Tensor:
+    def sparse_pad_values(self, value: Tensor, connectivity: Tensor, dim: str, **kwargs) -> Tensor:
         raise NotImplementedError
 
     def __eq__(self, other):
