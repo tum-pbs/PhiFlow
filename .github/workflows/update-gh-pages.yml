@@ -25,7 +25,7 @@ jobs:
         run: |
           python --version
           python -m pip install --upgrade pip
-          pip install --quiet pdoc3 tensorflow torch jax jaxlib plotly "nbformat==5.4.0" ipython notebook ipywidgets
+          pip install --quiet pdoc3 tensorflow torch jax jaxlib plotly "nbformat==5.4.0" ipython notebook ipywidgets tqdm
           pip install .
           pip list
         
