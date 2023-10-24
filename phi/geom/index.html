@@ -145,6 +145,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     if isinstance(dim, Shape):
         dim = dim.name
     assert isinstance(dim, str), f&#34;dim must be a str or Shape but got &#39;{dim}&#39; of type {type(dim)}&#34;
+    dim = auto(dim, channel).name
     # Add missing dimensions
     if expand_values:
         all_dims = merge_shapes(*values, allow_varying_sizes=True)
@@ -412,7 +413,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 </details>
 </dd>
 <dt id="phi.geom.stack"><code class="name flex">
-<span>def <span class="ident">stack</span></span>(<span>values: Union[tuple, list, dict], dim: phiml.math._shape.Shape, expand_values=False, **kwargs)</span>
+<span>def <span class="ident">stack</span></span>(<span>values: Union[tuple, list, dict], dim: Union[str, phiml.math._shape.Shape], expand_values=False, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Stacks <code>values</code> along the new dimension <code>dim</code>.
@@ -454,7 +455,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def stack(values: Union[tuple, list, dict], dim: Shape, expand_values=False, **kwargs):
+<pre><code class="python">def stack(values: Union[tuple, list, dict], dim: Union[Shape, str], expand_values=False, **kwargs):
     &#34;&#34;&#34;
     Stacks `values` along the new dimension `dim`.
     All values must have the same spatial, instance and channel dimensions. If the dimension sizes vary, the resulting tensor will be non-uniform.
@@ -490,11 +491,12 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         (x=1.000, y=0.000); (x=2.000, y=3.000) (bᵇ=2, vectorᶜ=x,y)
     &#34;&#34;&#34;
     assert len(values) &gt; 0, f&#34;stack() got empty sequence {values}&#34;
-    assert isinstance(dim, Shape)
     if not dim:
         assert len(values) == 1, f&#34;Only one element can be passed as `values` if no dim is passed but got {values}&#34;
         from ._tensors import wrap
         return wrap(next(iter(values.values())) if isinstance(values, dict) else values[0])
+    if not isinstance(dim, Shape):
+        dim = auto(dim)
     values_ = tuple(values.values()) if isinstance(values, dict) else values
     if not expand_values:
         for v in values_[1:]:
