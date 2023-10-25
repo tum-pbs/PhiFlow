@@ -1,14 +1,17 @@
 """
 Functions to simulate diffusion processes on `phi.field.Field` objects.
 """
+import warnings
+from typing import Union
+
 from phi import math
 from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear
-from phi.math import copy_with, shape, Solve
+from phiml.math import copy_with, shape, Solve, wrap, spatial, Tensor
 
 
 def explicit(field: Field,
-             diffusivity: float or math.Tensor or Field,
-             dt: float or math.Tensor,
+             diffusivity: Union[float, Tensor, Field],
+             dt: Union[float, Tensor],
              substeps: int = 1) -> Field:
     """
     Simulate a finite-time diffusion process of the form dF/dt = α · ΔF on a given `Field` Field with diffusion coefficient α.
@@ -16,7 +19,7 @@ def explicit(field: Field,
     Args:
         field: CenteredGrid, StaggeredGrid or ConstantField
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
-            Can be a number, `phi.math.Tensor` or `phi.field.Field`.
+            Can be a number, `phi.Tensor` or `phi.field.Field`.
             If a channel dimension is present, it will be interpreted as non-isotropic diffusion.
         dt: Time interval. `diffusion_amount = diffusivity * dt`
         substeps: number of iterations to use (Default value = 1)
@@ -24,7 +27,14 @@ def explicit(field: Field,
     Returns:
         Diffused field of same type as `field`.
     """
-    amount = diffusivity * dt / substeps
+    amount = diffusivity * (dt / substeps)
+    # --- CFL check if possible ---
+    amount_ = amount.values if isinstance(amount, Field) else wrap(amount)
+    if amount_.available:
+        cfl = math.max(amount_, spatial) / field.dx**2
+        if (cfl > .5).any:
+            warnings.warn(f"CFL condition violated (CFL = {float(cfl.max):.1f} > 0.5) in diffuse.explicit() with diffusivity={diffusivity}, dt={dt}, dx={field.dx}. Increase substeps or use diffuse.implicit() instead.", RuntimeWarning, stacklevel=2)
+    # --- diffusion ---
     if isinstance(amount, Field):
         amount = amount.at(field)
     ext = field.extrapolation
@@ -35,8 +45,8 @@ def explicit(field: Field,
 
 
 def implicit(field: Field,
-             diffusivity: float or math.Tensor or Field,
-             dt: float or math.Tensor,
+             diffusivity: Union[float, Tensor, Field],
+             dt: Union[float, Tensor],
              order: int = 1,
              solve=Solve('CG')) -> Field:
     """
@@ -62,7 +72,7 @@ def implicit(field: Field,
 
 
 def finite_difference(grid: Grid,
-                      diffusivity: float or math.Tensor or Field,
+                      diffusivity: Union[float, Tensor, Field],
                       order: int,
                       implicit: math.Solve) -> Field:
 
@@ -88,8 +98,8 @@ def finite_difference(grid: Grid,
 
 
 def fourier(field: Field,
-            diffusivity: float or math.Tensor,
-            dt: float or math.Tensor) -> Field:
+            diffusivity: Union[float, Tensor],
+            dt: Union[float, Tensor]) -> Field:
     """
     Exact diffusion of a periodic field in frequency space.
 
