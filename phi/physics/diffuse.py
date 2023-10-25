@@ -1,13 +1,14 @@
 """
 Functions to simulate diffusion processes on `phi.field.Field` objects.
 """
+import warnings
 from typing import Union
 
 from phi import math
 from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear
 from phi.field._field import FieldType
 from phi.field._grid import GridType
-from phiml.math import copy_with, shape, Solve
+from phiml.math import copy_with, shape, Solve, Tensor, wrap, spatial
 
 
 def explicit(field: FieldType,
@@ -28,7 +29,14 @@ def explicit(field: FieldType,
     Returns:
         Diffused field of same type as `field`.
     """
-    amount = diffusivity * dt / substeps
+    amount = diffusivity * (dt / substeps)
+    # --- CFL check if possible ---
+    amount_ = amount.values if isinstance(amount, Field) else wrap(amount)
+    if amount_.available:
+        cfl = math.max(amount_, spatial) / field.dx**2
+        if (cfl > .5).any:
+            warnings.warn(f"CFL condition violated (CFL = {float(cfl.max):.1f} > 0.5) in diffuse.explicit() with diffusivity={diffusivity}, dt={dt}, dx={field.dx}. Increase substeps or use diffuse.implicit() instead.", RuntimeWarning, stacklevel=2)
+    # --- diffusion ---
     if isinstance(amount, Field):
         amount = amount.at(field)
     ext = field.extrapolation
