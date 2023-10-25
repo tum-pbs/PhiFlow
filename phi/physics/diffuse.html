@@ -62,7 +62,7 @@ def explicit(field: FieldType,
     # --- CFL check if possible ---
     amount_ = amount.values if isinstance(amount, Field) else wrap(amount)
     if amount_.available:
-        cfl = math.max(amount, spatial) / field.dx**2
+        cfl = math.max(amount_, spatial) / field.dx**2
         if (cfl &gt; .5).any:
             warnings.warn(f&#34;CFL condition violated (CFL = {float(cfl.max):.1f} &gt; 0.5) in diffuse.explicit() with diffusivity={diffusivity}, dt={dt}, dx={field.dx}. Increase substeps or use diffuse.implicit() instead.&#34;, RuntimeWarning, stacklevel=2)
     # --- diffusion ---
@@ -209,7 +209,7 @@ If a channel dimension is present, it will be interpreted as non-isotropic diffu
     # --- CFL check if possible ---
     amount_ = amount.values if isinstance(amount, Field) else wrap(amount)
     if amount_.available:
-        cfl = math.max(amount, spatial) / field.dx**2
+        cfl = math.max(amount_, spatial) / field.dx**2
         if (cfl &gt; .5).any:
             warnings.warn(f&#34;CFL condition violated (CFL = {float(cfl.max):.1f} &gt; 0.5) in diffuse.explicit() with diffusivity={diffusivity}, dt={dt}, dx={field.dx}. Increase substeps or use diffuse.implicit() instead.&#34;, RuntimeWarning, stacklevel=2)
     # --- diffusion ---
