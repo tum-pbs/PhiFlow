@@ -30,13 +30,14 @@
 <pre><code class="python">&#34;&#34;&#34;
 Functions to simulate diffusion processes on `phi.field.Field` objects.
 &#34;&#34;&#34;
+import warnings
 from typing import Union
 
 from phi import math
 from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear
 from phi.field._field import FieldType
 from phi.field._grid import GridType
-from phiml.math import copy_with, shape, Solve
+from phiml.math import copy_with, shape, Solve, Tensor, wrap, spatial
 
 
 def explicit(field: FieldType,
@@ -57,7 +58,14 @@ def explicit(field: FieldType,
     Returns:
         Diffused field of same type as `field`.
     &#34;&#34;&#34;
-    amount = diffusivity * dt / substeps
+    amount = diffusivity * (dt / substeps)
+    # --- CFL check if possible ---
+    amount_ = amount.values if isinstance(amount, Field) else wrap(amount)
+    if amount_.available:
+        cfl = math.max(amount, spatial) / field.dx**2
+        if (cfl &gt; .5).any:
+            warnings.warn(f&#34;CFL condition violated (CFL = {float(cfl.max):.1f} &gt; 0.5) in diffuse.explicit() with diffusivity={diffusivity}, dt={dt}, dx={field.dx}. Increase substeps or use diffuse.implicit() instead.&#34;, RuntimeWarning, stacklevel=2)
+    # --- diffusion ---
     if isinstance(amount, Field):
         amount = amount.at(field)
     ext = field.extrapolation
@@ -197,7 +205,14 @@ If a channel dimension is present, it will be interpreted as non-isotropic diffu
     Returns:
         Diffused field of same type as `field`.
     &#34;&#34;&#34;
-    amount = diffusivity * dt / substeps
+    amount = diffusivity * (dt / substeps)
+    # --- CFL check if possible ---
+    amount_ = amount.values if isinstance(amount, Field) else wrap(amount)
+    if amount_.available:
+        cfl = math.max(amount, spatial) / field.dx**2
+        if (cfl &gt; .5).any:
+            warnings.warn(f&#34;CFL condition violated (CFL = {float(cfl.max):.1f} &gt; 0.5) in diffuse.explicit() with diffusivity={diffusivity}, dt={dt}, dx={field.dx}. Increase substeps or use diffuse.implicit() instead.&#34;, RuntimeWarning, stacklevel=2)
+    # --- diffusion ---
     if isinstance(amount, Field):
         amount = amount.at(field)
     ext = field.extrapolation
