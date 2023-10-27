@@ -71,18 +71,18 @@ def implicit(field: Field,
     return solve_linear(sharpen, y=field, solve=solve)
 
 
-def finite_difference(grid: Grid,
-                      diffusivity: Union[float, Tensor, Field],
-                      order: int,
-                      implicit: math.Solve) -> Field:
-
+def differential(u: Field,
+                 diffusivity: Union[float, math.Tensor, Field],
+                 order: int,
+                 implicit: math.Solve) -> Field:
     """
+    Compute the differential diffusion term, d·∇²u
     Diffusion by using a finite difference scheme.
     In contrast to `explicit` and `implicit` accuracy can be increased by using stencils of higher-order rather than calculating substeps.
     This is controlled by the `scheme` passed.
 
     Args:
-        grid: CenteredGrid or StaggeredGrid
+        u: Scalar or vector-valued `Field` sampled on a `CenteredGrid`, `StaggeredGrid` or `UnstructuredMesh`.
         diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
         order: Spatial order of accuracy.
             Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
@@ -93,8 +93,11 @@ def finite_difference(grid: Grid,
     Returns:
         Diffused grid of same type as `grid`.
     """
-    diffusivity = diffusivity.at(grid) if isinstance(diffusivity, Field) else diffusivity
-    return diffusivity * laplace(grid, order=order, implicit=implicit).with_extrapolation(grid.extrapolation)
+    diffusivity = diffusivity.at(u) if isinstance(diffusivity, Field) else diffusivity
+    return diffusivity * laplace(u, order=order, implicit=implicit).with_extrapolation(u.boundary)
+
+
+finite_difference = differential
 
 
 def fourier(field: Field,

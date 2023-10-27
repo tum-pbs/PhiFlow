@@ -71,16 +71,15 @@ def advect(field: Field,
     raise NotImplementedError(field)
 
 
-def finite_difference(grid: Grid,
-                      velocity: Field,
-                      order=2,
-                      implicit: Solve = None) -> Field:
-
+def differential(u: Grid,
+                 velocity: Field,
+                 order=2,
+                 implicit: Solve = None) -> Field:
     """
     Finite difference advection using the differentiation Scheme indicated by `scheme` and a simple Euler step
 
     Args:
-        grid: Grid to be advected
+        u: Scalar or vector-valued `Field` sampled on a `CenteredGrid`, `StaggeredGrid` or `UnstructuredMesh`.
         velocity: `Grid` that can be sampled in the elements of `grid`.
         order: Spatial order of accuracy.
             Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
@@ -92,22 +91,25 @@ def finite_difference(grid: Grid,
     Returns:
         Advected grid of same type as `grid`
     """
-    if grid.is_grid and grid.is_staggered:
-        grad_list = [spatial_gradient(field_component, stack_dim=channel('gradient'), order=order, implicit=implicit) for field_component in grid.vector]
-        grad_grid = grid.with_values(math.stack([component.values for component in grad_list], channel(velocity)))
+    if u.is_grid and u.is_staggered:
+        grad_list = [spatial_gradient(field_component, stack_dim=channel('gradient'), order=order, implicit=implicit) for field_component in u.vector]
+        grad_grid = u.with_values(math.stack([component.values for component in grad_list], channel(velocity)))
         if order == 4:
             amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.gradient, velocity.vector)]  # ToDo resampling does not yet support order=4
         else:
             velocity.vector[0].at(grad_grid.gradient[0], order=order, implicit=implicit)
             amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.gradient, velocity.vector)]
         amount = sum(amounts)
-    else:
-        assert grid.is_grid and grid.is_centered, f"grid must be CenteredGrid or StaggeredGrid but got {type(grid)}"
-        grad = spatial_gradient(grid, stack_dim=channel('gradient'), order=order, implicit=implicit)
+    elif u.is_grid and u.is_centered:
+        assert u.is_grid and u.is_centered, f"grid must be CenteredGrid or StaggeredGrid but got {type(u)}"
+        grad = spatial_gradient(u, stack_dim=channel('gradient'), order=order, implicit=implicit)
         velocity = stack(unstack(velocity, dim='vector'), dim=channel('gradient'))
         amounts = velocity * grad
         amount = sum(amounts.gradient)
     return - amount
+
+
+finite_difference = differential
 
 
 def points(field: PointCloud, velocity: Field, dt: float, integrator=euler):
