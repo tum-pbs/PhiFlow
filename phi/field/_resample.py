@@ -350,43 +350,43 @@ def _shift_resample(self: Field, resolution: Shape, bounds: Box, threshold=1e-5,
     return data
 
 
-def centroid_to_faces(field: Field, boundary: Extrapolation, interpolation='upwind-linear', upwind_vectors: Field = None, gradient: Field = None):
-    mesh = field.geometry
-    val = field.values
-    if '~neighbors' in val.shape:
-        return val
-    neighbor_val = mesh.pad_boundary(val, mode=field.boundary)
-    if interpolation == 'upwind-linear':
-        flows_out = (upwind_vectors or val).vector @ mesh.face_normals.vector >= 0
+def centroid_to_faces(u: Field, boundary: Extrapolation, order=2, upwind: Field = None, ignore_skew=False, gradient: Field = None):
+    assert isinstance(upwind, Field) or upwind is None, f"upwind must be a Field but got {type(upwind)}"
+    if '~neighbors' in u.values.shape:
+        return u.values
+    neighbor_val = u.mesh.pad_boundary(u.values, mode=u.boundary)
+    if order == 2 and upwind is not None:
+        flows_out = upwind.values.vector @ u.mesh.face_normals.vector >= 0
         if gradient is None:
             from phi.field._field_math import green_gauss_gradient
-            gradient = green_gauss_gradient(field, interpolation='linear', stack_dim=dual('vector'))  # we cannot pass same interpolation here
-        neighbor_grad = mesh.pad_boundary(gradient.values, mode=gradient.boundary)
-        interpolated_from_self = val + gradient.values.vector.dual @ (mesh.face_centers - mesh.center).vector
-        interpolated_from_neighbor = neighbor_val + neighbor_grad.vector @ (mesh.face_centers - (mesh.center + mesh.neighbor_offsets)).vector
+            gradient = green_gauss_gradient(u, order=order, upwind=None, stack_dim=dual('vector'))  # we cannot pass same interpolation here
+        neighbor_grad = u.mesh.pad_boundary(gradient.values, mode=gradient.boundary)
+        interpolated_from_self = u.values + gradient.values.vector.dual @ (u.mesh.face_centers - u.mesh.center).vector
+        interpolated_from_neighbor = neighbor_val + neighbor_grad.vector @ (u.mesh.face_centers - (u.mesh.center + u.mesh.neighbor_offsets)).vector
         # ToDo limiter
         result = math.where(flows_out, interpolated_from_self, interpolated_from_neighbor)
-        return slice_off_constant_faces(result, mesh.boundary_faces, boundary)
-    elif interpolation == 'upwind':
-        flows_out = (upwind_vectors or val).vector @ mesh.face_normals.vector >= 0
-        return math.where(flows_out, val, neighbor_val)
-    elif interpolation == 'skewfree-linear':  # does not take skewness into account
-        relative_face_distance = slice_off_constant_faces(mesh.relative_face_distance, mesh.boundary_faces, boundary)
-        return (1 - relative_face_distance) * field.values + relative_face_distance * neighbor_val
-    elif interpolation == 'linear':
-        nb_center = math.replace_dims(mesh.center, 'cells', math.dual('~neighbors'))
-        cell_deltas = math.pairwise_distances(mesh.center, format=mesh.cell_connectivity, default=None)  # x_N - x_P
-        face_distance = nb_center - mesh.face_centers[mesh.interior_faces]  # x_N - x_f
-        # face_distance = mesh.face_centers[mesh.interior_faces] - mesh.center  # x_f - x_P
-        normals = mesh.face_normals[mesh.interior_faces]
-        w_interior = (face_distance.vector @ normals.vector) / (cell_deltas.vector @ normals.vector)  # n·(x_N - x_f) / n·(x_N - x_P)
-        w = math.concat([w_interior, math.tensor_like(mesh.boundary_connectivity, 0)], '~neighbors')
-        w = slice_off_constant_faces(w, mesh.boundary_faces, boundary)  # ToDo first padding, then slicing is inefficient
-        # w = mesh.pad_boundary(w_interior, {k: s for k, s in mesh.boundary_faces.items() if not boundary.determines_boundary_values(k)}, boundary) this is only for vectors
-        # b0 = math.tensor_like(slice_off_constant_faces(mesh.connectivity, mesh.boundary_faces, boundary), 0)
-        return w * val + (1 - w) * neighbor_val
+        return slice_off_constant_faces(result, u.mesh.boundary_faces, boundary)
+    elif order == 1 and upwind is not None:
+        flows_out = upwind.values.vector @ u.mesh.face_normals.vector >= 0
+        return math.where(flows_out, u.values, neighbor_val)
+    elif order == 2:
+        if ignore_skew:
+            relative_face_distance = slice_off_constant_faces(u.mesh.relative_face_distance, u.mesh.boundary_faces, boundary)
+            return (1 - relative_face_distance) * u.values + relative_face_distance * neighbor_val
+        else:  # skew correction
+            nb_center = math.replace_dims(u.mesh.center, 'cells', dual('~neighbors'))
+            cell_deltas = math.pairwise_distances(u.mesh.center, format=u.mesh.cell_connectivity, default=None)  # x_N - x_P
+            face_distance = nb_center - u.mesh.face_centers[u.mesh.interior_faces]  # x_N - x_f
+            # face_distance = u.mesh.face_centers[u.mesh.interior_faces] - u.mesh.center  # x_f - x_P
+            normals = u.mesh.face_normals[u.mesh.interior_faces]
+            w_interior = (face_distance.vector @ normals.vector) / (cell_deltas.vector @ normals.vector)  # n·(x_N - x_f) / n·(x_N - x_P)
+            w = math.concat([w_interior, math.tensor_like(u.mesh.boundary_connectivity, 0)], '~neighbors')
+            w = slice_off_constant_faces(w, u.mesh.boundary_faces, boundary)  # first padding, then slicing is inefficient, but usually we don't slice anything off (boundary=none)
+            # w = u.mesh.pad_boundary(w_interior, {k: s for k, s in u.mesh.boundary_faces.items() if not boundary.determines_boundary_values(k)}, boundary) this is only for vectors
+            # b0 = math.tensor_like(slice_off_constant_faces(u.mesh.connectivity, u.mesh.boundary_faces, boundary), 0)
+            return w * u.values + (1 - w) * neighbor_val
     else:
-        raise NotImplementedError(f"Interpolation scheme '{interpolation}' not supported for resampling mesh values to faces")
+        raise NotImplementedError(f"resampling centroid to faces not supported for order={order}, upwind={upwind} not supported for resampling mesh values to faces")
 
 
 def sample_function(f: Callable, elements: Geometry, at: str, extrapolation: Extrapolation) -> Tensor:

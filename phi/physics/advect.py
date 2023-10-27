@@ -11,6 +11,7 @@ from phi import math
 from phi.field import Field, PointCloud, Grid, spatial_gradient, unstack, stack, resample, reduce_sample, sample
 from phi.math import Solve, channel
 from phiml.math import Tensor
+from phiml.math.extrapolation import NONE
 
 
 def euler(data: Field, velocity: Field, dt: float, v0: Tensor = None) -> Tensor:
@@ -71,25 +72,32 @@ def advect(field: Field,
     raise NotImplementedError(field)
 
 
-def differential(u: Grid,
+def differential(u: Field,
                  velocity: Field,
+                 density: float = 1.,
                  order=2,
-                 implicit: Solve = None) -> Field:
+                 implicit: Solve = None,
+                 upwind=True) -> Field:
     """
-    Finite difference advection using the differentiation Scheme indicated by `scheme` and a simple Euler step
+    Computes the differential advection term using the differentiation Scheme indicated by `order`, ´implicit´ and `upwind`.
+
+    For unstructured meshes, computes 1/V ∑_f (n·U_prev) U ρ A
 
     Args:
         u: Scalar or vector-valued `Field` sampled on a `CenteredGrid`, `StaggeredGrid` or `UnstructuredMesh`.
-        velocity: `Grid` that can be sampled in the elements of `grid`.
+        velocity: `Field` that can be sampled at the elements of `u`.
+            For FVM, the advection term is typically linearized by setting `velocity = previous_velocity`.
         order: Spatial order of accuracy.
             Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
-            Supported: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.spatial_gradient()` and resampling).
+            Supported for grids: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.spatial_gradient()` and resampling).
             Passing order=4 currently uses 2nd-order resampling. This is work-in-progress.
+            For FVM, the order is used when interpolating centroid values to faces if needed.
         implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
             Otherwise, an explicit stencil is used.
+        upwind: Whether to use upwind interpolation. Only supported for FVM at the moment.
 
     Returns:
-        Advected grid of same type as `grid`
+        Differential convection term as `Field` on the same geometry.
     """
     if u.is_grid and u.is_staggered:
         grad_list = [spatial_gradient(field_component, stack_dim=channel('gradient'), order=order, implicit=implicit) for field_component in u.vector]
@@ -99,14 +107,19 @@ def differential(u: Grid,
         else:
             velocity.vector[0].at(grad_grid.gradient[0], order=order, implicit=implicit)
             amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.gradient, velocity.vector)]
-        amount = sum(amounts)
+        return - sum(amounts)
     elif u.is_grid and u.is_centered:
         assert u.is_grid and u.is_centered, f"grid must be CenteredGrid or StaggeredGrid but got {type(u)}"
         grad = spatial_gradient(u, stack_dim=channel('gradient'), order=order, implicit=implicit)
         velocity = stack(unstack(velocity, dim='vector'), dim=channel('gradient'))
         amounts = velocity * grad
-        amount = sum(amounts.gradient)
-    return - amount
+        return - sum(amounts.gradient)
+    elif u.is_mesh:
+        u = u.at_faces(boundary=NONE, order=order, upwind=u if upwind is True else upwind)
+        velocity = velocity.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
+        conv = density * u.mesh.integrate_surface(u.values * (velocity.values.vector @ velocity.face_normals.vector)) / u.mesh.volume
+        return Field(u.geometry, conv, u.boundary)
+    raise NotImplementedError(u)
 
 
 finite_difference = differential

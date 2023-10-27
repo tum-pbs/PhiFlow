@@ -6,7 +6,8 @@ from typing import Union
 
 from phi import math
 from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear
-from phiml.math import copy_with, shape, Solve, wrap, spatial, Tensor
+from phiml.math import copy_with, shape, Solve, wrap, spatial, Tensor, dual, rename_dims
+from phiml.math.extrapolation import NONE
 
 
 def explicit(field: Field,
@@ -73,28 +74,53 @@ def implicit(field: Field,
 
 def differential(u: Field,
                  diffusivity: Union[float, math.Tensor, Field],
-                 order: int,
-                 implicit: math.Solve) -> Field:
+                 gradient: Field = None,
+                 order: int = 2,
+                 implicit: math.Solve = None,
+                 upwind: Field = None) -> Field:
     """
-    Compute the differential diffusion term, d·∇²u
-    Diffusion by using a finite difference scheme.
-    In contrast to `explicit` and `implicit` accuracy can be increased by using stencils of higher-order rather than calculating substeps.
-    This is controlled by the `scheme` passed.
+    Compute the differential diffusion term, d·∇²u.
+    For grids, uses a finite difference scheme specified by `order` and `implicit`.
+    For FVM, the scheme is specified via `order` and `upwind`.
+
+    In contrast to `explicit` and `implicit`, accuracy can be increased by using stencils of higher-order rather than calculating sub-steps.
 
     Args:
-        u: Scalar or vector-valued `Field` sampled on a `CenteredGrid`, `StaggeredGrid` or `UnstructuredMesh`.
-        diffusivity: Diffusion per time. `diffusion_amount = diffusivity * dt`
+        u: Scalar or vector-valued `Field` sampled on a `CenteredGrid`, `StaggeredGrid` or centered `UnstructuredMesh`.
+        diffusivity: Dynamic viscosity, i.e. diffusion per time. Constant or varying by cell.
+        gradient: Only used by FVM at the moment. Approximate gradient of `u`, e.g. ∇u of the previous time step.
+            If `None`, approximates the gradient as `(u_neighbor - u_self) / distance`.
         order: Spatial order of accuracy.
             Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
             Supported: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.laplace()`).
+            For FVM, the order is used when interpolating `v` and `prev_v` to cell faces if needed.
         implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
             Otherwise, an explicit stencil is used.
+        upwind: FVM only. Whether to use upwind interpolation.
 
     Returns:
-        Diffused grid of same type as `grid`.
+        Differential diffusion as a `Field` on the same geometry.
     """
-    diffusivity = diffusivity.at(u) if isinstance(diffusivity, Field) else diffusivity
-    return diffusivity * laplace(u, order=order, implicit=implicit).with_extrapolation(u.boundary)
+    if u.is_grid:
+        diffusivity = diffusivity.at(u) if isinstance(diffusivity, Field) else diffusivity
+        return diffusivity * laplace(u, order=order, implicit=implicit).with_extrapolation(u.boundary)
+    elif u.is_mesh:
+        neighbor_val = u.mesh.pad_boundary(u.values, mode=u.boundary)
+        nb_distances = u.mesh.neighbor_distances
+        connecting_grad = (u.mesh.connectivity * neighbor_val - u.values) / nb_distances  # (T_N - T_P) / d_PN
+        if gradient is not None:  # skewness correction
+            assert dual(gradient), f"prev_grad must contain a dual dimension listing the gradient components"
+            gradient = rename_dims(gradient, dual, 'vector')
+            gradient = gradient.at_faces(boundary=NONE, order=order, upwind=upwind).values
+            nb_offsets = u.mesh.neighbor_offsets
+            n1 = (u.face_normals.vector @ nb_offsets.vector) * nb_offsets / nb_distances ** 2  # (n·d_PN) d_PN / d_PN^2
+            n2 = u.face_normals - n1
+            ortho_correction = gradient @ n2
+            grad = connecting_grad * math.vec_length(n1) + ortho_correction
+        else:
+            grad = connecting_grad
+        return diffusivity * u.mesh.integrate_surface(grad) / u.mesh.volume  # 1/V ∑_f ∇T ν A
+    raise NotImplementedError
 
 
 finite_difference = differential

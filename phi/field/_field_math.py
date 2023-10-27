@@ -111,7 +111,7 @@ def spatial_gradient(field: Field,
                      order=2,
                      implicit: Solve = None,
                      scheme = None,
-                     interpolation = 'linear',
+                     upwind: Field = None,
                      gradient_extrapolation: Extrapolation = None):
     """
     Finite difference spatial_gradient.
@@ -147,7 +147,9 @@ def spatial_gradient(field: Field,
         boundary = field.extrapolation.spatial_gradient()
     if field.is_mesh and at == 'center':
         if scheme == 'green-gauss':
-            return green_gauss_gradient(field, interpolation=interpolation, stack_dim=stack_dim, boundary=boundary)
+            return green_gauss_gradient(field, stack_dim=stack_dim, boundary=boundary, order=order, upwind=upwind)
+        elif scheme == 'least-squares':
+            raise NotImplementedError(scheme)
         raise NotImplementedError(scheme)
     extrap_map = {}
     if not implicit:
@@ -212,11 +214,11 @@ def spatial_gradient(field: Field,
     return result
 
 
-def green_gauss_gradient(t: Field, interpolation='linear', stack_dim: Shape = channel('vector'), boundary: Extrapolation = None) -> Field:
+def green_gauss_gradient(t: Field, boundary: Extrapolation = None, stack_dim: Shape = channel('vector'), order=2, upwind: Field = None) -> Field:
     """Computes the Green-Gauss gradient of a field at the centroids."""
     assert stack_dim not in t.shape, f"Gradient dimension is already part of field {t.shape}. Please use a different dimension"
     boundary = boundary or t.boundary.spatial_gradient()
-    t = t.at_faces(interpolation=interpolation, boundary=NONE)
+    t = t.at_faces(boundary=NONE, order=order, upwind=upwind)
     normals = rename_dims(t.geometry.face_normals, 'vector', stack_dim)
     grad = t.geometry.integrate_surface(normals * t.values) / t.geometry.volume
     grad = slice_off_constant_faces(grad, t.geometry.boundary_elements, boundary)
@@ -318,7 +320,7 @@ def stagger(field: Field,
         return CenteredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
 
 
-def divergence(field: Field, order=2, implicit: Solve = None, interpolation: str = 'linear', upwind_vectors: Tensor = None) -> CenteredGrid:
+def divergence(field: Field, order=2, implicit: Solve = None, upwind: Field = None) -> CenteredGrid:
     """
     Computes the divergence of a grid using finite differences.
 
@@ -339,7 +341,7 @@ def divergence(field: Field, order=2, implicit: Solve = None, interpolation: str
         Divergence field as `CenteredGrid`
     """
     if field.is_mesh:
-        field = field.at_faces(interpolation=interpolation, upwind_vectors=upwind_vectors, boundary=NONE)
+        field = field.at_faces(boundary=NONE, order=order, upwind=upwind)
         div = field.geometry.integrate_flux(field.values, divide_volume=True)
         return Field(field.geometry, div, field.boundary.spatial_gradient())
     extrap_map = {}
