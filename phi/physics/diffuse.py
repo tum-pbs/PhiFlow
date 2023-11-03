@@ -119,7 +119,8 @@ def differential(u: Field,
             grad = connecting_grad * math.vec_length(n1) + ortho_correction
         else:
             grad = connecting_grad
-        return diffusivity * u.mesh.integrate_surface(grad) / u.mesh.volume  # 1/V ∑_f ∇T ν A
+        result = diffusivity * u.mesh.integrate_surface(grad) / u.mesh.volume  # 1/V ∑_f ∇T ν A
+        return Field(u.mesh, result, u.boundary)
     raise NotImplementedError
 
 
