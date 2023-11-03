@@ -15,7 +15,7 @@ from ._stack import union
 from ._box import Box, BaseBox, Cuboid
 from ._sphere import Sphere
 from ._grid import UniformGrid
-from ._mesh import UnstructuredMesh, load_su2
+from ._mesh import UnstructuredMesh, load_su2, mesh_from_numpy
 from ._transform import embed, infinite_cylinder
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]
