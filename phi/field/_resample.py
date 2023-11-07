@@ -5,7 +5,7 @@ from phi import math
 from phi.geom import Geometry, Box, Point, UniformGrid, UnstructuredMesh
 from phi.math import Shape, Tensor, instance, spatial, Solve, dual, si2d
 from phi.math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
-from phiml.math import unstack, channel, rename_dims
+from phiml.math import unstack, channel, rename_dims, batch
 from ._field import Field, FieldInitializer, as_boundary, slice_off_constant_faces
 from phiml.math._tensors import may_vary_along
 
@@ -336,7 +336,12 @@ def _shift_resample(self: Field, resolution: Shape, bounds: Box, threshold=1e-5,
     assert math.all_available(bounds.lower, bounds.upper), "Shift resampling requires 'bounds' to be available."
     lower = math.to_int32(math.ceil(math.maximum(0, self.bounds.lower - bounds.lower) / self.dx - threshold))
     upper = math.to_int32(math.ceil(math.maximum(0, bounds.upper - self.bounds.upper) / self.dx - threshold))
-    total_padding = (math.sum(lower) + math.sum(upper)).numpy()
+    if math.close(*math.unstack(lower, batch)) and math.close(*math.unstack(upper, batch)):  # incompatible resolutions
+        lower = math.unstack(lower, batch)[0]
+        upper = math.unstack(upper, batch)[0]
+    else:
+        return NotImplemented
+    total_padding = int(math.sum(lower) + math.sum(upper))
     if total_padding > max_padding and self.extrapolation.native_grid_sample_mode:
         return NotImplemented
     elif total_padding > 0:
@@ -346,6 +351,9 @@ def _shift_resample(self: Field, resolution: Shape, bounds: Box, threshold=1e-5,
     else:
         grid_box, grid_resolution, grid_values = self.bounds, self.resolution, self.values
     origin_in_local = grid_box.global_to_local(bounds.lower) * grid_resolution
+    if batch(origin_in_local):
+        math.assert_close(*math.unstack(origin_in_local, batch), msg=f"sample_subgrid requires equal start but got varying values along batch dim {batch(origin_in_local)}")
+        origin_in_local = math.unstack(origin_in_local, batch)[0]
     data = math.sample_subgrid(grid_values, origin_in_local, resolution)
     return data
 
