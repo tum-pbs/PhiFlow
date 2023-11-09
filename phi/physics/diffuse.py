@@ -103,7 +103,7 @@ def differential(u: Field,
     """
     if u.is_grid:
         diffusivity = diffusivity.at(u) if isinstance(diffusivity, Field) else diffusivity
-        return diffusivity * laplace(u, order=order, implicit=implicit).with_extrapolation(u.boundary)
+        return diffusivity * laplace(u, order=order, implicit=implicit).with_extrapolation(u.boundary - u.boundary)
     elif u.is_mesh:
         neighbor_val = u.mesh.pad_boundary(u.values, mode=u.boundary)
         nb_distances = u.mesh.neighbor_distances
@@ -120,7 +120,7 @@ def differential(u: Field,
         else:
             grad = connecting_grad
         result = diffusivity * u.mesh.integrate_surface(grad) / u.mesh.volume  # 1/V ∑_f ∇T ν A
-        return Field(u.mesh, result, u.boundary)
+        return Field(u.mesh, result, u.boundary - u.boundary)
     raise NotImplementedError
 
 
