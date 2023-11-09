@@ -637,7 +637,7 @@ def upsample2x(grid: Field) -> Field:
         raise ValueError(type(grid))
 
 
-def concat(fields: List[Field] or Tuple[Field, ...], dim: str or Shape) -> Field:
+def concat(fields: Sequence[Field], dim: str or Shape) -> Field:
     """
     Concatenates the given `Field`s along `dim`.
 
@@ -658,10 +658,14 @@ def concat(fields: List[Field] or Tuple[Field, ...], dim: str or Shape) -> Field
     if fields[0].is_grid:
         values = math.concat([f.values for f in fields], dim)
         return fields[0].with_values(values)
-    elif isinstance(fields[0], PointCloud):
+    elif fields[0].is_point_cloud:
         elements = geom.concat([f.elements for f in fields], dim)
         values = math.concat([math.expand(f.values, f.shape.only(dim)) for f in fields], dim)
         return PointCloud(elements=elements, values=values, extrapolation=fields[0].extrapolation, add_overlapping=fields[0]._add_overlapping, bounds=fields[0]._bounds)
+    elif fields[0].is_mesh:
+        assert all([f.geometry.shallow_equals(fields[0].geometry) for f in fields])
+        values = math.concat([math.expand(f.values, f.shape.only(dim)) for f in fields], dim)
+        return Field(fields[0].geometry, values, fields[0].extrapolation)
     raise NotImplementedError(type(fields[0]))
 
 
@@ -696,6 +700,10 @@ def stack(fields: Sequence[Field], dim: Shape, dim_bounds: Box = None):
         elements = geom.stack([f.elements for f in fields], dim)
         values = math.stack([f.values for f in fields], dim)
         return PointCloud(elements, values, fields[0].extrapolation)
+    elif fields[0].is_mesh:
+        assert all([f.geometry.shallow_equals(fields[0].geometry) for f in fields])
+        values = math.stack([f.values for f in fields], dim)
+        return Field(fields[0].geometry, values, fields[0].extrapolation)
     raise NotImplementedError(type(fields[0]))
 
 
