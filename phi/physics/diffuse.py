@@ -77,7 +77,8 @@ def differential(u: Field,
                  gradient: Field = None,
                  order: int = 2,
                  implicit: math.Solve = None,
-                 upwind: Field = None) -> Field:
+                 upwind: Field = None,
+                 ignore_skew=False) -> Field:
     """
     Compute the differential diffusion term, d·∇²u.
     For grids, uses a finite difference scheme specified by `order` and `implicit`.
@@ -118,6 +119,7 @@ def differential(u: Field,
             ortho_correction = gradient @ n2
             grad = connecting_grad * math.vec_length(n1) + ortho_correction
         else:
+            assert ignore_skew, f"FVM skew correction only available when gradient is specified. Pass gradient or set ignore_skew=False"
             grad = connecting_grad
         result = diffusivity * u.mesh.integrate_surface(grad) / u.mesh.volume  # 1/V ∑_f ∇T ν A
         return Field(u.mesh, result, u.boundary - u.boundary)
