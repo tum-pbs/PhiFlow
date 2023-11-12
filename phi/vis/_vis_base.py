@@ -541,7 +541,7 @@ def get_default_limits(f: Field) -> Box:
     extended_bounds = Box(math.min(extended_bounds.lower, size.shape.without('vector')), math.max(extended_bounds.upper, size.shape.without('vector')))
     if isinstance(f.geometry, Point):  # don't plot negative values if all values are positive and vice-versa
         lower = math.where(extended_bounds.lower * bounds.lower < 0, bounds.lower * .9, extended_bounds.lower)
-        upper = math.where(extended_bounds.upper * bounds.upper < 0, bounds.lower * .9, extended_bounds.upper)
+        upper = math.where(extended_bounds.upper * bounds.upper < 0, bounds.upper * .9, extended_bounds.upper)
         extended_bounds = Box(lower, upper)
     return extended_bounds
 
