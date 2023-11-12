@@ -5,7 +5,7 @@ from phiml.math import Tensor, spatial, instance, tensor, channel, Shape, unstac
 from phi import geom
 from phi import math
 from phi.geom import Box, Geometry, UniformGrid
-from phiml.math._shape import auto
+from phiml.math._shape import auto, DimFilter
 from phiml.math.extrapolation import NONE
 from ._field import Field, as_boundary, slice_off_constant_faces
 from ._grid import CenteredGrid, StaggeredGrid, grid
@@ -40,66 +40,102 @@ def bake_extrapolation(grid: Field) -> Field:
         raise ValueError(f"Not a valid grid: {grid}")
 
 
-def laplace(field: Field,
-            axes=spatial,
+def laplace(u: Field,
+            axes: DimFilter = spatial,
+            gradient: Field = None,
             order=2,
             implicit: math.Solve = None,
-            weights: Union[Tensor, Field] = None) -> Field:
+            weights: Union[Tensor, Field] = None,
+            upwind: Field = None,
+            correct_skew=True) -> Field:
     """
     Spatial Laplace operator for scalar grid.
-    If a vector grid is passed, it is assumed to be centered and the laplace is computed component-wise.
+
+    For grids, uses a finite difference scheme specified by `order` and `implicit`.
+    For unstructured meshes, the scheme is specified via `order` and `upwind`.
 
     Args:
-        field: n-dimensional `CenteredGrid`
+        u: n-dimensional grid or mesh.
         axes: The second derivative along these dimensions is summed over
         weights: (Optional) Multiply the axis terms by these factors before summation.
             Must be a `phi.math.Tensor` or `phi.field.Field` with a single channel dimension that lists all laplace axes by name.
+        gradient: Only used by FVM at the moment. Approximate gradient of `u`, e.g. ∇u of the previous time step.
+            If `None`, approximates the gradient as `(u_neighbor - u_self) / distance`.
         order: Spatial order of accuracy.
             Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
-            Supported: 2 explicit, 4 explicit, 6 implicit.
+            Supported: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.laplace()`).
+            For FVM, the order is used when interpolating `v` and `prev_v` to cell faces if needed.
         implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
             Otherwise, an explicit stencil is used.
+        upwind: FVM only. Whether to use upwind interpolation.
+        correct_skew: If `True`, adds a correction term for cell skewness. This requires `gradient` to be passed.
 
     Returns:
         laplacian field as `CenteredGrid`
     """
+    axes_names = u.shape.only(axes).names
     if isinstance(weights, Field):
-        weights = weights.at(field).values
-    axes_names = field.shape.only(axes).names
+        weights = weights.at(u).values
+    if weights is not None:
+        if channel(weights):
+            assert set(channel(weights).item_names[0]) >= set(axes_names), f"the channel dim of weights must contain all laplace dims {axes_names} but only has {channel(weights).item_names}"
+    # --- Mesh ---
+    if u.is_mesh:
+        if weights is not None and 'vector' in shape(weights):
+            raise NotImplementedError(f"laplace on meshes is not yet supported with vector-valued weights")
+        neighbor_val = u.mesh.pad_boundary(u.values, mode=u.boundary)
+        nb_distances = u.mesh.neighbor_distances
+        connecting_grad = (u.mesh.connectivity * neighbor_val - u.values) / nb_distances  # (T_N - T_P) / d_PN
+        if correct_skew and gradient is not None:  # skewness correction
+            assert dual(gradient), f"prev_grad must contain a dual dimension listing the gradient components"
+            gradient = rename_dims(gradient, dual, 'vector')
+            gradient = gradient.at_faces(boundary=NONE, order=order, upwind=upwind).values
+            nb_offsets = u.mesh.neighbor_offsets
+            n1 = (u.face_normals.vector @ nb_offsets.vector) * nb_offsets / nb_distances ** 2  # (n·d_PN) d_PN / d_PN^2
+            n2 = u.face_normals - n1
+            ortho_correction = gradient @ n2
+            grad = connecting_grad * math.vec_length(n1) + ortho_correction
+        else:
+            assert not correct_skew, f"FVM skew correction only available when gradient is specified. Pass gradient or set ignore_skew=False"
+            grad = connecting_grad
+        laplace_values = u.mesh.integrate_surface(grad) / u.mesh.volume  # 1/V ∑_f ∇T ν A
+        result = weights * laplace_values if weights is not None else laplace_values
+        return Field(u.mesh, result, u.boundary - u.boundary)
+    # --- Grid ---
     extrap_map = {}
     if not implicit:
         if order == 2:
-                values, needed_shifts = [1, -2, 1], (-1, 0, 1)
+            values, needed_shifts = [1, -2, 1], (-1, 0, 1)
 
         elif order == 4:
-                values, needed_shifts = [-1/12, 4/3, -5/2, 4/3, -1/12], (-2, -1, 0, 1, 2)
+            values, needed_shifts = [-1 / 12, 4 / 3, -5 / 2, 4 / 3, -1 / 12], (-2, -1, 0, 1, 2)
     else:
         extrap_map_rhs = {}
         if order == 6:
-            values, needed_shifts = [3/44, 12/11, -51/22, 12/11, 3/44], (-2, -1, 0, 1, 2)
+            values, needed_shifts = [3 / 44, 12 / 11, -51 / 22, 12 / 11, 3 / 44], (-2, -1, 0, 1, 2)
             extrap_map['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
-            values_rhs, needed_shifts_rhs = [2/11, 1, 2/11], (-1, 0, 1)
+            values_rhs, needed_shifts_rhs = [2 / 11, 1, 2 / 11], (-1, 0, 1)
             extrap_map_rhs['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
     base_widths = (abs(min(needed_shifts)), max(needed_shifts))
-    field.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map), field.extrapolation))
-    padded_components = [pad(field, {dim: base_widths}) for dim in axes_names]
+    u.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map), u.extrapolation))
+    padded_components = [pad(u, {dim: base_widths}) for dim in axes_names]
     shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, axes_names)]
-    result_components = [sum([value * shift_ for value, shift_ in zip(values, shifted_component)]) / field.dx.vector[dim]**2 for shifted_component, dim in zip(shifted_components, axes_names)]
+    result_components = [sum([value * shift_ for value, shift_ in zip(values, shifted_component)]) / u.dx.vector[dim] ** 2 for shifted_component, dim in zip(shifted_components, axes_names)]
     if implicit:
         result_components = stack(result_components, channel('laplacian'))
         result_components.with_values(result_components.values._cache())
-        result_components = result_components.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map_rhs), field.extrapolation))
+        result_components = result_components.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map_rhs), u.extrapolation))
         implicit.x0 = result_components
         result_components = solve_linear(_lhs_for_implicit_scheme, result_components, solve=implicit, values_rhs=values_rhs, needed_shifts_rhs=needed_shifts_rhs, stack_dim=channel('laplacian'))
         result_components = unstack(result_components, 'laplacian')
         extrap_map = extrap_map_rhs
-    result_components = [component.with_bounds(field.bounds) for component in result_components]
-    if weights is not None:
-        assert channel(weights).rank == 1 and channel(weights).item_names is not None, f"weights must have one channel dimension listing the laplace dims but got {shape(weights)}"
-        assert set(channel(weights).item_names[0]) >= set(axes_names), f"the channel dim of weights must contain all laplace dims {axes_names} but only has {channel(weights).item_names}"
+    result_components = [component.with_bounds(u.bounds) for component in result_components]
+    if weights is not None and channel(weights):
         result_components = [c * weights[ax] for c, ax in zip(result_components, axes_names)]
     result = sum(result_components)
-    result = result.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map), field.extrapolation))
+    if weights is not None and channel(weights).is_empty:
+        result *= weights
+    result = result.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map), u.extrapolation))
     return result
 
 
@@ -110,7 +146,7 @@ def spatial_gradient(field: Field,
                      stack_dim: Union[Shape, str] = channel('vector'),
                      order=2,
                      implicit: Solve = None,
-                     scheme = None,
+                     scheme=None,
                      upwind: Field = None,
                      gradient_extrapolation: Extrapolation = None):
     """
@@ -134,6 +170,8 @@ def spatial_gradient(field: Field,
         implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
             Otherwise, an explicit stencil is used.
         gradient_extrapolation: Alias for `boundary`.
+        scheme: For unstructured meshes only. Currently only `'green-gauss'` is supported.
+        upwind: For unstructured meshes only. Whether to use upwind interpolation.
 
     Returns:
         spatial_gradient field of type `type`.
@@ -155,26 +193,26 @@ def spatial_gradient(field: Field,
     if not implicit:
         if order == 2:
             if at == 'center':
-                values, needed_shifts = [-1/2, 1/2], (-1, 1)
+                values, needed_shifts = [-1 / 2, 1 / 2], (-1, 1)
             else:
                 values, needed_shifts = [-1, 1], (0, 1)
         elif order == 4:
             if at == 'center':
-                values, needed_shifts = [1/12, -2/3, 2/3, -1/12], (-2, -1, 1, 2)
+                values, needed_shifts = [1 / 12, -2 / 3, 2 / 3, -1 / 12], (-2, -1, 1, 2)
             else:
-                values, needed_shifts = [1/24, -27/24, 27/24, -1/24], (-1, 0, 1, 2)
+                values, needed_shifts = [1 / 24, -27 / 24, 27 / 24, -1 / 24], (-1, 0, 1, 2)
         else:
             raise NotImplementedError(f"explicit {order}th-order not supported")
     else:
         extrap_map_rhs = {}
         if order == 6:
             if at == 'center':
-                values, needed_shifts = [-1/36, -14/18, 14/18, 1/36], (-2, -1, 1, 2)
-                values_rhs, needed_shifts_rhs = [1/3, 1, 1/3], (-1, 0, 1)
+                values, needed_shifts = [-1 / 36, -14 / 18, 14 / 18, 1 / 36], (-2, -1, 1, 2)
+                values_rhs, needed_shifts_rhs = [1 / 3, 1, 1 / 3], (-1, 0, 1)
             else:
-                values, needed_shifts = [-17/186, -63/62, 63/62, 17/186], (-1, 0, 1, 2)
+                values, needed_shifts = [-17 / 186, -63 / 62, 63 / 62, 17 / 186], (-1, 0, 1, 2)
                 extrap_map['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
-                values_rhs, needed_shifts_rhs = [9/62, 1, 9/62], (-1, 0, 1)
+                values_rhs, needed_shifts_rhs = [9 / 62, 1, 9 / 62], (-1, 0, 1)
                 extrap_map_rhs['symmetric'] = combine_by_direction(ANTIREFLECT, ANTISYMMETRIC)
         else:
             raise NotImplementedError(f"implicit {order}th-order not supported")
@@ -190,7 +228,7 @@ def spatial_gradient(field: Field,
         # bounds = Box(field.bounds.lower - field.dx, field.bounds.upper + field.dx) if extrapolation == math.extrapolation.NONE else field.bounds
         std_widths = (0, 0)
         if boundary == math.extrapolation.NONE:
-            base_widths = (abs(min(needed_shifts))+1, max(needed_shifts)+1)
+            base_widths = (abs(min(needed_shifts)) + 1, max(needed_shifts) + 1)
             std_widths = (1, 1)
         padded_components = [math.pad(field.values, {dim_: base_widths if dim_ == dim else std_widths for dim_ in spatial_dims}, field.extrapolation) for dim in spatial_dims]
         shifted_components = [math.shift(padded_component, needed_shifts, stack_dim=None, padding=None, dims=dim) for padded_component, dim in zip(padded_components, spatial_dims)]
@@ -198,7 +236,7 @@ def spatial_gradient(field: Field,
         result = CenteredGrid(math.stack(result_components, stack_dim), boundary, field.bounds)
     elif at == 'face':
         assert spatial_dims == field.shape.spatial.names, f"spatial_gradient with type=StaggeredGrid requires dims=spatial, i.e. dims='{','.join(field.shape.spatial.names)}'"
-        base_widths = (base_widths[0], base_widths[1]-1)
+        base_widths = (base_widths[0], base_widths[1] - 1)
         padded_components = []
         for dim in spatial_dims:
             lo, up = boundary.valid_outer_faces(dim)
@@ -228,6 +266,7 @@ def green_gauss_gradient(t: Field, boundary: Extrapolation = None, stack_dim: Sh
 def _ex_map_f(ext_dict: dict):
     def f(ext: Extrapolation):
         return ext_dict[ext.__repr__()] if ext.__repr__() in ext_dict else ext
+
     return f
 
 
@@ -336,6 +375,7 @@ def divergence(field: Field, order=2, implicit: Solve = None, upwind: Field = No
             Supported: 2 explicit, 4 explicit, 6 implicit.
         implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
             Otherwise, an explicit stencil is used.
+        upwind: For unstructured meshes only. Whether to use upwind interpolation.
 
     Returns:
         Divergence field as `CenteredGrid`
@@ -377,7 +417,7 @@ def divergence(field: Field, order=2, implicit: Solve = None, upwind: Field = No
     field.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map), field.extrapolation))  # ToDo does this line do anything?
     spatial_dims = field.shape.spatial.names
     if field.is_grid and field.is_staggered:
-        base_widths = (base_widths[0]+1, base_widths[1])
+        base_widths = (base_widths[0] + 1, base_widths[1])
         padded_components = []
         for dim, component in zip(field.shape.spatial.names, field.values.vector.dual):
             border_valid = field.extrapolation.valid_outer_faces(dim)
@@ -422,7 +462,7 @@ def curl(field: Field, at='corner'):
         vy_dx = math.spatial_gradient(vy, dims=x, dx=field.dx[x], padding=None, stack_dim=None, difference='forward')
         vx_dy = math.spatial_gradient(vx, dims=y, dx=field.dx[y], padding=None, stack_dim=None, difference='forward')
         curl_val = vy_dx - vx_dy
-        corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx/2, field.bounds.upper + field.dx/2))
+        corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx / 2, field.bounds.upper + field.dx / 2))
         return Field(corners, curl_val, field.boundary.spatial_gradient())
     elif field.is_grid and field.is_centered and field.spatial_rank == 2 and at == 'corner':
         x, y = field.vector.item_names
@@ -434,7 +474,7 @@ def curl(field: Field, at='corner'):
         lr = diag_comp[{x: slice(1, None), y: slice(-1), 'diag': 'pos'}]
         ur = diag_comp[{x: slice(1, None), y: slice(1, None), 'diag': 'neg'}]
         curl_val = ll - ul + lr - ur
-        corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx/2, field.bounds.upper + field.dx/2))
+        corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx / 2, field.bounds.upper + field.dx / 2))
         return Field(corners, curl_val, field.boundary.spatial_gradient())
     # if field.is_grid and not field.is_staggered and field.spatial_rank == 2:
     #     if 'vector' not in field.shape and at == 'face':
@@ -909,7 +949,6 @@ def mask(obj: Field or Geometry) -> Field:
         raise NotImplementedError
     else:
         return Field(obj.elements, 1, math.extrapolation.remove_constant_offset(obj.extrapolation))
-
 
 # def connect(obj: Field, connections: Tensor) -> Mesh:
 #     """
