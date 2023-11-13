@@ -5,7 +5,7 @@ from phiml.math import Solve
 from phi import math, geom
 from phi.geom import Box, Geometry, GridCell
 from ._embed import FieldEmbedding
-from ._field import SampledField, Field, sample, reduce_sample, as_extrapolation
+from ._field import SampledField, Field, sample, reduce_sample, as_extrapolation, deprecated_field_class
 from ..geom._stack import GeometryStack
 from phiml.math import Shape, NUMPY
 from phiml.math._shape import spatial, channel, parse_dim_order
@@ -14,7 +14,7 @@ from phiml.math.extrapolation import Extrapolation
 from phiml.math.magic import slicing_dict
 
 
-class Grid(SampledField):
+class Grid(SampledField, metaclass=deprecated_field_class('Grid')):
     """
     Base class for `CenteredGrid` and `StaggeredGrid`.
     """
@@ -144,7 +144,7 @@ class Grid(SampledField):
 GridType = TypeVar('GridType', bound=Grid)
 
 
-class CenteredGrid(Grid):
+class CenteredGrid(Grid, metaclass=deprecated_field_class('CenteredGrid', parent_metaclass=type(Grid))):
     """
     N-dimensional grid with values sampled at the cell centers.
     A centered grid is defined through its `CenteredGrid.values` `phiml.math.Tensor`, its `CenteredGrid.bounds` `phi.geom.Box` describing the physical size, and its `CenteredGrid.extrapolation` (`phiml.math.extrapolation.Extrapolation`).
@@ -282,7 +282,7 @@ class CenteredGrid(Grid):
         return math.closest_grid_values(self.values, local_points, self.extrapolation)
 
 
-class StaggeredGrid(Grid):
+class StaggeredGrid(Grid, metaclass=deprecated_field_class('StaggeredGrid', parent_metaclass=type(Grid))):
     """
     N-dimensional grid whose vector components are sampled at the respective face centers.
     A staggered grid is defined through its values tensor, its bounds describing the physical size, and its extrapolation.
