@@ -1,3 +1,4 @@
+import inspect
 import warnings
 from numbers import Number
 from typing import TypeVar, Callable, Union
@@ -151,6 +152,14 @@ class Field:
         """ Whether the field values are sampled between elements. Added for forward compatibility with 2.5. """
         from ._grid import StaggeredGrid
         return isinstance(self, StaggeredGrid)
+
+    @property
+    def is_centered(self):
+        return not self.is_staggered
+
+    @property
+    def sampled_at(self):
+        return 'face' if self.is_staggered else 'center'
 
 
 class SampledField(Field):
@@ -481,3 +490,27 @@ def as_extrapolation(obj: Union[Extrapolation, float, Field, None]) -> Extrapola
         return FieldEmbedding(obj)
     else:
         return math.extrapolation.as_extrapolation(obj)
+
+
+def deprecated_field_class(for_class: str, parent_metaclass=None, allowed=("/phi/field/_field_math.py", "/phi/field/_grid.py")):
+    class _WarnOnInstanceChecks(parent_metaclass or type):
+
+        def __instancecheck__(self, instance):
+            caller_frame = inspect.currentframe().f_back
+            caller_code = caller_frame.f_code
+            caller_file = caller_code.co_filename
+            for filename in allowed:
+                if filename in caller_file:
+                    break
+            else:
+                warnings.warn(f"Instance checks on {for_class} are deprecated and will be removed in version 3.0. Use the methods instance.is_grid, instance.is_point_cloud, instance.is_centered and instance.is_staggered instead.", FutureWarning, stacklevel=2)
+            return type.__instancecheck__(self, instance)
+
+        def __subclasscheck__(self, subclass):
+            warnings.warn(f"Subclass checks on {for_class} are deprecated and will be removed in version 3.0", FutureWarning, stacklevel=2)
+            return type.__subclasscheck__(self, subclass)
+
+    return _WarnOnInstanceChecks
+
+
+# warnings.simplefilter('always', DeprecationWarning)

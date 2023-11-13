@@ -5,7 +5,7 @@ from phiml.math import wrap, expand, non_batch, extrapolation, spatial
 
 from phi import math
 from phi.geom import Geometry, GridCell, Box, Point
-from ._field import SampledField, resample
+from ._field import SampledField, resample, deprecated_field_class
 from ..geom._stack import GeometryStack
 from phiml.math import Tensor, instance, Shape
 from phiml.math._tensors import may_vary_along
@@ -13,7 +13,7 @@ from phiml.math.extrapolation import Extrapolation, ConstantExtrapolation, PERIO
 from phiml.math.magic import slicing_dict
 
 
-class PointCloud(SampledField):
+class PointCloud(SampledField, metaclass=deprecated_field_class('PointCloud')):
     """
     A `PointCloud` comprises:
 
