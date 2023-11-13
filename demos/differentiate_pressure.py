@@ -21,7 +21,7 @@ def loss(v0, p0):
 
 
 eval_grad_v0 = field.functional_gradient(loss, 'v0', get_output=True)
-p0 = None
+p0 = gradient = incompressible_velocity = remaining_divergence = None
 velocity_fit = StaggeredGrid(Noise(), 0, **DOMAIN) * 0.1 * LEFT
 viewer = view('incompressible_velocity', TARGET, 'gradient', velocity_fit, 'remaining_divergence', play=False, namespace=globals())
 
