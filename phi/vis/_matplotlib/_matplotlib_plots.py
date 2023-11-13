@@ -439,7 +439,7 @@ class StreamPlot2D(Recipe):
         x, y = reshaped_numpy(data.points, [vector, *data.shape.without('vector')])
         x = x[:, 0]
         y = y[0, :]
-        u, v = reshaped_numpy(data.values, [vector, *data.shape.without('vector')])
+        u, v = reshaped_numpy(data.values.vector[vector.item_names[0]], [vector, *data.shape.without('vector')])
         if (color == None).all:
             col = reshaped_numpy(math.vec_length(data.values), [*data.shape.without('vector')]).T
         else:
