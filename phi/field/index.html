@@ -3627,7 +3627,7 @@ If <code>bounds</code> is given as a <code>Box</code>, the resolution may be spe
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class CenteredGrid(Grid):
+<pre><code class="python">class CenteredGrid(Grid, metaclass=deprecated_field_class(&#39;CenteredGrid&#39;, parent_metaclass=type(Grid))):
     &#34;&#34;&#34;
     N-dimensional grid with values sampled at the cell centers.
     A centered grid is defined through its `CenteredGrid.values` `phiml.math.Tensor`, its `CenteredGrid.bounds` `phi.geom.Box` describing the physical size, and its `CenteredGrid.extrapolation` (`phiml.math.extrapolation.Extrapolation`).
@@ -3958,7 +3958,15 @@ These values are stacked along the new dimensions <code>'closest_&lt;dim&gt;'</c
     def is_staggered(self):
         &#34;&#34;&#34; Whether the field values are sampled between elements. Added for forward compatibility with 2.5. &#34;&#34;&#34;
         from ._grid import StaggeredGrid
-        return isinstance(self, StaggeredGrid)</code></pre>
+        return isinstance(self, StaggeredGrid)
+
+    @property
+    def is_centered(self):
+        return not self.is_staggered
+
+    @property
+    def sampled_at(self):
+        return &#39;face&#39; if self.is_staggered else &#39;center&#39;</code></pre>
 </details>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -3993,6 +4001,18 @@ def bounds(self) -&gt; Box:
     Fields whose spatial rank is determined only during sampling return an empty `Box`.
     &#34;&#34;&#34;
     raise NotImplementedError</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Field.is_centered"><code class="name">var <span class="ident">is_centered</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def is_centered(self):
+    return not self.is_staggered</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.is_grid"><code class="name">var <span class="ident">is_grid</span></code></dt>
@@ -4035,6 +4055,18 @@ def is_staggered(self):
     &#34;&#34;&#34; Whether the field values are sampled between elements. Added for forward compatibility with 2.5. &#34;&#34;&#34;
     from ._grid import StaggeredGrid
     return isinstance(self, StaggeredGrid)</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Field.sampled_at"><code class="name">var <span class="ident">sampled_at</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def sampled_at(self):
+    return &#39;face&#39; if self.is_staggered else &#39;center&#39;</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.shape"><code class="name">var <span class="ident">shape</span> : phiml.math._shape.Shape</code></dt>
@@ -4167,7 +4199,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Grid(SampledField):
+<pre><code class="python">class Grid(SampledField, metaclass=deprecated_field_class(&#39;Grid&#39;)):
     &#34;&#34;&#34;
     Base class for `CenteredGrid` and `StaggeredGrid`.
     &#34;&#34;&#34;
@@ -4722,7 +4754,7 @@ See the description in <code><a title="phi.geom.Geometry.approximate_fraction_in
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class PointCloud(SampledField):
+<pre><code class="python">class PointCloud(SampledField, metaclass=deprecated_field_class(&#39;PointCloud&#39;)):
     &#34;&#34;&#34;
     A `PointCloud` comprises:
 
@@ -6776,7 +6808,7 @@ If <code>bounds</code> is given as a <code>Box</code>, the resolution may be spe
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class StaggeredGrid(Grid):
+<pre><code class="python">class StaggeredGrid(Grid, metaclass=deprecated_field_class(&#39;StaggeredGrid&#39;, parent_metaclass=type(Grid))):
     &#34;&#34;&#34;
     N-dimensional grid whose vector components are sampled at the respective face centers.
     A staggered grid is defined through its values tensor, its bounds describing the physical size, and its extrapolation.
@@ -7232,9 +7264,11 @@ If <code>values</code> is not uniform, it is padded as in <code><a title="phi.fi
 <li><code><a title="phi.field.Field.at" href="#phi.field.Field.at">at</a></code></li>
 <li><code><a title="phi.field.Field.bounds" href="#phi.field.Field.bounds">bounds</a></code></li>
 <li><code><a title="phi.field.Field.dimension" href="#phi.field.Field.dimension">dimension</a></code></li>
+<li><code><a title="phi.field.Field.is_centered" href="#phi.field.Field.is_centered">is_centered</a></code></li>
 <li><code><a title="phi.field.Field.is_grid" href="#phi.field.Field.is_grid">is_grid</a></code></li>
 <li><code><a title="phi.field.Field.is_point_cloud" href="#phi.field.Field.is_point_cloud">is_point_cloud</a></code></li>
 <li><code><a title="phi.field.Field.is_staggered" href="#phi.field.Field.is_staggered">is_staggered</a></code></li>
+<li><code><a title="phi.field.Field.sampled_at" href="#phi.field.Field.sampled_at">sampled_at</a></code></li>
 <li><code><a title="phi.field.Field.shape" href="#phi.field.Field.shape">shape</a></code></li>
 <li><code><a title="phi.field.Field.spatial_rank" href="#phi.field.Field.spatial_rank">spatial_rank</a></code></li>
 </ul>
