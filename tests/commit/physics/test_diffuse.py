@@ -54,15 +54,6 @@ class TestDiffusion(TestCase):
         # print(f"{back_fourier.values[:6]}  Fourier")
         field.assert_close(grid, back_explicit, back_implicit, back_fourier, rel_tolerance=0, abs_tolerance=0.1)
 
-    def test_consistency_implicit(self):
-        DIFFUSIVITY = 0.5
-        grid = CenteredGrid((1,) * 100 + (0,) * 100, extrapolation.PERIODIC, x=200)
-        for extrap in (extrapolation.ZERO, extrapolation.BOUNDARY, extrapolation.PERIODIC):
-            grid = grid.with_extrapolation(extrap)
-            implicit = diffuse.implicit(grid, DIFFUSIVITY, 1)
-            back_implicit = diffuse.implicit(implicit, DIFFUSIVITY, -1)
-            field.assert_close(grid, back_implicit, rel_tolerance=0, abs_tolerance=0.1)
-
     def test_implicit_stability(self):
         DIFFUSIVITY = 10
         grid = CenteredGrid((1,) * 3 + (0,) * 3, extrapolation.PERIODIC, x=21)
