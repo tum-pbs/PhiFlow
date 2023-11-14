@@ -252,15 +252,15 @@ def spatial_gradient(field: Field,
     return result
 
 
-def green_gauss_gradient(t: Field, boundary: Extrapolation = None, stack_dim: Shape = channel('vector'), order=2, upwind: Field = None) -> Field:
+def green_gauss_gradient(u: Field, boundary: Extrapolation = None, stack_dim: Shape = channel('vector'), order=2, upwind: Field = None) -> Field:
     """Computes the Green-Gauss gradient of a field at the centroids."""
-    assert stack_dim not in t.shape, f"Gradient dimension is already part of field {t.shape}. Please use a different dimension"
-    boundary = boundary or t.boundary.spatial_gradient()
-    t = t.at_faces(boundary=NONE, order=order, upwind=upwind)
-    normals = rename_dims(t.geometry.face_normals, 'vector', stack_dim)
-    grad = t.geometry.integrate_surface(normals * t.values) / t.geometry.volume
-    grad = slice_off_constant_faces(grad, t.geometry.boundary_elements, boundary)
-    return Field(t.geometry, grad, boundary)
+    assert stack_dim not in u.shape, f"Gradient dimension is already part of field {u.shape}. Please use a different dimension"
+    boundary = boundary or u.boundary.spatial_gradient()
+    u = u.at_faces(boundary=NONE, order=order, upwind=upwind)
+    normals = rename_dims(u.geometry.face_normals, 'vector', stack_dim)
+    grad = u.geometry.integrate_surface(normals * u.values) / u.geometry.volume
+    grad = slice_off_constant_faces(grad, u.geometry.boundary_elements, boundary)
+    return Field(u.geometry, grad, boundary)
 
 
 def _ex_map_f(ext_dict: dict):

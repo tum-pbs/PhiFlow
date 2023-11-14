@@ -87,6 +87,7 @@ def differential(u: Field,
         u: Scalar or vector-valued `Field` sampled on a `CenteredGrid`, `StaggeredGrid` or `UnstructuredMesh`.
         velocity: `Field` that can be sampled at the elements of `u`.
             For FVM, the advection term is typically linearized by setting `velocity = previous_velocity`.
+            Passing `velocity=u` yields non-linear terms which cannot be traced inside linear functions.
         order: Spatial order of accuracy.
             Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
             Supported for grids: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.spatial_gradient()` and resampling).
@@ -115,7 +116,7 @@ def differential(u: Field,
         amounts = velocity * grad
         return - sum(amounts.gradient)
     elif u.is_mesh:
-        u = u.at_faces(boundary=NONE, order=order, upwind=u if upwind is True else upwind)
+        u = u.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
         velocity = velocity.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
         conv = density * u.mesh.integrate_surface(u.values * (velocity.values.vector @ velocity.face_normals.vector)) / u.mesh.volume
         return Field(u.geometry, conv, u.boundary)
