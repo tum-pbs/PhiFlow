@@ -295,7 +295,7 @@ class Histogram(Recipe):
 class Heatmap2D(Recipe):
 
     def can_plot(self, data: Field, space: Box) -> bool:
-        return data.is_grid and channel(data).volume == 1 and data.spatial_rank == 2 and not instance(data) and data.values.std != 0
+        return data.is_grid and channel(data).volume == 1 and data.spatial_rank == 2 and not instance(data) and math.is_finite(data.values).any
 
     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         dims = spatial(data)
@@ -501,7 +501,7 @@ class PointCloud2D(Recipe):
         data = only_stored_elements(data)
         x, y = reshaped_numpy(data.points.vector[dims], [vector, non_channel(data)])
         if (color == None).all:
-            if data.values.max == data.values.min:
+            if not math.is_finite(data.values).any:
                 mpl_colors = [_next_line_color(axis)] * non_channel(data).volume
             else:
                 values = reshaped_numpy(data.values, [non_channel(data)])
