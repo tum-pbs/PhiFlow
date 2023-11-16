@@ -96,7 +96,7 @@ def laplace(u: Field,
             ortho_correction = gradient @ n2
             grad = connecting_grad * math.vec_length(n1) + ortho_correction
         else:
-            assert not correct_skew, f"FVM skew correction only available when gradient is specified. Pass gradient or set ignore_skew=False"
+            assert not correct_skew, f"FVM skew correction only available when gradient is specified. Pass gradient or set correct_skew=False"
             grad = connecting_grad
         laplace_values = u.mesh.integrate_surface(grad) / u.mesh.volume  # 1/V ∑_f ∇T ν A
         result = weights * laplace_values if weights is not None else laplace_values

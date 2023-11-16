@@ -370,7 +370,7 @@ def centroid_to_faces(u: Field, boundary: Extrapolation, order=2, upwind: Field 
             gradient = green_gauss_gradient(u, order=order, upwind=None, stack_dim=dual('vector'))  # we cannot pass same interpolation here
         neighbor_grad = u.mesh.pad_boundary(gradient.values, mode=gradient.boundary)
         interpolated_from_self = u.values + gradient.values.vector.dual @ (u.mesh.face_centers - u.mesh.center).vector
-        interpolated_from_neighbor = neighbor_val + neighbor_grad.vector @ (u.mesh.face_centers - (u.mesh.center + u.mesh.neighbor_offsets)).vector
+        interpolated_from_neighbor = neighbor_val + neighbor_grad.vector.dual @ (u.mesh.face_centers - (u.mesh.center + u.mesh.neighbor_offsets)).vector
         # ToDo limiter
         result = math.where(flows_out, interpolated_from_self, interpolated_from_neighbor)
         return slice_off_constant_faces(result, u.mesh.boundary_faces, boundary)
