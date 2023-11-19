@@ -194,7 +194,22 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def approximate_signed_distance(self, location: Union[Tensor, tuple]) -> Tensor:
+    def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+        """
+        Find the closest surface face of this geometry given a point that can be outside or inside the geometry.
+
+        Args:
+            location: `Tensor` with a single channel dimension called vector. Can have arbitrary other dimensions.
+
+        Returns:
+            distance: Vector-valued distance vector from `location` to the closest point on the surface
+            normal: Closest surface normal vector.
+            offset: Min distance of a surface-tangential plane from 0 as a scalar.
+            face_index: (Optional) An index vector pointing at the closest face.
+        """
+        raise NotImplementedError(self.__class__)
+
+    def approximate_signed_distance(self, location: Tensor) -> Tensor:
         """
         Computes the approximate distance from location to the surface of the geometry.
         Locations outside return positive values, inside negative values and zero exactly at the boundary.
@@ -208,7 +223,6 @@ class Geometry:
 
         Args:
           location: float tensor of shape (batch_size, ..., rank)
-          location: Tensor:
 
         Returns:
           float tensor of shape (*location.shape[:-1], 1).
@@ -315,8 +329,8 @@ class Geometry:
         """
         center = self.center
         half = self.bounding_half_extent()
-        min_vec = math.min(center + half, dim=center.shape.non_batch.non_channel)
-        max_vec = math.max(center - half, dim=center.shape.non_batch.non_channel)
+        min_vec = math.min(center - half, dim=center.shape.non_batch.non_channel)
+        max_vec = math.max(center + half, dim=center.shape.non_batch.non_channel)
         from ._box import Box
         return Box(min_vec, max_vec)
 

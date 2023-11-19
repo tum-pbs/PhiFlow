@@ -17,6 +17,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from phi import math
 from phi.field import StaggeredGrid, Field
 from phi.geom import Sphere, BaseBox, Point, Box, UnstructuredMesh
+from phi.geom._heightmap import Heightmap
 from phi.geom._stack import GeometryStack
 from phi.math import Tensor, channel, spatial, instance, non_channel, Shape, reshaped_numpy, shape
 from phi.vis._vis_base import display_name, PlottingLibrary, Recipe, index_label, only_stored_elements
@@ -199,7 +200,7 @@ class LinePlot(Recipe):
         return data.is_grid and data.spatial_rank == 1 and not instance(data)
 
     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
-        x = data.points.staggered_direction[0].vector[0].numpy()
+        x = data.center.vector[0].numpy()
         requires_legend = False
         for c_idx, c_idx_n in zip(channel(data).meshgrid(), channel(data).meshgrid(names=True)):
             label = index_label(c_idx_n)
@@ -469,6 +470,53 @@ class EmbeddedPoint2D(Recipe):
                 raise NotImplementedError
         else:
             raise NotImplementedError("Range not yet supported")
+
+
+class Heightmap2D(Recipe):
+
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return data.spatial_rank == 2 and isinstance(data.geometry, Heightmap)
+
+    @math.broadcast(dims=instance, unwrap_scalars=False)
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+        dims = space.vector.item_names
+        heightmap: Heightmap = data.geometry
+        x, y = reshaped_numpy(heightmap.vertices[dims], ['vector', *spatial(heightmap.height)])
+        if (color == None).all:
+            col = _next_line_color(subplot)
+        else:
+            col = _plt_col(color)
+        alpha_f = float(alpha)
+        if heightmap._hdim == dims[1]:  # horizontal
+            if heightmap._fill_below:
+                y1, y2 = max(-1e10, float(heightmap.bounds[heightmap._hdim].lower)), y
+            else:
+                y1, y2 = y, min(1e10, float(heightmap.bounds[heightmap._hdim].upper))
+            subplot.fill_between(x, y1, y2, color=col, alpha=alpha_f)
+        else:
+            if heightmap._fill_below:
+                x1, x2 = max(-1e10, float(heightmap.bounds[heightmap._hdim].lower)), x
+            else:
+                x1, x2 = x, min(1e10, float(heightmap.bounds[heightmap._hdim].upper))
+            subplot.fill_betweenx(y, x1, x2)
+
+
+class Heightmap3D(Recipe):
+
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return data.spatial_rank == 3 and isinstance(data.geometry, Heightmap)
+
+    @math.broadcast(dims=instance, unwrap_scalars=False)
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+        dims = space.vector.item_names
+        heightmap: Heightmap = data.geometry
+        x, y, z = reshaped_numpy(heightmap.vertices[dims], ['vector', *spatial(heightmap.height)])
+        if (color == None).all:
+            col = _next_line_color(subplot)
+        else:
+            col = _plt_col(color)
+        alpha_f = float(alpha)
+        subplot.plot_surface(x, y, z, color=col, alpha=alpha_f)
 
 
 class PointCloud2D(Recipe):
@@ -765,11 +813,13 @@ MATPLOTLIB.recipes.extend([
             StreamPlot2D(),
             VectorField2D(),
             VectorCloud2D(),
+            Heightmap2D(),
             PointCloud2D(),
             EmbeddedPoint2D(),
             # Mesh2D(),
             # --- 3D ---
             VectorField3D(),
             Heatmap3D(),
+            Heightmap3D(),
             PointCloud3D(),
         ])

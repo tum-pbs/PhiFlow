@@ -135,7 +135,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         return self.vector[dimensions]
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
-        uniform = math.random_uniform(self.shape.non_singleton, *shape, math.channel(vector=self.spatial_rank))
+        uniform = math.random_uniform(self.shape.non_singleton.without('vector'), *shape, self.shape['vector'])
         return self.lower + uniform * self.size
 
     def corner_representation(self) -> 'Box':
@@ -230,7 +230,7 @@ class Box(BaseBox, metaclass=BoxType):
         >>> Box['x,y', :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
     """
 
-    def __init__(self, lower: Tensor = None, upper: Tensor = None, **size: Optional[Union[int, Tensor, tuple, list]]):
+    def __init__(self, lower: Tensor = None, upper: Tensor = None, **size: Optional[Union[float, Tensor, tuple, list]]):
         """
         Args:
           lower: physical location of lower corner
