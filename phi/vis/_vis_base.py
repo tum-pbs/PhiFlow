@@ -3,7 +3,7 @@ import time
 from collections import namedtuple
 from math import log10
 from threading import Lock
-from typing import Tuple, Any, Optional, Dict, Callable, Union
+from typing import Tuple, Any, Optional, Dict, Callable, Union, Sequence
 
 from phi import field, math
 from phi.field import Field, Scene, PointCloud, CenteredGrid
@@ -517,28 +517,24 @@ def to_field(obj):
     raise ValueError(f"Cannot plot {obj}. Tensors, geometries and fields can be plotted.")
 
 
-def get_default_limits(f: Field) -> Box:
+def get_default_limits(f: Field, all_dims: Sequence[str] = None) -> Box:
     if f.is_point_cloud and f.spatial_rank == 1:  # 1D: bar chart
         bounds = f.bounds
         count = non_batch(f).non_dual.non_channel.volume
         return Box(bounds.lower - bounds.size / count / 2, bounds.upper + bounds.size / count / 2)
+    if f.spatial_rank == 1 and spatial(f).rank == 1 and all_dims and len(all_dims) > 1:  # Embedded 1D line
+        emb_space = set(all_dims) - set(spatial(f).names)
+        value_dim = tuple(emb_space)[-1]
+        return data_bounds(f) * Box(**{value_dim: (math.finite_min(f.values, spatial), math.finite_max(f.values, spatial))})
     # --- Determine element size ---
-    if (f.geometry.bounding_half_extent() > 0).any:
-        size = 2 * f.geometry.bounding_half_extent()
-    # elif instance(f) and f.spatial_rank == 1:
-    #     lower = expand(-.5, vector)
-    #     upper = expand(equal_spacing.max + .5, vector)
-    #     size =
-    else:
-        size = expand(0, f.geometry.shape['vector'])
-    if (size == 0).all:
-        size = math.const_vec(.1, f.geometry.shape['vector'])
-    bounds = f.geometry.bounding_box().largest(channel)
-    bounds = data_bounds(f.geometry.center).largest(channel)
-
-
-    extended_bounds = Cuboid(bounds.center, bounds.half_size + size * 0.6)
-    extended_bounds = Box(math.min(extended_bounds.lower, size.shape.without('vector')), math.max(extended_bounds.upper, size.shape.without('vector')))
+    half = f.geometry.bounding_half_extent()
+    half = math.where(half == 0, .1, half)
+    min_vec = math.min(f.center - half, dim=f.center.shape.non_batch.non_channel)
+    max_vec = math.max(f.center + half, dim=f.center.shape.non_batch.non_channel)
+    bounds = Box(min_vec, max_vec).largest(channel)
+    # bounds = data_bounds(f.geometry.center).largest(channel)
+    extended_bounds = Cuboid(bounds.center, bounds.half_size * 1.1)
+    extended_bounds = Box(math.min(extended_bounds.lower, half.shape.without('vector')), math.max(extended_bounds.upper, half.shape.without('vector')))
     if isinstance(f.geometry, Point):  # don't plot negative values if all values are positive and vice-versa
         lower = math.where(extended_bounds.lower * bounds.lower < 0, bounds.lower * .9, extended_bounds.lower)
         upper = math.where(extended_bounds.upper * bounds.upper < 0, bounds.upper * .9, extended_bounds.upper)

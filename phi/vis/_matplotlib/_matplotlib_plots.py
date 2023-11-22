@@ -223,8 +223,8 @@ class LinePlot(Recipe):
         if requires_legend:
             # if not has_legend_like([index_label(idx_n) for idx_n in channel(data.values).meshgrid(names=True)], figure):
             subplot.legend()
-        elif min_val is not None and max_val is not None:
-            subplot.set_ylim((min_val - .02 * (max_val - min_val), max_val + .02 * (max_val - min_val)))
+        # elif min_val is not None and max_val is not None:
+        #     subplot.set_ylim((min_val - .02 * (max_val - min_val), max_val + .02 * (max_val - min_val)))
 
 
 class BarChart(Recipe):

@@ -486,7 +486,7 @@ def _space(*values: Field or Tensor, ignore_dims: Shape) -> Box:
         for dim in get_default_limits(f).vector.item_names:
             if dim not in all_dims and dim not in ignore_dims:
                 all_dims.append(dim)
-    all_bounds = [embed(get_default_limits(f).without(ignore_dims.names).largest(shape), all_dims) for f in values]
+    all_bounds = [embed(get_default_limits(f, all_dims).without(ignore_dims.names).largest(shape), all_dims) for f in values]
     bounds: Box = math.stack(all_bounds, batch('_fields'))
     lower = math.finite_min(bounds.lower, bounds.shape.without('vector'), default=-math.INF)
     upper = math.finite_max(bounds.upper, bounds.shape.without('vector'), default=math.INF)
