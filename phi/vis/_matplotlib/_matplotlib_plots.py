@@ -418,15 +418,34 @@ class VectorCloud2D(Recipe):
         return data.spatial_rank == 2 and 'vector' in channel(data)
 
     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+        dims = space.vector.item_names
         vector = data.geometry.shape['vector']
-        x, y = reshaped_numpy(data.points, [vector, data.shape.without('vector')])
-        u, v = reshaped_numpy(data.values, [vector, data.shape.without('vector')])
+        x, y = reshaped_numpy(data.center[dims], [vector, data.shape.without('vector')])
+        u, v = reshaped_numpy(data.values[dims], [vector, data.shape.without('vector')])
         if color.shape:
             col = [_plt_col(c) for c in color.numpy(data.shape.non_channel).reshape(-1)]
         else:
             col = _plt_col(color)
         alphas = reshaped_numpy(alpha, [data.shape.without('vector')])
         subplot.quiver(x, y, u, v, color=col, units='xy', scale=1, alpha=alphas)
+
+
+class VectorCloud3D(Recipe):
+
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return data.spatial_rank == 3 and 'vector' in channel(data)
+
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+        dims = space.vector.item_names
+        vector = data.geometry.shape['vector']
+        x, y, z = reshaped_numpy(data.center[dims], [vector, data.shape.without('vector')])
+        u, v, w = reshaped_numpy(data.values[dims], [vector, data.shape.without('vector')])
+        if color.shape:
+            col = [_plt_col(c) for c in color.numpy(data.shape.non_channel).reshape(-1)]
+        else:
+            col = _plt_col(color)
+        alphas = reshaped_numpy(alpha, [data.shape.without('vector')])
+        subplot.quiver(x, y, z, u, v, w, color=col, alpha=alphas)
 
 
 class StreamPlot2D(Recipe):
@@ -821,5 +840,6 @@ MATPLOTLIB.recipes.extend([
             VectorField3D(),
             Heatmap3D(),
             Heightmap3D(),
+            VectorCloud3D(),
             PointCloud3D(),
         ])
