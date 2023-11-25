@@ -129,7 +129,7 @@ class Heightmap(Geometry):
             return rename_dims(result, ['loc_' + n for n in self.resolution.names], self.resolution.names)
         return math.any(lies_inside_(self._height, self.grid_bounds, self._bounds, self._fill_below, self._extrapolation), instance(self))
 
-    def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         grid_bounds = math.i2b(self.grid_bounds)
         faces = math.i2b(self._faces)
         cell_idx = cell_index(location, grid_bounds, self.resolution, clip=True)
@@ -150,10 +150,11 @@ class Heightmap(Geometry):
         delta_edge = concat([delta_edge, delta_highest[[self._hdim]]], 'vector')
         distance_edge = math.vec_length(delta_edge)
         delta_highest, distance_edge = math.at_min((delta_highest, distance_edge), distance_edge, 'extremum')
+        distance_edge = math.where(distances < 0, -distance_edge, distance_edge)  # copy sign of distances onto distance_edges to always return the signed distance
         distances = math.where(projects_onto_face, distances, distance_edge)
         # --- use closest face from considered ---
         delta = math.where(projects_onto_face, proj_delta, delta_highest)
-        return math.at_min((delta, normals, offsets, face_idx), key=abs(distances), dim=batch('consider') & instance(self).as_batch())
+        return math.at_min((distances, delta, normals, offsets, face_idx), key=abs(distances), dim=batch('consider') & instance(self).as_batch())
 
     def __eq__(self, other):
         return isinstance(other, Heightmap) and self._bounds == other._bounds and self._fill_below == other._fill_below and self._max_dist == other._max_dist and math.always_close(self._height, other._height)
@@ -185,7 +186,7 @@ class Heightmap(Geometry):
 
     @property
     def volume(self) -> Tensor:
-        raise NotImplementedError
+        return math.prod(self.bounding_half_extent() * 2, channel)
 
     @property
     def faces(self) -> 'Geometry':
@@ -193,7 +194,7 @@ class Heightmap(Geometry):
 
     @property
     def face_centers(self) -> Tensor:
-        raise NotImplementedError
+        return self._faces.center
 
     @property
     def face_areas(self) -> Tensor:
@@ -201,7 +202,7 @@ class Heightmap(Geometry):
 
     @property
     def face_normals(self) -> Tensor:
-        raise NotImplementedError
+        return self._faces.normal
 
     @property
     def boundary_elements(self) -> Dict[Any, Dict[str, slice]]:
@@ -213,13 +214,10 @@ class Heightmap(Geometry):
 
     @property
     def face_shape(self) -> Shape:
-        raise NotImplementedError
+        return non_channel(self._faces.center)
 
     def approximate_signed_distance(self, location: Tensor) -> Tensor:
-        return math.vec_length(self.approximate_closest_surface(location)[0])
-
-    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
-        raise NotImplementedError
+        return self.approximate_closest_surface(location)[0]
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
@@ -293,7 +291,7 @@ def find_most_important_neighbor(face: Face, dx, resolution, hdim, fill_below, m
     for i in unstack(math.meshgrid(spatial(**(max_cells * 2 + 1).vector)) - max_cells, spatial):
         flat_delta = i * dx
         flat_dist = math.vec_length(flat_delta)
-        if (i != 0).any and (flat_dist <= max_dist or math.vec_squared(i) <= 1.5) and (abs(i) < resolution).all:
+        if (i != 0).any and ((flat_dist <= max_dist).all or (math.vec_squared(i) <= 1.5).all) and (abs(i) < resolution).all:
             self_normals, other_normals = math.index_shift(normals, (0, i), padding=None)
             self_center, other_center = math.index_shift(center, (0, i), padding=None)
             _, other_extrema = math.index_shift(extrema_points, (0, i), padding=None)

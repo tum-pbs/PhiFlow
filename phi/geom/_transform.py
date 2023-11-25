@@ -50,9 +50,6 @@ class _EmbeddedGeometry(Geometry):
     def approximate_signed_distance(self, location: Tensor) -> Tensor:
         return self.geometry.approximate_signed_distance(self._down_project(location))
 
-    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
-        raise NotImplementedError()
-
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError()
 

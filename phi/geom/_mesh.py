@@ -220,9 +220,6 @@ class UnstructuredMesh(Geometry):
     def approximate_signed_distance(self, location: Union[Tensor, tuple]) -> Tensor:
         raise NotImplementedError
 
-    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
-        raise NotImplementedError
-
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
 

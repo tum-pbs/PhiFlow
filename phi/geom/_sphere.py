@@ -108,9 +108,6 @@ class Sphere(Geometry):
         item = slicing_dict(self, item)
         return Sphere(self._center[_keep_vector(item)], self._radius[item])
 
-    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
-        raise NotImplementedError()
-
     def __hash__(self):
         return hash(self._center) + hash(self._radius)
 

@@ -154,7 +154,7 @@ class UniformGrid(BaseBox):
 
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
-        from ._stack import GeometryStack
+        from ._geom_ops import GeometryStack
         return GeometryStack(math.layout(values, dim))
 
     def list_cells(self, dim_name):

@@ -1,13 +1,17 @@
 import warnings
-from typing import Tuple, Union, Dict, Any
+from typing import Union, Dict, Any, Sequence, Tuple
 
 from phi import math
+from phiml import math
+from phiml.math import wrap
 from phiml.math._magic_ops import variable_attributes, copy_with
+from phiml.math._shape import shape_stack, Shape
 from phiml.math.magic import PhiTreeNode
+
 from ._box import bounding_box, Box
 from ._geom import Geometry, NO_GEOMETRY, rotate
-from ..math import Tensor, expand, instance
-from phiml.math._shape import shape_stack, Shape, INSTANCE_DIM, non_channel
+from ._geom import InvertedGeometry
+from ..math import Tensor, instance
 from ..math.magic import slicing_dict
 
 
@@ -80,6 +84,10 @@ class GeometryStack(Geometry):
         dist = math.map(lambda g, l: g.approximate_signed_distance(l), self._geometries, location, dims=self._geometries.shape)
         return math.min(dist, instance(self._geometries))
 
+    def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        signed_dist, delta, normals, offsets, face_idx = math.map(lambda g, l: g.approximate_closest_surface(l), self._geometries, location, dims=self._geometries.shape)
+        return math.at_min((signed_dist, delta, normals, offsets, face_idx), key=abs(signed_dist), dim=instance)
+
     def bounding_radius(self):
         center = self.center
         rad = math.map(lambda g: math.vec_length(g.center - center) + g.bounding_radius(), self._geometries)
@@ -98,12 +106,6 @@ class GeometryStack(Geometry):
         pivot = self.center
         return GeometryStack(math.map(lambda g: rotate(g, angle, pivot), self._geometries))
 
-    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
-        for i in instance(self._geometries).meshgrid():
-            item = self._geometries[i]
-            positions = math.map(lambda g, p: g.push(p), item, positions)
-        return positions
-
     def __eq__(self, other):
         return isinstance(other, GeometryStack) \
                and self._shape == other._shape \
@@ -118,7 +120,7 @@ class GeometryStack(Geometry):
 
     def __hash__(self):
         return hash(self._shape)
-    
+
     def __getitem__(self, item):
         selected = self.geometries[slicing_dict(self, item)]
         if selected.shape.volume > 1:
@@ -148,7 +150,7 @@ class GeometryStack(Geometry):
         for idx in self._geometries.shape.meshgrid(names=True):
             elements = self._geometries[idx].native().boundary_elements
             for key, b_slice in elements.items():
-                b_slice = {**idx **b_slice}
+                b_slice = {**idx ** b_slice}
                 if key in result:
                     raise NotImplementedError(f"boundary slices {result} are not compatible with {b_slice}")
                 else:
@@ -195,6 +197,7 @@ def union(*geometries, dim=instance('union')) -> Geometry:
         values = {a: math.stack([getattr(g, a) for g in geometries], dim) for a in attrs}
         return copy_with(geometries[0], **values)
     else:
+        # ToDo group by type, union individual types along union_<type>, then stack the groups
         base_geometries = ()
         for geometry in geometries:
             base_geometries += (geometry,)
@@ -202,3 +205,36 @@ def union(*geometries, dim=instance('union')) -> Geometry:
 
 
 Geometry.__add__ = lambda g1, g2: union(g1, g2)
+
+
+def expel(geometry: Geometry,
+          location: Tensor,
+          min_separation: Union[float, Tensor] = 0,
+          invert=False) -> Tensor:
+    """
+    Expels points at `location` out of the `geometry`.
+    This implementation works with all geometries that implement `approximate_closest_surface()`.
+    Specific geometries may override `Geometry.push()` for more accurate or efficient results.
+
+    Args:
+        geometry: `Geometry` that has an inside and outside.
+        location: `Tensor` holding the positions before shifting.
+        min_separation: Minimum distance between positions and surface after shifting.
+        invert: Whether to invert the inside and outside of `geometry`.
+
+    Returns:
+        Tensor holding shifted positions.
+    """
+    if isinstance(geometry, InvertedGeometry):
+        return expel(geometry.geometry, location, min_separation, invert=not invert)
+    if isinstance(geometry, Box):  # legacy
+        return geometry.push(location, not invert, min_separation)
+    if math.always_close(geometry.volume, 0):
+        return location
+    signed_distance, vec_to_surface, *_ = geometry.approximate_closest_surface(location)
+    if not invert:
+        shift_amount = math.maximum(0, min_separation - signed_distance)  # expel
+        direction = vec_to_surface / -signed_distance  # this always points outward
+    else:
+        raise NotImplementedError
+    return location + direction * shift_amount

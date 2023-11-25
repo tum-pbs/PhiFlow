@@ -18,7 +18,7 @@ from phi import math
 from phi.field import StaggeredGrid, Field
 from phi.geom import Sphere, BaseBox, Point, Box, UnstructuredMesh
 from phi.geom._heightmap import Heightmap
-from phi.geom._stack import GeometryStack
+from phi.geom._geom_ops import GeometryStack
 from phi.math import Tensor, channel, spatial, instance, non_channel, Shape, reshaped_numpy, shape
 from phi.vis._vis_base import display_name, PlottingLibrary, Recipe, index_label, only_stored_elements
 

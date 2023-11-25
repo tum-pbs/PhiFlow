@@ -199,7 +199,7 @@ def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: Obstacle 
     return velocity
 
 
-def boundary_push(particles: PointCloud, obstacles: tuple or list, offset: float = 0.5) -> PointCloud:
+def boundary_push(particles: PointCloud, obstacles: tuple or list, separation: float = 0.5) -> PointCloud:
     """
     Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of
     obstacles or back into the domain.
@@ -207,17 +207,17 @@ def boundary_push(particles: PointCloud, obstacles: tuple or list, offset: float
     Args:
         particles: PointCloud holding particle positions as elements
         obstacles: List of `Obstacle` or `Geometry` objects where any particles inside should get shifted outwards
-        offset: Minimum distance between particles and domain boundary / obstacle surface after particles have been shifted.
+        separation: Minimum distance between particles and domain boundary / obstacle surface after particles have been shifted.
 
     Returns:
         PointCloud where all particles are inside the domain / outside of obstacles.
     """
-    pos = particles.elements.center
+    pos = particles.geometry.center
     for obj in obstacles:
         geometry = obj.geometry if isinstance(obj, Obstacle) else obj
         assert isinstance(geometry, Geometry), f"obstacles must be a list of Obstacle or Geometry objects but got {type(obj)}"
-        pos = geometry.push(pos, shift_amount=offset)
-    return particles.with_elements(particles.elements @ pos)
+        pos = geometry.push(pos, shift_amount=separation)
+    return particles.with_elements(particles.geometry.at(pos))
 
 
 def _pressure_extrapolation(vext: Extrapolation):

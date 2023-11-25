@@ -102,9 +102,6 @@ class DynamicGraph(Geometry):
     def approximate_signed_distance(self, location: Union[Tensor, tuple]) -> Tensor:
         raise NotImplementedError(f"approximate_signed_distance not defined for DynamicGraph")
 
-    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
-        raise NotImplementedError(f"push not defined for DynamicGraph")
-
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError(f"sample_uniform not defined for DynamicGraph")
 

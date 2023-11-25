@@ -129,6 +129,13 @@ class BaseBox(Geometry):  # not a Subwoofer
         shift = math.rotate_vector(shift, self.rotation_matrix)
         return positions + math.where(loc_to_center < 0, 1, -1) * shift
 
+    def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        loc_to_center = self.global_to_local(location, scale=False, origin='center')
+        sgn_dist_from_surface = math.abs(loc_to_center) - self.half_size
+        normal_if_inside = (sgn_dist_from_surface == math.max(sgn_dist_from_surface, 'vector')) & (sgn_dist_from_surface < 0)
+        raise NotImplementedError
+        # return signed_dist, delta, normals, offsets, face_idx
+
     def project(self, *dimensions: str):
         """ Project this box into a lower-dimensional space. """
         warnings.warn("Box.project(dims) is deprecated. Use Box.vector[dims] instead", DeprecationWarning, stacklevel=2)

@@ -10,7 +10,7 @@ from plotly.tools import DEFAULT_PLOTLY_COLORS
 from phi import math, field
 from phi.field import Field
 from phi.geom import Sphere, BaseBox, Point, Box
-from phi.geom._stack import GeometryStack
+from phi.geom._geom_ops import GeometryStack
 from phi.math import Tensor, spatial, channel, non_channel
 from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve, down_sample_curve

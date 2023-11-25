@@ -6,7 +6,6 @@ from phi import math
 from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape, Extrapolation
 from phiml.math._magic_ops import variable_attributes, expand
 from phi.math.magic import BoundDim, slicing_dict
-from phiml.math.magic import Sliceable
 
 
 class Geometry:
@@ -194,7 +193,7 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
+    def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         """
         Find the closest surface face of this geometry given a point that can be outside or inside the geometry.
 
@@ -202,7 +201,9 @@ class Geometry:
             location: `Tensor` with a single channel dimension called vector. Can have arbitrary other dimensions.
 
         Returns:
-            distance: Vector-valued distance vector from `location` to the closest point on the surface
+            signed_distance: Scalar signed distance from `location`  to the closest point on the surface.
+                Positive values indicate the point lies outside the geometry, negative values indicate the point lies inside the geometry.
+            delta: Vector-valued distance vector from `location` to the closest point on the surface.
             normal: Closest surface normal vector.
             offset: Min distance of a surface-tangential plane from 0 as a scalar.
             face_index: (Optional) An index vector pointing at the closest face.
@@ -269,12 +270,13 @@ class Geometry:
         Args:
             positions: Tensor holding positions to shift
             outward: Flag for indicating inward (False) or outward (True) shift
-            shift_amount: Minimum distance between positions and box boundaries after shifting
+            shift_amount: Minimum distance between positions and surface after shifting.
 
         Returns:
-            Tensor holding shifted positions
+            Tensor holding shifted positions.
         """
-        raise NotImplementedError(self.__class__)
+        from ._geom_ops import expel
+        return expel(self, positions, min_separation=shift_amount, invert=not outward)
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         """
@@ -401,7 +403,7 @@ class Geometry:
         raise NotImplementedError(self.__class__)
 
     def __invert__(self):
-        return _InvertedGeometry(self)
+        return InvertedGeometry(self)
 
     def __eq__(self, other):
         """
@@ -451,7 +453,7 @@ class Geometry:
         if all(type(v) == type(values[0]) for v in values):
             return NotImplemented  # let attributes be stacked
         else:
-            from ._stack import GeometryStack
+            from ._geom_ops import GeometryStack
             return GeometryStack(math.layout(values, dim))
 
     def __flatten__(self, flat_dim: Shape, flatten_batch: bool, **kwargs) -> 'Geometry':
@@ -480,7 +482,7 @@ class Geometry:
         return BoundDim(self, name)
 
 
-class _InvertedGeometry(Geometry):
+class InvertedGeometry(Geometry):
 
     def __init__(self, geometry):
         self.geometry = geometry
@@ -493,10 +495,10 @@ class _InvertedGeometry(Geometry):
         raise NotImplementedError
 
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
-        return _InvertedGeometry(self.geometry.scaled(factor))
+        return InvertedGeometry(self.geometry.scaled(factor))
 
     def __getitem__(self, item: dict):
-        return _InvertedGeometry(self.geometry[item])
+        return InvertedGeometry(self.geometry[item])
 
     @property
     def center(self):
@@ -515,9 +517,6 @@ class _InvertedGeometry(Geometry):
     def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Union[Tensor, Number] = 0.5) -> Tensor:
         return 1 - self.geometry.approximate_fraction_inside(other_geometry, 1 - balance)
 
-    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
-        return self.geometry.push(positions, outward=not outward, shift_amount=shift_amount)
-
     def bounding_radius(self) -> Tensor:
         raise NotImplementedError()
 
@@ -525,16 +524,16 @@ class _InvertedGeometry(Geometry):
         raise NotImplementedError()
 
     def at(self, center: Tensor) -> 'Geometry':
-        return _InvertedGeometry(self.geometry.at(center))
+        return InvertedGeometry(self.geometry.at(center))
 
     def rotated(self, angle) -> Geometry:
-        return _InvertedGeometry(self.geometry.rotated(angle))
+        return InvertedGeometry(self.geometry.rotated(angle))
 
     def unstack(self, dimension):
-        return [_InvertedGeometry(g) for g in math.unstack(self.geometry, dimension)]
+        return [InvertedGeometry(g) for g in math.unstack(self.geometry, dimension)]
 
     def __eq__(self, other):
-        return isinstance(other, _InvertedGeometry) and self.geometry == other.geometry
+        return isinstance(other, InvertedGeometry) and self.geometry == other.geometry
 
     def __hash__(self):
         return -hash(self.geometry)
@@ -561,9 +560,6 @@ def invert(geometry: Geometry):
 
 
 class _NoGeometry(Geometry):
-
-    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
-        return positions
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
@@ -661,9 +657,6 @@ class Point(Geometry):
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]) -> Tensor:
         return math.vec_abs(location - self._location)
-
-    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
-        return positions
 
     def bounding_radius(self) -> Tensor:
         return math.zeros()
