@@ -51,9 +51,7 @@ class TestField(TestCase):
             self.assertTrue(resampled.is_grid)
 
     def test_boundary_slicing(self):
-        grid = StaggeredGrid(0, x=10, y=10)
-        c = vec(x=1, y=-1)
-        v = grid + c
+        v = StaggeredGrid(0, vec(x=1, y=-1), x=10, y=10)
         self.assertIn('vector', v.boundary.shape)
         components = math.unstack(v, 'vector')
         self.assertNotIn('vector', components[0].boundary.shape)

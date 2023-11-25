@@ -564,10 +564,10 @@ class Field:
                 other = math.wrap(other, self._geometry.shape['vector'])
             else:
                 other = math.wrap(other)
-            try:
-                boundary = operator(self._boundary, as_boundary(other, self._geometry))
-            except TypeError:  # e.g. ZERO_GRADIENT + constant
-                boundary = self._boundary
+            # try:
+            #     boundary = operator(self._boundary, as_boundary(other, self._geometry))
+            # except TypeError:  # e.g. ZERO_GRADIENT + constant
+            boundary = self._boundary  # constants don't affect the boundary conditions (legacy reasons)
             if 'vector' in self.shape and 'vector' not in self.values.shape and '~vector' in self.values.shape:
                 other = other.vector.as_dual()
             values = operator(self._values, other)
