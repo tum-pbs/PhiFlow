@@ -11,35 +11,27 @@ from phi.flow import *
 # from phi.jax.flow import *
 
 
-DOMAIN = Box(x=64, y=64)
-GRAVITY = vec(x=0, y=-9.81)
-OBSTACLE = Box(x=(1, 25), y=(30, 33)).rotated(-20)
-ACCESSIBLE_CELLS = CenteredGrid(~OBSTACLE, 0, x=64, y=64)
-_OBSTACLE_POINTS = PointCloud(Cuboid(field.support(1 - ACCESSIBLE_CELLS, 'points'), x=2, y=2))
-
+domain = Box(x=64, y=64)
+gravity = vec(x=0, y=-9.81)
+obstacle = Box(x=(1, 25), y=(30, 33)).rotated(-20)
 particles = distribute_points(union(Box(x=(15, 30), y=(50, 60)), Box(x=None, y=(-INF, 5))), x=64, y=64) * (0, 0)
-scene = vis.overlay(particles, _OBSTACLE_POINTS)  # only for plotting
 
 
 @jit_compile
-def step(particles, dt=.2, velocity=None, pressure=None):
+def step(particles: Field, dt=.2):
     # --- Grid Operations ---
-    velocity = prev_velocity = field.finite_fill(resample(particles, StaggeredGrid(0, 0, x=64, y=64), scatter=True, outside_handling='clamp'))
-    occupied = resample(field.mask(particles), CenteredGrid(0, velocity.extrapolation.spatial_gradient(), velocity.bounds, velocity.resolution), scatter=True, outside_handling='clamp')
-    velocity, pressure = fluid.make_incompressible(velocity + GRAVITY * dt, [OBSTACLE], active=occupied)
+    grid_v = prev_grid_v = field.finite_fill(resample(particles, StaggeredGrid(0, 0, x=64, y=64), scatter=True, outside_handling='clamp'))
+    occupied = resample(field.mask(particles), CenteredGrid(0, grid_v.extrapolation.spatial_gradient(), grid_v.bounds, grid_v.resolution), scatter=True, outside_handling='clamp')
+    grid_v, pressure = fluid.make_incompressible(grid_v + gravity * dt, [obstacle], active=occupied)
     # --- Particle Operations ---
-    particles += resample(velocity - prev_velocity, to=particles)  # FLIP update
-    # particles = resample(velocity, particles)  # PIC update
-    particles = advect.points(particles, velocity * mask(~OBSTACLE), dt, advect.finite_rk4)
-    particles = fluid.boundary_push(particles, [OBSTACLE, ~DOMAIN])
-    return particles, velocity, pressure
+    particles += resample(grid_v - prev_grid_v, to=particles)  # FLIP update
+    # particles = resample(grid_v, particles)  # PIC update
+    particles = advect.points(particles, grid_v * mask(~obstacle), dt, advect.finite_rk4)
+    particles = fluid.boundary_push(particles, [obstacle, ~domain], separation=.5)
+    return particles, pressure
 
-
-# trj = iterate(step, batch(t=100), particles, range=trange)
-# plot(vis.overlay(particles.with_values(1), _OBSTACLE_POINTS), animate='t')
 
 for i in trange(100):
-    particles, velocity, pressure = step(particles)
-    scene = vis.overlay(particles.with_values(1), _OBSTACLE_POINTS)
+    particles, pressure = step(particles)
     if i % 5 == 0:
-        vis.show(scene, pressure)
+        vis.show(resample(pressure, to=particles), obstacle, overlay='args')
