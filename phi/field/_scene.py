@@ -209,10 +209,10 @@ class Scene:
             assert len(scenes) >= -id, f"Failed to get scene {id} at {directory}. {len(scenes)} scenes available in that directory."
             return scenes[id]
         if id is None:
-            paths = directory
+            paths = wrap(directory)
         else:
             id = math.wrap(id)
-            paths = math.map(lambda d, i: join(d, f"sim_{i:06d}"), directory, id)
+            paths = wrap(math.map(lambda d, i: join(d, f"sim_{i:06d}"), directory, id))
         # test all exist
         for path in math.flatten(paths, flatten_batch=True):
             if not isdir(path):
@@ -240,7 +240,7 @@ class Scene:
                 os.mkdir(path)
             return path
 
-        result = math.map(single_subpath, self._paths)
+        result = wrap(math.map(single_subpath, self._paths))
         if result.rank == 0:
             return result.native()
         else:
@@ -386,7 +386,7 @@ class Scene:
         if not isinstance(field, Field):
             raise ValueError(f"Only Field instances can be saved but got {field}")
         name = _slugify_filename(name)
-        files = math.map(lambda dir_: _filename(dir_, name, frame), self._paths)
+        files = wrap(math.map(lambda dir_: _filename(dir_, name, frame), self._paths))
         write(field, files)
 
     def read_field(self, name: str, frame: int, convert_to_backend=True) -> Field:
