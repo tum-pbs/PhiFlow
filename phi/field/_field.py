@@ -128,7 +128,9 @@ class Field:
         else:
             raise NotImplementedError
 
-    points = center
+    @property
+    def points(self):
+        return self.center
 
     @property
     def values(self) -> Tensor:
