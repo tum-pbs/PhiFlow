@@ -12,21 +12,20 @@ from phi.flow import *
 
 
 domain = Box(x=64, y=64)
-gravity = vec(x=0, y=-9.81)
 obstacle = Box(x=(1, 25), y=(30, 33)).rotated(-20)
 particles = distribute_points(union(Box(x=(15, 30), y=(50, 60)), Box(x=None, y=(-INF, 5))), x=64, y=64) * (0, 0)
 
 
 @jit_compile
-def step(particles: Field, dt=.2):
+def step(particles: Field, pressure=None, dt=.1, gravity=vec(x=0, y=-9.81)):
     # --- Grid Operations ---
-    grid_v = prev_grid_v = field.finite_fill(resample(particles, StaggeredGrid(0, 0, x=64, y=64), scatter=True, outside_handling='clamp'))
+    grid_v = prev_grid_v = field.finite_fill(particles.at(StaggeredGrid(0, 0, domain, x=64, y=64), scatter=True, outside_handling='clamp'))
     occupied = resample(field.mask(particles), CenteredGrid(0, grid_v.extrapolation.spatial_gradient(), grid_v.bounds, grid_v.resolution), scatter=True, outside_handling='clamp')
     grid_v, pressure = fluid.make_incompressible(grid_v + gravity * dt, [obstacle], active=occupied)
     # --- Particle Operations ---
     particles += resample(grid_v - prev_grid_v, to=particles)  # FLIP update
     # particles = resample(grid_v, particles)  # PIC update
-    particles = advect.points(particles, grid_v * mask(~obstacle), dt, advect.finite_rk4)
+    particles = advect.points(particles, grid_v * resample(~obstacle, to=grid_v), dt, advect.finite_rk4)
     particles = fluid.boundary_push(particles, [obstacle, ~domain], separation=.5)
     return particles, pressure
 
