@@ -350,6 +350,24 @@ class Field:
     def shifted(self, delta):
         return self.with_elements(self._geometry.shifted(delta))
 
+    def pad(self, widths: Union[int, tuple, list, dict]) -> 'Field':
+        """
+        Alias for `phi.field.pad()`.
+
+        Pads this `Field` using its extrapolation.
+
+        Unlike padding the values, this function also affects the `geometry` of the field, changing its size and origin depending on `widths`.
+
+        Args:
+            widths: Either `int` or `(lower, upper)` to pad the same number of cells in all spatial dimensions
+                or `dict` mapping dimension names to `(lower, upper)`.
+
+        Returns:
+            Padded `Field`
+        """
+        from ._field_math import pad
+        return pad(self, widths)
+
     def staggered_tensor(self) -> Tensor:
         """
         Stacks all component grids into a single uniform `phi.math.Tensor`.
