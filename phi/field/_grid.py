@@ -19,9 +19,10 @@ def grid(values: Any = 0., extrapolation: Any = 0., bounds: Box or float = None,
 
 
 def CenteredGrid(values: Any = 0.,
-                 extrapolation: Any = 0.,
+                 boundary: Any = 0.,
                  bounds: Box or float = None,
                  resolution: int or Shape = None,
+                 extrapolation: Any = None,
                  **resolution_: int or Tensor) -> Field:
     """
     Create an n-dimensional grid with values sampled at the cell centers.
@@ -56,6 +57,7 @@ def CenteredGrid(values: Any = 0.,
             If `bounds` is given as a `Box`, the resolution may be specified as an `int` to be equal along all axes.
         **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
     """
+    extrapolation = boundary if extrapolation is None else extrapolation
     if resolution is None and not resolution_:
         assert isinstance(values, math.Tensor), "Grid resolution must be specified when 'values' is not a Tensor."
         resolution = values.shape.spatial
@@ -83,9 +85,10 @@ def CenteredGrid(values: Any = 0.,
 
 
 def StaggeredGrid(values: Any = 0.,
-                  extrapolation: float or Extrapolation = 0,
+                  boundary: float or Extrapolation = 0,
                   bounds: Box or float = None,
                   resolution: Shape or int = None,
+                  extrapolation: float or Extrapolation = None,
                   **resolution_: int or Tensor) -> Field:
     """
     N-dimensional grid whose vector components are sampled at the respective face centers.
@@ -114,7 +117,7 @@ def StaggeredGrid(values: Any = 0.,
             * Function `values(x)` where `x` is a `phi.math.Tensor` representing the physical location.
                 The spatial dimensions of the grid will be passed as batch dimensions to the function.
 
-        extrapolation: The grid extrapolation determines the value outside the `values` tensor.
+        boundary: The grid extrapolation determines the value outside the `values` tensor.
             Allowed types: `float`, `phi.math.Tensor`, `phi.math.extrapolation.Extrapolation`.
         bounds: Physical size and location of the grid as `phi.geom.Box`.
             If the resolution is determined through `resolution` of `values`, a `float` can be passed for `bounds` to create a unit box.
@@ -122,6 +125,7 @@ def StaggeredGrid(values: Any = 0.,
             If `bounds` is given as a `Box`, the resolution may be specified as an `int` to be equal along all axes.
         **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
     """
+    extrapolation = boundary if extrapolation is None else extrapolation
     extrapolation = as_boundary(extrapolation, UniformGrid)
     if resolution is None and not resolution_:
         assert isinstance(values, Tensor), "Grid resolution must be specified when 'values' is not a Tensor."
