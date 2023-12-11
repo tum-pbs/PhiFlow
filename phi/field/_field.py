@@ -8,7 +8,7 @@ from phi.geom._geom import slice_off_constant_faces
 from phi.math import Shape, Tensor, channel, non_batch, expand, instance, spatial, wrap, dual, non_dual
 from phi.math.extrapolation import Extrapolation
 from phi.math.magic import BoundDim, slicing_dict
-from phiml.math import IncompatibleShapes, batch
+from phiml.math import IncompatibleShapes, batch, Solve, DimFilter
 
 
 class FieldInitializer:  # ToDo replace by simple function
@@ -368,6 +368,42 @@ class Field:
         from ._field_math import pad
         return pad(self, widths)
 
+    def gradient(self,
+                 boundary: Extrapolation = None,
+                 at: str = 'center',
+                 dims: math.DimFilter = spatial,
+                 stack_dim: Union[Shape, str] = channel('vector'),
+                 order=2,
+                 implicit: Solve = None,
+                 scheme=None,
+                 upwind: 'Field' = None,
+                 gradient_extrapolation: Extrapolation = None):
+        """Alias for `phi.field.spatial_gradient`"""
+        from ._field_math import spatial_gradient
+        return spatial_gradient(self, boundary=boundary, at=at, dims=dims, stack_dim=stack_dim, order=order, implicit=implicit, scheme=scheme, upwind=upwind, gradient_extrapolation=gradient_extrapolation)
+
+    def divergence(self, order=2, implicit: Solve = None, upwind: 'Field' = None):
+        """Alias for `phi.field.divergence`"""
+        from ._field_math import divergence
+        return divergence(self, order=order, implicit=implicit, upwind=upwind)
+
+    def curl(self, at='corner'):
+        """Alias for `phi.field.curl`"""
+        from ._field_math import curl
+        return curl(self, at=at)
+
+    def laplace(self,
+                axes: DimFilter = spatial,
+                gradient: 'Field' = None,
+                order=2,
+                implicit: math.Solve = None,
+                weights: Union[Tensor, 'Field'] = None,
+                upwind: 'Field' = None,
+                correct_skew=True):
+        """Alias for `phi.field.laplace`"""
+        from ._field_math import laplace
+        return laplace(self, axes=axes, gradient=gradient, order=order, implicit=implicit, weights=weights, upwind=upwind, correct_skew=correct_skew)
+
     def staggered_tensor(self) -> Tensor:
         """
         Stacks all component grids into a single uniform `phi.math.Tensor`.
@@ -387,7 +423,7 @@ class Field:
         result = math.stack(padded, channel(vector=self.resolution))
         assert result.shape.is_uniform
         return result
-    
+
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Field':
         from ._field_math import stack
