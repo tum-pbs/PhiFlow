@@ -346,8 +346,8 @@ def stagger(field: Field,
                 width_lower, width_upper = {dim: (0, -1)}, {dim: (-1, 0)}
             all_lower.append(math.pad(field.values, width_lower, field.extrapolation, bounds=field.bounds))
             all_upper.append(math.pad(field.values, width_upper, field.extrapolation, bounds=field.bounds))
-        all_upper = math.stack(all_upper, channel('vector'))
-        all_lower = math.stack(all_lower, channel('vector'))
+        all_upper = math.stack(all_upper, dual(vector=field.resolution.names))
+        all_lower = math.stack(all_lower, dual(vector=field.resolution.names))
         values = face_function(all_lower, all_upper)
         result = StaggeredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
         assert result.shape.spatial == field.shape.spatial
@@ -648,7 +648,7 @@ def downsample2x(grid: Field) -> Field:
             odd_discarded = grid.values[{'~vector': dim, dim: slice(None, None, 2)}]
             others_interpolated = math.downsample2x(odd_discarded, grid.extrapolation, dims=grid.shape.spatial.without(dim))
             values[dim] = others_interpolated
-        return StaggeredGrid(math.stack(values, channel('vector')), grid.extrapolation, grid.bounds)
+        return StaggeredGrid(math.stack(values, dual('vector')), grid.extrapolation, grid.bounds)
     else:
         raise ValueError(grid)
 

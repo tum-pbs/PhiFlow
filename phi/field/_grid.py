@@ -130,7 +130,7 @@ def StaggeredGrid(values: Any = 0.,
     if resolution is None and not resolution_:
         assert isinstance(values, Tensor), "Grid resolution must be specified when 'values' is not a Tensor."
         if not all(extrapolation.valid_outer_faces(d)[0] != extrapolation.valid_outer_faces(d)[1] for d in spatial(values).names):  # non-uniform values required
-            if values.shape.is_uniform:
+            if '~vector' not in values.shape:
                 values = unstack_staggered_tensor(values, extrapolation)
             resolution = resolution_from_staggered_tensor(values, extrapolation)
         else:
@@ -144,7 +144,7 @@ def StaggeredGrid(values: Any = 0.,
             if not spatial(values):
                 values = expand_staggered(values, resolution, extrapolation)
             if not all(extrapolation.valid_outer_faces(d)[0] != extrapolation.valid_outer_faces(d)[1] for d in resolution.names):  # non-uniform values required
-                if values.shape.is_uniform:
+                if '~vector' not in values.shape:
                     values = unstack_staggered_tensor(values, extrapolation)
                 else:  # Keep dim order from data and check it matches resolution
                     assert set(resolution_from_staggered_tensor(values, extrapolation)) == set(resolution), f"Failed to create StaggeredGrid: values {values.shape} do not match given resolution {resolution} for extrapolation {extrapolation}. See https://tum-pbs.github.io/PhiFlow/Staggered_Grids.html"
@@ -178,7 +178,7 @@ def unstack_staggered_tensor(data: Tensor, extrapolation: Extrapolation) -> Tens
         slices = {d: slice(0, -1) for d in data.shape.spatial.names}
         slices[dim] = slice(int(not lo_valid), - int(not up_valid) or None)
         sliced.append(component[slices])
-    return math.stack(sliced, channel(vector=spatial(data)))
+    return math.stack(sliced, dual(vector=spatial(data)))
 
 
 def expand_staggered(values: Tensor, resolution: Shape, extrapolation: Extrapolation):
@@ -189,7 +189,7 @@ def expand_staggered(values: Tensor, resolution: Shape, extrapolation: Extrapola
     for dim, component in zip(resolution.spatial.names, components):
         comp_cells = cells.stagger(dim, *extrapolation.valid_outer_faces(dim))
         tensors.append(math.expand(component, comp_cells.resolution))
-    return math.stack(tensors, channel(vector=resolution.names))
+    return math.stack(tensors, dual(vector=resolution.names))
 
 
 def resolution_from_staggered_tensor(values: Tensor, extrapolation: Extrapolation):
