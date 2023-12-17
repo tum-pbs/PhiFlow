@@ -225,6 +225,8 @@ class LinePlot(Recipe):
             subplot.legend()
         # elif min_val is not None and max_val is not None:
         #     subplot.set_ylim((min_val - .02 * (max_val - min_val), max_val + .02 * (max_val - min_val)))
+        if spatial(data).item_names[0]:  # label x ticks
+            subplot.set_xticks(x, spatial(data).item_names[0])
 
 
 class BarChart(Recipe):
