@@ -66,6 +66,7 @@ def distribute_points(geometries: Union[tuple, list, Geometry, float],
                       center: bool = False,
                       radius: float = None,
                       extrapolation: float or Extrapolation = math.NAN,
+                      bounds: Box = None,
                       **domain) -> Field:
     """
     Transforms `Geometry` objects into a PointCloud.
@@ -77,17 +78,18 @@ def distribute_points(geometries: Union[tuple, list, Geometry, float],
         center: Set all points to the center of the grid cells.
         radius: Sphere radius.
         extrapolation: Extrapolation for the `PointCloud`, default `NaN` used for FLIP.
+        bounds: Grid bounds. Specify grid resolution via `**domain`.
 
     Returns:
          PointCloud representation of `geometries`.
     """
-    warnings.warn("distribute_points() is deprecated. Construct a PointCloud directly.", DeprecationWarning)
     from phi.field import CenteredGrid
     if isinstance(geometries, (tuple, list, Geometry)):
         from phi.geom import union
         geometries = union(geometries)
-    geometries = resample(geometries, CenteredGrid(0, extrapolation, **domain), scatter=False)
+    geometries = resample(geometries, CenteredGrid(0, extrapolation, bounds=bounds, **domain), scatter=False)
     initial_points = _distribute_points(geometries.values, dim, points_per_cell, center=center)
+    initial_points = geometries.bounds.local_to_global(initial_points / geometries.resolution)
     if radius is None:
         from phi.field._field_math import data_bounds
         radius = math.mean(data_bounds(initial_points).size) * 0.005
