@@ -65,7 +65,8 @@ def implicit(field: Field,
              solve=Solve('CG'),
              gradient: Field = None,
              upwind: Field = None,
-             correct_skew=True) -> Field:
+             correct_skew=True,
+             gradient_for_diffusivity=True) -> Field:
     """
     Implicit Euler diffusion.
 
@@ -80,6 +81,7 @@ def implicit(field: Field,
             If `None`, approximates the gradient as `(u_neighbor - u_self) / distance`.
         upwind: For unstructured meshes only. Whether to use upwind interpolation.
         correct_skew: If `True`, adds a correction term for cell skewness. This requires `gradient` to be passed.
+        gradient_for_diffusivity: Whether to compute the gradient w.r.t. the diffusivity parameters.
 
     Returns:
         Diffused field of same type as `field`.
@@ -89,7 +91,7 @@ def implicit(field: Field,
         return explicit(x, diffusivity, -dt, gradient=gradient, upwind=upwind, correct_skew=correct_skew)
     if not solve.x0:
         solve = copy_with(solve, x0=field)
-    return solve_linear(sharpen, y=field, solve=solve)
+    return solve_linear(sharpen, y=field, solve=solve, grad_for_f=gradient_for_diffusivity)
 
 
 def differential(u: Field,
