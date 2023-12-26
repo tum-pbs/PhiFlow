@@ -129,9 +129,9 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
         elif field.is_grid and field.is_staggered:
             return sample_staggered_grid(field, geometry, **kwargs)
         elif field.is_mesh and field.is_staggered:
-            return math.finite_mean(field.values, dual)
-        elif field.is_mesh and not field.is_centered:
-            raise NotImplementedError("Resampling to different mesh is not yet supported")
+            return math.finite_mean(field.values, dual)  # ToDo weigh by face areas?
+        elif field.is_mesh:
+            return sample_mesh(field, geometry.center, **kwargs)
         else:
             return scatter_to_centers(field, geometry, **kwargs)
     elif at == 'face':
@@ -388,13 +388,44 @@ def centroid_to_faces(u: Field, boundary: Extrapolation, order=2, upwind: Field 
             # face_distance = u.mesh.face_centers[u.mesh.interior_faces] - u.mesh.center  # x_f - x_P
             normals = u.mesh.face_normals[u.mesh.interior_faces]
             w_interior = (face_distance.vector @ normals.vector) / (cell_deltas.vector @ normals.vector)  # n·(x_N - x_f) / n·(x_N - x_P)
-            w = math.concat([w_interior, math.tensor_like(u.mesh.boundary_connectivity, 0)], '~neighbors')
+            w = math.concat([w_interior, 0 * u.mesh.boundary_connectivity], '~neighbors')
             w = slice_off_constant_faces(w, u.mesh.boundary_faces, boundary)  # first padding, then slicing is inefficient, but usually we don't slice anything off (boundary=none)
             # w = u.mesh.pad_boundary(w_interior, {k: s for k, s in u.mesh.boundary_faces.items() if not boundary.determines_boundary_values(k)}, boundary) this is only for vectors
             # b0 = math.tensor_like(slice_off_constant_faces(u.mesh.connectivity, u.mesh.boundary_faces, boundary), 0)
             return w * u.values + (1 - w) * neighbor_val
     else:
         raise NotImplementedError(f"resampling centroid to faces not supported for order={order}, upwind={upwind} not supported for resampling mesh values to faces")
+
+
+def sample_mesh(f: Field,
+                location: Tensor,
+                gradient: Union[str, Field] = 'green-gauss',
+                order=2,
+                max_steps=2):  # at least 2 to resolve locations outside the mesh
+    idx = math.find_closest(f.center, location)
+    for i in range(max_steps):
+        is_last_step = i == max_steps - 1
+        # --- check if inside, else move to neighbor cell ---
+        closest_normals = f.mesh.face_normals[idx]
+        closest_face_centers = f.mesh.face_centers[idx]
+        offsets = closest_normals.vector @ closest_face_centers.vector  # this dot product could be cashed in the mesh
+        distances = closest_normals.vector @ location.vector - offsets
+        is_outside = math.any(distances > 0, dual)
+        next_idx = math.argmax(distances, dual).index[0]
+        leaves_mesh = next_idx >= instance(f).volume
+        idx = math.where(is_outside & (~leaves_mesh | is_last_step), next_idx, idx)
+    is_outside_mesh = leaves_mesh & is_outside
+    if order <= 1:
+        values = rename_dims(f.mesh.pad_boundary(f.values, mode=f.boundary), dual, instance(f))
+        return values[idx]
+    elif order == 2:
+        values = rename_dims(f.mesh.pad_boundary(f.values, mode=f.boundary), dual, instance(f))
+        v0 = values[idx]
+        gradient = gradient if isinstance(gradient, Field) else f.gradient(scheme=gradient, order=order)
+        grad = gradient.values[math.where(is_outside_mesh, 0, idx)]
+        dx = location - f.mesh.center[math.where(is_outside_mesh, 0, idx)]
+        return math.where(is_outside_mesh, v0, v0 + dx.vector @ grad.vector)
+    raise NotImplementedError(f"sampling meshes only supports order <= 2 but got order={order}")
 
 
 def sample_function(f: Callable, elements: Geometry, at: str, extrapolation: Extrapolation) -> Tensor:

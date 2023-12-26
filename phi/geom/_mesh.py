@@ -1,13 +1,14 @@
 from dataclasses import dataclass
 from numbers import Number
-from typing import Tuple, Dict, List, Sequence, Union
+from typing import Dict, List, Sequence, Union
 
 import numpy as np
 
+from phiml.math import to_format, is_sparse
 from phiml.math.extrapolation import as_extrapolation
 from ._geom import Geometry, Point
 from .. import math
-from ..math import Tensor, Shape, channel, NUMPY, shape, instance, dual, rename_dims, expand, spatial, pack_dims, wrap, sparse_tensor, vec, stack, vec_length, tensor_like, \
+from ..math import Tensor, Shape, channel, NUMPY, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, vec, stack, vec_length, tensor_like, \
     pairwise_distances, concat, Extrapolation
 
 
@@ -56,7 +57,7 @@ class UnstructuredMesh(Geometry):
         cell_deltas = pairwise_distances(self.center, format=self.cell_connectivity, default=None)
         cell_distances = math.vec_length(cell_deltas)
         face_distances = math.vec_length(self.face_centers[self.interior_faces] - self.center)
-        self._relative_face_distance = math.concat([face_distances / cell_distances, math.tensor_like(self.boundary_connectivity, 1)], '~neighbors')
+        self._relative_face_distance = math.concat([face_distances / cell_distances, self.boundary_connectivity], '~neighbors')
         boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
         self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], '~neighbors')
         # --- skewness ---
@@ -157,15 +158,18 @@ class UnstructuredMesh(Geometry):
         Returns:
             `Tensor` of shape (elements, ~elements)
         """
-        return tensor_like(self._faces.area, True)[self.interior_faces]
+        return self.connectivity[self.interior_faces]
 
     @property
     def boundary_connectivity(self) -> Tensor:
-        return tensor_like(self._faces.area, True)[self.all_boundary_faces]
+        return self.connectivity[self.all_boundary_faces]
 
     @property
     def connectivity(self) -> Tensor:
-        return tensor_like(self._faces.area, True)
+        if is_sparse(self._faces.area):
+            return tensor_like(self._faces.area, True)
+        else:
+            return self._faces.area > 0
 
     @property
     def distance_matrix(self):
@@ -406,7 +410,7 @@ def build_faces_2d(points: np.ndarray,
     normal = stack([-delta[1], delta[0]], vector_dim)
     normal /= vec_length(normal)
     # --- Create sparse tensors ---
-    area = sparse_tensor(indices, area, poly_dim & dual_poly_dim, format=face_format, default=None)
+    area = sparse_tensor(indices, area, poly_dim & dual_poly_dim, format='coo' if face_format == 'dense' else face_format, default=None)
     normal = tensor_like(area, normal, value_order='original')
     center = tensor_like(area, center, value_order='original')
-    return Face(center, normal, area), boundary_slices
+    return Face(to_format(center, face_format), to_format(normal, face_format), to_format(area, face_format)), boundary_slices
