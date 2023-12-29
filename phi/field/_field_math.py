@@ -184,10 +184,12 @@ def spatial_gradient(field: Field,
     if boundary is None:
         boundary = field.extrapolation.spatial_gradient()
     if field.is_mesh and at == 'center':
+        assert stack_dim not in field.shape, f"Gradient dimension is already part of field {u.shape}. Please use a different dimension"
+        boundary = boundary or field.boundary.spatial_gradient()
         if scheme == 'green-gauss':
             return green_gauss_gradient(field, stack_dim=stack_dim, boundary=boundary, order=order, upwind=upwind)
         elif scheme == 'least-squares':
-            raise NotImplementedError(scheme)
+            return least_squares_gradient(field, stack_dim=stack_dim, boundary=boundary)
         raise NotImplementedError(scheme)
     extrap_map = {}
     if not implicit:
@@ -252,15 +254,26 @@ def spatial_gradient(field: Field,
     return result
 
 
-def green_gauss_gradient(u: Field, boundary: Extrapolation = None, stack_dim: Shape = channel('vector'), order=2, upwind: Field = None) -> Field:
+def green_gauss_gradient(u: Field, boundary: Extrapolation, stack_dim: Shape = channel('vector'), order=2, upwind: Field = None) -> Field:
     """Computes the Green-Gauss gradient of a field at the centroids."""
-    assert stack_dim not in u.shape, f"Gradient dimension is already part of field {u.shape}. Please use a different dimension"
-    boundary = boundary or u.boundary.spatial_gradient()
     u = u.at_faces(boundary=NONE, order=order, upwind=upwind)
     normals = rename_dims(u.geometry.face_normals, 'vector', stack_dim)
     grad = u.geometry.integrate_surface(normals * u.values) / u.geometry.volume
     grad = slice_off_constant_faces(grad, u.geometry.boundary_elements, boundary)
     return Field(u.geometry, grad, boundary)
+
+
+def least_squares_gradient(u: Field, boundary: Extrapolation, stack_dim: Shape = channel('vector')) -> Field:
+    """Computes the least-squares gradient of a field at the centroids."""
+    u_nb = u.mesh.pad_boundary(u.values, mode=u.boundary)
+    du = (u.mesh.connectivity * u_nb - u.values)
+    d = u.face_centers - u.center
+    initial_guess = Field(u.geometry, math.zeros(stack_dim.with_size(u.geometry.vector.item_names)), boundary)
+    @jit_compile_linear
+    def du_from_grad(grad):
+        return math.dot(grad.values, stack_dim, d, 'vector')
+    raise NotImplementedError("least_squares_gradient not yet implemented")
+    return math.solve_linear(du_from_grad, du, Solve(x0=initial_guess))  # not yet implemented for least-squares or sparse outputs
 
 
 def _ex_map_f(ext_dict: dict):
