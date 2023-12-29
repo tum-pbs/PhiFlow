@@ -19,8 +19,7 @@ class AngularVelocity(FieldInitializer):
     def __init__(self,
                  location: Union[Tensor, tuple, list, Number],
                  strength: Union[Tensor, Number] = 1.0,
-                 falloff: Callable = None,
-                 component: str = None):
+                 falloff: Callable = None):
         location = wrap(location)
         strength = wrap(strength)
         assert location.shape.channel.names == ('vector',), "location must have a single channel dimension called 'vector'"
@@ -40,15 +39,3 @@ class AngularVelocity(FieldInitializer):
         velocity = math.cross_product(strength, distances)
         velocity = math.sum(velocity, self.location.shape.batch.without(points.shape))
         return velocity
-
-    @property
-    def shape(self) -> Shape:
-        return self._shape
-
-    def __getitem__(self, item: dict):
-        assert all(dim == 'vector' for dim in item), f"Cannot slice AngularVelocity with {item}"
-        if 'vector' in item:
-            component = self.shape.spatial.names[item['vector']]
-            return AngularVelocity(self.location, self.strength, self.falloff, component)
-        else:
-            return self

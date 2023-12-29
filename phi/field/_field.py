@@ -1,6 +1,6 @@
 import warnings
 from numbers import Number
-from typing import Callable, Union, Tuple, Dict, Any
+from typing import Callable, Union, Tuple
 
 from phi import math
 from phi.geom import Geometry, Box, Point, BaseBox, UniformGrid, UnstructuredMesh, Sphere
@@ -8,10 +8,10 @@ from phi.geom._geom import slice_off_constant_faces
 from phi.math import Shape, Tensor, channel, non_batch, expand, instance, spatial, wrap, dual, non_dual
 from phi.math.extrapolation import Extrapolation
 from phi.math.magic import BoundDim, slicing_dict
-from phiml.math import IncompatibleShapes, batch, Solve, DimFilter
+from phiml.math import batch, Solve, DimFilter
 
 
-class FieldInitializer:  # ToDo replace by simple function
+class FieldInitializer:
 
     def _sample(self, geometry: Geometry, at: str, boundaries: Extrapolation, **kwargs) -> math.Tensor:
         """ For internal use only. Use `sample()` instead. """

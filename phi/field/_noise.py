@@ -26,10 +26,6 @@ class Noise(FieldInitializer):
         self.smoothness = smoothness
         self._shape = math.concat_shapes(*shape, channel(**channel_dims))
 
-    @property
-    def shape(self):
-        return self._shape
-
     def _sample(self, geometry: Geometry, at: str, boundaries: Extrapolation, **kwargs) -> Tensor:
         if isinstance(geometry, UniformGrid):
             if at == 'center':
@@ -59,10 +55,6 @@ class Noise(FieldInitializer):
         array -= math.mean(array, dim=array.shape.non_batch)
         array = math.to_float(array)
         return array
-
-    def __getitem__(self, item: dict):
-        new_shape = self.shape.after_gather(item)
-        return Noise(new_shape, scale=self.scale, smoothness=self.smoothness)
 
     def __repr__(self):
         return f"{self._shape}, scale={self.scale}, smoothness={self.smoothness}"
