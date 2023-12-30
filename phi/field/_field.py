@@ -404,6 +404,17 @@ class Field:
         from ._field_math import laplace
         return laplace(self, axes=axes, gradient=gradient, order=order, implicit=implicit, weights=weights, upwind=upwind, correct_skew=correct_skew)
 
+    def downsample(self, factor: int):
+        from ._field_math import downsample2x
+        result = self
+        while factor >= 2:
+            result = downsample2x(result)
+            factor /= 2
+        if math.close(factor, 1.):
+            return result
+        from ._resample import resample
+        raise NotImplementedError(f"downsample does not support fractional re-sampling. Only 2^n currently supported.")
+
     def staggered_tensor(self) -> Tensor:
         """
         Stacks all component grids into a single uniform `phi.math.Tensor`.

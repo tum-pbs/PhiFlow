@@ -656,12 +656,13 @@ def downsample2x(grid: Field) -> Field:
         values = math.downsample2x(grid.values, grid.extrapolation)
         return CenteredGrid(values, bounds=grid.bounds, extrapolation=grid.extrapolation)
     elif grid.is_grid and grid.is_staggered:
+        grid_ = grid.with_boundary(extrapolation.NONE)
         values = {}
         for dim in grid.vector.item_names:
-            odd_discarded = grid.values[{'~vector': dim, dim: slice(None, None, 2)}]
+            odd_discarded = grid_.values[{'~vector': dim, dim: slice(None, None, 2)}]
             others_interpolated = math.downsample2x(odd_discarded, grid.extrapolation, dims=grid.shape.spatial.without(dim))
             values[dim] = others_interpolated
-        return StaggeredGrid(math.stack(values, dual('vector')), grid.extrapolation, grid.bounds)
+        return StaggeredGrid(math.stack(values, dual('vector')), None, grid.bounds).with_extrapolation(grid.extrapolation)
     else:
         raise ValueError(grid)
 
