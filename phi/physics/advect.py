@@ -7,8 +7,11 @@ Examples:
 * mac_cormack (grid)
 * runge_kutta_4 (particle)
 """
+from typing import Union
+
 from phi import math
 from phi.field import Field, PointCloud, Grid, spatial_gradient, unstack, stack, resample, reduce_sample, sample
+from phi.geom import Geometry
 from phi.math import Solve, channel
 from phiml.math import Tensor
 from phiml.math.extrapolation import NONE
@@ -126,22 +129,24 @@ def differential(u: Field,
 finite_difference = differential
 
 
-def points(field: PointCloud, velocity: Field, dt: float, integrator=euler):
+def points(points: Union[Field, Geometry, Tensor], velocity: Field, dt: float, integrator=euler):
     """
     Advects the sample points of a point cloud using a simple Euler step.
     Each point moves by an amount equal to the local velocity times `dt`.
 
     Args:
-        field: point cloud to be advected
+        points: Points to be advected. Can be provided as position `Tensor`, `Geometry` or `Field`.
         velocity: velocity sampled at the same points as the point cloud
         dt: Euler step time increment
         integrator: ODE integrator for solving the movement.
 
     Returns:
-        Advected point cloud
+        Advected points, same type as `points`.
     """
+    field = points if isinstance(points, Field) else PointCloud(points)
     new_elements = field.geometry.at(integrator(field, velocity, dt))
-    return field.with_elements(new_elements)
+    result = field.with_elements(new_elements)
+    return result if isinstance(points, Field) else (result.geometry if isinstance(points, Geometry) else result.center)
 
 
 def semi_lagrangian(field: Field,
