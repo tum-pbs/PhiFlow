@@ -8,7 +8,7 @@ from phi.geom import Box, Geometry, UniformGrid
 from phiml.math._shape import auto, DimFilter
 from phiml.math.extrapolation import NONE
 from ._field import Field, as_boundary, slice_off_constant_faces
-from ._grid import CenteredGrid, StaggeredGrid, grid
+from ._grid import CenteredGrid, StaggeredGrid, grid, unstack_staggered_tensor
 from ._point_cloud import PointCloud
 from ._resample import sample
 from ..math.extrapolation import Extrapolation, SYMMETRIC, REFLECT, ANTIREFLECT, ANTISYMMETRIC, combine_by_direction
@@ -184,7 +184,7 @@ def spatial_gradient(field: Field,
     if boundary is None:
         boundary = field.extrapolation.spatial_gradient()
     if field.is_mesh and at == 'center':
-        assert stack_dim not in field.shape, f"Gradient dimension is already part of field {u.shape}. Please use a different dimension"
+        assert stack_dim not in field.shape, f"Gradient dimension is already part of field {field.shape}. Please use a different dimension"
         boundary = boundary or field.boundary.spatial_gradient()
         if scheme == 'green-gauss':
             return green_gauss_gradient(field, stack_dim=stack_dim, boundary=boundary, order=order, upwind=upwind)
@@ -542,10 +542,12 @@ def native_call(f, *inputs, channels_last=None, channel_dim='vector', extrapolat
     Returns:
         `Field` matching the first `Field` in `inputs`.
     """
-    input_tensors = [i.values if isinstance(i, Field) else tensor(i) for i in inputs]
+    input_tensors = [i.uniform_values() if isinstance(i, Field) else tensor(i) for i in inputs]
     values = math.native_call(f, *input_tensors, channels_last=channels_last, channel_dim=channel_dim)
     for i in inputs:
         if isinstance(i, Field):
+            if not i.values.shape.is_uniform:
+                values = unstack_staggered_tensor(values, i.boundary)
             result = i.with_values(values=values)
             if extrapolation is not None:
                 result = result.with_extrapolation(extrapolation)
