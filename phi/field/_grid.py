@@ -23,6 +23,7 @@ def CenteredGrid(values: Any = 0.,
                  bounds: Box or float = None,
                  resolution: int or Shape = None,
                  extrapolation: Any = None,
+                 convert=True,
                  **resolution_: int or Tensor) -> Field:
     """
     Create an n-dimensional grid with values sampled at the cell centers.
@@ -56,6 +57,7 @@ def CenteredGrid(values: Any = 0.,
         resolution: Grid resolution as purely spatial `phi.math.Shape`.
             If `bounds` is given as a `Box`, the resolution may be specified as an `int` to be equal along all axes.
         **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
+        convert: Whether to convert `values` to the default backend.
     """
     extrapolation = boundary if extrapolation is None else extrapolation
     if resolution is None and not resolution_:
@@ -74,7 +76,7 @@ def CenteredGrid(values: Any = 0.,
         else:
             if isinstance(values, (tuple, list)) and len(values) == resolution.rank:
                 values = math.tensor(values, channel(vector=resolution.names))
-            values = math.expand(math.tensor(values), resolution)
+            values = math.expand(math.tensor(values, convert=convert), resolution)
     if values.dtype.kind not in (float, complex):
         values = math.to_float(values)
     assert resolution.spatial_rank == elements.bounds.spatial_rank, f"Resolution {resolution} does not match bounds {bounds}"
@@ -89,6 +91,7 @@ def StaggeredGrid(values: Any = 0.,
                   bounds: Box or float = None,
                   resolution: Shape or int = None,
                   extrapolation: float or Extrapolation = None,
+                  convert=True,
                   **resolution_: int or Tensor) -> Field:
     """
     N-dimensional grid whose vector components are sampled at the respective face centers.
@@ -123,6 +126,7 @@ def StaggeredGrid(values: Any = 0.,
             If the resolution is determined through `resolution` of `values`, a `float` can be passed for `bounds` to create a unit box.
         resolution: Grid resolution as purely spatial `phi.math.Shape`.
             If `bounds` is given as a `Box`, the resolution may be specified as an `int` to be equal along all axes.
+        convert: Whether to convert `values` to the default backend.
         **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
     """
     extrapolation = boundary if extrapolation is None else extrapolation
@@ -158,7 +162,7 @@ def StaggeredGrid(values: Any = 0.,
             if 'vector' in values.shape:
                 values = math.stack([values[{'vector': i, '~vector': i}] for i in range(resolution.rank)], dual(vector=resolution))
         else:
-            values = expand_staggered(math.tensor(values), resolution, extrapolation)
+            values = expand_staggered(math.tensor(values, convert=convert), resolution, extrapolation)
     if values.dtype.kind not in (float, complex):
         values = math.to_float(values)
     assert resolution.spatial_rank == elements.bounds.spatial_rank, f"Resolution {resolution} does not match bounds {elements.bounds}"
