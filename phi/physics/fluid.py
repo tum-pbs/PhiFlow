@@ -121,7 +121,7 @@ def make_incompressible(velocity: Field,
         solve = solve.with_preprocessing(_balance_divergence, active)
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
-        solve = copy_with(solve, x0=CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution))
+        solve = copy_with(solve, x0=CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution, convert=False))
     if (batch(math.merge_shapes(*obstacles)) & batch(velocity.dx)).without(batch(solve.x0.values)):  # The initial pressure guess must contain all batch dimensions
         solve = copy_with(solve, x0=solve.x0.with_values(expand(solve.x0.values, batch(math.merge_shapes(*obstacles)) & batch(velocity.dx))))
     pressure = math.solve_linear(masked_laplace, div, solve, hard_bcs, active, order=order)
