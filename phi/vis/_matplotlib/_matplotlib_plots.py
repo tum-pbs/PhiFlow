@@ -584,7 +584,11 @@ class PointCloud2D(Recipe):
                 if (err != 0).any:
                     x_err = reshaped_numpy(err.vector[dims[0]], [instance(data)]) if dims[0] in err.vector.item_names else 0
                     y_err = reshaped_numpy(err.vector[dims[1]], [instance(data)]) if dims[1] in err.vector.item_names else 0
-                    axis.errorbar(x, y, y_err, x_err, fmt=' ')
+                    if all(np.all(c == mpl_colors[0]) for c in mpl_colors) and all(a == alphas[0] for a in alphas):
+                        axis.errorbar(x, y, y_err, x_err, fmt=' ', color=mpl_colors[0], alpha=alphas[0])
+                    else:
+                        for x_, y_, y_err_, x_err_, col_, alpha_ in zip(x, y, y_err, x_err, mpl_colors, alphas):
+                            axis.errorbar(x_, y_, y_err_, x_err_, fmt=' ', color=col_, alpha=alpha_)
         else:
             if isinstance(data.geometry, Sphere):
                 rad = reshaped_numpy(data.geometry.bounding_radius(), [data.shape.non_channel])
