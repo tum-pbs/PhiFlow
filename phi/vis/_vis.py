@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from threading import Thread
 from typing import Tuple, List, Dict, Union
 
+from phiml.math._magic_ops import tree_map
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
 from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, common_index, to_field, get_default_limits
@@ -353,6 +354,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
     log_dims = parse_dim_order(log_dims) or ()
     color = layout_pytree_node(color, wrap_leaf=True)
     alpha = layout_pytree_node(alpha, wrap_leaf=True)
+    alpha = tree_map(lambda x: 1 if x is None else x, alpha)
     err = layout_pytree_node(err, wrap_leaf=True)
     if same_scale is True:
         same_scale = '_'
@@ -409,6 +411,17 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
 
 
 def layout_pytree_node(data, wrap_leaf=False):
+    # we could wrap instead of layout if all values have same shapes
+    if isinstance(data, tuple):
+        return layout(tuple([layout_pytree_node(i) for i in data]), batch('tuple'))
+    elif isinstance(data, list):
+        return layout([layout_pytree_node(i) for i in data], batch('list'))
+    elif isinstance(data, dict):
+        return layout({k: layout_pytree_node(v) for k, v in data.items()}, batch('dict'))
+    return wrap(data) if wrap_leaf else data
+
+
+def layout_one_level(data, wrap_leaf=False):
     if isinstance(data, tuple):
         return layout(data, batch('tuple'))
     elif isinstance(data, list):
@@ -418,7 +431,7 @@ def layout_pytree_node(data, wrap_leaf=False):
     return wrap(data) if wrap_leaf else data
 
 
-def layout_sub_figures(data: Union[Tensor, Field],
+def layout_sub_figures(any_data: Union[Tensor, Field],
                        row_dims: DimFilter,
                        col_dims: DimFilter,
                        animate: DimFilter,  # do not reduce these dims, has priority
@@ -428,16 +441,16 @@ def layout_sub_figures(data: Union[Tensor, Field],
                        positioning: Dict[Tuple[int, int], List],
                        indices: Dict[Tuple[int, int], List[dict]],
                        base_index: Dict[str, Union[int, str]]) -> Tuple[int, int, Shape, Shape]:  # rows, cols
-    if data is None:
-        raise ValueError(f"Cannot layout figure for '{data}'")
-    data = layout_pytree_node(data, wrap_leaf=False)
+    if any_data is None:
+        raise ValueError(f"Cannot layout figure for '{any_data}'")
+    data = layout_one_level(any_data, wrap_leaf=False)
     if isinstance(data, Tensor) and data.dtype.kind == object:  # layout
         rows, cols = 0, 0
         non_reduced = math.EMPTY_SHAPE
         dim0 = reduced = data.shape[0]
         if dim0.only(overlay):
             for overlay_index in dim0.only(overlay).meshgrid(names=True):  # overlay these fields
-                e_rows, e_cols, d_non_reduced, d_reduced = layout_sub_figures(data[overlay_index].native(), row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, {**base_index, **overlay_index})
+                e_rows, e_cols, d_non_reduced, d_reduced = layout_sub_figures(data[overlay_index], row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, {**base_index, **overlay_index})
                 rows = max(rows, e_rows)
                 cols = max(cols, e_cols)
                 non_reduced &= d_non_reduced
