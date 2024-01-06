@@ -226,7 +226,7 @@ class LinePlot(Recipe):
         # elif min_val is not None and max_val is not None:
         #     subplot.set_ylim((min_val - .02 * (max_val - min_val), max_val + .02 * (max_val - min_val)))
         if spatial(data).item_names[0]:  # label x ticks
-            subplot.set_xticks(x, spatial(data).item_names[0])
+            set_ticks(subplot, 0, x, spatial(data).item_names[0])
 
 
 class BarChart(Recipe):
@@ -261,7 +261,7 @@ class BarChart(Recipe):
                     subplot.bar_label(bar_plt, label_type='edge', fmt='%.2f' if data.values.dtype.kind == float else '%d')
                 except AttributeError:
                     warnings.warn(f"Matplotlib is outdated, version={matplotlib.__version__}. Update it to show bar labels", RuntimeWarning)
-        subplot.set_xticks(x, instance(data).item_names[0])
+        set_ticks(subplot, 0, x, instance(data).item_names[0])
         if channels > 1:
             if not has_legend_like([index_label(ch) for ch in channel(data.values).meshgrid(names=True)], figure):
                 subplot.legend()
@@ -647,15 +647,10 @@ class PointCloud2D(Recipe):
             if label_axis:
                 for labeled_dim in labeled_dims:
                     if len(labeled_dim.item_names[0]) <= max_axis_labels:
+                        if points.vector[labeled_dim.name].shape.without(labeled_dims).volume > 1:
+                            return  # we'd have to duplicate names
                         which_axis = dims.index(labeled_dim.name)
-                        if which_axis == 0:
-                            axis.set_xticks(reshaped_numpy(points.vector[labeled_dim.name], [shape]))
-                            if axis.get_xscale() == 'log':
-                                axis.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-                        elif which_axis == 1:
-                            axis.set_yticks(reshaped_numpy(points.vector[labeled_dim.name], [shape]))
-                            if axis.get_yscale() == 'log':
-                                axis.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+                        set_ticks(axis, which_axis, reshaped_numpy(points.vector[labeled_dim.name], [shape]))
             return  # The point labels match one of the figure axes, so they are redundant
         if points.shape['vector'].size == 2:
             xs, ys = reshaped_numpy(points, ['vector', points.shape.without('vector')])
@@ -822,6 +817,24 @@ def has_legend_like(labels, figure):
             if texts == list(labels):
                 return True
     return False
+
+
+def set_ticks(axes, which_axis, values, names=None):
+    values = sorted(set(values))
+    if which_axis == 0:  # x axis
+        if hasattr(axes, '_xticks_from_data'):
+            values = list(sorted([*values, *axes.get_xticks()]))
+        axes.set_xticks(values, names)
+        if axes.get_xscale() == 'log':
+            axes.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+        axes._xticks_from_data = True
+    elif which_axis == 1:
+        if hasattr(axes, '_yticks_from_data'):
+            values = list(sorted([*values, *axes.get_yticks()]))
+        axes.set_yticks(values, names)
+        if axes.get_yscale() == 'log':
+            axes.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+        axes._yticks_from_data = True
 
 
 def _get_pixels_per_unit(fig: plt.Figure, axis: plt.Axes, dpi=90):
