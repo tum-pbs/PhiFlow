@@ -6,6 +6,7 @@ from phiml import math
 from phiml.math import wrap
 from phiml.math._magic_ops import variable_attributes, copy_with
 from phiml.math._shape import shape_stack, Shape
+from phiml.math._tensors import object_dims
 from phiml.math.magic import PhiTreeNode
 
 from ._box import bounding_box, Box
@@ -21,19 +22,23 @@ class GeometryStack(Geometry):
     Instance dimensions represent geometry unions and are reduced.
     """
 
-    def __init__(self, geometries: Tensor):
+    def __init__(self, geometries: Union[Tensor, Geometry]):
         """
         Args:
             geometries: Tensor[Geometry] with one or multiple dimensions of any type.
         """
         self._geometries = geometries
-        ranks = math.map(lambda g: g.spatial_rank, geometries)
+        ranks = wrap(math.map(lambda g: g.spatial_rank, geometries, dims=object))
         assert ranks.min == ranks.max, f"Can only stack geometries of the same spatial rank but got ranks {ranks}"
-        self._shape = shape_stack(geometries.shape, *[g.shape for g in geometries])
+        self._shape = geometries.shape
 
     @property
     def geometries(self):
         return self._geometries
+
+    @property
+    def object_dims(self):
+        return object_dims(self._geometries)
 
     def unstack(self, dimension) -> tuple:
         if dimension == self.geometries.shape.name:
@@ -43,7 +48,7 @@ class GeometryStack(Geometry):
             raise NotImplementedError()
 
     def _bounding_box(self):
-        boxes = math.map(bounding_box, self._geometries)
+        boxes = math.map(bounding_box, self._geometries, dims=object)
         lower = math.min(boxes.lower, instance)
         upper = math.max(boxes.upper, instance)
         return Box(lower, upper)
@@ -54,11 +59,11 @@ class GeometryStack(Geometry):
 
     @property
     def weighted_center(self):
-        centers = math.map(lambda g: g.center, self._geometries)
+        centers = math.map(lambda g: g.center, self._geometries, dims=object)
         if not instance(centers):
             return centers
         # --- volume-weighted mean over instance dimensions ---
-        vol = math.map(lambda g: g.volume, self._geometries)
+        vol = math.map(lambda g: g.volume, self._geometries, dims=object)
         return math.sum(centers * vol, instance) / math.sum(vol, instance)  # ToDo could also return bounding box center
 
     @property
@@ -73,38 +78,38 @@ class GeometryStack(Geometry):
     def volume(self) -> math.Tensor:
         if instance(self._geometries):
             warnings.warn("Volume of a union assumes geometries do not overlap and may not be accurate otherwise.", RuntimeWarning)
-        vol = math.map(lambda g: g.volume, self._geometries)
+        vol = math.map(lambda g: g.volume, self._geometries, dims=object)
         return math.sum(vol, instance(self._geometries))
 
     def lies_inside(self, location: math.Tensor):
-        inside = math.map(lambda g, l: g.lies_inside(l), self._geometries, location, dims=self._geometries.shape)
+        inside = math.map(lambda g, l: g.lies_inside(l), self._geometries, location, dims=object)
         return math.any(inside, instance(self._geometries))
 
     def approximate_signed_distance(self, location: math.Tensor):
-        dist = math.map(lambda g, l: g.approximate_signed_distance(l), self._geometries, location, dims=self._geometries.shape)
+        dist = math.map(lambda g, l: g.approximate_signed_distance(l), self._geometries, location, dims=object)
         return math.min(dist, instance(self._geometries))
 
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
-        signed_dist, delta, normals, offsets, face_idx = math.map(lambda g, l: g.approximate_closest_surface(l), self._geometries, location, dims=self._geometries.shape)
+        signed_dist, delta, normals, offsets, face_idx = math.map(lambda g, l: g.approximate_closest_surface(l), self._geometries, location, dims=object)
         return math.at_min((signed_dist, delta, normals, offsets, face_idx), key=abs(signed_dist), dim=instance)
 
     def bounding_radius(self):
         center = self.center
-        rad = math.map(lambda g: math.vec_length(g.center - center) + g.bounding_radius(), self._geometries)
+        rad = math.map(lambda g: math.vec_length(g.center - center) + g.bounding_radius(), self._geometries, dims=object)
         return math.max(rad, instance(self._geometries))
 
     def bounding_half_extent(self):
         return self._bounding_box().half_size
 
     def shifted(self, delta: Tensor) -> 'Geometry':
-        return GeometryStack(math.map(lambda g: g.shifted(delta), self._geometries))
+        return GeometryStack(math.map(lambda g: g.shifted(delta), self._geometries, dims=object))
 
     def at(self, center: Tensor) -> 'Geometry':
         return self.shifted(center - self.center)
 
     def rotated(self, angle):
         pivot = self.center
-        return GeometryStack(math.map(lambda g: rotate(g, angle, pivot), self._geometries))
+        return GeometryStack(math.map(lambda g: rotate(g, angle, pivot), self._geometries, dims=object))
 
     def __eq__(self, other):
         return isinstance(other, GeometryStack) \
@@ -123,10 +128,10 @@ class GeometryStack(Geometry):
 
     def __getitem__(self, item):
         selected = self.geometries[slicing_dict(self, item)]
-        if selected.shape.volume > 1:
-            return GeometryStack(selected)
+        if isinstance(selected, Geometry):
+            return selected
         else:
-            return next(iter(selected))
+            return GeometryStack(selected)
 
     @property
     def faces(self) -> 'Geometry':
@@ -134,21 +139,21 @@ class GeometryStack(Geometry):
 
     @property
     def face_centers(self) -> Tensor:
-        return math.map(lambda g: g.face_centers, self._geometries)
+        return math.map(lambda g: g.face_centers, self._geometries, dims=object)
 
     @property
     def face_areas(self) -> Tensor:
-        return math.map(lambda g: g.face_areas, self._geometries)
+        return math.map(lambda g: g.face_areas, self._geometries, dims=object)
 
     @property
     def face_normals(self) -> Tensor:
-        return math.map(lambda g: g.face_normals, self._geometries)
+        return math.map(lambda g: g.face_normals, self._geometries, dims=object)
 
     @property
     def boundary_elements(self) -> Dict[Any, Dict[str, slice]]:
         result = {}
-        for idx in self._geometries.shape.meshgrid(names=True):
-            elements = self._geometries[idx].native().boundary_elements
+        for idx in object_dims(self._geometries).meshgrid(names=True):
+            elements = self._geometries[idx].boundary_elements
             for key, b_slice in elements.items():
                 b_slice = {**idx ** b_slice}
                 if key in result:

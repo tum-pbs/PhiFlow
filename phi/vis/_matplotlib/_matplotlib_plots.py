@@ -564,7 +564,7 @@ class PointCloud2D(Recipe):
     @staticmethod
     def _plot_points(axis: Axes, data: Field, dims: tuple, vector: Shape, color: Tensor, alpha: Tensor, err: Tensor, min_val, max_val, label):
         if isinstance(data.sampled_elements, GeometryStack):
-            for idx in data.sampled_elements.geometries.shape[0].meshgrid():
+            for idx in data.sampled_elements.object_dims.meshgrid():
                 PointCloud2D._plot_points(axis, data[idx], dims, vector, color[idx], alpha[idx], err[idx], min_val, max_val, label)
             return
         data = only_stored_elements(data)

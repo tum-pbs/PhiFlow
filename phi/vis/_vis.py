@@ -339,6 +339,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
     """
     positioning = {}
     indices: Dict[Tuple[int, int], List[dict]] = {}
+    fields = [layout_pytree_node(f) for f in fields]
     nrows, ncols, fig_shape, reduced_shape = layout_sub_figures(layout(fields, batch('args')), row_dims, col_dims, animate, overlay, 0, 0, positioning, indices, {})
     animate = fig_shape.only(animate)
     fig_shape = fig_shape.without(animate)
@@ -421,17 +422,7 @@ def layout_pytree_node(data, wrap_leaf=False):
     return wrap(data) if wrap_leaf else data
 
 
-def layout_one_level(data, wrap_leaf=False):
-    if isinstance(data, tuple):
-        return layout(data, batch('tuple'))
-    elif isinstance(data, list):
-        return layout(data, batch('list'))
-    elif isinstance(data, dict):
-        return layout(data, batch('dict'))
-    return wrap(data) if wrap_leaf else data
-
-
-def layout_sub_figures(any_data: Union[Tensor, Field],
+def layout_sub_figures(data: Union[Tensor, Field],
                        row_dims: DimFilter,
                        col_dims: DimFilter,
                        animate: DimFilter,  # do not reduce these dims, has priority
@@ -441,9 +432,8 @@ def layout_sub_figures(any_data: Union[Tensor, Field],
                        positioning: Dict[Tuple[int, int], List],
                        indices: Dict[Tuple[int, int], List[dict]],
                        base_index: Dict[str, Union[int, str]]) -> Tuple[int, int, Shape, Shape]:  # rows, cols
-    if any_data is None:
-        raise ValueError(f"Cannot layout figure for '{any_data}'")
-    data = layout_one_level(any_data, wrap_leaf=False)
+    if data is None:
+        raise ValueError(f"Cannot layout figure for '{data}'")
     if isinstance(data, Tensor) and data.dtype.kind == object:  # layout
         rows, cols = 0, 0
         non_reduced = math.EMPTY_SHAPE
@@ -463,15 +453,15 @@ def layout_sub_figures(any_data: Union[Tensor, Field],
             for item_name, e in zip(dim0.get_item_names(dim0.name) or range(dim0.size), elements):
                 index = dict(base_index, **{dim0.name: item_name})
                 if dim0.only(row_dims):
-                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e.native(), row_dims, col_dims, animate, overlay, offset_row + rows, offset_col, positioning, indices, index)
+                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row + rows, offset_col, positioning, indices, index)
                     rows += e_rows
                     cols = max(cols, e_cols)
                 elif dim0.only(col_dims):
-                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e.native(), row_dims, col_dims, animate, overlay, offset_row, offset_col + cols, positioning, indices, index)
+                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row, offset_col + cols, positioning, indices, index)
                     cols += e_cols
                     rows = max(rows, e_rows)
                 else:
-                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e.native(), row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, index)
+                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, index)
                     cols = max(cols, e_cols)
                     rows = max(rows, e_rows)
                 non_reduced &= e_non_reduced
