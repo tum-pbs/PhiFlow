@@ -517,7 +517,7 @@ def to_field(obj):
     raise ValueError(f"Cannot plot {obj}. Tensors, geometries and fields can be plotted.")
 
 
-def get_default_limits(f: Field, all_dims: Sequence[str] = None) -> Box:
+def get_default_limits(f: Field, all_dims: Optional[Sequence[str]], log_dims: Tuple[str], err: Tensor) -> Box:
     if f.is_point_cloud and f.spatial_rank == 1:  # 1D: bar chart
         bounds = f.bounds
         count = non_batch(f).non_dual.non_channel.volume
@@ -528,17 +528,21 @@ def get_default_limits(f: Field, all_dims: Sequence[str] = None) -> Box:
         return data_bounds(f) * Box(**{value_dim: (math.finite_min(f.values, spatial), math.finite_max(f.values, spatial))})
     # --- Determine element size ---
     half = f.geometry.bounding_half_extent()
+    half = math.maximum(half, err)
     half = math.where(half == 0, .1, half)
     min_vec = math.min(f.center - half, dim=f.center.shape.non_batch.non_channel)
     max_vec = math.max(f.center + half, dim=f.center.shape.non_batch.non_channel)
     bounds = Box(min_vec, max_vec).largest(channel)
     # bounds = data_bounds(f.geometry.center).largest(channel)
-    extended_bounds = Cuboid(bounds.center, bounds.half_size * 1.1)
+    ext_bounds_lin = Cuboid(bounds.center, bounds.half_size * 1.1)
+    ext_bounds_log = Box(bounds.lower * 0.95, bounds.upper * 1.05)
+    is_log = wrap([dim in log_dims for dim in bounds.vector.item_names], bounds.shape['vector'])
+    extended_bounds = Box(math.where(is_log, ext_bounds_log.lower, ext_bounds_lin.lower), math.where(is_log, ext_bounds_log.upper, ext_bounds_lin.upper))
     extended_bounds = Box(math.min(extended_bounds.lower, half.shape.without('vector')), math.max(extended_bounds.upper, half.shape.without('vector')))
-    if isinstance(f.geometry, Point):  # don't plot negative values if all values are positive and vice-versa
-        lower = math.where(extended_bounds.lower * bounds.lower < 0, bounds.lower * .9, extended_bounds.lower)
-        upper = math.where(extended_bounds.upper * bounds.upper < 0, bounds.upper * .9, extended_bounds.upper)
-        extended_bounds = Box(lower, upper)
+    # if isinstance(f.geometry, Point):  # don't plot negative values if all values are positive and vice-versa -> now handled by log_dims
+    #     lower = math.where(extended_bounds.lower * bounds.lower < 0, bounds.lower * .9, extended_bounds.lower)
+    #     upper = math.where(extended_bounds.upper * bounds.upper < 0, bounds.upper * .9, extended_bounds.upper)
+    #     extended_bounds = Box(lower, upper)
     return extended_bounds
 
 

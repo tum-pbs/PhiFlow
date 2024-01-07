@@ -4,7 +4,7 @@ import sys
 import warnings
 from contextlib import contextmanager
 from threading import Thread
-from typing import Tuple, List, Dict, Union
+from typing import Tuple, List, Dict, Union, Sequence
 
 from phiml.math._magic_ops import tree_map
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
@@ -371,7 +371,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
     else:
         min_val = max_val = None
     # --- Layout ---
-    subplots = {pos: _space(*fields, ignore_dims=animate) for pos, fields in positioning.items()}
+    subplots = {pos: _space(*fields, ignore_dims=animate, log_dims=log_dims, errs=[err[i] for i in indices[pos]]) for pos, fields in positioning.items()}
     subplots = {pos: _insert_value_dim(space, pos, subplots, min_val, max_val) for pos, space in subplots.items()}
     if same_scale:
         shared_lim: Box = share_axes(*subplots.values(), axes=same_scale)
@@ -493,13 +493,13 @@ def layout_sub_figures(any_data: Union[Tensor, Field],
         return row_shape.volume, col_shape.volume, non_reduced, EMPTY_SHAPE
 
 
-def _space(*values: Field or Tensor, ignore_dims: Shape) -> Box:
+def _space(*values: Field or Tensor, ignore_dims: Shape, log_dims: Tuple[str], errs: Sequence[Tensor]) -> Box:
     all_dims = []
-    for f in values:
-        for dim in get_default_limits(f).vector.item_names:
+    for f, e in zip(values, errs):
+        for dim in get_default_limits(f, None, log_dims, e).vector.item_names:
             if dim not in all_dims and dim not in ignore_dims:
                 all_dims.append(dim)
-    all_bounds = [embed(get_default_limits(f, all_dims).without(ignore_dims.names).largest(shape), all_dims) for f in values]
+    all_bounds = [embed(get_default_limits(f, all_dims, log_dims, e).without(ignore_dims.names).largest(shape), all_dims) for f, e in zip(values, errs)]
     bounds: Box = math.stack(all_bounds, batch('_fields'))
     lower = math.finite_min(bounds.lower, bounds.shape.without('vector'), default=-math.INF)
     upper = math.finite_max(bounds.upper, bounds.shape.without('vector'), default=math.INF)
