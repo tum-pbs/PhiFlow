@@ -21,7 +21,7 @@ class Face:
     # """Distance to primary (non-dual) cell between 0 and 1"""
 
 
-class UnstructuredMesh(Geometry):
+class Mesh(Geometry):
 
     def __init__(self, vertices: Tensor,
                  polygons: Tensor,
@@ -252,16 +252,16 @@ class UnstructuredMesh(Geometry):
         return hash((self._vertices, self._polygons))
 
     def __getitem__(self, item):
-        assert 'vertices' not in item, "Cannot slice UnstructuredMesh along 'vertices'"
-        assert 'vertex_index' not in item, "Cannot slice UnstructuredMesh along 'vertex_index'"
+        assert 'vertices' not in item, "Cannot slice Mesh along 'vertices'"
+        assert 'vertex_index' not in item, "Cannot slice Mesh along 'vertex_index'"
         vertices = self._vertices[item]
         polygons = self._polygons[item]
         vertex_count = self._vertex_count[item]
         faces = Face(self._faces.center[item], self._faces.normal[item], self._faces.area[item])
-        return UnstructuredMesh(vertices, polygons, vertex_count, self._boundaries, self._center[item], self._volume[item], faces, self._valid_mask[item])
+        return Mesh(vertices, polygons, vertex_count, self._boundaries, self._center[item], self._volume[item], faces, self._valid_mask[item])
 
 
-def load_su2(file_or_mesh: str, cell_dim=instance('cells'), face_format: str = 'csc') -> UnstructuredMesh:
+def load_su2(file_or_mesh: str, cell_dim=instance('cells'), face_format: str = 'csc') -> Mesh:
     """
     Loads an unstructured mesh from a `.su2` file.
 
@@ -271,7 +271,7 @@ def load_su2(file_or_mesh: str, cell_dim=instance('cells'), face_format: str = '
         face_format: Sparse storage format for cell connectivity.
 
     Returns:
-        `UnstructuredMesh`
+        `Mesh`
     """
     if isinstance(file_or_mesh, str):
         from ezmesh import import_from_file
@@ -290,7 +290,7 @@ def mesh_from_numpy(points: Union[list, np.ndarray],
                     polygons: list,
                     boundaries: Dict[str, List[Sequence]],
                     cell_dim: Shape = instance('cells'),
-                    face_format: str = 'csc') -> UnstructuredMesh:
+                    face_format: str = 'csc') -> Mesh:
     """
     Construct an unstructured mesh from vertices.
 
@@ -305,7 +305,7 @@ def mesh_from_numpy(points: Union[list, np.ndarray],
         face_format: Sparse storage format for cell connectivity.
 
     Returns:
-        `UnstructuredMesh`
+        `Mesh`
     """
     cell_dim = cell_dim.with_size(len(polygons))
     points = np.asarray(points)
@@ -339,7 +339,7 @@ def mesh_from_numpy(points: Union[list, np.ndarray],
     faces = Face(faces.center, new_normals, faces.area)
     vol_contributions = faces.center.vector * faces.normal.vector * faces.area / dim
     volume = math.sum(vol_contributions, dual(faces.area))
-    return UnstructuredMesh(vertices, polygons, vertex_count, boundary_slices, cell_centers, volume, faces, valid_mask)
+    return Mesh(vertices, polygons, vertex_count, boundary_slices, cell_centers, volume, faces, valid_mask)
 
 
 def build_faces_2d(points: np.ndarray,

@@ -87,7 +87,7 @@ def differential(u: Field,
     For unstructured meshes, computes 1/V ∑_f (n·U_prev) U ρ A
 
     Args:
-        u: Scalar or vector-valued `Field` sampled on a `CenteredGrid`, `StaggeredGrid` or `UnstructuredMesh`.
+        u: Scalar or vector-valued `Field` sampled on a `CenteredGrid`, `StaggeredGrid` or `Mesh`.
         velocity: `Field` that can be sampled at the elements of `u`.
             For FVM, the advection term is typically linearized by setting `velocity = previous_velocity`.
             Passing `velocity=u` yields non-linear terms which cannot be traced inside linear functions.

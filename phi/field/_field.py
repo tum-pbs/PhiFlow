@@ -3,7 +3,7 @@ from numbers import Number
 from typing import Callable, Union, Tuple
 
 from phi import math
-from phi.geom import Geometry, Box, Point, BaseBox, UniformGrid, UnstructuredMesh, Sphere
+from phi.geom import Geometry, Box, Point, BaseBox, UniformGrid, Mesh, Sphere
 from phi.geom._geom import slice_off_constant_faces
 from phi.math import Shape, Tensor, channel, non_batch, expand, instance, spatial, wrap, dual, non_dual
 from phi.math.extrapolation import Extrapolation
@@ -69,8 +69,8 @@ class Field:
         return self._geometry
 
     @property
-    def mesh(self) -> UnstructuredMesh:
-        assert isinstance(self._geometry, UnstructuredMesh), f"Geometry is not a mesh but {type(self._geometry)}"
+    def mesh(self) -> Mesh:
+        assert isinstance(self._geometry, Mesh), f"Geometry is not a mesh but {type(self._geometry)}"
         return self._geometry
 
     @property
@@ -219,11 +219,11 @@ class Field:
 
     @property
     def is_mesh(self):
-        return isinstance(self._geometry, UnstructuredMesh)
+        return isinstance(self._geometry, Mesh)
 
     @property
     def is_point_cloud(self):
-        if isinstance(self._geometry, (UniformGrid, UnstructuredMesh)):
+        if isinstance(self._geometry, (UniformGrid, Mesh)):
             return False
         if isinstance(self._geometry, (BaseBox, Sphere, Point)):
             return True
@@ -236,7 +236,7 @@ class Field:
 
     @property
     def cells(self):
-        assert isinstance(self._geometry, (UniformGrid, UnstructuredMesh))
+        assert isinstance(self._geometry, (UniformGrid, Mesh))
         return self._geometry
 
     def at_centers(self, **kwargs) -> 'Field':

@@ -2,7 +2,7 @@ from numbers import Number
 from typing import Union, List, Callable, Optional
 
 from phi import math
-from phi.geom import Geometry, Box, Point, UniformGrid, UnstructuredMesh
+from phi.geom import Geometry, Box, Point, UniformGrid, Mesh
 from phi.math import Shape, Tensor, instance, spatial, Solve, dual, si2d
 from phi.math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
 from phiml.math import unstack, channel, rename_dims, batch

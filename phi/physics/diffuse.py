@@ -109,7 +109,7 @@ def differential(u: Field,
     In contrast to `explicit` and `implicit`, accuracy can be increased by using stencils of higher-order rather than calculating sub-steps.
 
     Args:
-        u: Scalar or vector-valued `Field` sampled on a `CenteredGrid`, `StaggeredGrid` or centered `UnstructuredMesh`.
+        u: Scalar or vector-valued `Field` sampled on a `CenteredGrid`, `StaggeredGrid` or centered `Mesh`.
         diffusivity: Dynamic viscosity, i.e. diffusion per time. Constant or varying by cell.
         gradient: Only used by FVM at the moment. Approximate gradient of `u`, e.g. ∇u of the previous time step.
             If `None`, approximates the gradient as `(u_neighbor - u_self) / distance`.
