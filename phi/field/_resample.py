@@ -5,7 +5,7 @@ from phi import math
 from phi.geom import Geometry, Box, Point, UniformGrid, Mesh
 from phi.math import Shape, Tensor, instance, spatial, Solve, dual, si2d
 from phi.math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
-from phiml.math import unstack, channel, rename_dims, batch
+from phiml.math import unstack, channel, rename_dims, batch, extrapolation
 from ._field import Field, FieldInitializer, as_boundary, slice_off_constant_faces
 from phiml.math._tensors import may_vary_along
 
@@ -367,8 +367,8 @@ def centroid_to_faces(u: Field, boundary: Extrapolation, order=2, upwind: Field 
         flows_out = upwind.values.vector @ u.mesh.face_normals.vector >= 0
         if gradient is None:
             from phi.field._field_math import green_gauss_gradient
-            gradient = green_gauss_gradient(u, order=order, upwind=None, stack_dim=dual('vector'))  # we cannot pass same interpolation here
-        neighbor_grad = u.mesh.pad_boundary(gradient.values, mode=gradient.boundary)
+            gradient = green_gauss_gradient(u, boundary=boundary, order=order, upwind=None, stack_dim=dual('vector'))  # we cannot pass same interpolation here
+        neighbor_grad = u.mesh.pad_boundary(gradient.values, mode=boundary if boundary != extrapolation.NONE else u.boundary.spatial_gradient())
         interpolated_from_self = u.values + gradient.values.vector.dual @ (u.mesh.face_centers - u.mesh.center).vector
         interpolated_from_neighbor = neighbor_val + neighbor_grad.vector.dual @ (u.mesh.face_centers - (u.mesh.center + u.mesh.neighbor_offsets)).vector
         # ToDo limiter
