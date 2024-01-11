@@ -604,8 +604,8 @@ class PointCloud2D(Recipe):
                     lower_x, lower_y = reshaped_numpy(data.geometry.center - math.rotate_vector(data.geometry.half_size, data.geometry.rotation_matrix), ['vector', data.shape.non_channel])
                 shapes = [plt.Rectangle((lxi, lyi), w2i * 2, h2i * 2, angle=ang*180/np.pi, linewidth=1, edgecolor='white', alpha=a, facecolor=ci) for lxi, lyi, w2i, h2i, ang, ci, a in zip(lower_x, lower_y, w2, h2, angles, mpl_colors, alphas)]
             elif isinstance(data.geometry, Mesh):
-                xs, ys = reshaped_numpy(data.geometry.vertices[data.geometry.polygons], ['vector', data.shape.non_channel, 'vertex_index'])
-                counts = reshaped_numpy(data.geometry._vertex_count, [data.shape.non_channel])
+                xs, ys = reshaped_numpy(data.geometry.vertices[data.geometry.polygons], ['vector', instance, spatial])
+                counts = reshaped_numpy(math.sum(data.geometry.polygons >= 0, spatial), [instance])
                 shapes = [plt.Polygon(np.stack([x[:count], y[:count]], -1), closed=True, edgecolor='white', alpha=a, facecolor=ci) for x, y, count, ci, a in zip(xs, ys, counts, mpl_colors, alphas)]
             else:
                 rad = reshaped_numpy(data.geometry.bounding_radius(), [data.shape.non_channel])

@@ -4,8 +4,9 @@ from typing import Dict, List, Sequence, Union
 
 import numpy as np
 
-from phiml.math import to_format, is_sparse
+from phiml.math import to_format, is_sparse, unstack
 from phiml.math.extrapolation import as_extrapolation
+from phiml.math.magic import slicing_dict
 from ._geom import Geometry, Point
 from .. import math
 from ..math import Tensor, Shape, channel, NUMPY, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, vec, stack, vec_length, tensor_like, \
@@ -22,6 +23,10 @@ class Face:
 
 
 class Mesh(Geometry):
+    """
+    Unstructured mesh.
+    Use `phi.geom.mesh()` or `phi.geom.mesh_from_numpy()` to construct a mesh manually or `phi.geom.load_su2()` to load one from a file.
+    """
 
     def __init__(self, vertices: Tensor,
                  polygons: Tensor,
@@ -35,16 +40,15 @@ class Mesh(Geometry):
         Args:
             vertices: Vertex positions, shape (vertices:i, vector:c)
                 Vertex 0 must be at position 0.
-            polygons: `Tensor` containing vertex indices, Shape (polygons:i, vertex_index:s).
+            polygons: `Tensor` listing ordered vertex indices per cell.
+                Must have one instance dimensions listing polygons.
+                Must have one spatial dimension listing vertex indices per polygon.
                 This can be a sparse or dense tensor.
                 Invalid indices (index >= vertex_count) must still represent existing vertices. (or -1?)
             vertex_count: Number of vertices per polygon, shape (polygons,)
         """
-        assert instance(vertices).rank == 1, f"vertices must have exactly one instance dimension but got {shape(vertices)}"
-        vertices = rename_dims(vertices, instance, 'vertices')
         assert 'vector' in channel(vertices) and channel(vertices).get_item_names('vector') is not None, "vertices must have a 'vector' dim listing the physical dimensions"
         vertex_count = expand(vertex_count, instance(polygons))
-        assert 'vertex_index' in spatial(polygons), f"polygons must have exactly one spatial dimension called 'vertex_index' but got {shape(polygons)}"
         assert polygons.dtype.kind == int, f"polygons must be integer lists but got dtype {polygons.dtype}"
         self._vertices = vertices
         self._polygons = polygons
@@ -131,24 +135,6 @@ class Mesh(Geometry):
         ordered_pieces = [values[i] for i in perm]
         return concat(ordered_pieces, dim, expand_values=True)
 
-    # def edges(self, bidirectional=False) -> Tuple[Tensor, Tensor]:
-    #     last_vertex = expand(self._polygons.vertex_index[self._vertex_count-1], spatial(vertex_index=1))
-    #     vertex1 = math.concat([last_vertex, self._polygons.vertex_index[:-1]], 'vertex_index')
-    #     vertex2 = self._polygons
-    #     indices = math.vec(from_vertex=vertex1, to_vertex=vertex2)
-    #     indices = pack_dims(indices, ['vertex_index', instance(self._polygons)], instance('edges'))
-    #     vdim = list(instance(self._vertices).names)
-    #     indices = rename_dims(indices, 'vector', channel(vector=['~'+s for s in vdim] + vdim))
-    #     valid = self._valid_mask
-    #     values = pack_dims(valid, 'vertex_index', instance('edges'))  # ToDo pack
-    #     dense_shape = dual(vertices=self._vertices.vertices.size) & instance(self._vertices)
-    #     edges = sparse_tensor(indices, values, dense_shape, can_contain_double_entries=True, indices_sorted=False)
-    #     # ToDo remove zero values
-    #     if bidirectional:
-    #         pass  # ToDo add transpose to make matrix symmetric, then remove doubles
-    #     # ToDo remove doubles
-    #     return self._vertices, edges
-
     @property
     def cell_connectivity(self) -> Tensor:
         """
@@ -230,13 +216,13 @@ class Mesh(Geometry):
     def bounding_radius(self) -> Tensor:
         center = self.center
         vertex_pos = self._vertices[self._polygons]
-        max_dist = math.max(math.vec_length(vertex_pos - center) * self._valid_mask, 'vertex_index')
+        max_dist = math.max(math.vec_length(vertex_pos - center) * self._valid_mask, spatial)
         return max_dist
 
     def bounding_half_extent(self) -> Tensor:
         center = self.center
         vertex_pos = self._vertices[self._polygons]
-        max_delta = math.max(abs(vertex_pos - center) * self._valid_mask, 'vertex_index')
+        max_delta = math.max(abs(vertex_pos - center) * self._valid_mask, spatial)
         return max_delta
 
     def at(self, center: Tensor) -> 'Geometry':
@@ -252,8 +238,9 @@ class Mesh(Geometry):
         return hash((self._vertices, self._polygons))
 
     def __getitem__(self, item):
-        assert 'vertices' not in item, "Cannot slice Mesh along 'vertices'"
-        assert 'vertex_index' not in item, "Cannot slice Mesh along 'vertex_index'"
+        item: dict = slicing_dict(self, item)
+        assert not spatial(self._polygons).only(tuple(item)), f"Cannot slice vertex lists ('{spatial(self._polygons)}') but got slicing dict {item}"
+        assert not instance(self._vertices).only(tuple(item)), f"Slicing by vertex indices ('{instance(self._vertices)}') not supported but got slicing dict {item}"
         vertices = self._vertices[item]
         polygons = self._polygons[item]
         vertex_count = self._vertex_count[item]
@@ -302,61 +289,84 @@ def mesh_from_numpy(points: Union[list, np.ndarray],
         boundaries: An unstructured mesh can have multiple boundaries, each defined by a name `str` and a list of faces, defined by their vertices.
             The `boundaries` `dict` maps boundary names to a list of edges (point pairs) in 2D and faces (3 or more points) in 3D (not yet supported).
         cell_dim: Dimension along which to list the cells. This should be an instance dimension.
-        face_format: Sparse storage format for cell connectivity.
+        face_format: Storage format for cell connectivity, must be one of `csc`, `coo`, `csr`, `dense`.
 
     Returns:
         `Mesh`
     """
     cell_dim = cell_dim.with_size(len(polygons))
     points = np.asarray(points)
-    dim = points.shape[-1]
-    if dim == 2:
-        faces, boundary_slices = build_faces_2d(points, polygons, boundaries, channel(vector='x,y'), cell_dim, face_format)
-        vertices = vec(x=points[:, 0].tolist(), y=points[:, 1].tolist())
-    elif dim == 3:
-        # vertices = vec(x=points[:, 0].tolist(), y=points[:, 1].tolist(), z=points[:, 2].tolist())
-        raise NotImplementedError
-    else:
-        raise NotImplementedError(f"dim={dim} not supported")
     try:
         elements_np = np.stack(polygons).astype(np.int32)
-        vertex_count = elements_np.shape[-1]
     except ValueError:
         vertex_count = wrap([len(e) for e in polygons], cell_dim)
         max_len = vertex_count.max
-        elements_np = np.zeros((len(polygons), max_len), dtype=np.int32)
+        elements_np = np.zeros((len(polygons), max_len), dtype=np.int32) - 1
         for i, element in enumerate(polygons):
             elements_np[i, :len(element)] = element
+    xyz = tuple('xyz'[:points.shape[-1]])
+    vertices = wrap(points, instance('vertices'), channel(vector=xyz))
     polygons = wrap(elements_np, cell_dim, spatial('vertex_index'))
+    return mesh(vertices, polygons, boundaries, face_format=face_format)
+
+
+def mesh(vertices: Tensor,
+         polygons: Tensor,
+         boundaries: Union[str, Dict[str, List[Sequence]]],
+         face_format: str = 'csc'):
+    """
+    Create a mesh from vertex positions and vertex lists.
+
+    Args:
+        vertices: `Tensor` with one instance and one channel dimension `vector`.
+        polygons: Lists of vertex indices as 2D tensor.
+            The polygons must be listed along an instance dimension, and the vertex indices belonging to the same polygon must be listed along a spatial dimension.
+        boundaries: Pass a `str` to assign one name to all boundary faces.
+            For multiple boundaries, pass a `dict` mapping group names `str` to lists of faces, defined by their vertices.
+            The last entry can be `None` to group all boundary faces not explicitly listed before.
+            The `boundaries` `dict` maps boundary names to a list of edges (point pairs) in 2D and faces (3 or more points) in 3D (not yet supported).
+        face_format: Storage format for cell connectivity, must be one of `csc`, `coo`, `csr`, `dense`.
+
+    Returns:
+        `Mesh`
+    """
+    assert 'vector' in channel(vertices), f"vertices must have a channel dimension called 'vector' but got {shape(vertices)}"
+    assert instance(polygons).rank == 1, f"polygons must have exactly one instance dimension listing the polygons (cells) but got {shape(polygons)}"
+    assert spatial(polygons).rank == 1, f"polygons must have exactly one spatial dimensions listing the vertices of the polygons bot got {shape(polygons)}"
+    if vertices.vector.size == 2:
+        faces, boundary_slices = build_faces_2d(vertices, polygons, boundaries, face_format)
+    elif vertices.vector.size == 3:
+        raise NotImplementedError
+    else:
+        raise NotImplementedError(f"dim={vertices.vector.size} not supported")
     # --- Compute centers, volume ---
-    max_index = polygons.vertex_index.size
-    with NUMPY:
-        valid_mask = math.range(spatial(vertex_index=max_index)) < vertex_count
-    vertex_pos = vertices.sequence[polygons]
-    cell_centers = math.sum(vertex_pos * valid_mask, 'vertex_index') / vertex_count
-    normals_out = faces.normal.vector * (faces.center - cell_centers).vector > 0
+    valid_mask = polygons >= 0
+    vertex_count = math.sum(valid_mask, spatial)
+    vertex_pos = vertices.vertices[polygons]
+    approx_center = math.sum(vertex_pos * valid_mask, spatial) / vertex_count
+    normals_out = faces.normal.vector * (faces.center - approx_center).vector > 0
     new_normals = math.where(normals_out, faces.normal, -faces.normal)
     faces = Face(faces.center, new_normals, faces.area)
-    vol_contributions = faces.center.vector * faces.normal.vector * faces.area / dim
-    volume = math.sum(vol_contributions, dual(faces.area))
+    vol_contributions = faces.center.vector * faces.normal.vector * faces.area / vertices.vector.size
+    volume = math.sum(vol_contributions, dual)
+    cell_centers = math.sum(faces.center * faces.area, dual) / math.sum(faces.area, dual)
     return Mesh(vertices, polygons, vertex_count, boundary_slices, cell_centers, volume, faces, valid_mask)
 
 
-def build_faces_2d(points: np.ndarray,
-                   polygons: list,
-                   boundaries: Dict[str, List[Sequence]],
-                   vector_dim: Shape,
-                   poly_dim: Shape,
+
+def build_faces_2d(vertices: Tensor,
+                   polygons: Tensor,
+                   boundaries: Union[str, Dict[str, List[Sequence]]],
                    face_format: str):
-    assert points.shape[-1] == 2, f"Only 2D faces implemented"
     poly_by_face = {}
     poly1 = []
     poly2 = []
     points1 = []
     points2 = []
     # --- Find neighbor cells ---
-    for poly_idx, vert_indices in enumerate(polygons):
-        n_vert = len(vert_indices)
+    for poly_idx, vert_indices in enumerate(unstack(polygons, instance)):
+        n_vert = int(math.sum(vert_indices >= 0))
+        vert_indices = vert_indices.numpy()
         for i in range(n_vert):
             v1 = vert_indices[i]
             v2 = vert_indices[(i+1) % n_vert]
@@ -374,43 +384,60 @@ def build_faces_2d(points: np.ndarray,
     poly1, poly2 = poly1 + poly2, poly2 + poly1
     points1, points2 = points1 + points2, points2 + points1
     # --- Add boundary faces ---
-    # dual_poly_dim = dual(**poly_dim.untyped_dict).with_size(len(polygons) + sum([len(b) for bs in boundaries.values() for b in bs]))
-    dual_poly_dim = dual(neighbors=len(polygons) + sum([len(b) for b in boundaries.values()]))
-    boundary_idx = len(polygons)
+    boundary_idx = instance(polygons).size
     boundary_slices = {}
+    if not isinstance(boundaries, dict):
+        boundaries = {boundaries: None}
     for boundary_name, pair_list in boundaries.items():
         boundary_start_idx = boundary_idx
-        for pair in pair_list:
-            v1, v2 = pair
-            poly_idx = poly_by_face.get((v1, v2), None)
-            if poly_idx is None:
-                poly_idx = poly_by_face[(v2, v1)]
-                del poly_by_face[(v2, v1)]
-                points1.append(v2)
-                points2.append(v1)
-            else:
-                del poly_by_face[(v1, v2)]
+        if pair_list is not None:
+            for v1, v2 in pair_list:
+                poly_idx = poly_by_face.get((v1, v2), None)
+                if poly_idx is None:
+                    poly_idx = poly_by_face[(v2, v1)]
+                    del poly_by_face[(v2, v1)]
+                    points1.append(v2)
+                    points2.append(v1)
+                else:
+                    del poly_by_face[(v1, v2)]
+                    points1.append(v1)
+                    points2.append(v2)
+                poly1.append(poly_idx)
+                poly2.append(boundary_idx)
+                boundary_idx += 1
+        else:  # auto-fill rest
+            for (v1, v2), poly_idx in poly_by_face.items():
                 points1.append(v1)
                 points2.append(v2)
-            poly1.append(poly_idx)
-            poly2.append(boundary_idx)
-            boundary_idx += 1
-        boundary_slices[boundary_name] = {dual_poly_dim.name: slice(boundary_start_idx, boundary_idx)}
-    assert not poly_by_face, f"{len(poly_by_face)} edges are not marked and do not have a neighbor cell."
+                poly1.append(poly_idx)
+                poly2.append(boundary_idx)
+                boundary_idx += 1
+            poly_by_face.clear()
+        boundary_slices[boundary_name] = {'~neighbors': slice(boundary_start_idx, boundary_idx)}
+    assert not poly_by_face, f"{len(poly_by_face)} edges are not marked and do not have a neighbor cell: {tuple(poly_by_face)}"
+    neighbor_count = boundary_idx
+    # else:
+    #     boundary_start_idx = boundary_idx
+
+    #     neighbor_count = boundary_start_idx + len(poly_by_face)
+    #     boundary_slices[boundaries] = {'~' + instance(polygons).name: slice(boundary_start_idx, neighbor_count)}
     # --- wrap results as Φ-Flow tensors ---
     poly_pairs = np.asarray([poly1, poly2]).T
     face_dim = instance('faces')
-    indices = wrap(poly_pairs, face_dim, channel(vector=[poly_dim.name, dual_poly_dim.name]))
-    points1 = wrap(points[points1, :], face_dim, vector_dim)
-    points2 = wrap(points[points2, :], face_dim, vector_dim)
+    indices = wrap(poly_pairs, face_dim, channel(vector=[instance(polygons).name, '~neighbors']))
+    points1 = wrap(points1, face_dim)
+    points2 = wrap(points2, face_dim)
+    points1 = vertices[points1]
+    points2 = vertices[points2]
     # --- Compute edge properties ---
     delta = points2 - points1
     area = vec_length(delta)
     center = (points1 + points2) / 2
-    normal = stack([-delta[1], delta[0]], vector_dim)
+    normal = stack([-delta[1], delta[0]], channel(vertices))
     normal /= vec_length(normal)
     # --- Create sparse tensors ---
-    area = sparse_tensor(indices, area, poly_dim & dual_poly_dim, format='coo' if face_format == 'dense' else face_format, default=None)
+    dual_poly_dim = dual(neighbors=neighbor_count)
+    area = sparse_tensor(indices, area, instance(polygons) & dual_poly_dim, format='coo' if face_format == 'dense' else face_format, default=None)
     normal = tensor_like(area, normal, value_order='original')
     center = tensor_like(area, center, value_order='original')
     return Face(to_format(center, face_format), to_format(normal, face_format), to_format(area, face_format)), boundary_slices
