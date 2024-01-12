@@ -6,7 +6,7 @@ from typing import Optional
 from phi import math
 from phi.field import Scene
 from phi.math import shape, wrap, channel, spatial, batch
-from phi.math.backend import ML_LOGGER
+from phiml.backend import ML_LOGGER
 
 
 @math.broadcast
