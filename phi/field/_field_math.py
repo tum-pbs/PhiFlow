@@ -743,7 +743,7 @@ def stack(fields: Sequence[Field], dim: Shape, dim_bounds: Box = None):
     assert all(isinstance(f, Field) for f in fields), f"All fields must be Fields of the same type but got {fields}"
     assert all(isinstance(f, type(fields[0])) for f in fields), f"All fields must be Fields of the same type but got {fields}"
     if any(f.extrapolation != fields[0].extrapolation for f in fields):
-        raise NotImplementedError("Concatenating extrapolations not supported")
+        raise NotImplementedError(f"Concatenating differing extrapolations not supported but got {[f.extrapolation for f in fields]}")
     if fields[0].is_grid:
         values = math.stack([f.values for f in fields], dim)
         if spatial(dim):
