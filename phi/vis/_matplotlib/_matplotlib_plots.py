@@ -16,7 +16,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from phi import math
 from phi.field import StaggeredGrid, Field
-from phi.geom import Sphere, BaseBox, Point, Box, Mesh
+from phi.geom import Sphere, BaseBox, Point, Box, Mesh, Graph
 from phi.geom._heightmap import Heightmap
 from phi.geom._geom_ops import GeometryStack
 from phi.math import Tensor, channel, spatial, instance, non_channel, Shape, reshaped_numpy, shape
@@ -593,6 +593,7 @@ class PointCloud2D(Recipe):
             if isinstance(data.geometry, Sphere):
                 rad = reshaped_numpy(data.geometry.bounding_radius(), [data.shape.non_channel])
                 shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=a, facecolor=ci) for xi, yi, ri, ci, a in zip(x, y, rad, mpl_colors, alphas)]
+                axis.add_collection(matplotlib.collections.PatchCollection(shapes, match_original=True))
             elif isinstance(data.geometry, BaseBox):
                 w2, h2 = reshaped_numpy(data.geometry.half_size, ['vector', data.shape.non_channel])
                 if data.geometry.rotation_matrix is None:
@@ -603,15 +604,27 @@ class PointCloud2D(Recipe):
                     angles = reshaped_numpy(math.rotation_angles(data.geometry.rotation_matrix), ['vector', data.shape.non_channel])
                     lower_x, lower_y = reshaped_numpy(data.geometry.center - math.rotate_vector(data.geometry.half_size, data.geometry.rotation_matrix), ['vector', data.shape.non_channel])
                 shapes = [plt.Rectangle((lxi, lyi), w2i * 2, h2i * 2, angle=ang*180/np.pi, linewidth=1, edgecolor='white', alpha=a, facecolor=ci) for lxi, lyi, w2i, h2i, ang, ci, a in zip(lower_x, lower_y, w2, h2, angles, mpl_colors, alphas)]
+                axis.add_collection(matplotlib.collections.PatchCollection(shapes, match_original=True))
             elif isinstance(data.geometry, Mesh):
-                xs, ys = reshaped_numpy(data.geometry.vertices[data.geometry.polygons], ['vector', instance, spatial])
+                xs, ys = reshaped_numpy(data.geometry.vertices.center[data.geometry.polygons], ['vector', instance, spatial])
                 counts = reshaped_numpy(math.sum(data.geometry.polygons >= 0, spatial), [instance])
                 shapes = [plt.Polygon(np.stack([x[:count], y[:count]], -1), closed=True, edgecolor='white', alpha=a, facecolor=ci) for x, y, count, ci, a in zip(xs, ys, counts, mpl_colors, alphas)]
+                axis.add_collection(matplotlib.collections.PatchCollection(shapes, match_original=True))
+            elif isinstance(data.geometry, Graph):
+                xs, ys = reshaped_numpy(data.geometry.center, ['vector', non_channel])
+                if isinstance(data.graph.nodes, Point):
+                    axis.scatter(xs, ys, color=mpl_colors, alpha=alphas)
+                else:
+                    PointCloud2D._plot_points(axis, data.graph.nodes, dims, vector, color, alpha, err, min_val, max_val, label)
+                edges = math.stored_indices(data.graph.connectivity)
+                p1, p2 = edges.index
+                x1, y1 = reshaped_numpy(data.graph.center[p1], ['vector', instance])
+                x2, y2 = reshaped_numpy(data.graph.center[p2], ['vector', instance])
+                axis.plot([x1, x2], [y1, y2], color=mpl_colors[0], alpha=alphas[0])
             else:
                 rad = reshaped_numpy(data.geometry.bounding_radius(), [data.shape.non_channel])
                 shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=a, facecolor=ci) for xi, yi, ri, ci, a in zip(x, y, rad, mpl_colors, alphas)]
-            c = matplotlib.collections.PatchCollection(shapes, match_original=True)
-            axis.add_collection(c)
+                axis.add_collection(matplotlib.collections.PatchCollection(shapes, match_original=True))
         if spatial(data.points):  # Connect by line
             for i, idx in enumerate(instance(data).meshgrid()):
                 for sp_dim in spatial(data):

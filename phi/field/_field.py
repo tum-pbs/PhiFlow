@@ -3,7 +3,7 @@ from numbers import Number
 from typing import Callable, Union, Tuple
 
 from phi import math
-from phi.geom import Geometry, Box, Point, BaseBox, UniformGrid, Mesh, Sphere
+from phi.geom import Geometry, Box, Point, BaseBox, UniformGrid, Mesh, Sphere, Graph
 from phi.geom._geom import slice_off_constant_faces
 from phi.math import Shape, Tensor, channel, non_batch, expand, instance, spatial, wrap, dual, non_dual
 from phi.math.extrapolation import Extrapolation
@@ -70,7 +70,14 @@ class Field:
 
     @property
     def mesh(self) -> Mesh:
+        """Cast `self.geometry` to a `phi.geom.Mesh`."""
         assert isinstance(self._geometry, Mesh), f"Geometry is not a mesh but {type(self._geometry)}"
+        return self._geometry
+
+    @property
+    def graph(self) -> Graph:
+        """Cast `self.geometry` to a `phi.geom.Graph`."""
+        assert isinstance(self._geometry, Graph), f"Geometry is not a mesh but {type(self._geometry)}"
         return self._geometry
 
     @property
