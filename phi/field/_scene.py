@@ -202,7 +202,7 @@ class Scene:
             return directory
         if isinstance(directory, (tuple, list)):
             directory = math.wrap(directory, batch('scenes'))
-        directory = math.map(lambda d: expanduser(d), math.wrap(directory))
+        directory = math.wrap(math.map(lambda d: expanduser(d), directory))
         if isinstance(id, int) and id < 0:
             assert directory.shape.volume == 1
             scenes = Scene.list(directory.native())
