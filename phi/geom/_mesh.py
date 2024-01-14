@@ -4,7 +4,7 @@ from typing import Dict, List, Sequence, Union
 
 import numpy as np
 
-from phiml.math import to_format, is_sparse, unstack, non_channel
+from phiml.math import to_format, is_sparse, unstack, non_channel, non_batch, batch
 from phiml.math.extrapolation import as_extrapolation
 from phiml.math.magic import slicing_dict
 from ._geom import Geometry, Point
@@ -36,7 +36,8 @@ class Mesh(Geometry):
                  center: Tensor,
                  volume: Tensor,
                  faces: Face,
-                 valid_mask: Tensor):
+                 valid_mask: Tensor,
+                 face_vertices: Tensor):
         """
         Args:
             vertices: Vertex positions, shape (vertices:i, vector:c)
@@ -47,6 +48,7 @@ class Mesh(Geometry):
                 This can be a sparse or dense tensor.
                 Invalid indices (index >= vertex_count) must still represent existing vertices. (or -1?)
             vertex_count: Number of vertices per polygon, shape (polygons,)
+            face_vertices: (cells, ~neighbors, face_vertices)
         """
         vertex_count = expand(vertex_count, instance(polygons))
         assert polygons.dtype.kind == int, f"polygons must be integer lists but got dtype {polygons.dtype}"
@@ -59,6 +61,7 @@ class Mesh(Geometry):
         self._volume = volume
         self._faces = faces  # shapes (cells, ~cells+boundaries) -> int
         self._valid_mask = valid_mask
+        self._face_vertices = face_vertices
         cell_deltas = pairwise_distances(self.center, format=self.cell_connectivity, default=None)
         cell_distances = math.vec_length(cell_deltas)
         face_distances = math.vec_length(self.face_centers[self.interior_faces] - self.center)
@@ -68,6 +71,9 @@ class Mesh(Geometry):
         # --- skewness ---
         # theta_e = math.PI * (vertex_count - 2) / vertex_count
         # e_face =
+
+    def __variable_attrs__(self):
+        return '_vertices', '_center', '_volume', '_faces', '_valid_mask', '_face_vertices', '_relative_face_distance', '_neighbor_offsets'
 
     @property
     def shape(self) -> Shape:
@@ -162,6 +168,13 @@ class Mesh(Geometry):
     def distance_matrix(self):
         return math.vec_length(math.pairwise_distances(self.center, edges=self.cell_connectivity, format='as edges', default=None))
 
+    def faces_to_vertices(self, values: Tensor, reduce=sum):
+        v = math.stored_values(values, invalid='keep')  # ToDo replace this once PhiML has support for dense instance dims and sparse scatter
+        i = math.stored_values(self._face_vertices, invalid='keep')
+        i = rename_dims(i, channel, instance)
+        out_shape = non_channel(self._vertices) & shape(values).without(self.face_shape)
+        return math.scatter(out_shape, i, v, mode=reduce, outside_handling='undefined')
+
     @property
     def relative_face_distance(self):
         """|face_center - center| / |neighbor_center - center|"""
@@ -246,7 +259,7 @@ class Mesh(Geometry):
         polygons = self._polygons[item]
         vertex_count = self._vertex_count[item]
         faces = Face(self._faces.center[item], self._faces.normal[item], self._faces.area[item])
-        return Mesh(vertices, polygons, vertex_count, self._boundaries, self._center[item], self._volume[item], faces, self._valid_mask[item])
+        return Mesh(vertices, polygons, vertex_count, self._boundaries, self._center[item], self._volume[item], faces, self._valid_mask[item], self._face_vertices[item])
 
 
 def load_su2(file_or_mesh: str, cell_dim=instance('cells'), face_format: str = 'csc') -> Mesh:
@@ -335,7 +348,7 @@ def mesh(vertices: Tensor,
     assert instance(polygons).rank == 1, f"polygons must have exactly one instance dimension listing the polygons (cells) but got {shape(polygons)}"
     assert spatial(polygons).rank == 1, f"polygons must have exactly one spatial dimensions listing the vertices of the polygons bot got {shape(polygons)}"
     if vertices.vector.size == 2:
-        faces, boundary_slices, vertex_connectivity = build_faces_2d(vertices, polygons, boundaries, face_format)
+        faces, boundary_slices, vertex_connectivity, face_vertices = build_faces_2d(vertices, polygons, boundaries, face_format)
     elif vertices.vector.size == 3:
         raise NotImplementedError
     else:
@@ -352,7 +365,7 @@ def mesh(vertices: Tensor,
     volume = math.sum(vol_contributions, dual)
     cell_centers = math.sum(faces.center * faces.area, dual) / math.sum(faces.area, dual)
     vertices = Graph(vertices, vertex_connectivity, {})
-    return Mesh(vertices, polygons, vertex_count, boundary_slices, cell_centers, volume, faces, valid_mask)
+    return Mesh(vertices, polygons, vertex_count, boundary_slices, cell_centers, volume, faces, valid_mask, face_vertices)
 
 
 def build_faces_2d(vertices: Tensor,
@@ -422,20 +435,26 @@ def build_faces_2d(vertices: Tensor,
     poly_pairs = np.asarray([poly1 + poly2 + b_poly1, poly2 + poly1 + b_poly2]).T  # include transpose of inner faces
     face_dim = instance('faces')
     indices = wrap(poly_pairs, face_dim, channel(vector=[instance(polygons).name, '~neighbors']))
-    loc_points1 = vertices[wrap(points1 + points2 + b_points1, face_dim)]
-    loc_points2 = vertices[wrap(points2 + points1 + b_points2, face_dim)]
+    point_idx1 = wrap(points1 + points2 + b_points1, face_dim)
+    point_idx2 = wrap(points2 + points1 + b_points2, face_dim)
+    loc_points1 = vertices[point_idx1]
+    loc_points2 = vertices[point_idx2]
     # --- Compute edge properties ---
     delta = loc_points2 - loc_points1
     area = vec_length(delta)
     center = (loc_points1 + loc_points2) / 2
     normal = stack([-delta[1], delta[0]], channel(vertices))
     normal /= vec_length(normal)
-    # --- Create sparse tensors ---
+    # --- Faces ---
     dual_poly_dim = dual(neighbors=neighbor_count)
     area = sparse_tensor(indices, area, instance(polygons) & dual_poly_dim, format='coo' if face_format == 'dense' else face_format, default=None)
     normal = tensor_like(area, normal, value_order='original')
     center = tensor_like(area, center, value_order='original')
     faces = Face(to_format(center, face_format), to_format(normal, face_format), to_format(area, face_format))
+    # --- vertex-vertex connectivity ---
     vert_pairs = stack([wrap(points1 + points2 + b_points1 + b_points2, instance('edges')), wrap(points2 + points1 + b_points2 + b_points1, instance('edges'))], channel(idx=[non_channel(vertices).name, '~neighbors']))
     vertex_connectivity = sparse_tensor(vert_pairs, expand(True, instance(vert_pairs)), non_channel(vertices) & dual(neighbors=non_channel(vertices).size), can_contain_double_entries=False, indices_sorted=False)
-    return faces, boundary_slices, vertex_connectivity
+    # --- vertex-face connectivity ---
+    vertex_pairs = stack([point_idx1, point_idx2], channel('face_vertices'))
+    face_vertices = tensor_like(area, vertex_pairs, value_order='original')
+    return faces, boundary_slices, vertex_connectivity, face_vertices
