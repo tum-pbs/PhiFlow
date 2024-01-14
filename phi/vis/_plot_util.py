@@ -21,7 +21,7 @@ def smooth_uniform_curve(curve, n: int):
 
 
 @map_c2b
-def smooth(curves: Tensor, n: int) -> Tensor:
+def smooth(curves: Tensor, n: int, ext: extrapolation.Extrapolation = extrapolation.SYMMETRIC_GRADIENT) -> Tensor:
     """
     Applies a smoothing kernel to curves, all channels independently.
 
@@ -37,7 +37,7 @@ def smooth(curves: Tensor, n: int) -> Tensor:
     if n == 1:
         return curves
     kernel = ones(spatial(curves).with_sizes(n)) / n ** spatial(curves).rank
-    return convolve(curves, kernel, extrapolation=extrapolation.SYMMETRIC_GRADIENT)
+    return convolve(curves, kernel, extrapolation=ext)
 
 
 
