@@ -183,9 +183,11 @@ def _get_range(bounds: Box, index: int):
     return lower if math.is_finite(lower) else None, upper if math.is_finite(upper) else None
 
 
-def _next_line_color(axes: Axes, kind: str = None):
+def _next_line_color(axes: Axes, kind: str = None, get_index=False):
     kind = ['patches', 'lines', 'collections', 'containers'] if kind is None else kind.split(',')
     next_index = max([len(getattr(axes, a)) for a in kind])
+    if get_index:
+        return next_index
     return _default_color(next_index)
 
 
@@ -422,14 +424,22 @@ class VectorCloud2D(Recipe):
     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         dims = space.vector.item_names
         vector = data.geometry.shape['vector']
-        x, y = reshaped_numpy(data.center[dims], [vector, data.shape.without('vector')])
-        u, v = reshaped_numpy(data.values[dims], [vector, data.shape.without('vector')])
-        if color.shape:
-            col = [_plt_col(c) for c in color.numpy(data.shape.non_channel).reshape(-1)]
-        else:
-            col = _plt_col(color)
-        alphas = reshaped_numpy(alpha, [data.shape.without('vector')])
-        subplot.quiver(x, y, u, v, color=col, units='xy', scale=1, alpha=alphas)
+        channels = channel(data).without('vector')
+        for idx in channels.meshgrid(names=True):
+            c_data = data[idx]
+            x, y = reshaped_numpy(c_data.center[dims], [vector, c_data.shape.without('vector')])
+            u, v = reshaped_numpy(c_data.values.vector[dims], [vector, c_data.shape.without('vector')])
+            color_i = color[idx]
+            if (color[idx] == None).all:
+                col = _next_line_color(subplot, kind='collections')
+            elif color[idx].shape:
+                col = [_plt_col(c) for c in color_i.numpy(c_data.shape.non_channel).reshape(-1)]
+            else:
+                col = _plt_col(color[idx])
+            alphas = reshaped_numpy(alpha, [c_data.shape.without('vector')])
+            subplot.quiver(x, y, u, v, color=col, units='xy', scale=1, alpha=alphas, label=index_label(idx) if channels.volume > 1 else None)
+        if not has_legend_like([index_label(idx_n) for idx_n in channels.meshgrid(names=True)], figure):
+            subplot.legend()
 
 
 class VectorCloud3D(Recipe):
