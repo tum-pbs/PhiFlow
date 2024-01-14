@@ -1,10 +1,11 @@
+import copy
 import warnings
 from numbers import Number
 from typing import Union, Dict, Any, Tuple
 
 from phi import math
 from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape, Extrapolation
-from phiml.math._magic_ops import variable_attributes, expand
+from phiml.math._magic_ops import variable_attributes, expand, stack
 from phi.math.magic import BoundDim, slicing_dict
 
 
@@ -20,6 +21,9 @@ class Geometry:
     All geometry objects support batching.
     Thereby any parameter defining the geometry can be varied along arbitrary batch dims.
     All batch dimensions are listed in Geometry.shape.
+
+    Property getters (`@property`, such as `shape`), save for getters, must not depend on any variables marked as *variable* via `__variable_attrs__()` as these may be `None` during tracing.
+    Equality checks must also take this into account.
     """
 
     @property
@@ -636,6 +640,19 @@ class Point(Geometry):
         assert 'vector' in location.shape, "location must have a vector dimension"
         assert location.shape.get_item_names('vector') is not None, "Vector dimension needs to list spatial dimension as item names."
         self._location = location
+        self._shape = self._location.shape
+
+    def __variable_attrs__(self):
+        return '_location',
+
+    def __with_attrs__(self, **updates):
+        if '_location' in updates:
+            result = Point.__new__(Point)
+            result._location = updates['_location']
+            result._shape = result._location.shape if result._location is not None else self._shape
+            return result
+        else:
+            return self
 
     @property
     def center(self) -> Tensor:
@@ -643,7 +660,7 @@ class Point(Geometry):
 
     @property
     def shape(self) -> Shape:
-        return self._location.shape
+        return self._shape
 
     @property
     def faces(self) -> 'Geometry':
@@ -672,9 +689,6 @@ class Point(Geometry):
 
     def __hash__(self):
         return hash(self._location)
-
-    def __variable_attrs__(self):
-        return '_location',
 
     @property
     def volume(self) -> Tensor:
