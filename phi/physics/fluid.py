@@ -76,7 +76,7 @@ def make_incompressible(velocity: Field,
                         obstacles: Obstacle or Geometry or tuple or list = (),
                         solve: Solve = Solve(),
                         active: CenteredGrid = None,
-                        order: int = 2) -> Tuple[Field, CenteredGrid]:
+                        order: int = 2) -> Tuple[Field, Field]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     

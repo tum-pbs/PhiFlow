@@ -117,13 +117,12 @@ def differential(u: Field,
         grad = spatial_gradient(u, stack_dim=channel('gradient'), order=order, implicit=implicit)
         velocity = stack(unstack(velocity, dim='vector'), dim=channel('gradient'))
         amounts = velocity * grad
-        return - sum(amounts.gradient)
+        return amounts.with_values(- math.sum(amounts.values, 'gradient'))
     elif u.is_mesh:
-        boundary = u.boundary.spatial_gradient()
         u = u.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
         velocity = velocity.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
         conv = density * u.mesh.integrate_surface(u.values * (velocity.values.vector @ velocity.face_normals.vector)) / u.mesh.volume
-        return Field(u.geometry, conv, boundary)
+        return Field(u.geometry, conv, 0)
     raise NotImplementedError(u)
 
 
