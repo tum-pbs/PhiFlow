@@ -10,6 +10,7 @@ from phi.field import Field, Scene, PointCloud, CenteredGrid
 from phi.field._field_math import data_bounds
 from phi.geom import Box, Cuboid, Geometry, Point
 from phi.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel, expand, non_batch
+from phiml.math import vec
 
 Control = namedtuple('Control', [
     'name',
@@ -523,26 +524,36 @@ def get_default_limits(f: Field, all_dims: Optional[Sequence[str]], log_dims: Tu
         count = non_batch(f).non_dual.non_channel.volume
         return Box(bounds.lower - bounds.size / count / 2, bounds.upper + bounds.size / count / 2)
     if f.spatial_rank == 1 and spatial(f).rank == 1 and all_dims and len(all_dims) > 1:  # Embedded 1D line
-        emb_space = set(all_dims) - set(spatial(f).names)
-        value_dim = tuple(emb_space)[-1]
-        return data_bounds(f) * Box(**{value_dim: (math.finite_min(f.values, spatial), math.finite_max(f.values, spatial))})
+        value_limits = _limits(vec(_=f.values), vec(_=err), '_' in log_dims)
+        return data_bounds(f) * value_limits
     # --- Determine element size ---
     half = f.geometry.bounding_half_extent()
+    center = f.center
+    if 'vector' not in channel(err):
+        err = expand(err, channel(vector='_'))
+    if 'vector' in channel(err) and 'vector' not in channel(half):
+        half = expand(half, channel(vector='_'))
+    elif 'vector' in channel(err) and '_' not in half.shape['vector'].item_names:  # add missing dimensions to half and err
+        half = vec(**half.vector, _=0)
+        center = vec(**center.vector, _=f.values)
+        err = vec(**{dim: err.vector[dim] if dim in err.vector.item_names else 0 for dim in half.vector.item_names + ('_',)})
     half = math.maximum(half, err)
+    is_log = wrap([dim in log_dims for dim in half.vector.item_names], half.shape['vector'])
+    return _limits(center, half, is_log)
+
+
+def _limits(center: Tensor, half: Tensor, is_log: Union[bool, Tensor]):
     half = math.where(half == 0, .1, half)
-    min_vec = math.min(f.center - half, dim=f.center.shape.non_batch.non_channel)
-    max_vec = math.max(f.center + half, dim=f.center.shape.non_batch.non_channel)
+    min_vec = math.finite_min(center - half, dim=center.shape.non_batch.non_channel)
+    max_vec = math.finite_max(center + half, dim=center.shape.non_batch.non_channel)
+    center_min = math.finite_min(center, dim=center.shape.non_batch.non_channel)
+    min_vec_log = center_min * (center_min / max_vec) ** .1
+    min_vec_log = math.finite_min(min_vec_log, channel(min_vec_log).without('vector'))
     bounds = Box(min_vec, max_vec).largest(channel)
-    # bounds = data_bounds(f.geometry.center).largest(channel)
     ext_bounds_lin = Cuboid(bounds.center, bounds.half_size * 1.1)
-    ext_bounds_log = Box(bounds.lower * 0.95, bounds.upper * 1.05)
-    is_log = wrap([dim in log_dims for dim in bounds.vector.item_names], bounds.shape['vector'])
+    ext_bounds_log = Box(math.where(bounds.lower > 0, bounds.lower * 0.95, min_vec_log), bounds.upper * 1.05)
     extended_bounds = Box(math.where(is_log, ext_bounds_log.lower, ext_bounds_lin.lower), math.where(is_log, ext_bounds_log.upper, ext_bounds_lin.upper))
     extended_bounds = Box(math.min(extended_bounds.lower, half.shape.without('vector')), math.max(extended_bounds.upper, half.shape.without('vector')))
-    # if isinstance(f.geometry, Point):  # don't plot negative values if all values are positive and vice-versa -> now handled by log_dims
-    #     lower = math.where(extended_bounds.lower * bounds.lower < 0, bounds.lower * .9, extended_bounds.lower)
-    #     upper = math.where(extended_bounds.upper * bounds.upper < 0, bounds.upper * .9, extended_bounds.upper)
-    #     extended_bounds = Box(lower, upper)
     return extended_bounds
 
 

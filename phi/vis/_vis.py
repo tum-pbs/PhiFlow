@@ -506,6 +506,9 @@ def _insert_value_dim(space: Box, pos: Tuple[int, int], subplots: dict, min_val,
             if r == row and axis in dims and len(dims) == 2 and dims.index(axis) == 1:
                 return concat([new_axis, space], 'vector')  # values along X
         return concat([space, new_axis], 'vector')  # values along Y (standard)
+    elif space.vector.size > 2 and '_' in space.vector.item_names:
+        others = [d for d in space.vector.item_names if d != '_']
+        return space.vector[others]
     else:
         return space
 
