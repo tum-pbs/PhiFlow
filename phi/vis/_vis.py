@@ -545,6 +545,8 @@ def write_image(path: str, figure=None, dpi=120., close=False):
     assert figure is not None, "No figure to save."
     lib = get_plots_by_figure(figure)
     path = os.path.expanduser(path)
+    directory = os.path.abspath(os.path.dirname(path))
+    os.path.isdir(directory) or os.makedirs(directory)
     lib.save(figure, path, dpi)
     if close:
         close_(figure=figure)
