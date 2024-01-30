@@ -319,8 +319,11 @@ class Field:
             channels = [component.closest_values(points) for component in self.vector.unstack()]
         return math.stack(channels, points.shape['~vector'])
 
-    def with_values(self, values):
+    def with_values(self, values, **sampling_kwargs):
         """ Returns a copy of this field with `values` replaced. """
+        if not isinstance(values, Tensor):
+            from ._resample import sample
+            values = sample(values, self._geometry, self.sampled_at, self._boundary, dot_face_normal=self._geometry if 'vector' not in self._values.shape else None, **sampling_kwargs)
         return Field(self._geometry, values, self._boundary)
 
     def with_boundary(self, boundary):
