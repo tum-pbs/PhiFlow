@@ -365,10 +365,10 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
     if '_' in same_scale:
         if any([f.values.dtype.kind == complex for l in positioning.values() for f in l]):
             min_val = 0
-            max_val = max([float(abs(f.values).finite_max) for l in positioning.values() for f in l])
+            max_val = max([float(abs(f.values).finite_max) for l in positioning.values() for f in l] or [0])
         else:
-            min_val = min([float(f.values.finite_min) for l in positioning.values() for f in l])
-            max_val = max([float(f.values.finite_max) for l in positioning.values() for f in l])
+            min_val = min([float(f.values.finite_min) for l in positioning.values() for f in l] or [0])
+            max_val = max([float(f.values.finite_max) for l in positioning.values() for f in l] or [0])
     else:
         min_val = max_val = None
     # --- Layout ---
@@ -435,6 +435,8 @@ def layout_sub_figures(data: Union[Tensor, Field],
     if data is None:
         raise ValueError(f"Cannot layout figure for '{data}'")
     if isinstance(data, Tensor) and data.dtype.kind == object:  # layout
+        if not data.shape:  # nothing to plot
+            return 1, 1, EMPTY_SHAPE, EMPTY_SHAPE
         rows, cols = 0, 0
         non_reduced = math.EMPTY_SHAPE
         dim0 = reduced = data.shape[0]
