@@ -147,7 +147,10 @@ class UniformGrid(BaseBox):
                 bounds = Box(lower, upper)
                 gather_dict[dim] = slice(start, stop)
         resolution = self._resolution.after_gather(gather_dict)
-        return UniformGrid(resolution, bounds[{d: s for d, s in item.items() if d != 'vector'}])
+        bounds = bounds[{d: s for d, s in item.items() if d != 'vector'}]
+        if 'vector' in item:
+            bounds = bounds[item['vector']]  # resolution[item['vector']] will be done automatically
+        return UniformGrid(resolution, bounds)
 
     def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Optional[int], **kwargs) -> 'Cuboid':
         return math.pack_dims(self.center_representation(), dims, packed_dim, pos, **kwargs)

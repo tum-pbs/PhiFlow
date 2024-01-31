@@ -348,7 +348,12 @@ class Field:
 
     def with_bounds(self, bounds: Box):
         """ Returns a copy of this field with `bounds` replaced. """
-        return Field(self._geometry, self._values, self._boundary)
+        order = list(bounds.vector.item_names)
+        geometry = self._geometry.vector[order]
+        geometry[order]
+        new_shape = self._values.shape.without(order) & self._values.shape.only(order, reorder=True)
+        values = math.transpose(self._values, new_shape)
+        return Field(geometry, values, self._boundary)
 
     def with_geometry(self, elements: Geometry):
         """ Returns a copy of this field with `elements` replaced. """
