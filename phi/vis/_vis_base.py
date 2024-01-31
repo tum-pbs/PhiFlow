@@ -524,22 +524,35 @@ def get_default_limits(f: Field, all_dims: Optional[Sequence[str]], log_dims: Tu
         count = non_batch(f).non_dual.non_channel.volume
         return Box(bounds.lower - bounds.size / count / 2, bounds.upper + bounds.size / count / 2)
     if f.spatial_rank == 1 and spatial(f).rank == 1 and all_dims and len(all_dims) > 1:  # Embedded 1D line
-        value_limits = _limits(vec(_=f.values), vec(_=err), '_' in log_dims)
+        if all_dims:
+            remaining = [d for d in all_dims if d not in f.geometry.vector.item_names]
+            value_dim = remaining[0]
+        else:
+            value_dim = '_'
+        value_limits = _limits(vec(**{value_dim: f.values}), vec(**{value_dim: err}), value_dim in log_dims)
         return data_bounds(f) * value_limits
     # --- Determine element size ---
     half = f.geometry.bounding_half_extent()
     center = f.center
+    if (err == None).all:
+        err = wrap(0)
     if 'vector' not in channel(err):
-        err = expand(err, channel(vector='_'))
-    if 'vector' in channel(err) and 'vector' not in channel(half):
-        half = expand(half, channel(vector='_'))
-    elif 'vector' in channel(err) and '_' not in half.shape['vector'].item_names:  # add missing dimensions to half and err
+        if 'vector' not in channel(center):
+            err = expand(err, channel(vector='_'))
+            center = expand(center, channel(vector='_'))
+            half = expand(half, channel(vector='_'))
+        else:
+            err = expand(err, channel(center))
+    # if 'vector' in channel(err) and 'vector' not in channel(half):
+    #     half = expand(half, channel(vector='_'))
+    elif 'vector' in channel(err) and 'vector' in half.shape and '_' not in half.shape['vector'].item_names:  # add missing dimensions to half and err
         half = vec(**half.vector, _=0)
         center = vec(**center.vector, _=f.values)
         err = vec(**{dim: err.vector[dim] if dim in err.vector.item_names else 0 for dim in half.vector.item_names + ('_',)})
     half = math.maximum(half, err)
     is_log = wrap([dim in log_dims for dim in half.vector.item_names], half.shape['vector'])
-    return _limits(center, half, is_log)
+    limits = _limits(center, half, is_log)
+    return limits
 
 
 def _limits(center: Tensor, half: Tensor, is_log: Union[bool, Tensor]):

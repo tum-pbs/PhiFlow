@@ -491,6 +491,8 @@ def _space(*values: Field or Tensor, ignore_dims: Shape, log_dims: Tuple[str], e
         for dim in get_default_limits(f, None, log_dims, e).vector.item_names:
             if dim not in all_dims and dim not in ignore_dims:
                 all_dims.append(dim)
+    if '_' in all_dims and len(all_dims) > 2:
+        all_dims.remove('_')
     all_bounds = [embed(get_default_limits(f, all_dims, log_dims, e).without(ignore_dims.names).largest(shape), all_dims) for f, e in zip(values, errs)]
     bounds: Box = math.stack(all_bounds, batch('_fields'))
     lower = math.finite_min(bounds.lower, bounds.shape.without('vector'), default=-math.INF)
