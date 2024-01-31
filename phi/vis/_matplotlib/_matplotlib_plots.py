@@ -846,14 +846,14 @@ def set_ticks(axes, which_axis, values, names=None):
     values = sorted(set(values))
     if which_axis == 0:  # x axis
         if hasattr(axes, '_xticks_from_data'):
-            values = list(sorted([*values, *axes.get_xticks()]))
+            values = list(sorted(set([*values, *axes.get_xticks()])))
         axes.set_xticks(values, names)
         if axes.get_xscale() == 'log':
             axes.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
         axes._xticks_from_data = True
     elif which_axis == 1:
         if hasattr(axes, '_yticks_from_data'):
-            values = list(sorted([*values, *axes.get_yticks()]))
+            values = list(sorted(set([*values, *axes.get_yticks()])))
         axes.set_yticks(values, names)
         if axes.get_yscale() == 'log':
             axes.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
