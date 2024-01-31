@@ -278,6 +278,7 @@ class Box(BaseBox, metaclass=BoxType):
         self._upper = math.expand(self._upper, vector_shape)
         if self.size.vector.item_names is None:
             warnings.warn("Creating a Box without item names prevents certain operations like project()", DeprecationWarning, stacklevel=2)
+        self._shape = self._lower.shape & self._upper.shape
 
     def __getitem__(self, item):
         item = _keep_vector(slicing_dict(self, item))
@@ -320,9 +321,7 @@ class Box(BaseBox, metaclass=BoxType):
 
     @property
     def shape(self):
-        if self._lower is None or self._upper is None:
-            return None
-        return self._lower.shape & self._upper.shape
+        return self._shape
 
     @property
     def lower(self):
