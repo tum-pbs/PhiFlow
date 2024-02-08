@@ -321,7 +321,9 @@ class Box(BaseBox, metaclass=BoxType):
 
     @property
     def shape(self):
-        return self._shape
+        if self._lower is None or self._upper is None:
+            return self._shape
+        return self._lower.shape & self._upper.shape
 
     @property
     def lower(self):
