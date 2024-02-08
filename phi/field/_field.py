@@ -321,7 +321,7 @@ class Field:
 
     def with_values(self, values, **sampling_kwargs):
         """ Returns a copy of this field with `values` replaced. """
-        if not isinstance(values, Tensor):
+        if not isinstance(values, (Tensor, Number)):
             from ._resample import sample
             values = sample(values, self._geometry, self.sampled_at, self._boundary, dot_face_normal=self._geometry if 'vector' not in self._values.shape else None, **sampling_kwargs)
         return Field(self._geometry, values, self._boundary)
@@ -350,7 +350,6 @@ class Field:
         """ Returns a copy of this field with `bounds` replaced. """
         order = list(bounds.vector.item_names)
         geometry = self._geometry.vector[order]
-        geometry[order]
         new_shape = self._values.shape.without(order) & self._values.shape.only(order, reorder=True)
         values = math.transpose(self._values, new_shape)
         return Field(geometry, values, self._boundary)
