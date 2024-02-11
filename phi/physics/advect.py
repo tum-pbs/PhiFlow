@@ -104,10 +104,10 @@ def differential(u: Field,
         Differential convection term as `Field` on the same geometry.
     """
     if u.is_grid and u.is_staggered:
-        grad_list = [spatial_gradient(field_component, stack_dim=channel('gradient'), order=order, implicit=implicit) for field_component in u.vector]
-        grad_grid = u.with_values(math.stack([component.values for component in grad_list], channel(velocity)))
+        grad_list = [spatial_gradient(field_component, stack_dim=channel('grad_dim'), order=order, implicit=implicit) for field_component in u.vector]
+        grad_grid = u.with_values(math.stack([component.values for component in grad_list], channel(velocity).as_dual()))
         if order == 4:
-            amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.gradient, velocity.vector)]  # ToDo resampling does not yet support order=4
+            amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.grad_dim, velocity.vector)]  # ToDo resampling does not yet support order=4
         else:
             velocity.vector[0].at(grad_grid.gradient[0], order=order, implicit=implicit)
             amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.gradient, velocity.vector)]

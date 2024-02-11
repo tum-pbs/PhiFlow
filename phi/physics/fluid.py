@@ -245,7 +245,7 @@ def _accessible_extrapolation(vext: Extrapolation):
     return extrapolation.map(_accessible_extrapolation, vext)
 
 
-def incompressible_rk4(pde: Callable, velocity: Field, pressure: CenteredGrid, dt, pressure_order=4, pressure_solve=Solve('CG'), **pde_aux_kwargs):
+def incompressible_rk4(pde: Callable, velocity: Field, pressure: Field, dt, pressure_order=4, pressure_solve=Solve('CG'), **pde_aux_kwargs):
     """
     Implements the 4th-order Runge-Kutta time advancement scheme for incompressible vector fields.
     This approach is inspired by [Kampanis et. al., 2006](https://www.sciencedirect.com/science/article/pii/S0021999105005061) and incorporates the pressure treatment into the time step.
@@ -266,26 +266,26 @@ def incompressible_rk4(pde: Callable, velocity: Field, pressure: CenteredGrid, d
         velocity: Velocity at time `t+dt`, same type as `velocity`.
         pressure: Pressure grid at time `t+dt`, `CenteredGrid`.
     """
-    v_1, p_1 = velocity, pressure
+    v1, p1 = velocity, pressure
     # PDE at current point
-    rhs_1 = pde(v_1, **pde_aux_kwargs) - field.spatial_gradient(p_1, type=StaggeredGrid, order=pressure_order)
-    v_2_old = velocity + (dt / 2) * rhs_1
-    v_2, delta_p = make_incompressible(v_2_old, solve=pressure_solve, order=pressure_order)
-    p_2 = p_1 + delta_p / dt
+    rhs1 = pde(v1, **pde_aux_kwargs) - p1.gradient(at=v1.sampled_at, order=pressure_order)
+    v2_old = velocity + (dt / 2) * rhs1
+    v2, delta_p = make_incompressible(v2_old, solve=pressure_solve, order=pressure_order)
+    p2 = p1 + delta_p / dt
     # PDE at half-point
-    rhs_2 = pde(v_2, **pde_aux_kwargs) - field.spatial_gradient(p_2, type=StaggeredGrid, order=pressure_order)
-    v_3_old = velocity + (dt / 2) * rhs_2
-    v_3, delta_p = make_incompressible(v_3_old, solve=pressure_solve, order=pressure_order)
-    p_3 = p_2 + delta_p / dt
+    rhs2 = pde(v2, **pde_aux_kwargs) - p2.gradient(at=v1.sampled_at, order=pressure_order)
+    v3_old = velocity + (dt / 2) * rhs2
+    v3, delta_p = make_incompressible(v3_old, solve=pressure_solve, order=pressure_order)
+    p3 = p2 + delta_p / dt
     # PDE at corrected half-point
-    rhs_3 = pde(v_3, **pde_aux_kwargs) - field.spatial_gradient(p_3, type=StaggeredGrid, order=pressure_order)
-    v_4_old = velocity + dt * rhs_2
-    v_4, delta_p = make_incompressible(v_4_old, solve=pressure_solve, order=pressure_order)
-    p_4 = p_3 + delta_p / dt
+    rhs3 = pde(v3, **pde_aux_kwargs) - p3.gradient(at=v1.sampled_at, order=pressure_order)
+    v4_old = velocity + dt * rhs2
+    v4, delta_p = make_incompressible(v4_old, solve=pressure_solve, order=pressure_order)
+    p4 = p3 + delta_p / dt
     # PDE at RK4 point
-    rhs_4 = pde(v_4, **pde_aux_kwargs) - field.spatial_gradient(p_4, type=StaggeredGrid, order=pressure_order)
-    v_p1_old = velocity + (dt / 6) * (rhs_1 + 2 * rhs_2 + 2 * rhs_3 + rhs_4)
-    p_p1_old = (1 / 6) * (p_1 + 2 * p_2 + 2 * p_3 + p_4)
+    rhs4 = pde(v4, **pde_aux_kwargs) - p4.gradient(at=v1.sampled_at, order=pressure_order)
+    v_p1_old = velocity + (dt / 6) * (rhs1 + 2 * rhs2 + 2 * rhs3 + rhs4)
+    p_p1_old = (1 / 6) * (p1 + 2 * p2 + 2 * p3 + p4)
     v_p1, delta_p = make_incompressible(v_p1_old, solve=pressure_solve, order=pressure_order)
     p_p1 = p_p1_old + delta_p / dt
     return v_p1, p_p1
