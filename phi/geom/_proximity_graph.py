@@ -1,19 +1,28 @@
 from typing import Dict, Tuple, Any, Union
 
+from phiml.math import is_sparse, tensor_like
 from ._geom import Geometry
+from ._sphere import sphere_radius_with_same_volume
 from .. import math
 from ..math import Tensor, pairwise_distances, vec_length, Shape, non_channel, dual, where, PI
 
 
 class ProximityGraph(Geometry):
 
-    def __init__(self, nodes: Geometry, boundary: Dict[str, Dict[str, slice]], kernel: str, format='dense'):
+    def __init__(self, nodes: Geometry, boundary: Dict[str, Dict[str, slice]], kernel: str, target_num_neighbors: Tensor = None, format='dense'):
+        assert isinstance(nodes, Geometry), f"nodes must be a Geometry instance but got {type(nodes)}"
         self._nodes = nodes
-        self._kernel = kernel
-        self._format = format
         self._boundary = boundary
-        self._deltas = None
-        self._distances = None
+        self._kernel = kernel
+        self._target_num_neighbors = default_target_num_neighbors(kernel) if target_num_neighbors is None else target_num_neighbors
+        self._format = format
+        max_distance = get_kernel_cutoff(self._kernel, self.element_size)
+        self._deltas = pairwise_distances(self.center, max_distance, format=self._format)
+        self._distances = vec_length(self._deltas)
+        if is_sparse(self._deltas):
+            self._connectivity = tensor_like(self._deltas, True)
+        else:
+            self._connectivity = self._distances > 0
 
     @property
     def nodes(self):
@@ -32,6 +41,14 @@ class ProximityGraph(Geometry):
         return self._nodes.center
 
     @property
+    def volume(self) -> Tensor:
+        return self._nodes.volume
+
+    @property
+    def radius(self):
+        return sphere_radius_with_same_volume(self._nodes)
+
+    @property
     def boundary_elements(self) -> Dict[str, Dict[str, slice]]:
         return self._boundary
 
@@ -40,14 +57,12 @@ class ProximityGraph(Geometry):
         return {key: {'~' + dim: s for dim, s in slices.items()} for key, slices in self._boundary_elements.items()}
 
     @property
-    def distances(self) -> Tensor:
-        if self._distances is None:
-            self._distances = vec_length(self.deltas)
-        return self._distances
+    def connectivity(self) -> Tensor:
+        return self._connectivity
 
     @property
-    def element_size(self):
-        return 2 * math.max(self._nodes.bounding_half_extent(), 'vector')
+    def distances(self) -> Tensor:
+        return self._distances
 
     @property
     def deltas(self) -> Tensor:
@@ -55,9 +70,6 @@ class ProximityGraph(Geometry):
         Returns the pairwise position deltas between all elements as `Tensor`, possibly sparse depending on `format´.
         The result has shape (elements, ~elements, vector).
         """
-        if self._deltas is None:
-            max_distance = get_kernel_cutoff(self._kernel, self.element_size)
-            self._deltas = pairwise_distances(self.center, max_distance, format=self._format)
         return self._deltas
 
     def __with_attrs__(self, **attrs):  # Make sure cached distances are invalidated
@@ -70,10 +82,6 @@ class ProximityGraph(Geometry):
 
     def at(self, center: Tensor) -> 'Geometry':
         return ProximityGraph(self._nodes.at(center), self._boundary, self._kernel, self._format)
-
-    @property
-    def volume(self) -> Tensor:
-        return self._nodes.volume
 
     @property
     def shape(self) -> Shape:
@@ -124,7 +132,12 @@ class ProximityGraph(Geometry):
         return ProximityGraph(self._nodes[item], self._boundary, self._kernel, self._format)
 
 
-def get_kernel_cutoff(kernel: str, element_size):
+DEFAULT_TARGET_NUM_NEIGHBORS = {
+    'quintic-spline':
+}
+
+
+def get_kernel_cutoff(kernel: str, element_radius):
     """
     Returns the cut-off distance for a kernel given the element size.
 
@@ -137,9 +150,9 @@ def get_kernel_cutoff(kernel: str, element_size):
         Cut-off distance as float or float `Tensor`
     """
     if kernel == 'quintic-spline':
-        return 3. * element_size
+        return 3. * element_radius
     elif kernel == 'wendland-c2':
-        return 2. * element_size
+        return 2. * element_radius
     else:
         raise ValueError(kernel)
 

@@ -1,7 +1,7 @@
 from typing import Union, Dict, Tuple
 
 from phi import math
-from phiml.math import Shape, dual
+from phiml.math import Shape, dual, PI
 from ._geom import Geometry, _keep_vector, NO_GEOMETRY
 from ..math import wrap, Tensor, expand
 from ..math.magic import slicing_dict
@@ -54,11 +54,11 @@ class Sphere(Geometry):
         if self.spatial_rank == 1:
             return 2 * self._radius
         elif self.spatial_rank == 2:
-            return math.PI * self._radius ** 2
+            return PI * self._radius ** 2
         elif self.spatial_rank == 3:
-            return 4 / 3 * math.PI * self._radius ** 3
+            return 4 / 3 * PI * self._radius ** 3
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(f"Only spatial ranks up to 3 supported but Sphere has rank {self.spatial_rank}")
             # n = self.spatial_rank
             # return math.pi ** (n // 2) / math.faculty(math.ceil(n / 2)) * self._radius ** n
 
@@ -138,3 +138,13 @@ class Sphere(Geometry):
     @property
     def face_shape(self) -> Shape:
         return self.shape.without('vector') & dual(shell=0)
+
+
+def sphere_radius_with_same_volume(g: Geometry):
+    if g.spatial_rank == 1:
+        return g.volume / 2
+    elif g.spatial_rank == 2:
+        return math.sqrt(g.volume / PI)
+    elif g.spatial_rank == 3:
+        return (g.volume / (4 / 3 * PI)) ** (1/3)
+    raise NotImplementedError(f"Only spatial ranks up to 3 supported but got {g}")
