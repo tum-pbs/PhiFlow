@@ -84,7 +84,9 @@ def differential(u: Field,
     """
     Computes the differential advection term using the differentiation Scheme indicated by `order`, ´implicit´ and `upwind`.
 
-    For unstructured meshes, computes 1/V ∑_f (n·U_prev) U ρ A
+    For a velocity field u, the advection term as it appears on the right-hand-side of a PDE is -u·∇u, including the negative sign.
+
+    For unstructured meshes, computes -1/V ∑_f (n·u_prev) u ρ A
 
     Args:
         u: Scalar or vector-valued `Field` sampled on a `CenteredGrid`, `StaggeredGrid` or `Mesh`.
@@ -122,7 +124,7 @@ def differential(u: Field,
         u = u.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
         velocity = velocity.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
         conv = density * u.mesh.integrate_surface(u.values * (velocity.values.vector @ velocity.face_normals.vector)) / u.mesh.volume
-        return Field(u.geometry, conv, 0)
+        return Field(u.geometry, -conv, 0)
     raise NotImplementedError(u)
 
 
