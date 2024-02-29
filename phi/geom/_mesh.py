@@ -73,6 +73,7 @@ class Mesh(Geometry):
         # e_face =
 
     def __variable_attrs__(self):
+        return ()
         return '_vertices', '_center', '_volume', '_faces', '_valid_mask', '_face_vertices', '_relative_face_distance', '_neighbor_offsets'
 
     @property
@@ -255,6 +256,9 @@ class Mesh(Geometry):
         item: dict = slicing_dict(self, item)
         assert not spatial(self._polygons).only(tuple(item)), f"Cannot slice vertex lists ('{spatial(self._polygons)}') but got slicing dict {item}"
         assert not instance(self._vertices).only(tuple(item)), f"Slicing by vertex indices ('{instance(self._vertices)}') not supported but got slicing dict {item}"
+        cells = instance(self.shape).name
+        if cells in item and isinstance(item['cells'], int):
+            item[cells] = slice(item[cells], item[cells] + 1)
         vertices = self._vertices[item]
         polygons = self._polygons[item]
         vertex_count = self._vertex_count[item]
