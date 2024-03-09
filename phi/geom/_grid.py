@@ -123,15 +123,16 @@ class UniformGrid(BaseBox):
 
     def __getitem__(self, item):
         item = slicing_dict(self, item)
-        bounds = self._bounds
+        resolution = self._resolution.after_gather(item)
+        bounds = self._bounds[{d: s for d, s in item.items() if d != 'vector'}]
+        if 'vector' in item:
+            resolution = resolution.only(item['vector'], reorder=True)
+            bounds = bounds.vector[item['vector']]
+        bounds = bounds.vector[resolution.name_list]
         dx = self.size
-        gather_dict = {}
         for dim, selection in item.items():
-            if dim in self._resolution:
-                if isinstance(selection, int):
-                    start = selection
-                    stop = selection + 1
-                elif isinstance(selection, slice):
+            if dim in resolution:
+                if isinstance(selection, slice):
                     start = selection.start or 0
                     if start < 0:
                         start += self.resolution.get_size(dim)
@@ -139,17 +140,12 @@ class UniformGrid(BaseBox):
                     if stop < 0:
                         stop += self.resolution.get_size(dim)
                     assert selection.step is None or selection.step == 1
-                else:
+                else:  # int slices are not contained in resolution anymore
                     raise ValueError(f"Illegal selection: {item}")
                 dim_mask = math.wrap(self.resolution.mask(dim))
                 lower = bounds.lower + start * dim_mask * dx
                 upper = bounds.upper + (stop - self.resolution.get_size(dim)) * dim_mask * dx
                 bounds = Box(lower, upper)
-                gather_dict[dim] = slice(start, stop)
-        resolution = self._resolution.after_gather(gather_dict)
-        bounds = bounds[{d: s for d, s in item.items() if d != 'vector'}]
-        if 'vector' in item:
-            bounds = bounds[item['vector']]  # resolution[item['vector']] will be done automatically
         return UniformGrid(resolution, bounds)
 
     def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Optional[int], **kwargs) -> 'Cuboid':
