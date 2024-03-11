@@ -540,10 +540,10 @@ class Field:
         return BoundDim(self, name)
 
     def __value_attrs__(self):
-        return '_values', '_boundary'
+        return '_values',
 
     def __variable_attrs__(self):
-        return '_values', '_geometry'
+        return '_values', '_geometry', '_boundary'
 
     def __expand__(self, dims: Shape, **kwargs) -> 'Field':
         return self.with_values(expand(self.values, dims, **kwargs))

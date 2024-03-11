@@ -73,8 +73,10 @@ class Mesh(Geometry):
         # e_face =
 
     def __variable_attrs__(self):
-        return ()
         return '_vertices', '_center', '_volume', '_faces', '_valid_mask', '_face_vertices', '_relative_face_distance', '_neighbor_offsets'
+
+    def __value_attrs__(self):
+        return '_vertices',
 
     @property
     def shape(self) -> Shape:
