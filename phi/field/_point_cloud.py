@@ -9,7 +9,7 @@ from ..math import Tensor, instance, Shape, dual
 from ..math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
 
 
-def PointCloud(elements: Union[Tensor, Geometry], values: Any = 1., extrapolation: Union[Extrapolation, float] = 0., bounds: Box = None):
+def PointCloud(elements: Union[Tensor, Geometry], values: Any = 1., extrapolation: Union[Extrapolation, float] = 0., bounds: Box = None) -> Field:
     """
     A `PointCloud` comprises:
 
@@ -41,12 +41,12 @@ def PointCloud(elements: Union[Tensor, Geometry], values: Any = 1., extrapolatio
     """
     if bounds is not None:
         warnings.warn("bounds argument is deprecated since 2.5 and will be ignored.")
-    if dual(values):
-        assert dual(values).rank == 1, f"PointCloud cannot convert values with more than 1 dual dimension."
-        non_dual_name = dual(values).name[1:]
-        indices = math.stored_indices(values)[non_dual_name]
-        values = math.stored_values(values)
-        elements = elements[{non_dual_name: indices}]
+    # if dual(values):
+    #     assert dual(values).rank == 1, f"PointCloud cannot convert values with more than 1 dual dimension."
+    #     non_dual_name = dual(values).name[1:]
+    #     indices = math.stored_indices(values)[non_dual_name]
+    #     values = math.stored_values(values)
+    #     elements = elements[{non_dual_name: indices}]
     if isinstance(elements, Tensor):
         elements = geom.Point(elements)
     result = Field(elements, values, extrapolation)
