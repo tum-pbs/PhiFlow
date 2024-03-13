@@ -570,9 +570,12 @@ def _limits(center: Tensor, half: Tensor, is_log: Union[bool, Tensor]):
     return extended_bounds
 
 
-def only_stored_elements(f: Field):
-    if math.get_format(f.points) == 'dense':
+def only_stored_elements(f: Field) -> Field:
+    if not math.is_sparse(f.points):
         return f
     elements = f.sampled_elements.at(f.points._values)
-    values = f.values[f.points._indices]
+    if math.is_sparse(f.values):
+        values = f.values._values
+    else:
+        values = f.values[f.points._indices]
     return Field(elements, values, math.extrapolation.NONE)

@@ -425,6 +425,7 @@ class VectorCloud2D(Recipe):
         dims = space.vector.item_names
         vector = data.geometry.shape['vector']
         channels = channel(data).without('vector')
+        data = only_stored_elements(data)
         for idx in channels.meshgrid(names=True):
             c_data = data[idx]
             x, y = reshaped_numpy(c_data.center[dims], [vector, c_data.shape.without('vector')])
