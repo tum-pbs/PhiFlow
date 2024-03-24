@@ -117,7 +117,7 @@ def laplace(u: Field,
             values_rhs, needed_shifts_rhs = [2 / 11, 1, 2 / 11], (-1, 0, 1)
             extrap_map_rhs['symmetric'] = combine_by_direction(REFLECT, SYMMETRIC)
     base_widths = (abs(min(needed_shifts)), max(needed_shifts))
-    u.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map), u.extrapolation))
+    # ToDo perform Tensor operations instead of Field operations
     padded_components = [pad(u, {dim: base_widths}) for dim in axes_names]
     shifted_components = [shift(padded_component, needed_shifts, None, pad=False, dims=dim) for padded_component, dim in zip(padded_components, axes_names)]
     result_components = [sum([value * shift_ for value, shift_ in zip(values, shifted_component)]) / u.dx.vector[dim] ** 2 for shifted_component, dim in zip(shifted_components, axes_names)]
@@ -132,11 +132,10 @@ def laplace(u: Field,
     result_components = [component.with_bounds(u.bounds) for component in result_components]
     if weights is not None and channel(weights):
         result_components = [c * weights[ax] for c, ax in zip(result_components, axes_names)]
-    result = sum(result_components)
+    result_val = math.sum([f.values for f in result_components], '0')
     if weights is not None and channel(weights).is_empty:
-        result *= weights
-    result = result.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map), u.extrapolation))
-    return result
+        result_val *= weights
+    return Field(u.geometry, result_val, extrapolation.map(_ex_map_f(extrap_map), u.extrapolation))
 
 
 def spatial_gradient(field: Field,
@@ -831,9 +830,10 @@ def minimum(f1: Field or Geometry or float, f2: Field or Geometry or float):
 
 def _auto_resample(*fields: Field):
     """ Prefers extrapolation from first Field """
+    from ._resample import resample
     for sampled_field in fields:
         if isinstance(sampled_field, Field):
-            return [f @ sampled_field for f in fields]
+            return [resample(f, sampled_field) for f in fields]
     raise AssertionError(f"At least one argument must be a Field but got {fields}")
 
 
