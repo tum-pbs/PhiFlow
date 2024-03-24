@@ -363,7 +363,8 @@ def centroid_to_faces(u: Field, boundary: Extrapolation, order=2, upwind: Field 
     if '~neighbors' in u.values.shape:
         return u.values
     neighbor_val = u.mesh.pad_boundary(u.values, mode=u.boundary)
-    if order == 2 and upwind is not None:
+    upwind = upwind.at_faces(extrapolation.NONE, order=2, upwind=None) if upwind is not None else None
+    if order == 2 and upwind is not None:  # linear upwind
         flows_out = upwind.values.vector @ u.mesh.face_normals.vector >= 0
         if gradient is None:
             from phi.field._field_math import green_gauss_gradient
@@ -374,10 +375,10 @@ def centroid_to_faces(u: Field, boundary: Extrapolation, order=2, upwind: Field 
         # ToDo limiter
         result = math.where(flows_out, interpolated_from_self, interpolated_from_neighbor)
         return slice_off_constant_faces(result, u.mesh.boundary_faces, boundary)
-    elif order == 1 and upwind is not None:
+    elif order == 1 and upwind is not None:  # upwind (not linear)
         flows_out = upwind.values.vector @ u.mesh.face_normals.vector >= 0
-        return math.where(flows_out, u.values, neighbor_val)
-    elif order == 2:
+        return math.where(flows_out, u.mesh.connectivity * u.values, u.mesh.connectivity * neighbor_val)
+    elif order == 2:  # linear (not upwind)
         if ignore_skew:
             relative_face_distance = slice_off_constant_faces(u.mesh.relative_face_distance, u.mesh.boundary_faces, boundary)
             return (1 - relative_face_distance) * u.values + relative_face_distance * neighbor_val
