@@ -211,6 +211,9 @@ class UniformGrid(BaseBox):
     def __variable_attrs__(self):
         return ()
 
+    def __value_attrs__(self):
+        return ()
+
     def __with_attrs__(self, **attrs):
         if not attrs:
             return self

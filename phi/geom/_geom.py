@@ -549,6 +549,12 @@ class InvertedGeometry(Geometry):
     def __repr__(self):
         return f"~{self.geometry}"
 
+    def __variable_attrs__(self):
+        return self.geometry.__variable_attrs__
+
+    def __value_attrs__(self):
+        return self.geometry.__value_attrs__
+
 
 def invert(geometry: Geometry):
     """

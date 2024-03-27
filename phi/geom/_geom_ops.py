@@ -36,6 +36,12 @@ class GeometryStack(Geometry):
     def geometries(self):
         return self._geometries
 
+    def __variable_attrs__(self):
+        return '_geometries',
+
+    def __value_attrs__(self):
+        return '_geometries',
+
     @property
     def object_dims(self):
         return object_dims(self._geometries)

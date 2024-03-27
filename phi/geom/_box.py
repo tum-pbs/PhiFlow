@@ -319,6 +319,9 @@ class Box(BaseBox, metaclass=BoxType):
     def __variable_attrs__(self):
         return '_lower', '_upper'
 
+    def __value_attrs__(self):
+        return ()
+
     @property
     def shape(self):
         if self._lower is None or self._upper is None:

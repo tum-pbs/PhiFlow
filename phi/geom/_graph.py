@@ -22,6 +22,9 @@ class Graph(Geometry):
     def __variable_attrs__(self):
         return '_nodes', '_deltas', '_distances'
 
+    def __value_attrs__(self):
+        return '_nodes',
+
     @property
     def connectivity(self) -> Tensor:
         return self._connectivity

@@ -171,6 +171,9 @@ class Heightmap(Geometry):
     def __variable_attrs__(self):
         return '_height', '_bounds', '_max_dist', '_fill_below', '_extrapolation', '_faces'
 
+    def __value_attrs__(self):
+        return ()
+
     def __getitem__(self, item):
         item = slicing_dict(self, item)
         return Heightmap(self._height[item], self._bounds[item], self._max_dist[item], self._fill_below[item], self._extrapolation[item] if self._extrapolation is not None else None, math.slice(self._faces, item))
