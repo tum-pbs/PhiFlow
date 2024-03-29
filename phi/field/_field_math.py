@@ -756,7 +756,7 @@ def stack(fields: Sequence[Field], dim: Shape, dim_bounds: Box = None):
         values = math.stack([f.values for f in fields], dim)
         return PointCloud(elements, values, fields[0].extrapolation)
     elif fields[0].is_mesh:
-        assert all([f.geometry.shallow_equals(fields[0].geometry) for f in fields])
+        assert all([f.geometry.shallow_equals(fields[0].geometry) for f in fields]), f"stacking fields with different geometries is not supported. Got {[f.geometry for f in fields]}"
         values = math.stack([f.values for f in fields], dim)
         return Field(fields[0].geometry, values, fields[0].extrapolation)
     raise NotImplementedError(type(fields[0]))

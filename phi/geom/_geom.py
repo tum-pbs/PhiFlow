@@ -5,7 +5,7 @@ from typing import Union, Dict, Any, Tuple
 
 from phi import math
 from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape, Extrapolation
-from phiml.math._magic_ops import variable_attributes, expand, stack
+from phiml.math._magic_ops import variable_attributes, expand, stack, find_differences
 from phi.math.magic import BoundDim, slicing_dict
 
 
@@ -418,18 +418,8 @@ class Geometry:
         See Also:
             `shallow_equals()`
         """
-        if self is other:
-            return True
-        if not isinstance(other, type(self)):
-            return False
-        if self.shape != other.shape:
-            return False
-        c1 = {a: getattr(self, a) for a in variable_attributes(self)}
-        c2 = {a: getattr(other, a) for a in variable_attributes(self)}
-        for c in c1.keys():
-            if c1[c] is not c2[c] and math.any(c1[c] != c2[c]):
-                return False
-        return True
+        differences = find_differences(self, other, compare_tensors_by_id=False)
+        return not differences
 
     def shallow_equals(self, other):
         """
@@ -439,18 +429,8 @@ class Geometry:
 
         The `shallow_equals()` check does not compare all tensor elements but merely checks whether the same tensors are referenced.
         """
-        if self is other:
-            return True
-        if not isinstance(other, type(self)):
-            return False
-        if self.shape != other.shape:
-            return False
-        c1 = {a: getattr(self, a) for a in variable_attributes(self)}
-        c2 = {a: getattr(other, a) for a in variable_attributes(self)}
-        for c in c1.keys():
-            if c1[c] is not c2[c]:
-                return False
-        return True
+        differences = find_differences(self, other, compare_tensors_by_id=True)
+        return not differences
 
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
@@ -649,6 +629,9 @@ class Point(Geometry):
         self._shape = self._location.shape
 
     def __variable_attrs__(self):
+        return '_location',
+
+    def __value_attrs__(self):
         return '_location',
 
     def __with_attrs__(self, **updates):
