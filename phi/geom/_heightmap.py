@@ -166,7 +166,7 @@ class Heightmap(Geometry):
         return hash(self._bounds)
 
     def __repr__(self):
-        return f"Heightmap {self._resolution}, bounds={self._bounds}"
+        return f"Heightmap {self.resolution}, bounds={self._bounds}"
 
     def __variable_attrs__(self):
         return '_height', '_bounds', '_max_dist', '_fill_below', '_extrapolation', '_faces'
