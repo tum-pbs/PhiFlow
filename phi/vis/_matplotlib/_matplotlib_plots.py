@@ -582,14 +582,14 @@ class PointCloud2D(Recipe):
         data = only_stored_elements(data)
         x, y = reshaped_numpy(data.points.vector[dims], [vector, non_channel(data)])
         if (color == None).all:
-            if not math.is_finite(data.values).any:
-                mpl_colors = [_next_line_color(axis, 'lines' if connected else 'collections')] * non_channel(data).volume
-            else:
+            if math.is_finite(data.values).any:
                 values = reshaped_numpy(data.values, [non_channel(data)])
-                if np.any(values != values[0]):
-                    mpl_colors = add_color_bar(axis, values, min_val, max_val)
-                else:
-                    mpl_colors = [_next_line_color(axis, 'lines' if connected else 'collections')] * non_channel(data).volume
+                mpl_colors = add_color_bar(axis, values, min_val, max_val)
+                # if np.any(values != values[0]):
+                # else:
+                #     mpl_colors = [_next_line_color(axis, 'lines' if connected else 'collections')] * non_channel(data).volume
+            else:
+                mpl_colors = [_next_line_color(axis, 'lines' if connected else 'collections')] * non_channel(data).volume
         else:
             mpl_colors = matplotlib_colors(color, non_channel(data), default=0)
         alphas = reshaped_numpy(alpha, [non_channel(data)])
