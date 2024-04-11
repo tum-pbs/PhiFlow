@@ -631,11 +631,29 @@ class PointCloud2D(Recipe):
                     axis.scatter(xs, ys, color=mpl_colors, alpha=alphas)
                 else:
                     PointCloud2D._plot_points(axis, data.graph.nodes, dims, vector, color, alpha, err, min_val, max_val, label)
-                edges = math.stored_indices(data.graph.connectivity)
+                if math.is_sparse(data.graph.edges):
+                    edges = math.stored_indices(data.graph.edges)
+                    edge_val = math.to_float(math.stored_values(data.graph.edges))
+                    edges = edges[edge_val != 0]
+                    edge_val = edge_val[edge_val != 0]
+                else:
+                    edges = math.nonzero(data.graph.connectivity, index_dim=channel('index'))
+                    edge_val = data.graph.edges[edges]
                 p1, p2 = edges.index
                 x1, y1 = reshaped_numpy(data.graph.center[p1], ['vector', instance])
                 x2, y2 = reshaped_numpy(data.graph.center[p2], ['vector', instance])
-                axis.plot([x1, x2], [y1, y2], color=mpl_colors[0], alpha=alphas[0])
+                if (color == None).all:
+                    edge_val = reshaped_numpy(edge_val, [instance])
+                    edge_colors = add_color_bar(axis, edge_val, min_val, max_val)
+                    if edge_val.min() == edge_val.max():
+                        edge_colors = edge_colors[0]
+                else:
+                    edge_colors = mpl_colors[0]
+                if np.array(edge_colors).ndim == 1:
+                    axis.plot([x1, x2], [y1, y2], color=edge_colors, alpha=alphas[0])
+                else:
+                    for i, (x1_, x2_, y1_, y2_, col) in enumerate(zip(x1, x2, y1, y2, edge_colors)):
+                        axis.plot([x1_, x2_], [y1_, y2_], color=col, alpha=alphas[0])
             else:
                 rad = reshaped_numpy(data.geometry.bounding_radius(), [data.shape.non_channel])
                 shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=a, facecolor=ci) for xi, yi, ri, ci, a in zip(x, y, rad, mpl_colors, alphas)]

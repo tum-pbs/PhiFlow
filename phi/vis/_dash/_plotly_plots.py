@@ -213,7 +213,7 @@ class PointCloud2D(Recipe):
         if spatial(data):
             raise NotImplementedError("Plotly does not yet support plotting point clouds with spatial dimensions")
         for idx in non_channel(data.points).meshgrid(names=True):
-            x, y = math.reshaped_numpy(data[idx].points.vector[dims], [vector, data.shape.non_channel])
+            x, y = math.reshaped_numpy(data.points[idx].vector[dims], [vector, data.shape.non_channel])
             hex_color = color[idx].native()
             subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1] * 100
             if isinstance(data.elements, Sphere):
