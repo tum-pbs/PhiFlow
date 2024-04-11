@@ -460,13 +460,13 @@ def build_faces_2d(vertices: Tensor,
     normal /= vec_length(normal)
     # --- Faces ---
     dual_poly_dim = dual(neighbors=neighbor_count)
-    area = sparse_tensor(indices, area, instance(polygons) & dual_poly_dim, format='coo' if face_format == 'dense' else face_format, default=None)
+    area = sparse_tensor(indices, area, instance(polygons) & dual_poly_dim, format='coo' if face_format == 'dense' else face_format, indices_constant=True)
     normal = tensor_like(area, normal, value_order='original')
     center = tensor_like(area, center, value_order='original')
     faces = Face(to_format(center, face_format), to_format(normal, face_format), to_format(area, face_format))
     # --- vertex-vertex connectivity ---
     vert_pairs = stack([wrap(points1 + points2 + b_points1 + b_points2, instance('edges')), wrap(points2 + points1 + b_points2 + b_points1, instance('edges'))], channel(idx=[non_channel(vertices).name, '~neighbors']))
-    vertex_connectivity = sparse_tensor(vert_pairs, expand(True, instance(vert_pairs)), non_channel(vertices) & dual(neighbors=non_channel(vertices).size), can_contain_double_entries=False, indices_sorted=False)
+    vertex_connectivity = sparse_tensor(vert_pairs, expand(True, instance(vert_pairs)), non_channel(vertices) & dual(neighbors=non_channel(vertices).size), can_contain_double_entries=False, indices_sorted=False, indices_constant=True)
     # --- vertex-face connectivity ---
     vertex_pairs = stack([point_idx1, point_idx2], channel('face_vertices'))
     face_vertices = tensor_like(area, vertex_pairs, value_order='original')
