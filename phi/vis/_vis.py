@@ -369,6 +369,10 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
         else:
             min_val = min([float(f.values.finite_min) for l in positioning.values() for f in l] or [0])
             max_val = max([float(f.values.finite_max) for l in positioning.values() for f in l] or [0])
+            if min_val != min_val:  # NaN
+                min_val = None
+            if max_val != max_val:  # NaN
+                max_val = None
     else:
         min_val = max_val = None
     # --- Layout ---
