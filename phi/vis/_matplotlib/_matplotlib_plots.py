@@ -202,11 +202,11 @@ class LinePlot(Recipe):
         return data.is_grid and data.spatial_rank == 1 and not instance(data)
 
     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
-        x = data.center.vector[0].numpy()
+        x = data.center[{'vector': 0, '~vector': 0}].numpy()
         requires_legend = False
         for c_idx, c_idx_n in zip(channel(data).meshgrid(), channel(data).meshgrid(names=True)):
             label = index_label(c_idx_n)
-            values = data.values[c_idx].numpy()
+            values = data.values.vector.dual[0][c_idx].numpy()
             if (color[c_idx] == None).all:
                 col = _next_line_color(subplot)
             else:
