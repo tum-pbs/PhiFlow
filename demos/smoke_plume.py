@@ -24,5 +24,5 @@ def step(v, s, p, dt=1.):
     return v, s, p
 
 
-for _ in range(2):
+for _ in view('smoke,velocity,pressure', namespace=globals()).range():
     velocity, smoke, pressure = step(velocity, smoke, pressure)
