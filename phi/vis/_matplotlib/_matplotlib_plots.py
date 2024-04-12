@@ -439,7 +439,7 @@ class VectorCloud2D(Recipe):
                 col = _plt_col(color[idx])
             alphas = reshaped_numpy(alpha, [c_data.shape.without('vector')])
             subplot.quiver(x, y, u, v, color=col, units='xy', scale=1, alpha=alphas, label=index_label(idx) if channels.volume > 1 else None)
-        if not has_legend_like([index_label(idx_n) for idx_n in channels.meshgrid(names=True)], figure):
+        if channels and not has_legend_like([index_label(idx_n) for idx_n in channels.meshgrid(names=True)], figure):
             subplot.legend()
 
 
