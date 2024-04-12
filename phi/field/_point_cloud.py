@@ -40,7 +40,7 @@ def PointCloud(elements: Union[Tensor, Geometry], values: Any = 1., extrapolatio
         bounds: Deprecated. Has no use since 2.5.
     """
     if bounds is not None:
-        warnings.warn("bounds argument is deprecated since 2.5 and will be ignored.")
+        warnings.warn("bounds argument is deprecated since 2.5 and will be ignored.", stacklevel=2)
     # if dual(values):
     #     assert dual(values).rank == 1, f"PointCloud cannot convert values with more than 1 dual dimension."
     #     non_dual_name = dual(values).name[1:]
