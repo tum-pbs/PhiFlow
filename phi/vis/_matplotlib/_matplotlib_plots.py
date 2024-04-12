@@ -469,7 +469,8 @@ class StreamPlot2D(Recipe):
     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         vector = data.geometry.shape['vector']
         data = data.at_centers()
-        x, y = reshaped_numpy(data.points, [vector, *data.shape.without('vector')])
+        with math.precision(64):  # streamplot requires very precise grid spacing
+            x, y = reshaped_numpy(data.points, [vector, *data.shape.without('vector')])
         x = x[:, 0]
         y = y[0, :]
         u, v = reshaped_numpy(data.values.vector[vector.item_names[0]], [vector, *data.shape.without('vector')])
