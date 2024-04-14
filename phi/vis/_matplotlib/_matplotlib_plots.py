@@ -20,7 +20,7 @@ from phi.geom import Sphere, BaseBox, Point, Box, Mesh, Graph
 from phi.geom._heightmap import Heightmap
 from phi.geom._geom_ops import GeometryStack
 from phi.math import Tensor, channel, spatial, instance, non_channel, Shape, reshaped_numpy, shape
-from phi.vis._vis_base import display_name, PlottingLibrary, Recipe, index_label, only_stored_elements
+from phi.vis._vis_base import display_name, PlottingLibrary, Recipe, index_label, only_stored_elements, to_field
 
 
 class MatplotlibPlots(PlottingLibrary):
@@ -631,10 +631,12 @@ class PointCloud2D(Recipe):
                 if isinstance(data.graph.nodes, Point):
                     axis.scatter(xs, ys, color=mpl_colors, alpha=alphas)
                 else:
-                    PointCloud2D._plot_points(axis, data.graph.nodes, dims, vector, color, alpha, err, min_val, max_val, label)
+                    PointCloud2D._plot_points(axis, to_field(data.graph.nodes), dims, vector, color, alpha, err, min_val, max_val, label)
                 if math.is_sparse(data.graph.edges):
                     edges = math.stored_indices(data.graph.edges)
                     edge_val = math.to_float(math.stored_values(data.graph.edges))
+                    if channel(edge_val):
+                        edge_val = math.unstack(edge_val, channel)[0]
                     edges = edges[edge_val != 0]
                     edge_val = edge_val[edge_val != 0]
                 else:
