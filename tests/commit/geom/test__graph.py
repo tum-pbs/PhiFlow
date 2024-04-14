@@ -6,7 +6,7 @@ from phi.math import channel
 from phiml.math import wrap, instance
 
 
-class TestBox(TestCase):
+class TestGraph(TestCase):
 
     def test_slice(self):
         points = wrap([(0, 0), (1.2, 0), (2, 0), (2, 1), (.8, 1), (0, 1)], instance('points'), channel(vector='x,y'))

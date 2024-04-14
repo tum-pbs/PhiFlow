@@ -116,7 +116,7 @@ class Graph(Geometry):
 
     @property
     def face_shape(self) -> Shape:
-        raise NotImplementedError
+        return non_batch(self._edges).non_channel
 
     def lies_inside(self, location: Tensor) -> Tensor:
         raise NotImplementedError
@@ -130,7 +130,6 @@ class Graph(Geometry):
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
 
-    @property
     def bounding_radius(self) -> Tensor:
         return self._nodes.bounding_radius()
 

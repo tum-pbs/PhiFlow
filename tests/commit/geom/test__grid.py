@@ -8,7 +8,7 @@ from phi.math.magic import Shaped, Sliceable, Shapable
 from phiml.math import vec, spatial
 
 
-class TestBox(TestCase):
+class TestGrid(TestCase):
 
     def test_slice_int(self):
         grid = UniformGrid(x=4, y=3, z=2)
