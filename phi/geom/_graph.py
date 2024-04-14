@@ -1,4 +1,4 @@
-from typing import Union, Tuple, Dict, Any
+from typing import Union, Tuple, Dict, Any, Optional
 
 from phiml.math import Tensor, Shape, channel, shape, non_batch, dual
 from ._geom import Geometry, Point
@@ -13,7 +13,22 @@ class Graph(Geometry):
     Additional dimensions can be added to `edges` to store vector-valued connectivity weights.
     """
 
-    def __init__(self, nodes: Union[Geometry, Tensor], edges: Tensor, boundary: Dict[str, Dict[str, slice]]):
+    def __init__(self,
+                 nodes: Union[Geometry, Tensor],
+                 edges: Tensor,
+                 boundary: Dict[str, Dict[str, slice]],
+                 deltas=None, distances=None, bounding_distance: Union[bool, Tensor, float, None] = False):
+        """
+        Create a graph where `nodes` are connected by `edges`.
+
+        Args:
+            nodes: `Geometry` collection or `Tensor` to denote points.
+            edges: Edge weight matrix. Must have the instance and spatial dims of `nodes` plus their dual counterparts.
+            boundary: Marks ranges of nodes as boundary elements.
+            deltas: (Optional) Pre-computed position difference matrix.
+            distances: (Optional) Pre-computed distance matrix.
+            bounding_distance: (Optional) Pre-computed distance bounds. No distance is larger than this value. If `True`, will be computed now, if `False`, will not be computed.
+        """
         if isinstance(nodes, Tensor):
             assert 'vector' in channel(nodes) and channel(nodes).get_item_names('vector') is not None, f"nodes must have a 'vector' dim listing the physical dimensions but got {shape(nodes)}"
         node_dims = non_batch(nodes).non_channel
@@ -21,9 +36,13 @@ class Graph(Geometry):
         self._nodes: Geometry = nodes if isinstance(nodes, Geometry) else Point(nodes)
         self._edges = edges
         self._boundary = boundary
-        self._deltas = math.pairwise_distances(self._nodes.center, format=edges)
-        self._distances = math.vec_length(self._deltas)
+        self._deltas = math.pairwise_distances(self._nodes.center, format=edges) if deltas is None else deltas
+        self._distances = math.vec_length(self._deltas) if distances is None else distances
         self._connectivity = math.tensor_like(edges, 1) if math.is_sparse(edges) else (edges != 0) & ~math.is_nan(edges)
+        if isinstance(bounding_distance, bool):
+            self._bounding_distance = math.max(self._distances) if bounding_distance else None
+        else:
+            self._bounding_distance = bounding_distance
 
     def __variable_attrs__(self):
         return '_nodes', '_edges', '_deltas', '_distances', '_connectivity'
@@ -54,6 +73,10 @@ class Graph(Geometry):
     @property
     def distances(self):
         return self._distances
+
+    @property
+    def bounding_distance(self) -> Optional[Tensor]:
+        return self._bounding_distance
 
     @property
     def center(self) -> Tensor:
@@ -107,6 +130,7 @@ class Graph(Geometry):
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
 
+    @property
     def bounding_radius(self) -> Tensor:
         return self._nodes.bounding_radius()
 
