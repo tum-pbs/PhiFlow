@@ -361,8 +361,35 @@ class Field:
 
     with_elements = with_geometry
 
-    def shifted(self, delta):
-        return self.with_elements(self._geometry.shifted(delta))
+    def shifted(self, delta: Tensor) -> 'Field':
+        """
+        Move the positions of this field's `geometry` by `delta`.
+
+        See Also:
+            `Field.shifted_to`.
+
+        Args:
+            delta: Shift amount for each center position of `geometry`.
+
+        Returns:
+            New `Field` sampled at `geometry.center + delta`.
+        """
+        return self.with_geometry(self._geometry.shifted(delta))
+
+    def shifted_to(self, position: Tensor) -> 'Field':
+        """
+        Move the positions of this field's `geometry` to `positions`.
+
+        See Also:
+            `Field.shifted`.
+
+        Args:
+            position: New center positions of `geometry`.
+
+        Returns:
+            New `Field` sampled at given positions.
+        """
+        return self.with_geometry(self._geometry.at(position))
 
     def pad(self, widths: Union[int, tuple, list, dict]) -> 'Field':
         """
