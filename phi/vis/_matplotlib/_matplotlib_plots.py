@@ -97,7 +97,7 @@ class MatplotlibPlots(PlottingLibrary):
                         axis.set_zlim(_get_range(bounds, 2))
                         # --- Equal aspect ---
                         if hasattr(axis, 'set_box_aspect'):
-                            aspect3d = list(math.max(bounds.size, bounds.shape.without('vector')))
+                            aspect3d = list(math.max(bounds.size, bounds.shape.without('vector')).numpy())
                             axis.set_box_aspect(aspect3d)
                         # --- Log axes ---
                         if bounds.vector.item_names[0] in log_dims:
