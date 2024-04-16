@@ -1,6 +1,7 @@
 from typing import Union, Tuple, Dict, Any, Optional
 
 from phiml.math import Tensor, Shape, channel, shape, non_batch, dual
+from phiml.math.magic import slicing_dict
 from ._geom import Geometry, Point
 from .. import math
 
@@ -61,6 +62,9 @@ class Graph(Geometry):
     @property
     def nodes(self) -> Geometry:
         return self._nodes
+
+    def as_points(self):
+        return Graph(self._nodes.center, self._edges, self._boundary, self._deltas, self._distances, self._bounding_distance)
 
     @property
     def deltas(self):
@@ -137,7 +141,14 @@ class Graph(Geometry):
         return self._nodes.bounding_half_extent()
 
     def at(self, center: Tensor) -> 'Geometry':
-        return Graph(self.nodes.at(center), self._edges, self._boundary)
+        raise NotImplementedError("Changing the node positions of a Graph is not supported as it would invalidate distances.")
+        # warnings.warn("Changing the node positions of a graph triggers re-evaluation of distances.", RuntimeWarning, stacklevel=2)
+        # return Graph(self.nodes.at(center), self._edges, self._boundary, bounding_distance=self._bounding_distance is not None)
+
+    def shifted(self, delta: Tensor) -> 'Geometry':
+        if non_batch(delta).non_channel.only(self._nodes.shape):  # shift varies between
+            raise NotImplementedError("Shifting the node positions of a Graph is not supported as it would invalidate distances.")
+        return Graph(self.nodes.shifted(delta), self._edges, self._boundary, deltas=self._deltas, distances=self._distances, bounding_distance=self._bounding_distance is not None)
 
     def rotated(self, angle: Union[float, Tensor]) -> 'Geometry':
         raise NotImplementedError
@@ -149,6 +160,7 @@ class Graph(Geometry):
         return hash(self._nodes)
 
     def __getitem__(self, item):
+        item = slicing_dict(self, item)
         node_dims = non_batch(self._nodes).non_channel
         edge_sel = {}
         for i, (dim, sel) in enumerate(item.items()):
