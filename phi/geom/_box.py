@@ -438,6 +438,9 @@ class Cuboid(BaseBox):
     def __variable_attrs__(self):
         return '_center', '_half_size'
 
+    def __value_attrs__(self):
+        return ()
+
     @property
     def center(self):
         return self._center
