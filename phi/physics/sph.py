@@ -11,7 +11,7 @@ from phi import math
 from phi.field import Field
 from phi.math import Tensor, pairwise_distances, vec_length, Shape, non_channel, dual, where, PI
 from phi.geom import Geometry, Graph
-from phiml.math import channel, stack, vec, concat, expand
+from phiml.math import channel, stack, vec, concat, expand, clip
 
 _DEFAULT_DESIRED_NEIGHBORS = {
     'quintic-spline': 34,
@@ -124,44 +124,43 @@ def evaluate_kernel(delta, distance, h, spatial_rank: int, kernel: str, types: S
     d = spatial_rank
     result = {}
     # --- Quintic spline ---
-    if kernel == 'quintic-spline':  # cutoff at q = 3 (d=3h)
-        q = 3 * distance / h
-        if 'kernel' in types:
-            norm = 6 * 1 / 120 / h if d == 1 else 6 * 7 / 478 / PI / (h*h) if d == 2 else 6 * 1 / 120 / PI / (h*h*h)
-            w1 = (3 - q) ** 5 - 6 * (2 - q) ** 5 + 15 * (1 - q) ** 5
-            w2 = (3 - q) ** 5 - 6 * (2 - q) ** 5
-            w3 = (3 - q) ** 5
-            result['kernel'] = norm * where(q > 2, w3, where(q > 1, w2, w1))
-        if 'grad' in types:
-            norm = 6 * -5 * 3 / 120 / (h*h) if d == 1 else 6 * -5 * 3 * 7 / 478 / PI / (h*h*h) if d == 2 else 6 * -5 * 3 / 120 / PI / h**4
-            w1 = (3 - q) ** 4 - 6 * (2 - q) ** 4 + 15 * (1 - q) ** 4
-            w2 = (3 - q) ** 4 - 6 * (2 - q) ** 4
-            w3 = (3 - q) ** 4
-            result['grad'] = norm * where(q > 2, w3, where(q > 1, w2, w1))
-        if 'laplace' in types:
-            raise NotImplementedError(f"laplace of {kernel} is not yet supported")
-    # --- Wendland C2 ---
-    elif kernel == 'wendland-c2':  # cutoff at q=2 (d=2h)
+    if kernel == 'quintic-spline':
+        const = 3**5 / 40 if d == 1 else 3**7 * 7 / 478 / PI if d == 2 else 3**7 / 40 / PI
         q = distance / h
         if 'kernel' in types:
-            norm = 3 / h if d == 1 else 7 / PI / (h*h) if d == 2 else 21 / 2 / PI / (h*h*h)
-            result['kernel'] = norm * (1-q) ** 4 * (4*q + 1)
+            k = clip(1-q)**5 - 6 * clip(2/3-q)**5 + 15 * clip(1/3-q)**5
+            result['kernel'] = const / h**d * k
         if 'grad' in types:
-            norm = -20 * 3 / (h*h) if d == 1 else -20 * 7 / PI / (h*h*h) if d == 2 else -20 * 21 / 2 / PI / h**4
-            result['grad'] = norm * q * (1-q)**3
+            dk = -5 * clip(1-q)**4 + 30 * clip(2/3-q)**4 - 75 * clip(1/3-q)**4
+            result['grad'] = const / h**(d+1) * dk * math.safe_div(delta, distance)
         if 'laplace' in types:
-            raise NotImplementedError(f"laplace of {kernel} is not yet supported")
-    # --- poly6 ---
-    elif kernel == 'poly6':  # from Müller et al., Particle-based fluid simulation for interactive applications
-        diff = h**2 - math.vec_squared(delta)
+            d2k = 20 * clip(1-q)**3 - 120 * clip(2/3-q)**3 + 300 * clip(1/3-q)**3
+            result['laplace'] = const / h**(d+2) * d2k
+    # --- Wendland C2 ---
+    elif kernel == 'wendland-c2':
+        const = 3 / 2 if d == 1 else 7 / PI if d == 2 else 21 / 2 / PI
+        q = distance / h
         if 'kernel' in types:
-            norm = 35 / 16 / h**7 if d == 1 else 4 / PI / h**8 if d == 2 else 315 / 64 / PI / h**9
+            k = (1-q) ** 4 * (4*q + 1)
+            result['kernel'] = const / h**d * k
+        if 'grad' in types:
+            dk = -20 * q * (1-q)**3
+            result['grad'] = const / h**(d+1) * dk * math.safe_div(delta, distance)
+        if 'laplace' in types:
+            d2k = 20 * (4*q - 1) * (1-q)**2
+            result['laplace'] = const / h**(d+2) * d2k
+    # --- poly6 from Müller et al., Particle-based fluid simulation for interactive applications ---
+    elif kernel == 'poly6':
+        const = 35 / 32 if d == 1 else 4 / PI if d == 2 else 315 / 64 / PI
+        norm = const / h**(d+6)
+        r2 = math.vec_squared(delta)
+        diff = h**2 - r2
+        if 'kernel' in types:
             result['kernel'] = norm * diff ** 3
         if 'grad' in types:
-            norm = -6 * 35 / 16 / h**7 if d == 1 else -6 * 4 / PI / h**8 if d == 2 else -6 * 315 / 64 / PI / h**9
-            result['grad'] = delta * norm * diff ** 2
+            result['grad'] = -6 * norm * diff**2 * delta
         if 'laplace' in types:
-            raise NotImplementedError(f"laplace of {kernel} is not yet supported")
+            result['laplace'] = -6 * norm * (5*r2**2 - 6*r2*h**2 + h**4)
     else:
         raise ValueError(kernel)
     return {t: result[t] for t in types}  # re-order output to match input
