@@ -10,7 +10,7 @@ from typing import Dict, Tuple, Any, Union, Sequence
 from phi import math
 from phi.field import Field
 from phi.math import Tensor, pairwise_distances, vec_length, Shape, non_channel, dual, where, PI
-from phi.geom import Geometry, Graph
+from phi.geom import Geometry, Graph, Box
 from phiml.math import channel, stack, vec, concat, expand, clip
 
 _DEFAULT_DESIRED_NEIGHBORS = {
@@ -26,7 +26,9 @@ def neighbor_graph(nodes: Geometry,
                    desired_neighbors: float = None,
                    compute: str = 'kernel,grad',
                    format='sparse',
-                   search_method='auto') -> Graph:
+                   search_method='auto',
+                   domain: Box = None,
+                   periodic: Union[bool, Tensor] = False) -> Graph:
     """
     Build a `phi.geom.Graph` based on proximity of `nodes` and evaluates the kernel function.
 
@@ -39,6 +41,10 @@ def neighbor_graph(nodes: Geometry,
             If no kernel property is given, the edge values will be set to the inverse distance between nodes instead.
         format: Sparse format in which store neighborhood information. Allowed strings are `'dense', `'csr'`, `'coo'`, `'csc'`.
         search_method: Neighborhood search method, see `phi.math.pairwise_differences`.
+        domain: (Optional) Specify a fixed domain size in which the centers of all nodes must be located.
+            This is required for periodic domains.
+        periodic: Which domain boundaries should be treated as periodic, i.e. particles on opposite sides are neighbors.
+            Can be specified as a `bool` for all sides or as a vector-valued boolean `Tensor` to specify periodicity by direction.
 
     Returns:
         `phi.geom.Graph` with edge values storing the kernel values, i.e. the interaction strength between particles.
@@ -47,10 +53,11 @@ def neighbor_graph(nodes: Geometry,
     boundary = {} if boundary is None else boundary
     desired_neighbors = _DEFAULT_DESIRED_NEIGHBORS[kernel] if desired_neighbors is None else desired_neighbors
     # --- neighbor search ---
+    domain = (domain.lower, domain.upper) if domain is not None else None
     support = _get_support_radius(nodes.volume, desired_neighbors, nodes.spatial_rank)
-    # --- evaluate kernel and derivatives ---
-    deltas = math.pairwise_differences(nodes.center, max_distance=support, format=format, method=search_method)
+    deltas = math.pairwise_differences(nodes.center, max_distance=support, format=format, method=search_method, domain=domain, periodic=periodic, avg_neighbors=desired_neighbors)
     distances = math.vec_length(deltas, eps=1e-5)
+    # --- evaluate kernel and derivatives ---
     compute = [s.strip() for s in compute.split(',') if s.strip()]
     if compute:
         kernel = evaluate_kernel(deltas, distances, support, nodes.spatial_rank, kernel, types=compute)
