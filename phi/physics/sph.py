@@ -10,7 +10,7 @@ from typing import Dict, Tuple, Any, Union, Sequence
 from phi import math
 from phi.field import Field
 from phi.math import Tensor, pairwise_distances, vec_length, Shape, non_channel, dual, where, PI
-from phi.geom import Geometry, Graph, Box
+from phi.geom import Geometry, Graph, Box, Sphere
 from phiml.math import channel, stack, vec, concat, expand, clip
 
 _DEFAULT_DESIRED_NEIGHBORS = {
@@ -80,12 +80,7 @@ def _get_support_radius(volume: Tensor, desired_neighbors: float, spatial_rank: 
     Returns:
         Support radius, i.e. neighbor search cutoff.
     """
-    if spatial_rank == 1:
-        return desired_neighbors * .5 * volume  # N(h) = 2 h / v
-    elif spatial_rank == 2:
-        return math.sqrt(desired_neighbors / math.PI * volume)  # N(h) = 𝜋 h² / v
-    else:
-        return (desired_neighbors / math.PI * .75 * volume) ** (1/3)  # N(h) = 4/3 𝜋 h³ / v
+    return Sphere.radius_from_volume(volume * desired_neighbors, spatial_rank)
 
 
 def expected_neighbors(volume: Tensor, support_radius, spatial_rank: int):
@@ -100,12 +95,7 @@ def expected_neighbors(volume: Tensor, support_radius, spatial_rank: int):
     Returns:
         Number of expected neighbors.
     """
-    if spatial_rank == 1:
-        return 2 * support_radius / volume
-    elif spatial_rank == 2:
-        return PI * support_radius**2 / volume
-    else:
-        return 4/3 * PI * support_radius**3 / volume
+    return Sphere.volume_from_radius(support_radius, spatial_rank) / volume
 
 
 def evaluate_kernel(delta, distance, h, spatial_rank: int, kernel: str, types: Sequence[str] = ('kernel',)) -> Dict[str, Tensor]:

@@ -1,7 +1,7 @@
 from typing import Union, Dict, Tuple
 
 from phi import math
-from phiml.math import Shape, dual
+from phiml.math import Shape, dual, PI
 from ._geom import Geometry, _keep_vector, NO_GEOMETRY
 from ..math import wrap, Tensor, expand
 from ..math.magic import slicing_dict
@@ -16,6 +16,8 @@ class Sphere(Geometry):
     def __init__(self,
                  center: Tensor = None,
                  radius: Union[float, Tensor] = None,
+                 volume: Union[float, Tensor] = None,
+                 radius_variable=True,
                  **center_: Union[float, Tensor]):
         """
         Args:
@@ -31,8 +33,12 @@ class Sphere(Geometry):
             self._center = center
         else:
             self._center = wrap(tuple(center_.values()), math.channel(vector=tuple(center_.keys())))
-        assert radius is not None, "radius must be specified."
-        self._radius = wrap(radius)
+        if radius is None:
+            assert volume is not None, f"Either radius or volume must be specified but got neither."
+            self._radius = Sphere.radius_from_volume(wrap(volume), self._center.vector.size)
+        else:
+            self._radius = wrap(radius)
+        self._radius_variable = radius_variable
         assert 'vector' not in self._radius.shape, f"Sphere radius must not vary along vector but got {radius}"
 
     @property
@@ -51,16 +57,31 @@ class Sphere(Geometry):
 
     @property
     def volume(self) -> math.Tensor:
-        if self.spatial_rank == 1:
-            return 2 * self._radius
-        elif self.spatial_rank == 2:
-            return math.PI * self._radius ** 2
-        elif self.spatial_rank == 3:
-            return 4 / 3 * math.PI * self._radius ** 3
+        return Sphere.volume_from_radius(self._radius, self.spatial_rank)
+
+    @staticmethod
+    def volume_from_radius(radius: Union[float, Tensor], spatial_rank: int):
+        if spatial_rank == 1:
+            return 2 * radius
+        elif spatial_rank == 2:
+            return PI * radius ** 2
+        elif spatial_rank == 3:
+            return 4/3 * PI * radius ** 3
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(f"spatial_rank>3 not supported, got {spatial_rank}")
             # n = self.spatial_rank
             # return math.pi ** (n // 2) / math.faculty(math.ceil(n / 2)) * self._radius ** n
+
+    @staticmethod
+    def radius_from_volume(volume: Union[float, Tensor], spatial_rank: int):
+        if spatial_rank == 1:
+            return volume / 2
+        elif spatial_rank == 2:
+            return math.sqrt(volume / PI)
+        elif spatial_rank == 3:
+            return (.75 / PI * volume) ** (1/3)
+        else:
+            raise NotImplementedError(f"spatial_rank>3 not supported, got {spatial_rank}")
 
     def lies_inside(self, location):
         distance_squared = math.sum((location - self.center) ** 2, dim='vector')
@@ -93,23 +114,23 @@ class Sphere(Geometry):
         return expand(self.radius, self._center.shape.only('vector'))
 
     def at(self, center: Tensor) -> 'Geometry':
-        return Sphere(center, self._radius)
+        return Sphere(center, self._radius, radius_variable=self._radius_variable)
 
     def rotated(self, angle):
         return self
 
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
-        return Sphere(self.center, self.radius * factor)
+        return Sphere(self.center, self.radius * factor, radius_variable=self._radius_variable)
 
     def __variable_attrs__(self):
-        return '_center', '_radius'
+        return ('_center', '_radius') if self._radius_variable else ('_center',)
 
     def __value_attrs__(self):
         return '_center',
 
     def __getitem__(self, item):
         item = slicing_dict(self, item)
-        return Sphere(self._center[_keep_vector(item)], self._radius[item])
+        return Sphere(self._center[_keep_vector(item)], self._radius[item], radius_variable=self._radius_variable)
 
     def __hash__(self):
         return hash(self._center) + hash(self._radius)

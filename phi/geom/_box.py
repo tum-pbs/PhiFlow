@@ -320,7 +320,7 @@ class Box(BaseBox, metaclass=BoxType):
         return '_lower', '_upper'
 
     def __value_attrs__(self):
-        return ()
+        return '_lower', '_upper'
 
     @property
     def shape(self):
@@ -439,7 +439,7 @@ class Cuboid(BaseBox):
         return '_center', '_half_size'
 
     def __value_attrs__(self):
-        return ()
+        return '_center',
 
     @property
     def center(self):
@@ -457,15 +457,15 @@ class Cuboid(BaseBox):
 
     @property
     def size(self):
-        return 2 * self.half_size
+        return 2 * self._half_size
 
     @property
     def lower(self):
-        return self.center - self.half_size
+        return self._center - self._half_size
 
     @property
     def upper(self):
-        return self.center + self.half_size
+        return self._center + self._half_size
 
     @property
     def rotation_matrix(self) -> Optional[Tensor]:
