@@ -149,7 +149,7 @@ class UniformGrid(BaseBox):
         return UniformGrid(resolution, bounds)
 
     def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Optional[int], **kwargs) -> 'Cuboid':
-        return math.pack_dims(self.center_representation(), dims, packed_dim, pos, **kwargs)
+        return math.pack_dims(self.center_representation(size_variable=False), dims, packed_dim, pos, **kwargs)
 
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
@@ -158,7 +158,7 @@ class UniformGrid(BaseBox):
 
     def list_cells(self, dim_name):
         center = math.pack_dims(self.center, self._shape.spatial.names, dim_name)
-        return Cuboid(center, self.half_size)
+        return Cuboid(center, self.half_size, size_variable=False)
 
     def stagger(self, dim: str, lower: bool, upper: bool):
         dim_mask = np.array(self.resolution.mask(dim))
@@ -191,7 +191,7 @@ class UniformGrid(BaseBox):
             return UniformGrid(self.resolution, self.bounds.shifted(delta))
         else:
             center = self.center + delta
-            return Cuboid(center, self.half_size)
+            return Cuboid(center, self.half_size, size_variable=False)
 
     def rotated(self, angle) -> Geometry:
         raise NotImplementedError("Grids cannot be rotated. Use center_representation() to convert it to Cuboids first.")

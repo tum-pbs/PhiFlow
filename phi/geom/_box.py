@@ -34,9 +34,6 @@ class BaseBox(Geometry):  # not a Subwoofer
     def center(self) -> Tensor:
         raise NotImplementedError()
 
-    def at(self, center: Tensor) -> 'BaseBox':
-        return Cuboid(center, self.half_size, self.rotation_matrix)
-
     @property
     def size(self) -> Tensor:
         raise NotImplementedError(self)
@@ -55,6 +52,10 @@ class BaseBox(Geometry):  # not a Subwoofer
 
     @property
     def rotation_matrix(self) -> Optional[Tensor]:
+        raise NotImplementedError(self)
+
+    @property
+    def is_size_variable(self):
         raise NotImplementedError(self)
 
     @property
@@ -151,15 +152,15 @@ class BaseBox(Geometry):  # not a Subwoofer
 
     box = corner_representation
 
-    def center_representation(self) -> 'Cuboid':
-        return Cuboid(self.center, self.half_size)
+    def center_representation(self, size_variable=True) -> 'Cuboid':
+        return Cuboid(self.center, self.half_size, size_variable=size_variable)
 
     def contains(self, other: 'BaseBox'):
         """ Tests if the other box lies fully inside this box. """
         return np.all(other.lower >= self.lower) and np.all(other.upper <= self.upper)
 
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
-        return Cuboid(self.center, self.half_size * factor)
+        return Cuboid(self.center, self.half_size * factor, size_variable=True)
 
     @property
     def boundary_elements(self) -> Dict[Any, Dict[str, slice]]:
@@ -171,7 +172,7 @@ class BaseBox(Geometry):  # not a Subwoofer
 
     @property
     def faces(self) -> 'Geometry':
-        return Cuboid(self.face_centers, self._half_size, self._rotation_matrix)
+        return Cuboid(self.face_centers, self._half_size, self._rotation_matrix, size_variable=False)
 
     @property
     def face_centers(self) -> Tensor:
@@ -352,6 +353,13 @@ class Box(BaseBox, metaclass=BoxType):
     def rotation_matrix(self) -> Optional[Tensor]:
         return None
 
+    @property
+    def is_size_variable(self):
+        raise False
+
+    def at(self, center: Tensor) -> 'BaseBox':
+        return Cuboid(center, self.half_size, self.rotation_matrix)
+
     def shifted(self, delta, **delta_by_dim):
         return Box(self.lower + delta, self.upper + delta)
 
@@ -389,6 +397,7 @@ class Cuboid(BaseBox):
                  center: Tensor = 0,
                  half_size: Union[float, Tensor] = None,
                  rotation: Optional[Tensor] = None,
+                 size_variable=True,
                  **size: Union[float, Tensor]):
         """
         Args:
@@ -409,6 +418,7 @@ class Cuboid(BaseBox):
             center = math.expand(center, channel(self._half_size))
         self._center = center
         self._rotation_matrix = None if rotation is None else math.rotation_matrix(rotation)
+        self._size_variable = size_variable
 
     def __eq__(self, other):
         if self._center is None and self._half_size is None:
@@ -426,17 +436,18 @@ class Cuboid(BaseBox):
 
     def __getitem__(self, item):
         item = _keep_vector(slicing_dict(self, item))
-        return Cuboid(self._center[item], self._half_size[item])
+        return Cuboid(self._center[item], self._half_size[item], size_variable=self._size_variable)
 
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
         if all(isinstance(v, Cuboid) for v in values):
-            return Cuboid(math.stack([v.center for v in values], dim, **kwargs), math.stack([v.half_size for v in values], dim, **kwargs))
+            size_variable = any([c._size_variable for c in values])
+            return Cuboid(math.stack([v.center for v in values], dim, **kwargs), math.stack([v.half_size for v in values], dim, **kwargs), size_variable=size_variable)
         else:
             return Geometry.__stack__(values, dim, **kwargs)
 
     def __variable_attrs__(self):
-        return '_center', '_half_size'
+        return ('_center', '_half_size') if self._size_variable else ('_center',)
 
     def __value_attrs__(self):
         return '_center',
@@ -471,12 +482,19 @@ class Cuboid(BaseBox):
     def rotation_matrix(self) -> Optional[Tensor]:
         return self._rotation_matrix
 
+    @property
+    def is_size_variable(self):
+        return self._size_variable
+
+    def at(self, center: Tensor) -> 'BaseBox':
+        return Cuboid(center, self.half_size, self.rotation_matrix, size_variable=self._size_variable)
+
     def rotated(self, angle) -> Geometry:
         if self._rotation_matrix is None:
-            return Cuboid(self._center, self._half_size, angle)
+            return Cuboid(self._center, self._half_size, angle, size_variable=self._size_variable)
         else:
             matrix = self._rotation_matrix @ (angle if dual(angle) else math.rotation_matrix(angle))
-            return Cuboid(self._center, self._half_size, matrix)
+            return Cuboid(self._center, self._half_size, matrix, size_variable=self._size_variable)
 
     def bounding_half_extent(self):
         if self._rotation_matrix is not None:
