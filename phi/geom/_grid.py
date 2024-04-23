@@ -61,8 +61,8 @@ class UniformGrid(BaseBox):
     def boundary_faces(self) -> Dict[Any, Dict[str, slice]]:
         result = {}
         for dim in self.vector.item_names:
-            result[(dim, False)] = {'~vector': dim, dim: slice(1)}
-            result[(dim, True)] = {'~vector': dim, dim: slice(-1, None)}
+            result[dim+'-'] = {'~vector': dim, dim: slice(1)}
+            result[dim+'+'] = {'~vector': dim, dim: slice(-1, None)}
         return result
 
     @property
