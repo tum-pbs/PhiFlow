@@ -422,7 +422,8 @@ def build_faces_2d(vertices: Tensor,
             for v1, v2 in pair_list:
                 poly_idx = poly_by_face.get((v1, v2), None)
                 if poly_idx is None:
-                    poly_idx = poly_by_face[(v2, v1)]
+                    poly_idx = poly_by_face.get((v2, v1), None)
+                    assert poly_idx is not None, f"Boundary edge between vertices {v1} and {v2} is not connected to any cell! Either add a connected polygon or remove it from the boundary '{boundary_name}'"
                     del poly_by_face[(v2, v1)]
                     b_points1.append(v2)
                     b_points2.append(v1)
