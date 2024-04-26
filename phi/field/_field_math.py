@@ -221,7 +221,7 @@ def spatial_gradient(field: Field,
     field.with_extrapolation(extrapolation.map(_ex_map_f(extrap_map), field.extrapolation))  # ToDo does this line do anything?
     if implicit:
         boundary = extrapolation.map(_ex_map_f(extrap_map_rhs), boundary)
-    spatial_dims = field.shape.only(dims).names
+    spatial_dims = field.shape.only(dims, reorder=True).names
     stack_dim = stack_dim.with_size(spatial_dims)
     if at == 'center':
         # ToDo if extrapolation == math.extrapolation.NONE, extend size by 1
@@ -323,7 +323,8 @@ def shift(grid: Field, offsets: tuple, stack_dim: Optional[Shape] = channel('shi
 def stagger(field: Field,
             face_function: Callable,
             extrapolation: float or math.extrapolation.Extrapolation,
-            at='face'):
+            at='face',
+            dims=spatial):
     """
     Creates a new grid by evaluating `face_function` given two neighbouring cells.
     One layer of missing cells is inferred from the extrapolation.
@@ -345,8 +346,9 @@ def stagger(field: Field,
     extrapolation = as_boundary(extrapolation, field.geometry)
     all_lower = []
     all_upper = []
+    dims = field.shape.only(dims, reorder=True).names
     if at == 'face':
-        for dim in field.resolution.names:
+        for dim in dims:
             valid_lo, valid_up = extrapolation.valid_outer_faces(dim)
             if valid_lo and valid_up:
                 width_lower, width_upper = {dim: (1, 0)}, {dim: (0, 1)}
@@ -358,15 +360,15 @@ def stagger(field: Field,
                 width_lower, width_upper = {dim: (0, -1)}, {dim: (-1, 0)}
             all_lower.append(math.pad(field.values, width_lower, field.extrapolation, bounds=field.bounds))
             all_upper.append(math.pad(field.values, width_upper, field.extrapolation, bounds=field.bounds))
-        all_upper = math.stack(all_upper, dual(vector=field.resolution.names))
-        all_lower = math.stack(all_lower, dual(vector=field.resolution.names))
+        all_upper = math.stack(all_upper, dual(vector=dims))
+        all_lower = math.stack(all_lower, dual(vector=dims))
         values = face_function(all_lower, all_upper)
         result = StaggeredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
         assert result.shape.spatial == field.shape.spatial
         return result
     else:
         assert at == 'center', f"type must be 'face' or 'center' but got '{at}'"
-        left, right = math.shift(field.values, (-1, 1), padding=field.extrapolation, stack_dim=channel('vector'))
+        left, right = math.shift(field.values, (-1, 1), dims=dims, padding=field.extrapolation, stack_dim=channel('vector'))
         values = face_function(left, right)
         return CenteredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
 

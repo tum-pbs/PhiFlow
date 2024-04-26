@@ -105,7 +105,7 @@ def make_incompressible(velocity: Field,
     accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
     with NUMPY:
         accessible = CenteredGrid(~union([obs.geometry for obs in obstacles]), accessible_extrapolation, velocity.bounds, velocity.resolution)
-        hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, at=velocity.sampled_at)
+        hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, at=velocity.sampled_at, dims=velocity.vector.item_names)
     all_active = active is None
     if active is None:
         active = accessible.with_extrapolation(extrapolation.NONE)
@@ -126,7 +126,7 @@ def make_incompressible(velocity: Field,
         solve = copy_with(solve, x0=solve.x0.with_values(expand(solve.x0.values, batch(math.merge_shapes(*obstacles)) & batch(velocity.dx))))
     pressure = math.solve_linear(masked_laplace, div, solve, hard_bcs, active, order=order)
     # --- Subtract grad p ---
-    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, at=velocity.sampled_at, order=order) * hard_bcs
+    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, dims=velocity.vector.item_names, at=velocity.sampled_at, order=order) * hard_bcs
     velocity = (velocity - grad_pressure).with_extrapolation(input_velocity.extrapolation)
     return velocity, pressure
 
@@ -154,7 +154,7 @@ def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid,
         `CenteredGrid`
     """
     if order == 2 and not implicit:
-        grad = spatial_gradient(pressure, hard_bcs.extrapolation, at='face' if hard_bcs.is_staggered else 'center')
+        grad = spatial_gradient(pressure, hard_bcs.extrapolation, dims=hard_bcs.vector.item_names, at='face' if hard_bcs.is_staggered else 'center')
         valid_grad = grad * hard_bcs
         valid_grad = valid_grad.with_extrapolation(extrapolation.remove_constant_offset(valid_grad.extrapolation))
         div = divergence(valid_grad)
