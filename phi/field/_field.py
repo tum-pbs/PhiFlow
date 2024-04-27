@@ -705,7 +705,7 @@ class Field:
         return grid_scatter(self, *args, **kwargs)
 
 
-def as_boundary(obj: Union[Extrapolation, Tensor, float, Field, None], geometry: Union[type, Geometry]) -> Extrapolation:
+def as_boundary(obj: Union[Extrapolation, Tensor, float, Field, None], _geometry=None) -> Extrapolation:
     """
     Returns an `Extrapolation` representing `obj`.
 
@@ -723,7 +723,7 @@ def as_boundary(obj: Union[Extrapolation, Tensor, float, Field, None], geometry:
         from ._embed import FieldEmbedding
         return FieldEmbedding(obj)
     else:
-        return math.extrapolation.as_extrapolation(obj, two_sided=isinstance(geometry, UniformGrid) or geometry == UniformGrid)
+        return math.extrapolation.as_extrapolation(obj)
 
 
 def is_staggered(values: Tensor, geometry: Geometry):
