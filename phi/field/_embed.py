@@ -2,14 +2,17 @@ from typing import Union, Tuple
 
 from phi.geom import UniformGrid, Box
 from phi.math import Tensor, spatial, Extrapolation, Shape, stack
-from phi.math.extrapolation import Undefined, ConstantExtrapolation
+from phi.math.extrapolation import Undefined, ConstantExtrapolation, ZERO
+from phiml.math import unstack
 from ._field import Field
 from ._resample import sample
 
 
 class FieldEmbedding(Extrapolation):
 
-    def __init__(self, field: Field):
+    def __init__(self, field: Field, gradient=False):
+        if gradient:
+            raise NotImplementedError("gradient of FieldEmbedding not yet supported")
         super().__init__(pad_rank=1)
         self.field = field
 
@@ -30,7 +33,7 @@ class FieldEmbedding(Extrapolation):
             return NotImplemented
 
     def spatial_gradient(self) -> 'Extrapolation':
-        return NotImplemented
+        return ZERO
         # from ._field_math import spatial_gradient
         # return FieldEmbedding(spatial_gradient(self.field))  # this is not supported for all fields
 
@@ -42,6 +45,11 @@ class FieldEmbedding(Extrapolation):
 
     def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, bounds: Box = None, already_padded: dict = None, **kwargs) -> Tensor:
         assert bounds is not None, f"{type(self)}.pad() requires 'bounds' argument"
+        if value.shape.is_non_uniform:
+            unstacked = unstack(value, value.shape.non_uniform_shape)
+            indices = value.shape.non_uniform_shape.meshgrid(names=True)
+            padded = [self[i].pad_values(u, width, dim, upper_edge, bounds=bounds, already_padded=already_padded, **kwargs) for u, i in zip(unstacked, indices)]
+            return stack(padded, value.shape.non_uniform_shape)
         if already_padded:
             padded_res = spatial(**{dim: lo + up for dim, (lo, up) in already_padded.items()})
             resolution = spatial(value) - padded_res
@@ -64,6 +72,9 @@ class FieldEmbedding(Extrapolation):
 
     def __eq__(self, other):
         return isinstance(other, FieldEmbedding) and other.field is self.field
+
+    def __hash__(self):
+        return hash(self.field)
 
     def __repr__(self):
         return repr(self.field)

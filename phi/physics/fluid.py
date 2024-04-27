@@ -227,6 +227,8 @@ def _pressure_extrapolation(vext: Extrapolation):
         return extrapolation.ZERO
     elif isinstance(vext, extrapolation.ConstantExtrapolation):
         return extrapolation.BOUNDARY
+    elif isinstance(vext, FieldEmbedding):
+        return extrapolation.BOUNDARY
     else:
         return extrapolation.map(_pressure_extrapolation, vext)
 
