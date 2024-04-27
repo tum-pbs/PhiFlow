@@ -597,6 +597,9 @@ class Field:
             return False
         return math.always_close(self._values, other._values)
 
+    def __hash__(self):
+        return hash((self._geometry, self._boundary))
+
     def __mul__(self, other):
         return self._op2(other, lambda d1, d2: d1 * d2)
 
