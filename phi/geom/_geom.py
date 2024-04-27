@@ -418,7 +418,11 @@ class Geometry:
         See Also:
             `shallow_equals()`
         """
-        differences = find_differences(self, other, compare_tensors_by_id=False)
+        def tensor_equality(a, b):
+            if a is None or b is None:
+                return True  # stored mode, tensors unavailable
+            return math.close(a, b, rel_tolerance=1e-5, equal_nan=True)
+        differences = find_differences(self, other, attr_type=variable_attributes, tensor_equality=tensor_equality)
         return not differences
 
     def shallow_equals(self, other):
@@ -450,7 +454,7 @@ class Geometry:
         return not self == other
 
     def __hash__(self):
-        raise NotImplementedError(self.__class__)
+        return id(self.__class__) + hash(self.shape)
 
     def __repr__(self):
         return f"{self.__class__.__name__}{self.shape}"
@@ -675,9 +679,6 @@ class Point(Geometry):
 
     def rotated(self, angle) -> 'Geometry':
         return self
-
-    def __hash__(self):
-        return hash(self._location)
 
     @property
     def volume(self) -> Tensor:

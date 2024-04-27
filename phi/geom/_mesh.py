@@ -78,13 +78,6 @@ class Mesh(Geometry):
     def __value_attrs__(self):
         return '_vertices',
 
-    def __eq__(self, other):
-        if self is other:
-            return True
-        if not isinstance(other, Mesh):
-            return False
-        return self._vertices == other._vertices and math.always_close(self._polygons, other._polygons) and self._boundaries == other._boundaries
-
     @property
     def shape(self) -> Shape:
         return shape(self._polygons).non_spatial & channel(self._vertices)
@@ -257,9 +250,6 @@ class Mesh(Geometry):
 
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         raise NotImplementedError
-
-    def __hash__(self):
-        return hash((self._vertices, self._polygons))
 
     def __getitem__(self, item):
         item: dict = slicing_dict(self, item)

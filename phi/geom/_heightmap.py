@@ -156,14 +156,8 @@ class Heightmap(Geometry):
         delta = math.where(projects_onto_face, proj_delta, delta_highest)
         return math.at_min((distances, delta, normals, offsets, face_idx), key=abs(distances), dim=batch('consider') & instance(self).as_batch())
 
-    def __eq__(self, other):
-        return isinstance(other, Heightmap) and self._bounds == other._bounds and self._fill_below == other._fill_below and self._max_dist == other._max_dist and math.always_close(self._height, other._height)
-
     def shallow_equals(self, other):
         return self == other
-
-    def __hash__(self):
-        return hash(self._bounds)
 
     def __repr__(self):
         return f"Heightmap {self.resolution}, bounds={self._bounds}"

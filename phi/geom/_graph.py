@@ -156,9 +156,6 @@ class Graph(Geometry):
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         raise NotImplementedError
 
-    def __hash__(self):
-        return hash(self._nodes)
-
     def __getitem__(self, item):
         item = slicing_dict(self, item)
         node_dims = non_batch(self._nodes).non_channel

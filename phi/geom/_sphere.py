@@ -132,9 +132,6 @@ class Sphere(Geometry):
         item = slicing_dict(self, item)
         return Sphere(self._center[_keep_vector(item)], self._radius[item], radius_variable=self._radius_variable)
 
-    def __hash__(self):
-        return hash(self._center) + hash(self._radius)
-
     @property
     def faces(self) -> 'Geometry':
         raise NotImplementedError(f"Sphere.faces not implemented.")

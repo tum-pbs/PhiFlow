@@ -17,12 +17,6 @@ class BaseBox(Geometry):  # not a Subwoofer
     Abstract base type for box-like geometries.
     """
 
-    def __eq__(self, other):
-        raise NotImplementedError()
-
-    def __hash__(self):
-        raise NotImplementedError()
-
     def __ne__(self, other):
         return not self == other
 
@@ -292,15 +286,6 @@ class Box(BaseBox, metaclass=BoxType):
         else:
             return Geometry.__stack__(values, dim, **kwargs)
 
-    def __eq__(self, other):
-        if self._lower is None and self._upper is None:
-            return isinstance(other, Box)
-        return isinstance(other, BaseBox) \
-               and set(self.shape) == set(other.shape) \
-               and self.size.shape.get_size('vector') == other.size.shape.get_size('vector') \
-               and math.close(self._lower, other.lower) \
-               and math.close(self._upper, other.upper)
-
     def without(self, dims: Tuple[str, ...]):
         remaining = list(self.shape.get_item_names('vector'))
         for dim in dims:
@@ -313,9 +298,6 @@ class Box(BaseBox, metaclass=BoxType):
         if not dim:
             return self
         return Box(math.min(self._lower, dim), math.max(self._upper, dim))
-
-    def __hash__(self):
-        return hash(self._upper)
 
     def __variable_attrs__(self):
         return '_lower', '_upper'
@@ -419,17 +401,6 @@ class Cuboid(BaseBox):
         self._center = center
         self._rotation_matrix = None if rotation is None else math.rotation_matrix(rotation)
         self._size_variable = size_variable
-
-    def __eq__(self, other):
-        if self._center is None and self._half_size is None:
-            return isinstance(other, Cuboid)
-        return isinstance(other, BaseBox) \
-               and set(self.shape) == set(other.shape) \
-               and math.close(self._center, other.center) \
-               and math.close(self._half_size, other.half_size)
-
-    def __hash__(self):
-        return hash(self._center)
 
     def __repr__(self):
         return f"Cuboid(center={self._center}, half_size={self._half_size})"

@@ -196,14 +196,8 @@ class UniformGrid(BaseBox):
     def rotated(self, angle) -> Geometry:
         raise NotImplementedError("Grids cannot be rotated. Use center_representation() to convert it to Cuboids first.")
 
-    def __eq__(self, other):
-        return isinstance(other, UniformGrid) and self._bounds == other._bounds and self._resolution == other._resolution
-
     def shallow_equals(self, other):
         return self == other
-
-    def __hash__(self):
-        return hash(self._resolution) + hash(self._bounds)
 
     def __repr__(self):
         return f"{self._resolution}, bounds={self._bounds}"
@@ -214,11 +208,13 @@ class UniformGrid(BaseBox):
     def __value_attrs__(self):
         return ()
 
-    def __with_attrs__(self, **attrs):
-        if not attrs:
-            return self
-        else:
-            raise NotImplementedError
+    def __eq__(self, other):
+        if not isinstance(other, UniformGrid):
+            return False
+        return self._resolution == other._resolution and self._bounds == other._bounds
+
+    def __hash__(self):
+        return hash(self._resolution) + hash(self._bounds)
 
     @property
     def _center(self):
