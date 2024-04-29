@@ -8,7 +8,7 @@ from phi.geom._geom import slice_off_constant_faces
 from phi.math import Shape, Tensor, channel, non_batch, expand, instance, spatial, wrap, dual, non_dual
 from phi.math.extrapolation import Extrapolation
 from phi.math.magic import BoundDim, slicing_dict
-from phiml.math import batch, Solve, DimFilter
+from phiml.math import batch, Solve, DimFilter, unstack, concat_shapes
 
 
 class FieldInitializer:
@@ -145,6 +145,28 @@ class Field:
         return self._values
 
     data = values
+
+    def numpy(self, order: DimFilter = None):
+        """
+        Return the field values as `NumPy` array(s).
+
+        Args:
+            order: Dimension order as `str` or `Shape`.
+
+        Returns:
+            A single NumPy array for uniform values, else a list of NumPy arrays.
+        """
+        if order is None and self.is_grid:
+            axes = self._values.shape.only(self._geometry.vector.item_names, reorder=True)
+            order = concat_shapes(self._values.shape.dual, self._values.shape.batch, axes, self._values.shape.channel)
+        if self._values.shape.is_uniform:
+            return self._values.numpy(order)
+        else:
+            assert order is not None, f"order must be specified for non-uniform Field values"
+            order = self._values.shape.only(order, reorder=True)
+            stack_dims = order.non_uniform_shape
+            inner_order = order.without(stack_dims)
+            return [v.numpy(inner_order) for v in unstack(self._values, stack_dims)]
 
     def uniform_values(self):
         """

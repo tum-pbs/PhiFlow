@@ -3,7 +3,7 @@ from unittest import TestCase
 from phi import math
 from phi.field import CenteredGrid, Noise, assert_close, AngularVelocity, StaggeredGrid
 from phi.geom import Box, Sphere
-from phiml.math import batch, spatial, vec
+from phiml.math import batch, spatial, vec, channel
 
 
 class TestField(TestCase):
@@ -55,3 +55,10 @@ class TestField(TestCase):
         self.assertIn('vector', v.boundary.shape)
         components = math.unstack(v, 'vector')
         self.assertNotIn('vector', components[0].boundary.shape)
+
+    def test_numpy(self):
+        g = CenteredGrid(Noise(channel(vector='x,y')), 1, x=10, y=8)
+        self.assertEqual((10, 8, 2), g.numpy().shape)
+        g = StaggeredGrid(Noise(), 1, x=10, y=8)
+        self.assertEqual((9, 8), g.numpy()[0].shape)
+        self.assertEqual((10, 7), g.numpy()[1].shape)
