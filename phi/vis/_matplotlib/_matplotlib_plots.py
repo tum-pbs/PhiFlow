@@ -386,7 +386,6 @@ class Heatmap3D(Recipe):
         norm_values = (values - min_val) / (max_val - min_val)
         size = len(values) ** .3333
         exponent = size / 15
-        print(exponent)
         alpha = float(alpha) * norm_values ** exponent
         colors[..., -1] *= alpha
         size = [data.dx.numpy()] * len(xyz)
