@@ -726,6 +726,18 @@ class Field:
         from ._resample import grid_scatter
         return grid_scatter(self, *args, **kwargs)
 
+    def as_boundary(self) -> Extrapolation:
+        """
+        Returns an `Extrapolation` representing this 'Field''s values as a Dirichlet (constant) boundary.
+        If this `Field` encloses the required boundaries, its values will be interpolated to the required boundaries.
+        If boundaries outside of this `Field`'s sampled domain are required, this `Field`'s boundary conditions will be applied to determine the boundary values.
+
+        Returns:
+            `Extrapolation`
+        """
+        from ._embed import FieldEmbedding
+        return FieldEmbedding(self)
+
 
 def as_boundary(obj: Union[Extrapolation, Tensor, float, Field, None], _geometry=None) -> Extrapolation:
     """
@@ -741,11 +753,7 @@ def as_boundary(obj: Union[Extrapolation, Tensor, float, Field, None], _geometry
     Returns:
         `Extrapolation`
     """
-    if isinstance(obj, Field):
-        from ._embed import FieldEmbedding
-        return FieldEmbedding(obj)
-    else:
-        return math.extrapolation.as_extrapolation(obj)
+    return obj.as_boundary() if isinstance(obj, Field) else math.extrapolation.as_extrapolation(obj)
 
 
 def is_staggered(values: Tensor, geometry: Geometry):
