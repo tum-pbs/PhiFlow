@@ -153,7 +153,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         values = [expand(v, all_dims.without(shape(v))) for v in values]
     else:
         for v in values:
-            assert dim in shape(v), f&#34;dim must be present in the shapes of all values bot got value {type(v).__name__} with shape {shape(v)}&#34;
+            assert dim in shape(v), f&#34;concat dim &#39;{dim}&#39; must be present in the shapes of all values bot got value {type(v).__name__} with shape {shape(v)}&#34;
         for v in values[1:]:
             assert set(non_batch(v).names) == set(non_batch(values[0]).names), f&#34;Concatenated values must have the same non-batch dimensions but got {non_batch(values[0])} and {non_batch(v)}&#34;
         all_batch_dims = merge_shapes(*[shape(v).batch for v in values])
@@ -319,7 +319,7 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
 </details>
 </dd>
 <dt id="phi.geom.pack_dims"><code class="name flex">
-<span>def <span class="ident">pack_dims</span></span>(<span>value, dims: Union[str, tuple, list, set, phiml.math._shape.Shape, Callable], packed_dim: phiml.math._shape.Shape, pos: Optional[int] = None, **kwargs)</span>
+<span>def <span class="ident">pack_dims</span></span>(<span>value, dims: Union[str, tuple, list, set, ForwardRef('Shape'), Callable], packed_dim: phiml.math._shape.Shape, pos: Optional[int] = None, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compresses multiple dimensions into a single dimension by concatenating the elements.
@@ -494,7 +494,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     if not dim:
         assert len(values) == 1, f&#34;Only one element can be passed as `values` if no dim is passed but got {values}&#34;
         from ._tensors import wrap
-        return wrap(next(iter(values.values())) if isinstance(values, dict) else values[0])
+        return next(iter(values.values())) if isinstance(values, dict) else values[0]  # this may not be wrappable
     if not isinstance(dim, Shape):
         dim = auto(dim)
     values_ = tuple(values.values()) if isinstance(values, dict) else values
@@ -1480,7 +1480,7 @@ def upper(self):
 <h3>Methods</h3>
 <dl>
 <dt id="phi.geom.Box.largest"><code class="name flex">
-<span>def <span class="ident">largest</span></span>(<span>self, dim: Union[str, tuple, list, set, phiml.math._shape.Shape, Callable]) ‑> phi.geom._box.Box</span>
+<span>def <span class="ident">largest</span></span>(<span>self, dim: Union[str, tuple, list, set, ForwardRef('Shape'), Callable]) ‑> phi.geom._box.Box</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -4077,6 +4077,9 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
         return Sphere(self.center, self.radius * factor)
 
     def __variable_attrs__(self):
+        return &#39;_center&#39;, &#39;_radius&#39;
+
+    def __value_attrs__(self):
         return &#39;_center&#39;, &#39;_radius&#39;
 
     def __getitem__(self, item):
