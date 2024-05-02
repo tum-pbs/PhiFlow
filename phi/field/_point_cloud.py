@@ -87,10 +87,10 @@ class PointCloud(SampledField, metaclass=deprecated_field_class('PointCloud')):
         return PointCloud(elements=self.elements, values=self.values, extrapolation=self.extrapolation, add_overlapping=self._add_overlapping, bounds=bounds)
 
     def __value_attrs__(self):
-        return '_values', '_extrapolation'
+        return '_values', '_extrapolation', '_elements'
 
     def __variable_attrs__(self):
-        return '_values', '_elements'
+        return '_values', '_elements', '_extrapolation'
 
     def __expand__(self, dims: Shape, **kwargs) -> 'PointCloud':
         return self.with_values(expand(self.values, dims, **kwargs))

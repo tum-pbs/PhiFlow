@@ -214,7 +214,7 @@ class Scene:
             id = math.wrap(id)
             paths = math.map(lambda d, i: join(d, f"sim_{i:06d}"), directory, id)
         # test all exist
-        for path in math.flatten(paths, flatten_batch=True):
+        for path in math.flatten(wrap(paths), flatten_batch=True):
             if not isdir(path):
                 raise IOError(f"There is no scene at '{path}'")
         return Scene(paths)
@@ -241,10 +241,7 @@ class Scene:
             return path
 
         result = math.map(single_subpath, self._paths)
-        if result.rank == 0:
-            return result.native()
-        else:
-            return result
+        return result
 
     def _init_properties(self):
         if self._properties is not None:

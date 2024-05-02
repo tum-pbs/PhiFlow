@@ -13,10 +13,12 @@ class GeometryStack(Geometry):
 
     def __init__(self, geometries: Tensor):
         self.geometries = geometries
-        self._shape = shape_stack(geometries.shape, *[g.shape for g in geometries])
+        inner_dims = math.merge_shapes(*[g.shape for g in geometries], allow_varying_sizes=True)
+        self._stack_dim = geometries.shape.without(inner_dims)
+        self._shape = geometries.shape
 
     def unstack(self, dimension) -> tuple:
-        if dimension == self.geometries.shape.name:
+        if dimension == self._stack_dim.name:
             return tuple(self.geometries)
         else:
             # return GeometryStack([g.unstack(dimension) for g in self.geometries], self.geometries.shape)
@@ -25,7 +27,7 @@ class GeometryStack(Geometry):
     @property
     def center(self):
         centers = [g.center for g in self.geometries]
-        return math.stack(centers, self.geometries.shape)
+        return math.stack(centers, self._stack_dim)
 
     @property
     def spatial_rank(self) -> int:
@@ -37,41 +39,41 @@ class GeometryStack(Geometry):
 
     @property
     def volume(self) -> math.Tensor:
-        if self.geometries.shape.type == INSTANCE_DIM:
+        if self._stack_dim.type == INSTANCE_DIM:
             raise NotImplementedError("instance dimensions not yet supported")
-        return math.stack([g.volume for g in self.geometries], self.geometries.shape)
+        return math.stack([g.volume for g in self.geometries], self._stack_dim)
 
     @property
     def shape_type(self) -> Tensor:
         types = [g.shape_type for g in self.geometries]
-        return math.stack(types, self.geometries.shape)
+        return math.stack(types, self._stack_dim)
 
     def lies_inside(self, location: math.Tensor):
-        if self.geometries.shape in location.shape:
-            location = location.unstack(self.geometries.shape.name)
+        if self._stack_dim in location.shape:
+            location = location.unstack(self._stack_dim.name)
         else:
             location = [location] * len(self.geometries)
         inside = [g.lies_inside(loc) for g, loc in zip(self.geometries, location)]
-        return math.stack(inside, self.geometries.shape)
+        return math.stack(inside, self._stack_dim)
 
     def approximate_signed_distance(self, location: math.Tensor):
         raise NotImplementedError()
 
     def bounding_radius(self):
         radii = [expand(g.bounding_radius(), non_channel(g)) for g in self.geometries]
-        return math.stack(radii, self.geometries.shape)
+        return math.stack(radii, self._stack_dim)
 
     def bounding_half_extent(self):
         values = [expand(g.bounding_half_extent(), non_channel(g)) for g in self.geometries]
-        return math.stack(values, self.geometries.shape)
+        return math.stack(values, self._stack_dim)
 
     def at(self, center: Tensor) -> 'Geometry':
-        geometries = [self.geometries[idx].native().at(center[idx]) for idx in self.geometries.shape.meshgrid()]
-        return GeometryStack(math.layout(geometries, self.geometries.shape))
+        geometries = [self.geometries[idx].at(center[idx]) for idx in self._stack_dim.meshgrid()]
+        return GeometryStack(math.layout(geometries, self._stack_dim))
 
     def rotated(self, angle):
         geometries = [g.rotated(angle) for g in self.geometries]
-        return GeometryStack(math.layout(geometries, self.geometries.shape))
+        return GeometryStack(math.layout(geometries, self._stack_dim))
 
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
         raise NotImplementedError('GeometryStack.push() is not yet implemented.')
@@ -79,7 +81,7 @@ class GeometryStack(Geometry):
     def __eq__(self, other):
         return isinstance(other, GeometryStack) \
                and self._shape == other.shape \
-               and self.geometries.shape == other.stack_dim \
+               and self._stack_dim == other.stack_dim \
                and self.geometries == other.geometries
 
     def shallow_equals(self, other):
@@ -87,7 +89,7 @@ class GeometryStack(Geometry):
             return True
         if not isinstance(other, GeometryStack) or self._shape != other.shape:
             return False
-        if self.geometries.shape != other.geometries.shape:
+        if self._stack_dim != other.geometries.shape:
             return False
         return all(g1.shallow_equals(g2) for g1, g2 in zip(self.geometries, other.geometries))
 
@@ -96,7 +98,6 @@ class GeometryStack(Geometry):
     
     def __getitem__(self, item):
         selected = self.geometries[slicing_dict(self, item)]
-        if selected.shape.volume > 1:
-            return GeometryStack(selected)
-        else:
-            return next(iter(selected))
+        if isinstance(selected, Geometry):
+            return selected
+        return GeometryStack(selected)

@@ -437,28 +437,28 @@ def layout_sub_figures(data: Union[Tensor, SampledField],
         dim0 = reduced = data.shape[0]
         if dim0.only(overlay):
             for overlay_index in dim0.only(overlay).meshgrid(names=True):  # overlay these fields
-                e_rows, e_cols, d_non_reduced, d_reduced = layout_sub_figures(data[overlay_index].native(), row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, {**base_index, **overlay_index})
+                e_rows, e_cols, d_non_reduced, d_reduced = layout_sub_figures(data[overlay_index], row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, {**base_index, **overlay_index})
                 rows = max(rows, e_rows)
                 cols = max(cols, e_cols)
                 non_reduced &= d_non_reduced
                 reduced = merge_shapes(reduced, d_reduced, allow_varying_sizes=True)
         elif dim0.only(animate):
-            data = math.stack(data.native(), dim0)
+            data = math.stack(data, dim0)
             return layout_sub_figures(data, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, base_index)
         else:
             elements = unstack(data, dim0)
             for item_name, e in zip(dim0.get_item_names(dim0.name) or range(dim0.size), elements):
                 index = dict(base_index, **{dim0.name: item_name})
                 if dim0.only(row_dims):
-                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e.native(), row_dims, col_dims, animate, overlay, offset_row + rows, offset_col, positioning, indices, index)
+                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row + rows, offset_col, positioning, indices, index)
                     rows += e_rows
                     cols = max(cols, e_cols)
                 elif dim0.only(col_dims):
-                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e.native(), row_dims, col_dims, animate, overlay, offset_row, offset_col + cols, positioning, indices, index)
+                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row, offset_col + cols, positioning, indices, index)
                     cols += e_cols
                     rows = max(rows, e_rows)
                 else:
-                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e.native(), row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, index)
+                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, index)
                     cols = max(cols, e_cols)
                     rows = max(rows, e_rows)
                 non_reduced &= e_non_reduced
