@@ -830,7 +830,9 @@ def matplotlib_colors(color: Tensor, dims: Shape, default=None) -> Union[list, N
         return [color[idx].native() for idx in dims.meshgrid()]
 
 
-def add_color_bar(axis: Axes, values, min_val, max_val, cmap=plt.cm.viridis):
+def add_color_bar(axis: Axes, values, min_val, max_val, cmap=None):
+    if cmap is None:
+        cmap = plt.cm.get_cmap()
     figure = axis.figure
     figure_has_color_bar = any(['colorbar' in ax.get_label() for ax in figure.axes])
     is_complex = np.iscomplex(max_val)
