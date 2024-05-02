@@ -66,10 +66,10 @@ class Grid(SampledField, metaclass=deprecated_field_class('Grid')):
         return type(self)(self.values, extrapolation=self.extrapolation, bounds=bounds)
 
     def __value_attrs__(self):
-        return '_values', '_extrapolation'
+        return '_values',
 
     def __variable_attrs__(self):
-        return '_values',
+        return '_values', '_extrapolation'
 
     def __expand__(self, dims: Shape, **kwargs) -> 'Grid':
         return self.with_values(math.expand(self.values, dims, **kwargs))
