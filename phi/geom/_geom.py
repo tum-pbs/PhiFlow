@@ -374,7 +374,9 @@ class Geometry:
         raise NotImplementedError(self.__class__)
 
     def __matmul__(self, other):
-        return self.at(other)
+        if isinstance(other, (Tensor, float, int)):
+            return self.at(other)
+        return NotImplemented
 
     def rotated(self, angle: Union[float, Tensor]) -> 'Geometry':
         """
