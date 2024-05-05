@@ -6,6 +6,7 @@
 [![Code Coverage](https://codecov.io/gh/tum-pbs/PhiFlow/branch/develop/graph/badge.svg)](https://codecov.io/gh/tum-pbs/PhiFlow/branch/develop/)
 [![Google Collab Book](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Fluids_Tutorial.ipynb)
 
+
 Φ<sub>Flow</sub> is an open-source simulation toolkit built for optimization and machine learning applications.
 It is written mostly in Python and can be used with
 [NumPy](https://numpy.org/),
@@ -15,21 +16,142 @@ or [TensorFlow](https://www.tensorflow.org/).
 The close integration with these machine learning frameworks allows it to leverage their automatic differentiation functionality,
 making it easy to build end-to-end differentiable functions involving both learning models and physics simulations.
 
-[//]: # (![Gui]&#40;https://tum-pbs.github.io/PhiFlow/figures/WebInterface.png&#41;)
 
-| <img src="docs/figures/RenderedSmoke.gif">  | <img src="docs/figures/Animations.gif">                                                                                                                                                                                                                                                                       |
-|------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [Fluids Tutorial](https://tum-pbs.github.io/PhiFlow/Fluids_Tutorial.html) &nbsp; • &nbsp; [Φ<sub>Flow</sub> to Blender](https://github.com/intergalactic-mammoth/phiflow2blender) | [Animation Gallery](https://tum-pbs.github.io/PhiFlow/Animations.html) &nbsp; • &nbsp; [Solar System](https://tum-pbs.github.io/PhiFlow/Planets_Tutorial.html) &nbsp; • &nbsp; [Learning to Throw](https://tum-pbs.github.io/PhiFlow/Learn_to_Throw_Tutorial.html) |
+## Examples
+
+### Grids
+
+<table>
+    <tbody>
+        <tr>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Fluid_Logo.html"><img src="docs/figures/RenderedSmoke.gif"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Wake_Flow.html"><img src="docs/figures/examples/grids/Wake_Flow.png"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Lid_Driven_Cavity.html"><img src="docs/figures/examples/grids/Lid_Driven_Cavity.png"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Taylor_Green.html"><img src="docs/figures/examples/grids/Taylor_Green.jpg"></a></td>
+        </tr>
+        <tr>
+            <td align="center">Fluid logo</td>
+            <td align="center">Wake flow</td>
+            <td align="center">Lid-driven cavity</td>
+            <td align="center">Taylor-Green</td>
+        </tr>
+        <tr>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Smoke_Plume.html"><img src="docs/figures/examples/grids/Smoke_Plume.png"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Variable_Boundaries.html"><img src="docs/figures/examples/grids/Variable_Boundaries.jpg"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Batched_Smoke.html"><img src="docs/figures/examples/grids/Batched_Smoke.png"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Moving_Obstacles.html"><img src="docs/figures/examples/grids/Moving_Obstacles.png"></a></td>
+        </tr>
+        <tr>
+            <td align="center">Smoke plume</td>
+            <td align="center">Variable boundaries</td>
+            <td align="center">Parallel simulations</td>
+            <td align="center">Moving obstacles</td>
+        </tr>
+        <tr>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Rotating_Bar.html"><img src="docs/figures/examples/grids/Rotating_Bar.jpg"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Multi_Grid_Fluid.html"><img src="docs/figures/examples/grids/Multi_Grid_Fluid.jpg"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/.html"><img src="docs/figures/examples/grids/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Heat_Flow.html"><img src="docs/figures/examples/grids/Heat_Flow.png"></a></td>
+        </tr>
+        <tr>
+            <td align="center">Rotating bar</td>
+            <td align="center">Multi-grid fluid</td>
+            <td align="center">Higher-order Kolmogorov</td>
+            <td align="center">Heat flow</td>
+        </tr>
+        <tr>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Burgers.html"><img src="docs/figures/examples/grids/Burgers.png"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Reaction_Diffusion.html"><img src="docs/figures/examples/grids/Reaction_Diffusion.png"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Waves.html"><img src="docs/figures/examples/grids/Waves.png"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Julia_Set.html"><img src="docs/figures/examples/grids/Julia_Set.png"></a></td>
+        </tr>
+        <tr>
+            <td align="center">Burgers' equation</td>
+            <td align="center">Reaction-diffusion</td>
+            <td align="center">Waves</td>
+            <td align="center">Julia Set</td>
+        </tr>
+    </tbody>
+</table>
+
+### Mesh
+
+<table>
+    <tbody>
+        <tr>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/mesh/.html"><img src="docs/figures/examples/mesh/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/mesh/.html"><img src="docs/figures/examples/mesh/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/mesh/.html"><img src="docs/figures/examples/mesh/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/mesh/.html"><img src="docs/figures/examples/mesh/"></a></td>
+        </tr>
+        <tr>
+            <td align="center">FVM Fluid</td>
+            <td align="center">Heat flow</td>
+        </tr>
+    </tbody>
+</table>
 
 
-## Features
 
-* Variety of built-in PDE operations with focus on fluid phenomena, allowing for concise formulation of simulations.
-* Tight integration with PyTorch, Jax and TensorFlow for straightforward neural network training with fully differentiable simulations that can [run on the GPU](https://tum-pbs.github.io/PhiFlow/GPU_Execution.html#enabling-gpu-execution).
-* Flexible, easy-to-use [web interface](https://tum-pbs.github.io/PhiFlow/Web_Interface.html) featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
-* Object-oriented, vectorized design for expressive code, ease of use, flexibility and extensibility.
-* Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D fluid sim using NumPy and a 3D fluid sim on the GPU using TensorFlow or PyTorch.
-* High-level linear equation solver with automated sparse matrix generation.
+### Particles
+
+<table>
+    <tbody>
+        <tr>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/.html"><img src="docs/figures/examples/particles/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/.html"><img src="docs/figures/examples/particles/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/.html"><img src="docs/figures/examples/particles/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/.html"><img src="docs/figures/examples/particles/"></a></td>
+        </tr>
+        <tr>
+            <td align="center">SPH</td>
+            <td align="center">FLIP</td>
+            <td align="center">Streamlines</td>
+            <td align="center">Heightmaps</td>
+        </tr>
+        <tr>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/.html"><img src="docs/figures/examples/particles/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/.html"><img src="docs/figures/examples/particles/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/.html"><img src="docs/figures/examples/particles/"></a></td>
+        </tr>
+        <tr>
+            <td align="center">Gravity</td>
+            <td align="center">Billiards</td>
+            <td align="center">Ropes</td>
+        </tr>
+    </tbody>
+</table>
+
+[Solar System](https://tum-pbs.github.io/PhiFlow/Planets_Tutorial.html)
+
+### Optimization & Networks
+
+<table>
+    <tbody>
+        <tr>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/.html"><img src="docs/figures/examples/optim/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/.html"><img src="docs/figures/examples/optim/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/.html"><img src="docs/figures/examples/optim/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/.html"><img src="docs/figures/examples/optim/"></a></td>
+        </tr>
+        <tr>
+            <td align="center">Finding minima</td>
+            <td align="center">Learning to Throw</td>
+            <td align="center">PIV</td>
+            <td align="center">Dense packing</td>
+        </tr>
+        <tr>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/.html"><img src="docs/figures/examples/optim/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/.html"><img src="docs/figures/examples/optim/"></a></td>
+        </tr>
+        <tr>
+            <td align="center">Learning a Potential</td>
+            <td align="center">Differentiable pressure</td>
+        </tr>
+    </tbody>
+</table>
+
+[Learning to Throw](https://tum-pbs.github.io/PhiFlow/Learn_to_Throw_Tutorial.html)
 
 
 ## Installation
@@ -48,6 +170,17 @@ $ python3 -c "import phi; phi.verify()"
 ```
 This will check for compatible PyTorch, Jax and TensorFlow installations as well.
 
+
+## Features
+
+* Variety of built-in PDE operations with focus on fluid phenomena, allowing for concise formulation of simulations.
+* Tight integration with PyTorch, Jax and TensorFlow for straightforward neural network training with fully differentiable simulations that can [run on the GPU](https://tum-pbs.github.io/PhiFlow/GPU_Execution.html#enabling-gpu-execution).
+* Flexible, easy-to-use [web interface](https://tum-pbs.github.io/PhiFlow/Web_Interface.html) featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
+* Object-oriented, vectorized design for expressive code, ease of use, flexibility and extensibility.
+* Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D fluid sim using NumPy and a 3D fluid sim on the GPU using TensorFlow or PyTorch.
+* High-level linear equation solver with automated sparse matrix generation.
+
+
 ## Documentation and Tutorials
 [**Documentation Overview**](https://tum-pbs.github.io/PhiFlow/)
 &nbsp; • &nbsp; [**▶ YouTube Tutorials**](https://www.youtube.com/playlist?list=PLYLhRkuWBmZ5R6hYzusA2JBIUPFEE755O)
@@ -64,6 +197,7 @@ To get started, check out our YouTube tutorial series and the following Jupyter 
 * [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16>](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Fluids_Tutorial.ipynb) [Fluids](https://tum-pbs.github.io/PhiFlow/Fluids_Tutorial.html): Introduction to core classes and fluid-related functions.
 * [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16>](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Planets_Tutorial.ipynb) [Solar System](https://tum-pbs.github.io/PhiFlow/Planets_Tutorial.html): Visualize a many-body system with Newtonian gravity.
 * [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16>](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Learn_to_Throw_Tutorial.ipynb) [Learn to Throw](https://tum-pbs.github.io/PhiFlow/Learn_to_Throw_Tutorial.html): Train a neural network to hit a target, comparing supervised and differentiable physics losses.
+* [Φ<sub>Flow</sub> to Blender](https://github.com/intergalactic-mammoth/phiflow2blender) 
 
 If you like to work with an IDE, like PyCharm or VS Code, the following demos will also be helpful:
 
