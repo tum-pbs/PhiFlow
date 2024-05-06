@@ -19,6 +19,7 @@ from phi.field import StaggeredGrid, Field
 from phi.geom import Sphere, BaseBox, Point, Box, Mesh, Graph
 from phi.geom._heightmap import Heightmap
 from phi.geom._geom_ops import GeometryStack
+from phi.geom._transform import _EmbeddedGeometry
 from phi.math import Tensor, channel, spatial, instance, non_channel, Shape, reshaped_numpy, shape
 from phi.vis._vis_base import display_name, PlottingLibrary, Recipe, index_label, only_stored_elements, to_field
 
@@ -180,6 +181,13 @@ class MatplotlibPlots(PlottingLibrary):
 def _get_range(bounds: Box, index: int):
     lower = float(bounds.lower.vector[index].min)
     upper = float(bounds.upper.vector[index].max)
+    if not math.is_finite(lower) and not math.is_finite(upper):
+        lower = -.1
+        upper = .1
+    elif not math.is_finite(lower):
+        lower = upper - .1
+    elif not math.is_finite(upper):
+        upper = lower + .1
     return lower if math.is_finite(lower) else None, upper if math.is_finite(upper) else None
 
 
@@ -610,7 +618,10 @@ class PointCloud2D(Recipe):
                 shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=a, facecolor=ci) for xi, yi, ri, ci, a in zip(x, y, rad, mpl_colors, alphas)]
                 axis.add_collection(matplotlib.collections.PatchCollection(shapes, match_original=True))
             elif isinstance(data.geometry, BaseBox):
-                w2, h2 = reshaped_numpy(data.geometry.half_size, ['vector', data.shape.non_channel])
+                half_size = data.geometry.half_size
+                min_len = axis.get_ylim()[1] - axis.get_ylim()[0] + axis.get_xlim()[1] - axis.get_xlim()[0]
+                half_size = math.where(math.is_finite(half_size), half_size, min_len)
+                w2, h2 = reshaped_numpy(half_size, ['vector', data.shape.non_channel])
                 if data.geometry.rotation_matrix is None:
                     angles = w2 * 0.
                     lower_x = x - w2
@@ -756,6 +767,8 @@ class PointCloud3D(Recipe):
                 if not spatial(data.geometry):
                     size = 6 / (0.5 * (x_scale+y_scale+z_scale)/3)
                     subplot.scatter(x, y, z, marker='x', color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
+            elif isinstance(data.geometry, _EmbeddedGeometry):
+                raise NotImplementedError(f"Plotting embedded geometries not yet supported")
             else:
                 size = data.geometry.bounding_radius().numpy()
                 subplot.scatter(x, y, z, marker='X', color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
