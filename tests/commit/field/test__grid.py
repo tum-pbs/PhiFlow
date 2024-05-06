@@ -54,6 +54,17 @@ class GridTest(TestCase):
         self.assertTrue(b1.is_staggered)
         field.assert_close(b1, b2, b3)
 
+    def test_slice_staggered_grid_keeping_staggered(self):
+        grid = StaggeredGrid(0, x=4, y=4, z=4)
+        g1d = grid[{'z': 0, 'y': 0, 'vector': 'x'}]
+        self.assertTrue(g1d.is_grid)
+        self.assertTrue(g1d.is_staggered)
+        self.assertEqual(spatial(x=4), g1d.resolution)
+        g2d = grid[{'z': 0, 'vector': 'x,y'}]
+        self.assertTrue(g2d.is_grid)
+        self.assertTrue(g2d.is_staggered)
+        self.assertEqual(spatial(x=4, y=4), g2d.resolution)
+
     # def test_slice_staggered_grid_along_spatial(self):
     #     v = StaggeredGrid(Noise(batch(batch=10)), x=10, y=20)
     #     x1 = v[{'x': 1}]

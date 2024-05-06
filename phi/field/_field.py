@@ -362,6 +362,11 @@ class Field:
         if to_add:
             if self.is_mesh:
                 values = self.mesh.pad_boundary(values, to_add, self._boundary)
+            elif self.is_grid and self.is_staggered:
+                values = self._values.vector.dual.as_channel()
+                to_add = {k: {'vector' if dim == '~vector' else dim: v for dim, v in sl.items()} for k, sl in to_add.items()}
+                values = math.pad(values, list(to_add.values()), self._boundary, bounds=self.bounds)
+                values = values.vector.as_dual()
             else:
                 values = math.pad(values, list(to_add.values()), self._boundary, bounds=self.bounds)
         return Field(self._geometry, values, boundary)
@@ -556,15 +561,23 @@ class Field:
             return self
         boundary = self._boundary[item]
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != 'vector'}
+        geometry = self._geometry[item_without_vec]
         if self.is_staggered and 'vector' in item and '~vector' in self.geometry.face_shape:
             assert isinstance(self._geometry, UniformGrid), f"Vector slicing is only supported for grids"
-            item['~vector'] = item['vector']
-            del item['vector']
-            elements = self.sampled_elements[item]
-        else:
-            elements = self._geometry[item_without_vec]
+            dims = item['vector']
+            dims_ = self._geometry.shape['vector'].after_gather({'vector': dims})
+            dims = dims_.item_names[0] if dims_ else [dims] if isinstance(dims, str) else [self._geometry.shape['vector'].item_names[0][dims]]
+            proj_dims = set(self.resolution.names) - set(dims)
+            if any(dim not in item for dim in proj_dims):
+                # warnings.warn(f"Projecting a staggered grid (by slicing 'vector' without the corresponding spatial dims) will return a non-staggered grid. The projected dims {proj_dims} were not sliced off.\nFull slice: {item}")
+                item['~vector'] = item['vector']
+                del item['vector']
+                geometry = self.sampled_elements[item]
+            else:
+                item['~vector'] = dims
+                del item['vector']
         values = self._values[item]
-        return Field(elements, values, boundary)
+        return Field(geometry, values, boundary)
 
     def __getattr__(self, name: str) -> BoundDim:
         return BoundDim(self, name)
