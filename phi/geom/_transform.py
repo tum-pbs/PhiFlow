@@ -1,9 +1,12 @@
 from numbers import Number
-from typing import Tuple, Union
+from typing import Tuple, Union, Dict, Any
+
+from phiml.math import spatial, channel, stack, expand, INF
 
 from phi import math
 from phi.math import Tensor, Shape
-from . import BaseBox, Box
+from phiml.math.magic import slicing_dict
+from . import BaseBox, Box, Cuboid
 from ._geom import Geometry
 from ._sphere import Sphere
 from phiml.math._shape import parse_dim_order
@@ -21,9 +24,8 @@ class _EmbeddedGeometry(Geometry):
 
     @property
     def center(self) -> Tensor:
-        raise NotImplementedError()
-        # c = self.geometry.center.vector.unstack()
-        # return math.stack()
+        g_cen = dict(**self.geometry.bounding_half_extent().vector)
+        return stack({dim: g_cen.get(dim, 0) for dim in self.vector.item_names}, channel('vector'))
 
     @property
     def shape(self) -> Shape:
@@ -44,6 +46,25 @@ class _EmbeddedGeometry(Geometry):
         projected_loc = location.vector[item_names]
         return projected_loc
 
+    def __getitem__(self, item):
+        item = slicing_dict(self, item)
+        if 'vector' in item:
+            axes = channel(vector=self.axes).after_gather(item).item_names[0]
+            if all(a in self.geometry.vector.item_names for a in axes):
+                return self.geometry[item]
+            item['vector'] = [a for a in axes if a in self.geometry.vector.item_names]
+        else:
+            axes = self.axes
+        projected = self.geometry[item]
+        if projected.spatial_rank == 0:
+            return Box(**{a: None for a in axes})
+        assert not isinstance(projected, BaseBox), f"_EmbeddedGeometry reduced to a Box but should already have been a box. Was {self.geometry}"
+        if isinstance(projected, Sphere) and projected.spatial_rank:  # 1D spheres are just boxes
+            box1d = Cuboid(projected.center, expand(projected.radius, projected.center.shape['vector']))
+            emb = _EmbeddedGeometry(box1d, axes)
+            return Cuboid(emb.center, emb.bounding_half_extent())
+        return _EmbeddedGeometry(projected, axes)
+
     def lies_inside(self, location: Tensor) -> Tensor:
         return self.geometry.lies_inside(self._down_project(location))
 
@@ -57,7 +78,8 @@ class _EmbeddedGeometry(Geometry):
         raise NotImplementedError()
 
     def bounding_half_extent(self) -> Tensor:
-        raise NotImplementedError()
+        g_ext = dict(**self.geometry.bounding_half_extent().vector)
+        return stack({dim: g_ext.get(dim, INF) for dim in self.vector.item_names}, channel('vector'))
 
     def shifted(self, delta: Tensor) -> 'Geometry':
         raise NotImplementedError()
@@ -73,6 +95,14 @@ class _EmbeddedGeometry(Geometry):
 
     def __hash__(self):
         return hash(self.geometry) + hash(self.axes)
+
+    @property
+    def boundary_elements(self) -> Dict[Any, Dict[str, slice]]:
+        return self.geometry.boundary_elements
+
+    @property
+    def boundary_faces(self) -> Dict[Any, Dict[str, slice]]:
+        return self.geometry.boundary_faces
 
 
 def embed(geometry: Geometry, projected_dims: Union[math.Shape, str, tuple, list, None]) -> Geometry:

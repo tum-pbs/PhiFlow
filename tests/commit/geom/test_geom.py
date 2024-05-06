@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from phi import math, geom
 from phi.math import stack, vec, instance, expand, rename_dims, unpack_dim, pack_dims, spatial, flatten, batch, channel
-from phi.geom import Box, Sphere
+from phi.geom import Box, Sphere, BaseBox
 
 
 class TestGeom(TestCase):
@@ -25,6 +25,15 @@ class TestGeom(TestCase):
         corner_distance = math.sqrt(2) / 2 - .5
         distance = math.wrap([corner_distance, 0, corner_distance, corner_distance, 0], math.instance('points'))
         math.assert_close(cylinder.approximate_signed_distance(loc), distance)
+
+    def test_infinite_cylinder_slicing(self):
+        cylinder = geom.infinite_cylinder(x=.5, y=.5, radius=.5, inf_dim=math.spatial('z'))
+        xy = cylinder['x,y']
+        self.assertIsInstance(xy, Sphere)
+        math.assert_close((.5, .5), xy.center)
+        xz = cylinder['x,z']
+        self.assertIsInstance(xz, BaseBox)
+        math.assert_close((.5, 0), xz.center)
 
     def test_point_reshaping(self):
         s = stack([geom.Point(vec(x=0, y=0))] * 50, instance('points'))
