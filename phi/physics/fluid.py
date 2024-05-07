@@ -42,13 +42,11 @@ class Obstacle:
 
     @property
     def is_rotating(self):
-        available = self.angular_velocity.available if isinstance(self.angular_velocity, math.Tensor) else True
-        return not available or math.any(self.angular_velocity != 0).any
+        return not math.always_close(self.angular_velocity, 0)
 
     @property
     def is_moving(self):
-        available = self.velocity.available if isinstance(self.velocity, math.Tensor) else True
-        return not available or math.any(self.velocity != 0).any
+        return not math.always_close(self.velocity, 0)
 
     def copied_with(self, **kwargs):
         warnings.warn("Obstacle.copied_with is deprecated. Use math.copy_with instead.", DeprecationWarning, stacklevel=2)
