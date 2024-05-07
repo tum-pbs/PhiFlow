@@ -9,7 +9,8 @@ from typing import Tuple, List, Dict, Union, Sequence
 from phiml.math._magic_ops import tree_map
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
-from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, common_index, to_field, get_default_limits
+from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, common_index, to_field, \
+    get_default_limits, uniform_bound
 from ._vis_base import title_label
 from .. import math
 from ..field import Scene, Field
@@ -337,14 +338,18 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
 
         In case of an animation, a displayable animation object will be returned instead of a `Tensor`.
     """
-    positioning = {}
-    indices: Dict[Tuple[int, int], List[dict]] = {}
-    fields = [layout_pytree_node(f) for f in fields]
-    nrows, ncols, fig_shape, reduced_shape = layout_sub_figures(layout(fields, batch('args')), row_dims, col_dims, animate, overlay, 0, 0, positioning, indices, {})
-    animate = fig_shape.only(animate)
-    fig_shape = fig_shape.without(animate)
-    plots = default_plots() if lib is None else get_plots(lib)
+    data = layout([layout_pytree_node(f) for f in fields], batch('args'))
+    overlay = data.shape.only(overlay)
+    animate = data.shape.only(animate).without(overlay)
+    row_dims: Shape = data.shape.only(row_dims).without(animate).without(overlay)
+    col_dims = data.shape.only(col_dims).without(row_dims).without(animate).without(overlay)
+    fig_shape = batch(data).without(row_dims).without(col_dims).without(animate).without(overlay)
+    reduced_shape = row_dims & col_dims & animate & overlay
+    nrows = uniform_bound(row_dims).volume
+    ncols = uniform_bound(col_dims).volume
+    positioning, indices = layout_sub_figures(data, row_dims, col_dims, animate, overlay, 0, 0)
     # --- Process arguments ---
+    plots = default_plots() if lib is None else get_plots(lib)
     if title is None:
         title_by_subplot = {pos: title_label(common_index(*i, exclude=reduced_shape.singleton)) for pos, i in indices.items()}
     elif isinstance(title, Tensor) and ('rows' in title.shape or 'cols' in title.shape):
@@ -427,66 +432,60 @@ def layout_pytree_node(data, wrap_leaf=False):
 
 
 def layout_sub_figures(data: Union[Tensor, Field],
-                       row_dims: DimFilter,
-                       col_dims: DimFilter,
-                       animate: DimFilter,  # do not reduce these dims, has priority
-                       overlay: DimFilter,
+                       row_dims: Shape,
+                       col_dims: Shape,
+                       animate: Shape,  # do not reduce these dims, has priority
+                       overlay: Shape,
                        offset_row: int,
                        offset_col: int,
-                       positioning: Dict[Tuple[int, int], List],
-                       indices: Dict[Tuple[int, int], List[dict]],
-                       base_index: Dict[str, Union[int, str]]) -> Tuple[int, int, Shape, Shape]:  # rows, cols
-    if data is None:
-        raise ValueError(f"Cannot layout figure for '{data}'")
+                       positioning: Dict[Tuple[int, int], List] = None,
+                       indices: Dict[Tuple[int, int], List[dict]] = None,
+                       base_index: Dict[str, Union[int, str]] = None) -> Tuple[Dict[Tuple[int, int], List[Field]], Dict[Tuple[int, int], List[dict]]]:
+    if positioning is None:
+        assert indices is None and base_index is None
+        positioning = {}
+        indices = {}
+        base_index = {}
+    # --- if data is a group of elements, lay them out recursively ---
     if isinstance(data, Tensor) and data.dtype.kind == object:  # layout
         if not data.shape:  # nothing to plot
-            return 1, 1, EMPTY_SHAPE, EMPTY_SHAPE
-        rows, cols = 0, 0
-        non_reduced = math.EMPTY_SHAPE
-        dim0 = reduced = data.shape[0]
+            return positioning, indices
+        dim0 = data.shape[0]
         if dim0.only(overlay):
             for overlay_index in dim0.only(overlay).meshgrid(names=True):  # overlay these fields
-                e_rows, e_cols, d_non_reduced, d_reduced = layout_sub_figures(data[overlay_index], row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, {**base_index, **overlay_index})
-                rows = max(rows, e_rows)
-                cols = max(cols, e_cols)
-                non_reduced &= d_non_reduced
-                reduced = merge_shapes(reduced, d_reduced, allow_varying_sizes=True)
+                # ToDo expand constants along rows/cols
+                layout_sub_figures(data[overlay_index], row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, {**base_index, **overlay_index})
         elif dim0.only(animate):
             data = math.stack(data.native(), dim0)
-            return layout_sub_figures(data, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, base_index)
+            layout_sub_figures(data, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, base_index)
         else:
             elements = math.unstack(data, dim0.name)
+            offset = 0
             for item_name, e in zip(dim0.get_item_names(dim0.name) or range(dim0.size), elements):
                 index = dict(base_index, **{dim0.name: item_name})
                 if dim0.only(row_dims):
-                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row + rows, offset_col, positioning, indices, index)
-                    rows += e_rows
-                    cols = max(cols, e_cols)
+                    layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row + offset, offset_col, positioning, indices, index)
+                    offset += shape(e).only(row_dims).volume
                 elif dim0.only(col_dims):
-                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row, offset_col + cols, positioning, indices, index)
-                    cols += e_cols
-                    rows = max(rows, e_rows)
+                    layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row, offset_col + offset, positioning, indices, index)
+                    offset += shape(e).only(col_dims).volume
                 else:
-                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, index)
-                    cols = max(cols, e_cols)
-                    rows = max(rows, e_rows)
-                non_reduced &= e_non_reduced
-                reduced = merge_shapes(reduced, e_reduced, allow_varying_sizes=True)
-        return rows, cols, non_reduced, reduced
-    else:
+                    layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, index)
+    else:   # --- data must be a plottable object ---
         data = to_field(data)
         overlay = data.shape.only(overlay)
         animate = data.shape.only(animate).without(overlay)
         row_shape = data.shape.only(row_dims).without(animate).without(overlay)
         col_shape = data.shape.only(col_dims).without(row_dims).without(animate).without(overlay)
-        non_reduced: Shape = batch(data).without(row_dims).without(col_dims) & animate
+        row_shape &= row_dims.after_gather(base_index)
+        col_shape &= col_dims.after_gather(base_index)
         for ri, r in enumerate(row_shape.meshgrid(names=True)):
             for ci, c in enumerate(col_shape.meshgrid(names=True)):
                 for o in overlay.meshgrid(names=True):
                     sub_data = data[r][c][o]
                     positioning.setdefault((offset_row + ri, offset_col + ci), []).append(sub_data)
                     indices.setdefault((offset_row + ri, offset_col + ci), []).append(dict(base_index, **r, **c, **o))
-        return row_shape.volume, col_shape.volume, non_reduced, EMPTY_SHAPE
+    return positioning, indices
 
 
 def _space(*values: Field or Tensor, ignore_dims: Shape, log_dims: Tuple[str], errs: Sequence[Tensor]) -> Box:

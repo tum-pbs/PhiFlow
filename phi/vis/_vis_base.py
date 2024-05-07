@@ -489,7 +489,7 @@ def select_channel(value: Union[Field, Tensor, tuple, list], channel: Union[str,
             return value
 
 
-def to_field(obj):
+def to_field(obj) -> Field:
     if isinstance(obj, Field):
         return obj
     if isinstance(obj, Geometry):
@@ -579,3 +579,8 @@ def only_stored_elements(f: Field) -> Field:
     else:
         values = f.values[f.points._indices]
     return Field(elements, values, math.extrapolation.NONE)
+
+
+def uniform_bound(shape: Shape):
+    sizes = [int(s.max) if isinstance(s, Tensor) else s for s in shape.sizes]
+    return shape.with_sizes(sizes)
