@@ -5,7 +5,7 @@ import numpy as np
 
 from phi import math
 from phi.math import DimFilter
-from phiml.math import rename_dims, vec
+from phiml.math import rename_dims, vec, stack
 from phiml.math._shape import parse_dim_order, dual
 from ._geom import Geometry, _keep_vector
 from ..math import wrap, INF, Shape, channel, Tensor
@@ -407,18 +407,28 @@ class Cuboid(BaseBox):
 
     def __getitem__(self, item):
         item = _keep_vector(slicing_dict(self, item))
-        return Cuboid(self._center[item], self._half_size[item], size_variable=self._size_variable)
+        rotation = self._rotation_matrix[item] if self._rotation_matrix is not None else None
+        return Cuboid(self._center[item], self._half_size[item], rotation, size_variable=self._size_variable)
 
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
         if all(isinstance(v, Cuboid) for v in values):
             size_variable = any([c._size_variable for c in values])
-            return Cuboid(math.stack([v.center for v in values], dim, **kwargs), math.stack([v.half_size for v in values], dim, **kwargs), size_variable=size_variable)
+            if any(v._rotation_matrix is not None for v in values):
+                matrices = [v._rotation_matrix for v in values]
+                if any(m is None for m in matrices):
+                    any_angle = math.rotation_angles([m for m in matrices if m is not None][0])
+                    unit_matrix = math.rotation_matrix(any_angle * 0)
+                    matrices = [unit_matrix if m is None else m for m in matrices]
+                rotation = stack(matrices, dim, **kwargs)
+            else:
+                rotation = None
+            return Cuboid(stack([v.center for v in values], dim, **kwargs), stack([v.half_size for v in values], dim, **kwargs), rotation, size_variable=size_variable)
         else:
             return Geometry.__stack__(values, dim, **kwargs)
 
     def __variable_attrs__(self):
-        return ('_center', '_half_size') if self._size_variable else ('_center',)
+        return ('_center', '_half_size', '_rotation_matrix') if self._size_variable else ('_center', '_rotation_matrix')
 
     def __value_attrs__(self):
         return '_center',
