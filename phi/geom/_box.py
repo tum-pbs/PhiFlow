@@ -73,7 +73,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         """
         assert origin in ['lower', 'center', 'upper']
         origin_loc = getattr(self, origin)
-        pos = global_position if math.close(origin_loc, 0) else global_position - origin_loc
+        pos = global_position if math.always_close(origin_loc, 0) else global_position - origin_loc
         pos = math.rotate_vector(pos, self.rotation_matrix, invert=True)
         if scale:
             pos /= (self.half_size if origin == 'center' else self.size)
