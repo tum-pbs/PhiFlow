@@ -5,8 +5,9 @@ import warnings
 from typing import Union
 
 from phi import math
-from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear
+from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear, stagger
 from phiml.math import copy_with, Solve, wrap, spatial, Tensor
+from phiml.math.extrapolation import NONE
 
 
 def explicit(u: Field,
@@ -125,7 +126,18 @@ def differential(u: Field,
     Returns:
         Differential diffusion as a `Field` on the same geometry.
     """
-    lap = laplace(u, weights=diffusivity, gradient=gradient, order=order, implicit=implicit, upwind=upwind, correct_skew=correct_skew)
+    if spatial(diffusivity):  # spatially-varying diffusivity
+        assert order == 2, f"spatially-varying diffusivity only supported for second-order but got order={order}"
+        # make sure outflow = neighbor inflow, i.e. make the matrix symmetric
+        diffusivity: Field = diffusivity if isinstance(diffusivity, Field) else u.with_values(diffusivity)
+        if u.is_grid and u.is_centered:
+            face_diffusivity = stagger(diffusivity, math.minimum, NONE)
+            du = u.gradient(boundary=NONE, at='face')
+            lap = (face_diffusivity * du).divergence(order=2)
+        else:
+            raise NotImplementedError("spatially-varying diffusion currently only supported for centered grids")
+    else:
+        lap = laplace(u, weights=diffusivity, gradient=gradient, order=order, implicit=implicit, upwind=upwind, correct_skew=correct_skew)
     return lap.with_extrapolation(u.boundary - u.boundary)  # remove constants from extrapolation
 
 
