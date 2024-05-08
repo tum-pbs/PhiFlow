@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from phi import math
 from phi.field import CenteredGrid, Noise, assert_close, AngularVelocity, StaggeredGrid, resample
-from phi.geom import Box, Sphere
+from phi.geom import Box, Sphere, Point
 from phiml.math import batch, spatial, vec, channel
 
 
@@ -72,3 +72,11 @@ class TestField(TestCase):
         full = resample(f, b1)
         math.assert_close([0, 0, 1, 1], full.values.b[0])
         math.assert_close([0, 0, 2, 2], full.values.b[1])
+
+    def test_as_points(self):
+        values = math.wrap([[1, 2], [3, 4]], spatial('x,y'))
+        grid = CenteredGrid(values, 1)
+        points = grid.as_points()
+        math.assert_close([1, 2, 3, 4], points.values)
+        self.assertIsInstance(points.geometry, Point)
+        math.assert_close(math.flatten(grid.points), math.flatten(points.points))

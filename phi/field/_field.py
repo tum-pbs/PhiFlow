@@ -1,6 +1,6 @@
 import warnings
 from numbers import Number
-from typing import Callable, Union, Tuple
+from typing import Callable, Union, Tuple, Optional
 
 from phi import math
 from phi.geom import Geometry, Box, Point, BaseBox, UniformGrid, Mesh, Sphere, Graph
@@ -8,7 +8,7 @@ from phi.geom._geom import slice_off_constant_faces
 from phi.math import Shape, Tensor, channel, non_batch, expand, instance, spatial, wrap, dual, non_dual
 from phi.math.extrapolation import Extrapolation
 from phi.math.magic import BoundDim, slicing_dict
-from phiml.math import batch, Solve, DimFilter, unstack, concat_shapes
+from phiml.math import batch, Solve, DimFilter, unstack, concat_shapes, pack_dims
 
 
 class FieldInitializer:
@@ -267,6 +267,26 @@ class Field:
     def cells(self):
         assert isinstance(self._geometry, (UniformGrid, Mesh))
         return self._geometry
+
+    def as_points(self, list_dim: Optional[Shape] = instance('elements')) -> 'Field':
+        """
+        Returns this field as a PointCloud.
+        This replaces the `Field.geometry` with a `phi.geom.Point` instance while leaving the sample points unchanged.
+
+        Args:
+            list_dim: If not `None`, packs spatial, instance and dual dims.
+                Defaults to `instance('elements')`.
+
+        Returns:
+            `Field` with same values and boundaries but `Point` geometry.
+        """
+        points = self.sampled_elements.center
+        values = self._values
+        if list_dim:
+            dims = non_batch(points).non_channel & non_batch(points).non_channel
+            points = pack_dims(points, dims, list_dim)
+            values = pack_dims(values, dims, list_dim)
+        return Field(Point(points), values, self._boundary)
 
     def at_centers(self, **kwargs) -> 'Field':
         """
