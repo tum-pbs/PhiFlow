@@ -26,6 +26,9 @@ class FieldEmbedding(Extrapolation):
     def __value_attrs__(self):
         return 'field',
 
+    def __variable_attrs__(self):
+        return 'field',
+
     def __getitem__(self, item):
         return FieldEmbedding(self.field[item])
 
@@ -76,7 +79,13 @@ class FieldEmbedding(Extrapolation):
         raise NotImplementedError
 
     def __eq__(self, other):
-        return isinstance(other, FieldEmbedding) and other.field is self.field
+        if not isinstance(other, FieldEmbedding):
+            return False
+        if other.field is self.field:
+            return True
+        if self.field.values is None or other.field.values is None:
+            return self.field == other.field
+        return False
 
     def __hash__(self):
         return hash(self.field)
