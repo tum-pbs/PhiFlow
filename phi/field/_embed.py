@@ -16,6 +16,10 @@ class FieldEmbedding(Extrapolation):
         super().__init__(pad_rank=1)
         self.field = field
 
+    @property
+    def shape(self):
+        return self.field.shape
+
     def to_dict(self) -> dict:
         raise NotImplementedError("FieldEmbedding cannot be converted to dict")
 
@@ -26,9 +30,10 @@ class FieldEmbedding(Extrapolation):
         return FieldEmbedding(self.field[item])
 
     @staticmethod
-    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'ConstantExtrapolation':
+    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'FieldEmbedding':
         if all(isinstance(v, FieldEmbedding) for v in values):
-            return ConstantExtrapolation(stack([v.field for v in values], dim, **kwargs))
+            stacked_fields = stack([v.field for v in values], dim, **kwargs)
+            return FieldEmbedding(stacked_fields)
         else:
             return NotImplemented
 

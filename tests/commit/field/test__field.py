@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from phi import math
-from phi.field import CenteredGrid, Noise, assert_close, AngularVelocity, StaggeredGrid
+from phi.field import CenteredGrid, Noise, assert_close, AngularVelocity, StaggeredGrid, resample
 from phi.geom import Box, Sphere
 from phiml.math import batch, spatial, vec, channel
 
@@ -62,3 +62,13 @@ class TestField(TestCase):
         g = StaggeredGrid(Noise(), 1, x=10, y=8)
         self.assertEqual((9, 8), g.numpy()[0].shape)
         self.assertEqual((10, 7), g.numpy()[1].shape)
+
+    def test_stack_boundaries(self):
+        b1 = CenteredGrid(1, 0, x=4)
+        b2 = b1 + 1
+        f1 = CenteredGrid(0, b1, x=2)
+        f2 = CenteredGrid(0, b2, x=2)
+        f = math.stack([f1, f2], batch('b'))
+        full = resample(f, b1)
+        math.assert_close([0, 0, 1, 1], full.values.b[0])
+        math.assert_close([0, 0, 2, 2], full.values.b[1])

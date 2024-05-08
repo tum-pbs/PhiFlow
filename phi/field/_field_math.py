@@ -743,24 +743,26 @@ def stack(fields: Sequence[Field], dim: Shape, dim_bounds: Box = None):
     """
     assert all(isinstance(f, Field) for f in fields), f"All fields must be Fields of the same type but got {fields}"
     assert all(isinstance(f, type(fields[0])) for f in fields), f"All fields must be Fields of the same type but got {fields}"
-    if any(f.extrapolation != fields[0].extrapolation for f in fields):
-        raise NotImplementedError(f"Concatenating differing extrapolations not supported but got {[f.extrapolation for f in fields]}")
+    if any(f.boundary != fields[0].boundary for f in fields):
+        boundary = math.stack([f.boundary for f in fields], dim)
+    else:
+        boundary = fields[0].boundary
     if fields[0].is_grid:
         values = math.stack([f.values for f in fields], dim)
         if spatial(dim):
             if dim_bounds is None:
                 dim_bounds = Box(**{dim.name: len(fields)})
-            return grid(values, fields[0].extrapolation, fields[0].bounds * dim_bounds)
+            return grid(values, boundary, fields[0].bounds * dim_bounds)
         else:
-            return fields[0].with_values(values)
+            return fields[0].with_values(values).with_boundary(boundary)
     elif fields[0].is_point_cloud:
         elements = geom.stack([f.elements for f in fields], dim)
         values = math.stack([f.values for f in fields], dim)
-        return PointCloud(elements, values, fields[0].extrapolation)
+        return PointCloud(elements, values, boundary)
     elif fields[0].is_mesh:
         assert all([f.geometry == fields[0].geometry for f in fields]), f"stacking fields with different geometries is not supported. Got {[f.geometry for f in fields]}"
         values = math.stack([f.values for f in fields], dim)
-        return Field(fields[0].geometry, values, fields[0].extrapolation)
+        return Field(fields[0].geometry, values, boundary)
     raise NotImplementedError(type(fields[0]))
 
 
