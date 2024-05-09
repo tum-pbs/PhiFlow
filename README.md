@@ -85,8 +85,9 @@ making it easy to build end-to-end differentiable functions involving both learn
             <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/mesh/.html"><img src="docs/figures/examples/mesh/"></a></td>
         </tr>
         <tr>
-            <td align="center">FVM Fluid</td>
+            <td align="center">FVM fluid</td>
             <td align="center">Heat flow</td>
+            <td align="center">Mesh construction</td>
         </tr>
     </tbody>
 </table>
@@ -100,7 +101,7 @@ making it easy to build end-to-end differentiable functions involving both learn
         <tr>
             <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/.html"><img src="docs/figures/examples/particles/"></a></td>
             <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/.html"><img src="docs/figures/examples/particles/"></a></td>
-            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/.html"><img src="docs/figures/examples/particles/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/Streamlines.html"><img src="docs/figures/examples/particles/Streamlines.jpg"></a></td>
             <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/.html"><img src="docs/figures/examples/particles/"></a></td>
         </tr>
         <tr>
@@ -110,9 +111,9 @@ making it easy to build end-to-end differentiable functions involving both learn
             <td align="center">Heightmaps</td>
         </tr>
         <tr>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/Gravity.html"><img src="docs/figures/examples/particles/Gravity.jpg"></a></td>
             <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/.html"><img src="docs/figures/examples/particles/"></a></td>
-            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/.html"><img src="docs/figures/examples/particles/"></a></td>
-            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/.html"><img src="docs/figures/examples/particles/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/particles/Ropes.html"><img src="docs/figures/examples/particles/Ropes.png"></a></td>
         </tr>
         <tr>
             <td align="center">Gravity</td>
@@ -122,30 +123,30 @@ making it easy to build end-to-end differentiable functions involving both learn
     </tbody>
 </table>
 
-[Solar System](https://tum-pbs.github.io/PhiFlow/Planets_Tutorial.html)
-
 ### Optimization & Networks
 
 <table>
     <tbody>
         <tr>
-            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/.html"><img src="docs/figures/examples/optim/"></a></td>
-            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/.html"><img src="docs/figures/examples/optim/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/Gradient_Descent.html"><img src="docs/figures/examples/optim/Gradient_Descent.png"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/Optimize_Throw.html"><img src="docs/figures/examples/optim/Optimize_Throw.png"></a></td>
             <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/.html"><img src="docs/figures/examples/optim/"></a></td>
             <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/.html"><img src="docs/figures/examples/optim/"></a></td>
         </tr>
         <tr>
-            <td align="center">Finding minima</td>
-            <td align="center">Learning to Throw</td>
+            <td align="center">Gradient Descent</td>
+            <td align="center">Optimize throw</td>
+            <td align="center">Learn to Throw</td>
             <td align="center">PIV</td>
-            <td align="center">Dense packing</td>
         </tr>
         <tr>
-            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/.html"><img src="docs/figures/examples/optim/"></a></td>
-            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/.html"><img src="docs/figures/examples/optim/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/Close_Packing.html"><img src="docs/figures/examples/optim/Close_Packing.png"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/Learn_Potential.html"><img src="docs/figures/examples/optim/Learn_Potential.png"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/optim/Differentiable_Pressure.html"><img src="docs/figures/examples/optim/Differentiable_Pressure.jpg"></a></td>
         </tr>
         <tr>
-            <td align="center">Learning a Potential</td>
+            <td align="center">Close packing</td>
+            <td align="center">Learn Φ(x,y)</td>
             <td align="center">Differentiable pressure</td>
         </tr>
     </tbody>
