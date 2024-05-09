@@ -488,8 +488,15 @@ class StreamPlot2D(Recipe):
                 col = [_plt_col(c) for c in color.numpy(data.shape.non_channel).reshape(-1)]
             else:
                 col = _plt_col(color)
-        # alphas = reshaped_numpy(alpha, [data.shape.without('vector')])  alpha not supported yet
-        subplot.streamplot(x, y, u.T, v.T, color=col, cmap=plt.cm.get_cmap('viridis'))
+        alphas = reshaped_numpy(alpha, [data.shape.without('vector')])
+        a = float(alphas[0])
+        prev_patches = set(subplot.patches)
+        stream = subplot.streamplot(x, y, u.T, v.T, color=col, cmap=plt.cm.get_cmap())
+        stream.lines.set_alpha(a)
+        new_patches = set(subplot.patches) - prev_patches
+        for obj in new_patches:
+            # if isinstance(obj, matplotlib.patches.FancyArrowPatch):
+            obj.set_alpha(a)
 
 
 class EmbeddedPoint2D(Recipe):
