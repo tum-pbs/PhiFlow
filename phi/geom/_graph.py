@@ -1,6 +1,6 @@
 from typing import Union, Tuple, Dict, Any, Optional
 
-from phiml.math import Tensor, Shape, channel, shape, non_batch, dual
+from phiml.math import Tensor, Shape, channel, shape, non_batch, dual, batch
 from phiml.math.magic import slicing_dict
 from ._geom import Geometry, Point
 from .. import math
@@ -166,4 +166,6 @@ class Graph(Geometry):
                 if dual_dim not in self._edges.shape:
                     dual_dim = dual(self._edges).shape.names[i]
                 edge_sel[dim] = edge_sel[dual_dim] = sel
+            elif dim in batch(self):
+                edge_sel[dim] = sel
         return Graph(self._nodes[item], self._edges[edge_sel], self._boundary)

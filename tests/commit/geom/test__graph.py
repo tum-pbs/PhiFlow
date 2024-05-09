@@ -3,7 +3,7 @@ from unittest import TestCase
 from phi import math
 from phi.geom import Graph
 from phi.math import channel
-from phiml.math import wrap, instance
+from phiml.math import wrap, instance, batch, stack, vec
 
 
 class TestGraph(TestCase):
@@ -22,3 +22,12 @@ class TestGraph(TestCase):
         self.assertEqual(4, math.stored_indices(sparse_subgraph.edges).entries.size)
         self.assertEqual((2, 2), sparse_subgraph.edges.shape.sizes)
 
+    def test_batch_slice(self):
+        x = vec(x=[0, 1, 2], y=0)
+        deltas = math.pairwise_differences(x, max_distance=.2, format='coo')
+        distances = math.vec_length(deltas)
+        graph = Graph(x, distances, {})
+        stacked = stack([graph, graph], batch('b'))
+        g0 = stacked.b[0]
+        self.assertNotIn('b', g0.nodes.shape)
+        self.assertNotIn('b', g0.edges.shape)
