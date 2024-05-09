@@ -605,6 +605,9 @@ class PointCloud2D(Recipe):
                 #     mpl_colors = [_next_line_color(axis, 'lines' if connected else 'collections')] * non_channel(data).volume
             else:
                 mpl_colors = [_next_line_color(axis, 'lines' if connected else 'collections')] * non_channel(data).volume
+        elif non_channel(data).only(color.shape) and color.dtype.kind == float:  # use color map
+            values = reshaped_numpy(color, [non_channel(data)])
+            mpl_colors = add_color_bar(axis, values, None, None)
         else:
             mpl_colors = matplotlib_colors(color, non_channel(data), default=0)
         alphas = reshaped_numpy(alpha, [non_channel(data)])
@@ -685,6 +688,15 @@ class PointCloud2D(Recipe):
                     xs, ys = reshaped_numpy(data[idx].points.vector[dims], [vector, sp_dim, other_sp])
                     if (color == None).all:
                         col = _next_line_color(axis, 'lines' if connected else 'collections')
+                    elif non_channel(data).only(color.shape) and color.dtype.kind == float:  # use color map
+                        if non_channel(data).after_gather(idx).only(color.shape):
+                            values = reshaped_numpy(color[idx], [non_channel(data).after_gather(idx)])
+                            col = add_color_bar(axis, values, color.min, color.max)
+                            col = col[0]  # ToDo call plot() for each line segment :-(
+                            warnings.warn("Changing color by line segment not yet supported", RuntimeWarning)
+                        else:
+                            values = reshaped_numpy(color[idx], [])
+                            col = add_color_bar(axis, values, color.min, color.max)
                     else:
                         col = _plt_col(color)
                     alpha_f = float(alpha[idx].max)
@@ -697,8 +709,9 @@ class PointCloud2D(Recipe):
                             else:
                                 axis.fill_between(x, y - y_err, y + y_err, color=col, alpha=alpha_f * .2)
                     axis.plot(xs, ys, color=col, alpha=alpha_f, label=label if i == 0 else None)
-                    if isinstance(data.geometry, Point) and 2 < spatial(data.geometry).volume < 100:
-                        axis.scatter(xs, ys, s=3, marker='o', c=col, alpha=alphas)
+            if isinstance(data.geometry, Point) and 2 < spatial(data.geometry).volume < 100:  # plot small dots on lines
+                xs, ys = reshaped_numpy(data.geometry.center, ['vector', non_channel])
+                axis.scatter(xs, ys, s=3, marker='o', c=mpl_colors, alpha=alphas)
 
         if any(non_channel(data).item_names):
             PointCloud2D._annotate_points(axis, data.points, color, alpha, dims)
@@ -877,6 +890,10 @@ def add_color_bar(axis: Axes, values, min_val, max_val, cmap=None):
             norm = Normalize(vmin=min_val, vmax=max_val)
             mappable = ScalarMappable(norm=norm, cmap=cmap)
             figure.colorbar(mappable, ax=axis if cax is None else None, cax=cax)  # adds a new Axis to the figure
+    else:
+        assert figure_has_color_bar
+        # assume same min/max
+        norm = Normalize(vmin=min_val, vmax=max_val)
     return cmap(norm(values))
 
 
