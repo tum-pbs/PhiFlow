@@ -4,12 +4,13 @@ Functions for simulating incompressible fluids, both grid-based and particle-bas
 The main function for incompressible fluids (Eulerian as well as FLIP / PIC) is `make_incompressible()` which removes the divergence of a velocity field.
 """
 import warnings
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Union
 
 from phi import math, field
 from phi.math import wrap, channel, Solve
 from phi.field import AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud, Field, resample
 from phi.geom import union, Geometry
+from phiml.math import Tensor
 from ..field._embed import FieldEmbedding
 from ..field._grid import StaggeredGrid
 from ..math import extrapolation, NUMPY, batch, shape, non_channel, expand
@@ -37,15 +38,23 @@ class Obstacle:
 
     @property
     def is_stationary(self):
-        """ Test whether the obstacle is completely still. """
+        """ Test whether the obstacle is completely still, i.e. not moving or rotating. """
         return not self.is_moving and not self.is_rotating
 
     @property
     def is_rotating(self):
+        """
+        Checks whether this obstacle might be rotating.
+        This also evaluates to `True` if the angular velocity is unknown at this time.
+        """
         return not math.always_close(self.angular_velocity, 0)
 
     @property
     def is_moving(self):
+        """
+        Checks whether this obstacle might be moving.
+        This also evaluates to `True` if the velocity is unknown at this time.
+        """
         return not math.always_close(self.velocity, 0)
 
     def copied_with(self, **kwargs):
@@ -54,6 +63,18 @@ class Obstacle:
 
     def __variable_attrs__(self) -> Tuple[str, ...]:
         return 'geometry', 'velocity', 'angular_velocity'
+
+    def with_geometry(self, geometry):
+        return Obstacle(geometry, self.velocity, self.angular_velocity)
+
+    def shifted(self, delta: Tensor):
+        return self.with_geometry(self.geometry.shifted(delta))
+
+    def at(self, position: Tensor):
+        return self.with_geometry(self.geometry.at(position))
+
+    def rotated(self, angle: Union[float, Tensor]):
+        return self.with_geometry(self.geometry.rotated(angle))
 
     def __eq__(self, other):
         if not isinstance(other, Obstacle):
