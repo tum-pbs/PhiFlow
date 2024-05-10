@@ -35,7 +35,8 @@ class MatplotlibPlots(PlottingLibrary):
                       cols: int,
                       spaces: Dict[Tuple[int, int], Box],
                       titles: Dict[Tuple[int, int], str],
-                      log_dims: Tuple[str, ...]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+                      log_dims: Tuple[str, ...],
+                      plt_params: Dict[str, Any]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         figure, axes = plt.subplots(rows, cols, figsize=size)
         self.current_figure = figure
         axes = np.reshape(axes, (rows, cols))
@@ -88,7 +89,13 @@ class MatplotlibPlots(PlottingLibrary):
                                 axis.xaxis.set_minor_formatter(NullFormatter())  # sometimes required for log axis
                     elif bounds.spatial_rank == 3:
                         axis.remove()
-                        axis = axes[row, col] = figure.add_subplot(rows, cols, cols*row + col + 1, projection='3d')
+                        auto_order = True
+                        if 'z-order' in plt_params:
+                            assert plt_params['z-order'] in ['dynamic', 'as-provided']
+                            auto_order = plt_params['z-order'] == 'dynamic'
+                        axis = axes[row, col] = figure.add_subplot(rows, cols, cols*row + col + 1, projection='3d', computed_zorder=auto_order)
+                        if not auto_order:
+                            axis._phi_z_order_index = 0
                         # --- limits ---
                         axis.set_xlabel(display_name(bounds.vector.item_names[0]))
                         axis.set_ylabel(display_name(bounds.vector.item_names[1]))
@@ -325,7 +332,7 @@ class Heatmap2D(Recipe):
         if space.spatial_rank == 3:  # surface plot
             z = data.values.numpy(dims)
             x, y = reshaped_numpy(data.points, [vector, *spatial(data)])
-            subplot.plot_surface(x, y, z)
+            plot_surface(subplot, x, y, z)
         else:  # heatmap
             aspect = subplot.get_aspect()
             image = data.values.numpy(dims.reversed)
@@ -563,7 +570,7 @@ class Heightmap3D(Recipe):
         else:
             col = _plt_col(color)
         alpha_f = float(alpha)
-        subplot.plot_surface(x, y, z, color=col, alpha=alpha_f)
+        plot_surface(subplot, x, y, z, color=col, alpha=alpha_f)
 
 
 class PointCloud2D(Recipe):
@@ -772,17 +779,17 @@ class PointCloud3D(Recipe):
                     x_ = x[i] + rx[i] * np.outer(np.cos(u), np.sin(v))
                     y_ = y[i] + ry[i] * np.outer(np.sin(u), np.sin(v))
                     z_ = z[i] + rz[i] * np.outer(np.ones_like(u), np.cos(v))
-                    subplot.plot_surface(x_, y_, z_, rstride=4, cstride=4, color=mpl_colors[0], alpha=alphas[0])
+                    plot_surface(subplot, x_, y_, z_, rstride=4, cstride=4, color=mpl_colors[0], alpha=alphas[0])
             elif isinstance(data.geometry, BaseBox):
                 a = alphas[0]
                 c = mpl_colors[0]
                 cx, cy, cz = math.reshaped_numpy(data.geometry.corners(), ['vector', *dims])
-                subplot.plot_surface(cx[:, :, 1], cy[:, :, 1], cz[:, :, 1], alpha=a, color=c)
-                subplot.plot_surface(cx[:, :, 0], cy[:, :, 0], cz[:, :, 0], alpha=a, color=c)
-                subplot.plot_surface(cx[:, 1, :], cy[:, 1, :], cz[:, 1, :], alpha=a, color=c)
-                subplot.plot_surface(cx[:, 0, :], cy[:, 0, :], cz[:, 0, :], alpha=a, color=c)
-                subplot.plot_surface(cx[1, :, :], cy[1, :, :], cz[1, :, :], alpha=a, color=c)
-                subplot.plot_surface(cx[0, :, :], cy[0, :, :], cz[0, :, :], alpha=a, color=c)
+                plot_surface(subplot, cx[:, :, 1], cy[:, :, 1], cz[:, :, 1], alpha=a, color=c)
+                plot_surface(subplot, cx[:, :, 0], cy[:, :, 0], cz[:, :, 0], alpha=a, color=c)
+                plot_surface(subplot, cx[:, 1, :], cy[:, 1, :], cz[:, 1, :], alpha=a, color=c)
+                plot_surface(subplot, cx[:, 0, :], cy[:, 0, :], cz[:, 0, :], alpha=a, color=c)
+                plot_surface(subplot, cx[1, :, :], cy[1, :, :], cz[1, :, :], alpha=a, color=c)
+                plot_surface(subplot, cx[0, :, :], cy[0, :, :], cz[0, :, :], alpha=a, color=c)
             elif isinstance(data.geometry, Point):
                 if not spatial(data.geometry):
                     size = 6 / (0.5 * (x_scale+y_scale+z_scale)/3)
@@ -895,6 +902,15 @@ def add_color_bar(axis: Axes, values, min_val, max_val, cmap=None):
         # assume same min/max
         norm = Normalize(vmin=min_val, vmax=max_val)
     return cmap(norm(values))
+
+
+def plot_surface(axes, *args, **kwargs):
+    if hasattr(axes, '_phi_z_order_index'):
+        idx = axes._phi_z_order_index
+        axes.plot_surface(*args, zorder=.1 + idx * 1e-3, **kwargs)
+        axes._phi_z_order_index += 1
+    else:
+        axes.plot_surface(*args, **kwargs)
 
 
 def has_legend_like(labels, figure):

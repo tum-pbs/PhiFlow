@@ -288,7 +288,8 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
          alpha: Union[float, Tensor, list, tuple] = 1.,
          err: Union[Tensor, tuple, list, float] = 0.,
          frame_time=100,
-         repeat=True):
+         repeat=True,
+         plt_params: Dict = None):
     """
     Creates one or multiple figures and sub-figures and plots the given fields.
 
@@ -350,6 +351,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
     positioning, indices = layout_sub_figures(data, row_dims, col_dims, animate, overlay, 0, 0)
     # --- Process arguments ---
     plots = default_plots() if lib is None else get_plots(lib)
+    plt_params = {} if plt_params is None else dict(**plt_params)
     if title is None:
         title_by_subplot = {pos: title_label(common_index(*i, exclude=reduced_shape.singleton)) for pos, i in indices.items()}
     elif isinstance(title, Tensor) and ('rows' in title.shape or 'cols' in title.shape):
@@ -388,7 +390,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
         subplots = {pos: replace_bounds(lim, shared_lim) for pos, lim in subplots.items()}
     # --- animate or plot ---
     if fig_shape.volume == 1:
-        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title_by_subplot, log_dims)
+        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title_by_subplot, log_dims, plt_params)
         if animate:
             def plot_frame(frame: int):
                 for pos, fields in positioning.items():
