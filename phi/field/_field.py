@@ -273,6 +273,9 @@ class Field:
         Returns this field as a PointCloud.
         This replaces the `Field.geometry` with a `phi.geom.Point` instance while leaving the sample points unchanged.
 
+        See Also:
+            `Field.as_spheres()`.
+
         Args:
             list_dim: If not `None`, packs spatial, instance and dual dims.
                 Defaults to `instance('elements')`.
@@ -287,6 +290,31 @@ class Field:
             points = pack_dims(points, dims, list_dim)
             values = pack_dims(values, dims, list_dim)
         return Field(Point(points), values, self._boundary)
+
+    def as_spheres(self, list_dim: Optional[Shape] = instance('elements')) -> 'Field':
+        """
+        Returns this field as a PointCloud with spherical / circular elements, preserving element volumes.
+        This replaces the `Field.geometry` with a `phi.geom.Sphere` instance while leaving the sample points unchanged.
+
+        See Also:
+            `Field.as_points()`.
+
+        Args:
+            list_dim: If not `None`, packs spatial, instance and dual dims.
+                Defaults to `instance('elements')`.
+
+        Returns:
+            `Field` with same values and boundaries but `Sphere` geometry.
+        """
+        points = self.sampled_elements.center
+        volumes = self.sampled_elements.volume
+        values = self._values
+        if list_dim:
+            dims = non_batch(points).non_channel & non_batch(points).non_channel
+            points = pack_dims(points, dims, list_dim)
+            values = pack_dims(values, dims, list_dim)
+            volumes = pack_dims(volumes, dims, list_dim)
+        return Field(Sphere(points, volume=volumes), values, self._boundary)
 
     def at_centers(self, **kwargs) -> 'Field':
         """

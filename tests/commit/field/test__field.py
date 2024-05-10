@@ -80,3 +80,13 @@ class TestField(TestCase):
         math.assert_close([1, 2, 3, 4], points.values)
         self.assertIsInstance(points.geometry, Point)
         math.assert_close(math.flatten(grid.points), math.flatten(points.points))
+
+    def test_as_spheres(self):
+        values = math.wrap([[1, 2], [3, 4]], spatial('x,y'))
+        grid = CenteredGrid(values, 1)
+        spheres = grid.as_spheres()
+        math.assert_close([1, 2, 3, 4], spheres.values)
+        self.assertIsInstance(spheres.geometry, Sphere)
+        math.assert_close(1, spheres.geometry.volume)
+        self.assertEqual(math.EMPTY_SHAPE, spheres.geometry.volume.shape)
+        math.assert_close(math.flatten(grid.points), math.flatten(spheres.points))
