@@ -358,13 +358,14 @@ def stagger(field: Field,
                 width_lower, width_upper = {dim: (0, 0)}, {dim: (-1, 1)}
             else:
                 width_lower, width_upper = {dim: (0, -1)}, {dim: (-1, 0)}
-            all_lower.append(math.pad(field.values, width_lower, field.extrapolation, bounds=field.bounds))
-            all_upper.append(math.pad(field.values, width_upper, field.extrapolation, bounds=field.bounds))
+            comp = field.values.vector[dim] if 'vector' in channel(field) else field.values
+            all_lower.append(math.pad(comp, width_lower, field.extrapolation, bounds=field.bounds))
+            all_upper.append(math.pad(comp, width_upper, field.extrapolation, bounds=field.bounds))
         all_upper = math.stack(all_upper, dual(vector=dims))
         all_lower = math.stack(all_lower, dual(vector=dims))
         values = face_function(all_lower, all_upper)
-        result = StaggeredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
-        assert result.shape.spatial == field.shape.spatial
+        result = Field(field.geometry, values, extrapolation)
+        assert result.resolution == field.resolution
         return result
     else:
         assert at == 'center', f"type must be 'face' or 'center' but got '{at}'"
