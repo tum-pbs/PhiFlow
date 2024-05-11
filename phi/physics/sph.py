@@ -163,17 +163,17 @@ def evaluate_kernel(delta, distance, h, spatial_rank: int, kernel: str, types: S
     return {t: result[t] for t in types}  # re-order output to match input
 
 
-def density(graph: Graph) -> Tensor:
-    """
-    Sum the kernel function over all neighbors within the support radius.
-
-    Args:
-        graph: `Graph` with `kernel` values stored in the edges.
-
-    Returns:
-        Relative density, i.e. not yet scaled by particle mass.
-    """
-    return math.sum(graph.edges['kernel'], dual)
+# def density(graph: Graph) -> Tensor:
+#     """
+#     Sum the kernel function over all neighbors within the support radius.
+#
+#     Args:
+#         graph: `Graph` with `kernel` values stored in the edges.
+#
+#     Returns:
+#         Relative density, i.e. not yet scaled by particle mass.
+#     """
+#     return math.sum(graph.edges['kernel'], dual)
 
 
 # def diffusion(u: Field):

@@ -32,7 +32,7 @@ viscous_normalization = (45.0 * dynamic_visc * particle_mass) / (PI * smoothing_
 def sph_step(v: Field, dt, isotropic_exp=20., base_density=1.):
     graph = sph.neighbor_graph(v.geometry, 'poly6', desired_neighbors=desired_neighbors, compute='kernel', domain=domain)
     # --- compute density and pressure ---
-    rho = sph.density(graph) * particle_mass  # this includes the density contribution from self
+    rho = math.sum(graph.edges['kernel'], dual) * particle_mass  # this includes the density contribution from self
     pressure = isotropic_exp * (rho - base_density)
     nb_rho = rename_dims(rho, instance, dual)
     nb_pressure = rename_dims(pressure, instance, dual)  # warp re-computes this from nb_rho
