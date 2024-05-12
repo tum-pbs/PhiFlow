@@ -36,6 +36,10 @@ jobs:
         run: |
           jupyter nbconvert --to html --execute --allow-errors docs/*.ipynb
           jupyter nbconvert --to html --output-dir docs/ docs/prerendered/*.ipynb
+          jupyter nbconvert --to html --output-dir examples/grids/ examples/grids/*.ipynb
+          jupyter nbconvert --to html --output-dir examples/mesh/ examples/mesh/*.ipynb
+          jupyter nbconvert --to html --output-dir examples/optim/ examples/optim/*.ipynb
+          jupyter nbconvert --to html --output-dir examples/particles/ examples/particles/*.ipynb
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@4.1.4  # See https://github.com/marketplace/actions/deploy-to-github-pages

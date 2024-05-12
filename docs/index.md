@@ -20,7 +20,6 @@
 
 #### Differentiation
 
-* [Learning to Throw](Learn_to_Throw_Tutorial.html)
 * [Billiards](Billiards.html)
 * [Differentiable fluid simulations](Fluids_Tutorial.html)
 
@@ -29,16 +28,10 @@
 * [▶️ Introduction Video](https://youtu.be/YRi_c0v3HKs)
 * [Differentiable fluid simulations](Fluids_Tutorial.html)
 * [Higher-order incompressible fluids](HigherOrder_Demo.html)
-* [Batched Obstacles](Batched_Obstacles.html)
 
 #### I/O
 
 * [Introduction to Scenes](IO_with_Scenes.html)
-
-#### Visualization
-
-* [Solar System](Planets_Tutorial.html)
-* [Animation Gallery](Animations.html)
 
 #### Neural Networks
 
