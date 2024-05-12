@@ -15134,7 +15134,7 @@ to reflect the varying number of x, y and z sample points.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[1]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="c1"># !pip install --quiet phiflow</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># !pip install --quiet phiflow</span>
 <span class="kn">from</span> <span class="nn">phi.flow</span> <span class="kn">import</span> <span class="o">*</span>
 
 <span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">extrapolation</span><span class="o">.</span><span class="n">BOUNDARY</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
@@ -15160,7 +15160,7 @@ to reflect the varying number of x, y and z sample points.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(xˢ=</span><span class="ansi-blue-intense-fg">(x=11, y=10)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=11)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> non-uniform</pre>
+<pre><span class="ansi-green-intense-fg">(~vectorᵈ=x,y, xˢ=~</span><span class="ansi-blue-intense-fg">(x=11, y=10)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, yˢ=~</span><span class="ansi-blue-intense-fg">(x=10, y=11)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">)</span> non-uniform</pre>
 </div>
 
 </div>
@@ -15211,7 +15211,7 @@ such as geometries, other fields, constants or functions (see the <a href="phi/f
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[2]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">domain</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">Box</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">extrapolation</span><span class="o">=</span><span class="n">extrapolation</span><span class="o">.</span><span class="n">ZERO</span><span class="p">)</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">domain</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">Box</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">extrapolation</span><span class="o">=</span><span class="n">extrapolation</span><span class="o">.</span><span class="n">ZERO</span><span class="p">)</span>
 
 <span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># from constant vector</span>
 <span class="n">grid</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">Noise</span><span class="p">(),</span> <span class="o">**</span><span class="n">domain</span><span class="p">)</span>  <span class="c1"># sample analytic field</span>
@@ -15246,17 +15246,17 @@ such as geometries, other fields, constants or functions (see the <a href="phi/f
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[3]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">vx</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">33</span><span class="p">,</span> <span class="mi">32</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">vx</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">33</span><span class="p">,</span> <span class="mi">32</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
 <span class="n">vy</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">32</span><span class="p">,</span> <span class="mi">33</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
-<span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">],</span> <span class="n">channel</span><span class="p">(</span><span class="s1">&#39;vector&#39;</span><span class="p">)),</span> <span class="n">extrapolation</span><span class="o">.</span><span class="n">BOUNDARY</span><span class="p">)</span>
+<span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">],</span> <span class="n">dual</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">&#39;x,y&#39;</span><span class="p">)),</span> <span class="n">extrapolation</span><span class="o">.</span><span class="n">BOUNDARY</span><span class="p">)</span>
 
 <span class="n">vx</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
 <span class="n">vy</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">32</span><span class="p">,</span> <span class="mi">32</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
-<span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">],</span> <span class="n">channel</span><span class="p">(</span><span class="s1">&#39;vector&#39;</span><span class="p">)),</span> <span class="n">extrapolation</span><span class="o">.</span><span class="n">PERIODIC</span><span class="p">)</span>
+<span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">],</span> <span class="n">dual</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">&#39;x,y&#39;</span><span class="p">)),</span> <span class="n">extrapolation</span><span class="o">.</span><span class="n">PERIODIC</span><span class="p">)</span>
 
 <span class="n">vx</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">31</span><span class="p">,</span> <span class="mi">32</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
 <span class="n">vy</span> <span class="o">=</span> <span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">([</span><span class="mi">32</span><span class="p">,</span> <span class="mi">31</span><span class="p">]),</span> <span class="n">spatial</span><span class="p">(</span><span class="s1">&#39;x,y&#39;</span><span class="p">))</span>
-<span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">],</span> <span class="n">channel</span><span class="p">(</span><span class="s1">&#39;vector&#39;</span><span class="p">)),</span> <span class="mi">0</span><span class="p">)</span>
+<span class="n">StaggeredGrid</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">vx</span><span class="p">,</span> <span class="n">vy</span><span class="p">],</span> <span class="n">dual</span><span class="p">(</span><span class="n">vector</span><span class="o">=</span><span class="s1">&#39;x,y&#39;</span><span class="p">)),</span> <span class="mi">0</span><span class="p">)</span>
 </pre></div>
 
      </div>
@@ -15278,7 +15278,7 @@ such as geometries, other fields, constants or functions (see the <a href="phi/f
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>StaggeredGrid[(xˢ=32, yˢ=32, vectorᶜ=2), size=<span class="ansi-blue-intense-fg">(x=32, y=32)</span> <span class="ansi-yellow-intense-fg">int64</span>, extrapolation=<span class="ansi-blue-intense-fg">0</span>]</pre>
+<pre>Grid faces[<span class="ansi-green-intense-fg">(~vectorᵈ=x,y, xˢ=~</span><span class="ansi-blue-intense-fg">(x=31, y=32)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, yˢ=~</span><span class="ansi-blue-intense-fg">(x=32, y=31)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">)</span> non-uniform, ext=<span class="ansi-blue-intense-fg">0</span>]</pre>
 </div>
 
 </div>
@@ -15325,7 +15325,7 @@ to reflect the different number of sample points for each component.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[4]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">values</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">values</span>
 </pre></div>
 
      </div>
@@ -15347,7 +15347,7 @@ to reflect the different number of sample points for each component.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(xˢ=</span><span class="ansi-blue-intense-fg">(x=9, y=10)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> non-uniform</pre>
+<pre><span class="ansi-green-intense-fg">(~vectorᵈ=x,y, xˢ=~</span><span class="ansi-blue-intense-fg">(x=9, y=10)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, yˢ=~</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">)</span> non-uniform</pre>
 </div>
 
 </div>
@@ -15381,7 +15381,7 @@ to reflect the different number of sample points for each component.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[5]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">uniform_values</span><span class="p">()</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">uniform_values</span><span class="p">()</span>
 </pre></div>
 
      </div>
@@ -15433,7 +15433,7 @@ When selecting a vector component, such as <code>x</code> or <code>y</code>, the
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[6]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">vector</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>  <span class="c1"># select component</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">vector</span><span class="p">[</span><span class="s1">&#39;x&#39;</span><span class="p">]</span>  <span class="c1"># select component</span>
 </pre></div>
 
      </div>
@@ -15455,7 +15455,7 @@ When selecting a vector component, such as <code>x</code> or <code>y</code>, the
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>CenteredGrid[(xˢ=9, yˢ=10), size=<span class="ansi-blue-intense-fg">(x=0.900, y=1.000)</span>, extrapolation=<span class="ansi-blue-intense-fg">0</span>]</pre>
+<pre>Grid[<span class="ansi-green-intense-fg">(xˢ=9, yˢ=10)</span> <span class="ansi-blue-intense-fg">0.808 ± 0.378</span> <span class="ansi-white-fg">(0e+00...1e+00)</span>, ext=<span class="ansi-blue-intense-fg">0</span>]</pre>
 </div>
 
 </div>
@@ -15485,7 +15485,7 @@ Instead, slice the <code>values</code> directly.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[7]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span>  <span class="c1"># spatial slice</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">3</span><span class="p">:</span><span class="mi">4</span><span class="p">]</span>  <span class="c1"># spatial slice</span>
 </pre></div>
 
      </div>
@@ -15507,7 +15507,7 @@ Instead, slice the <code>values</code> directly.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(xˢ=1, yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> non-uniform</pre>
+<pre><span class="ansi-green-intense-fg">(~vectorᵈ=x,y, xˢ=1, yˢ=~</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">)</span> non-uniform</pre>
 </div>
 
 </div>
@@ -15524,7 +15524,7 @@ Instead, slice the <code>values</code> directly.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[8]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># spatial slice</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># spatial slice</span>
 </pre></div>
 
      </div>
@@ -15546,7 +15546,7 @@ Instead, slice the <code>values</code> directly.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(yˢ=</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, vectorᶜ=x,y)</span> non-uniform</pre>
+<pre><span class="ansi-green-intense-fg">(~vectorᵈ=x,y, yˢ=~</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">)</span> non-uniform</pre>
 </div>
 
 </div>
@@ -15575,7 +15575,7 @@ Instead, slice the <code>values</code> directly.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[9]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython2"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">batch</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># batch slice</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">grid</span><span class="o">.</span><span class="n">batch</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># batch slice</span>
 </pre></div>
 
      </div>
@@ -15597,7 +15597,7 @@ Instead, slice the <code>values</code> directly.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>StaggeredGrid[(xˢ=10, yˢ=10, vectorᶜ=x,y), size=<span class="ansi-blue-intense-fg">(x=1, y=1)</span> <span class="ansi-yellow-intense-fg">int64</span>, extrapolation=<span class="ansi-blue-intense-fg">0</span>]</pre>
+<pre>Grid faces[<span class="ansi-green-intense-fg">(~vectorᵈ=x,y, xˢ=~</span><span class="ansi-blue-intense-fg">(x=9, y=10)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, yˢ=~</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">)</span> non-uniform, ext=<span class="ansi-blue-intense-fg">0</span>]</pre>
 </div>
 
 </div>

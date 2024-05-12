@@ -79,7 +79,7 @@ Or from the command line:
 ```bash
 $ python3 -c "import phi; phi.verify()"
 ```
-If Φ<sub>Flow</sub> and dependencies are installed correctly, you should see the text `Installation verified.`, followed by additional information on the components at the end of the console output.
+If Φ<sub>Flow</sub> and dependencies are installed correctly, you should see the Φ<sub>Flow</sub> version, followed by additional information on the components at the end of the console output.
 
 
 ### Unit tests

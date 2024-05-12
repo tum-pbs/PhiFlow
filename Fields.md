@@ -36,7 +36,7 @@ The most important sampled fields are
 Important properties:
 
 * `.values: Tensor` data that is used in sampling
-* `.elements: Geometry` sample points as finite volumes
+* `.geometry: Geometry` sample points as finite volumes
 * `.points: Tensor` center points of `elements`
 * `.extrapolation: Extrapolation` determines how values outside the region covered by `values` are determined.
 
@@ -49,7 +49,7 @@ They model `F(x)` as a function instead of from data.
 [`CenteredGrid`](phi/field/#phi.field.CenteredGrid) stores values in a regular grid structure.
 The grid values are stored in a `Tensor` whose spatial dimensions match the resolution of the grid.
 The `bounds` property stores the physical size of the grid from which the cell size is derived.
-`CenteredGrid.elements` is a `GridCell` matching the grid resolution.
+`CenteredGrid.geometry` is a `UniformGrid` matching the grid resolution.
 
 [`StaggeredGrid`](phi/field/#phi.field.StaggeredGrid)
 stores vector fields in staggered form.

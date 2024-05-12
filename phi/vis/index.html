@@ -266,7 +266,7 @@ def load_scalars(scene: Scene or str,
 </details>
 </dd>
 <dt id="phi.vis.overlay"><code class="name flex">
-<span>def <span class="ident">overlay</span></span>(<span>*fields: Union[phi.field._field.SampledField, phiml.math._tensors.Tensor]) ‑> phiml.math._tensors.Tensor</span>
+<span>def <span class="ident">overlay</span></span>(<span>*fields: Union[phi.field._field.Field, phi.geom._geom.Geometry, phiml.math._tensors.Tensor]) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Specify that multiple fields should be drawn on top of one another in the same figure.
@@ -276,7 +276,7 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>*fields</code></strong></dt>
-<dd><code>SampledField</code> or <code>Tensor</code> instances</dd>
+<dd><code>Field</code> or <code>Tensor</code> instances</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Plottable object</p></div>
@@ -284,7 +284,7 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def overlay(*fields: Union[SampledField, Tensor]) -&gt; Tensor:
+<pre><code class="python">def overlay(*fields: Union[Field, Tensor, Geometry]) -&gt; Tensor:
     &#34;&#34;&#34;
     Specify that multiple fields should be drawn on top of one another in the same figure.
     The fields will be plotted in the order they are given, i.e. the last field on top.
@@ -292,7 +292,7 @@ The fields will be plotted in the order they are given, i.e. the last field on t
     &gt;&gt;&gt; plot(vis.overlay(heatmap, points, velocity))
 
     Args:
-        *fields: `SampledField` or `Tensor` instances
+        *fields: `Field` or `Tensor` instances
 
     Returns:
         Plottable object
@@ -301,7 +301,7 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 </details>
 </dd>
 <dt id="phi.vis.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>*fields: Union[phi.field._field.SampledField, phiml.math._tensors.Tensor, phi.geom._geom.Geometry, list, tuple, dict], lib: Union[str, phi.vis._vis_base.PlottingLibrary] = None, row_dims: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = None, col_dims: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = &lt;function batch&gt;, animate: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = None, overlay: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = 'overlay', title: Union[str, phiml.math._tensors.Tensor, list, tuple] = None, size=(12, 5), same_scale: Union[bool, phiml.math._shape.Shape, tuple, list, str] = True, log_dims: Union[phiml.math._shape.Shape, tuple, list, str] = '', show_color_bar=True, color: Union[str, int, phiml.math._tensors.Tensor, list, tuple] = None, alpha: Union[float, phiml.math._tensors.Tensor, list, tuple] = 1.0, err: Union[float, phiml.math._tensors.Tensor, list, tuple] = 0.0, frame_time=100, repeat=True)</span>
+<span>def <span class="ident">plot</span></span>(<span>*fields: Union[phi.field._field.Field, phiml.math._tensors.Tensor, phi.geom._geom.Geometry, list, tuple, dict], lib: Union[str, phi.vis._vis_base.PlottingLibrary] = None, row_dims: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = None, col_dims: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = &lt;function batch&gt;, animate: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = None, overlay: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = 'overlay', title: Union[str, phiml.math._tensors.Tensor, list, tuple] = None, size=(12, 5), same_scale: Union[bool, phiml.math._shape.Shape, tuple, list, str] = True, log_dims: Union[str, phiml.math._shape.Shape, tuple, list] = '', show_color_bar=True, color: Union[str, int, phiml.math._tensors.Tensor, list, tuple] = None, alpha: Union[float, phiml.math._tensors.Tensor, list, tuple] = 1.0, err: Union[float, phiml.math._tensors.Tensor, list, tuple] = 0.0, frame_time=100, repeat=True, plt_params: Dict[~KT, ~VT] = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates one or multiple figures and sub-figures and plots the given fields.</p>
@@ -368,7 +368,7 @@ Currently, only single-figure plots are supported.</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def plot(*fields: Union[SampledField, Tensor, Geometry, list, tuple, dict],
+<pre><code class="python">def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
          lib: Union[str, PlottingLibrary] = None,
          row_dims: DimFilter = None,
          col_dims: DimFilter = batch,
@@ -383,7 +383,8 @@ Currently, only single-figure plots are supported.</p>
          alpha: Union[float, Tensor, list, tuple] = 1.,
          err: Union[Tensor, tuple, list, float] = 0.,
          frame_time=100,
-         repeat=True):
+         repeat=True,
+         plt_params: Dict = None):
     &#34;&#34;&#34;
     Creates one or multiple figures and sub-figures and plots the given fields.
 
@@ -433,13 +434,19 @@ Currently, only single-figure plots are supported.</p>
 
         In case of an animation, a displayable animation object will be returned instead of a `Tensor`.
     &#34;&#34;&#34;
-    positioning = {}
-    indices: Dict[Tuple[int, int], List[dict]] = {}
-    nrows, ncols, fig_shape, reduced_shape = layout_sub_figures(layout(fields, batch(&#39;args&#39;)), row_dims, col_dims, animate, overlay, 0, 0, positioning, indices, {})
-    animate = fig_shape.only(animate)
-    fig_shape = fig_shape.without(animate)
-    plots = default_plots() if lib is None else get_plots(lib)
+    data = layout([layout_pytree_node(f) for f in fields], batch(&#39;args&#39;))
+    overlay = data.shape.only(overlay)
+    animate = data.shape.only(animate).without(overlay)
+    row_dims: Shape = data.shape.only(row_dims).without(animate).without(overlay)
+    col_dims = data.shape.only(col_dims).without(row_dims).without(animate).without(overlay)
+    fig_shape = batch(data).without(row_dims).without(col_dims).without(animate).without(overlay)
+    reduced_shape = row_dims &amp; col_dims &amp; animate &amp; overlay
+    nrows = uniform_bound(row_dims).volume
+    ncols = uniform_bound(col_dims).volume
+    positioning, indices = layout_sub_figures(data, row_dims, col_dims, animate, overlay, 0, 0)
     # --- Process arguments ---
+    plots = default_plots() if lib is None else get_plots(lib)
+    plt_params = {} if plt_params is None else dict(**plt_params)
     if title is None:
         title_by_subplot = {pos: title_label(common_index(*i, exclude=reduced_shape.singleton)) for pos, i in indices.items()}
     elif isinstance(title, Tensor) and (&#39;rows&#39; in title.shape or &#39;cols&#39; in title.shape):
@@ -450,6 +457,7 @@ Currently, only single-figure plots are supported.</p>
     log_dims = parse_dim_order(log_dims) or ()
     color = layout_pytree_node(color, wrap_leaf=True)
     alpha = layout_pytree_node(alpha, wrap_leaf=True)
+    alpha = tree_map(lambda x: 1 if x is None else x, alpha)
     err = layout_pytree_node(err, wrap_leaf=True)
     if same_scale is True:
         same_scale = &#39;_&#39;
@@ -459,21 +467,25 @@ Currently, only single-figure plots are supported.</p>
     if &#39;_&#39; in same_scale:
         if any([f.values.dtype.kind == complex for l in positioning.values() for f in l]):
             min_val = 0
-            max_val = max([float(abs(f.values).finite_max) for l in positioning.values() for f in l])
+            max_val = max([float(abs(f.values).finite_max) for l in positioning.values() for f in l] or [0])
         else:
-            min_val = min([float(f.values.finite_min) for l in positioning.values() for f in l])
-            max_val = max([float(f.values.finite_max) for l in positioning.values() for f in l])
+            min_val = min([float(f.values.finite_min) for l in positioning.values() for f in l] or [0])
+            max_val = max([float(f.values.finite_max) for l in positioning.values() for f in l] or [0])
+            if min_val != min_val:  # NaN
+                min_val = None
+            if max_val != max_val:  # NaN
+                max_val = None
     else:
         min_val = max_val = None
     # --- Layout ---
-    subplots = {pos: _space(*fields, ignore_dims=animate) for pos, fields in positioning.items()}
+    subplots = {pos: _space(*fields, ignore_dims=animate, log_dims=log_dims, errs=[err[i] for i in indices[pos]]) for pos, fields in positioning.items()}
     subplots = {pos: _insert_value_dim(space, pos, subplots, min_val, max_val) for pos, space in subplots.items()}
     if same_scale:
         shared_lim: Box = share_axes(*subplots.values(), axes=same_scale)
         subplots = {pos: replace_bounds(lim, shared_lim) for pos, lim in subplots.items()}
     # --- animate or plot ---
     if fig_shape.volume == 1:
-        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title_by_subplot, log_dims)
+        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title_by_subplot, log_dims, plt_params)
         if animate:
             def plot_frame(frame: int):
                 for pos, fields in positioning.items():
@@ -506,7 +518,7 @@ Currently, only single-figure plots are supported.</p>
 </details>
 </dd>
 <dt id="phi.vis.plot_scalars"><code class="name flex">
-<span>def <span class="ident">plot_scalars</span></span>(<span>scene: Union[str, tuple, list, phi.field._scene.Scene, phiml.math._tensors.Tensor], names: Union[str, phiml.math._tensors.Tensor, list, tuple] = None, reduce: Union[phiml.math._shape.Shape, tuple, list, str] = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=2.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid: Union[str, dict] = 'y', log_scale='', legend='upper right', x='steps', xlim=None, ylim=None, titles=True, labels: phiml.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phiml.math._tensors.Tensor = 'default', dashed: phiml.math._tensors.Tensor = False)</span>
+<span>def <span class="ident">plot_scalars</span></span>(<span>scene: Union[str, tuple, list, phi.field._scene.Scene, phiml.math._tensors.Tensor], names: Union[str, phiml.math._tensors.Tensor, list, tuple] = None, reduce: Union[str, phiml.math._shape.Shape, tuple, list] = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=2.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid: Union[str, dict] = 'y', log_scale='', legend='upper right', x='steps', xlim=None, ylim=None, titles=True, labels: phiml.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phiml.math._tensors.Tensor = 'default', dashed: phiml.math._tensors.Tensor = False)</span>
 </code></dt>
 <dd>
 <div class="desc"><h2 id="args">Args</h2>
@@ -748,13 +760,15 @@ Currently, only single-figure plots are supported.</p>
     assert figure is not None, &#34;No figure to save.&#34;
     lib = get_plots_by_figure(figure)
     path = os.path.expanduser(path)
+    directory = os.path.abspath(os.path.dirname(path))
+    os.path.isdir(directory) or os.makedirs(directory)
     lib.save(figure, path, dpi)
     if close:
         close_(figure=figure)</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.show"><code class="name flex">
-<span>def <span class="ident">show</span></span>(<span>*model: Union[phi.vis._vis_base.VisModel, phi.field._field.SampledField, tuple, list, phiml.math._tensors.Tensor, phi.geom._geom.Geometry], play=True, gui: Union[phi.vis._vis_base.Gui, str] = None, lib: Union[phi.vis._vis_base.Gui, str] = None, keep_alive=True, **config)</span>
+<span>def <span class="ident">show</span></span>(<span>*model: Union[phi.vis._vis_base.VisModel, phi.field._field.Field, phiml.math._tensors.Tensor, phi.geom._geom.Geometry, list, tuple, dict], play=True, gui: Union[phi.vis._vis_base.Gui, str] = None, lib: Union[phi.vis._vis_base.Gui, str] = None, keep_alive=True, **config)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>If <code>model</code> is a user interface model, launches the registered user interface.
@@ -762,7 +776,7 @@ This will typically be the Dash web interface or the console interface if dash i
 This method prepares the <code>model</code> before showing it. No more fields should be added to the vis after this method is invoked.</p>
 <p>See Also:
 <code><a title="phi.vis.view" href="#phi.vis.view">view()</a></code>.</p>
-<p>If <code>model</code> is plottable, e.g. a <code>SampledField</code> or <code>Tensor</code>, a figure is created and shown.
+<p>If <code>model</code> is plottable, e.g. a <code>Field</code> or <code>Tensor</code>, a figure is created and shown.
 If <code>model</code> is a figure, it is simply shown.</p>
 <p>See Also:
 <code><a title="phi.vis.plot" href="#phi.vis.plot">plot()</a></code>.</p>
@@ -789,7 +803,7 @@ For a full list of parameters, see the respective GUI documentation at <a href="
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def show(*model: Union[VisModel, SampledField, tuple, list, Tensor, Geometry],
+<pre><code class="python">def show(*model: Union[VisModel, Field, Tensor, Geometry, list, tuple, dict],
          play=True,
          gui: Union[Gui, str] = None,
          lib: Union[Gui, str] = None,
@@ -803,7 +817,7 @@ For a full list of parameters, see the respective GUI documentation at <a href="
     See Also:
         `view()`.
 
-    If `model` is plottable, e.g. a `SampledField` or `Tensor`, a figure is created and shown.
+    If `model` is plottable, e.g. a `Field` or `Tensor`, a figure is created and shown.
     If `model` is a figure, it is simply shown.
 
     See Also:
@@ -851,7 +865,7 @@ For a full list of parameters, see the respective GUI documentation at <a href="
 </details>
 </dd>
 <dt id="phi.vis.smooth"><code class="name flex">
-<span>def <span class="ident">smooth</span></span>(<span>curves: phiml.math._tensors.Tensor, n: int) ‑> phiml.math._tensors.Tensor</span>
+<span>def <span class="ident">smooth</span></span>(<span>curves: phiml.math._tensors.Tensor, n: int, ext: phiml.math.extrapolation.Extrapolation = &lt;phiml.math.extrapolation._SymmetricGradientExtrapolation object&gt;) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Applies a smoothing kernel to curves, all channels independently.</p>
@@ -869,7 +883,7 @@ For a full list of parameters, see the respective GUI documentation at <a href="
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@map_c2b
-def smooth(curves: Tensor, n: int) -&gt; Tensor:
+def smooth(curves: Tensor, n: int, ext: extrapolation.Extrapolation = extrapolation.SYMMETRIC_GRADIENT) -&gt; Tensor:
     &#34;&#34;&#34;
     Applies a smoothing kernel to curves, all channels independently.
 
@@ -885,11 +899,11 @@ def smooth(curves: Tensor, n: int) -&gt; Tensor:
     if n == 1:
         return curves
     kernel = ones(spatial(curves).with_sizes(n)) / n ** spatial(curves).rank
-    return convolve(curves, kernel, extrapolation=extrapolation.SYMMETRIC_GRADIENT)</code></pre>
+    return convolve(curves, kernel, extrapolation=ext)</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.view"><code class="name flex">
-<span>def <span class="ident">view</span></span>(<span>*fields: Union[str, phi.field._field.SampledField], play: bool = True, gui=None, name: str = None, description: str = None, scene: Union[bool, phi.field._scene.Scene] = False, keep_alive=True, select: Union[str, tuple, list] = '', framerate=None, namespace=None, log_performance=True, **config) ‑> phi.vis._viewer.Viewer</span>
+<span>def <span class="ident">view</span></span>(<span>*fields: Union[str, phi.field._field.Field], play: bool = True, gui=None, name: str = None, description: str = None, scene: Union[bool, phi.field._scene.Scene] = False, keep_alive=True, select: Union[str, tuple, list] = '', framerate=None, namespace=None, log_performance=True, **config) ‑> phi.vis._viewer.Viewer</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Show <code>fields</code> in a graphical user interface.</p>
@@ -938,7 +952,7 @@ If <code>True</code>, will be logged as <code>step_time</code> to <code>log_step
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def view(*fields: Union[str, SampledField],
+<pre><code class="python">def view(*fields: Union[str, Field],
          play: bool = True,
          gui=None,
          name: str = None,
@@ -1048,6 +1062,8 @@ If <code>True</code>, will be logged as <code>step_time</code> to <code>log_step
     assert figure is not None, &#34;No figure to save.&#34;
     lib = get_plots_by_figure(figure)
     path = os.path.expanduser(path)
+    directory = os.path.abspath(os.path.dirname(path))
+    os.path.isdir(directory) or os.makedirs(directory)
     lib.save(figure, path, dpi)
     if close:
         close_(figure=figure)</code></pre>
@@ -1138,7 +1154,7 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
     def field_names(self) -&gt; tuple:
         return tuple(self.initial_field_values.keys())
 
-    def get_field(self, name, dim_selection: dict) -&gt; SampledField:
+    def get_field(self, name, dim_selection: dict) -&gt; Field:
         if name not in self.initial_field_values:
             raise KeyError(name)
         if self._rec:
@@ -1147,7 +1163,7 @@ To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></c
             value = self.namespace.get_variable(name)
         if callable(value):
             value = value()
-        if isinstance(value, (SampledField, Tensor)):
+        if isinstance(value, (Field, Tensor)):
             value = value[dim_selection]
         return value
 

@@ -44,49 +44,48 @@ Examples:
 &#34;&#34;&#34;
 from typing import Union
 
-from phiml.math import Solve, channel
-
 from phi import math
-from phi.field import SampledField, Field, PointCloud, Grid, sample, reduce_sample, spatial_gradient, unstack, stack, CenteredGrid, StaggeredGrid
-from phi.field._field import FieldType
-from phi.field._field_math import GridType
+from phi.field import Field, PointCloud, Grid, spatial_gradient, unstack, stack, resample, reduce_sample, sample
 from phi.geom import Geometry
+from phi.math import Solve, channel
+from phiml.math import Tensor
+from phiml.math.extrapolation import NONE
 
 
-def euler(elements: Geometry, velocity: Field, dt: float, v0: math.Tensor = None) -&gt; Geometry:
+def euler(data: Field, velocity: Field, dt: float, v0: Tensor = None) -&gt; Tensor:
     &#34;&#34;&#34; Euler integrator. &#34;&#34;&#34;
     if v0 is None:
-        v0 = sample(velocity, elements)
-    return elements.shifted(v0 * dt)
+        v0 = sample(velocity, data.geometry, at=data.sampled_at, boundary=data.boundary)
+    return data.points + v0 * dt
 
 
-def rk4(elements: Geometry, velocity: Field, dt: float, v0: math.Tensor = None) -&gt; Geometry:
+def rk4(data: Field, velocity: Field, dt: float, v0: Tensor = None) -&gt; Tensor:
     &#34;&#34;&#34; Runge-Kutta-4 integrator. &#34;&#34;&#34;
     if v0 is None:
-        v0 = sample(velocity, elements)
-    vel_half = sample(velocity, elements.shifted(0.5 * dt * v0))
-    vel_half2 = sample(velocity, elements.shifted(0.5 * dt * vel_half))
-    vel_full = sample(velocity, elements.shifted(dt * vel_half2))
-    vel_rk4 = (1 / 6.) * (v0 + 2 * (vel_half + vel_half2) + vel_full)
-    return elements.shifted(dt * vel_rk4)
+        v0 = sample(velocity, data.geometry, at=data.sampled_at, boundary=data.boundary)
+    v_half = sample(velocity, data.points + 0.5 * dt * v0, at=data.sampled_at, boundary=data.boundary)
+    v_half2 = sample(velocity, data.points + 0.5 * dt * v_half, at=data.sampled_at, boundary=data.boundary)
+    v_full = sample(velocity, data.points + dt * v_half2, at=data.sampled_at, boundary=data.boundary)
+    v_rk4 = (1 / 6.) * (v0 + 2 * (v_half + v_half2) + v_full)
+    return data.points + dt * v_rk4
 
 
-def finite_rk4(elements: Geometry, velocity: Grid, dt: float, v0: math.Tensor = None) -&gt; Geometry:
+def finite_rk4(data: Field, velocity: Grid, dt: float, v0: math.Tensor = None) -&gt; Tensor:
     &#34;&#34;&#34; Runge-Kutta-4 integrator with Euler fallback where velocity values are NaN. &#34;&#34;&#34;
-    v0 = sample(velocity, elements)
-    vel_half = sample(velocity, elements.shifted(0.5 * dt * v0))
-    vel_half2 = sample(velocity, elements.shifted(0.5 * dt * vel_half))
-    vel_full = sample(velocity, elements.shifted(dt * vel_half2))
-    vel_rk4 = (1 / 6.) * (v0 + 2 * (vel_half + vel_half2) + vel_full)
-    vel_nan = math.where(math.is_finite(vel_rk4), vel_rk4, v0)
-    return elements.shifted(dt * vel_nan)
+    if v0 is None:
+        v0 = sample(velocity, data.geometry, at=data.sampled_at, boundary=data.boundary)
+    v_half = sample(velocity, data.points + 0.5 * dt * v0, at=data.sampled_at, boundary=data.boundary)
+    v_half2 = sample(velocity, data.points + 0.5 * dt * v_half, at=data.sampled_at, boundary=data.boundary)
+    v_full = sample(velocity, data.points + dt * v_half2, at=data.sampled_at, boundary=data.boundary)
+    v_rk4 = (1 / 6.) * (v0 + 2 * (v_half + v_half2) + v_full)
+    v_nan = math.where(math.is_finite(v_rk4), v_rk4, v0)
+    return data.points + dt * v_nan
 
 
-
-def advect(field: SampledField,
+def advect(field: Field,
            velocity: Field,
-           dt: Union[float, math.Tensor],
-           integrator=euler) -&gt; FieldType:
+           dt: float or math.Tensor,
+           integrator=euler) -&gt; Field:
     &#34;&#34;&#34;
     Advect `field` along the `velocity` vectors using the specified integrator.
 
@@ -96,7 +95,7 @@ def advect(field: SampledField,
     * `phi.field.Grid`: Sample points are traced backward, see `semi_lagrangian`.
 
     Args:
-        field: Field to be advected as `phi.field.SampledField`.
+        field: Field to be advected as `phi.field.Field`.
         velocity: Any `phi.field.Field` that can be sampled in the elements of `field`.
         dt: Time increment
         integrator: ODE integrator for solving the movement.
@@ -104,75 +103,93 @@ def advect(field: SampledField,
     Returns:
         Advected field of same type as `field`
     &#34;&#34;&#34;
-    if isinstance(field, PointCloud):
+    if field.is_point_cloud:
         return points(field, velocity, dt=dt, integrator=integrator)
-    elif isinstance(field, Grid):
+    elif field.is_grid:
         return semi_lagrangian(field, velocity, dt=dt, integrator=integrator)
     raise NotImplementedError(field)
 
 
-def finite_difference(grid: Grid,
-                      velocity: Field,
-                      order=2,
-                      implicit: Solve = None) -&gt; Field:
-
+def differential(u: Field,
+                 velocity: Field,
+                 density: float = 1.,
+                 order=2,
+                 implicit: Solve = None,
+                 upwind=True) -&gt; Field:
     &#34;&#34;&#34;
-    Finite difference advection using the differentiation Scheme indicated by `scheme` and a simple Euler step
+    Computes the differential advection term using the differentiation Scheme indicated by `order`, ´implicit´ and `upwind`.
+
+    For a velocity field u, the advection term as it appears on the right-hand-side of a PDE is -u·∇u, including the negative sign.
+
+    For unstructured meshes, computes -1/V ∑_f (n·u_prev) u ρ A
 
     Args:
-        grid: Grid to be advected
-        velocity: `Grid` that can be sampled in the elements of `grid`.
+        u: Scalar or vector-valued `Field` sampled on a `CenteredGrid`, `StaggeredGrid` or `Mesh`.
+        velocity: `Field` that can be sampled at the elements of `u`.
+            For FVM, the advection term is typically linearized by setting `velocity = previous_velocity`.
+            Passing `velocity=u` yields non-linear terms which cannot be traced inside linear functions.
         order: Spatial order of accuracy.
             Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
-            Supported: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.spatial_gradient()` and resampling).
+            Supported for grids: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.spatial_gradient()` and resampling).
             Passing order=4 currently uses 2nd-order resampling. This is work-in-progress.
+            For FVM, the order is used when interpolating centroid values to faces if needed.
         implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
             Otherwise, an explicit stencil is used.
+        upwind: Whether to use upwind interpolation. Only supported for FVM at the moment.
 
     Returns:
-        Advected grid of same type as `grid`
+        Differential convection term as `Field` on the same geometry.
     &#34;&#34;&#34;
-    if isinstance(grid, StaggeredGrid):
-        grad_list = [spatial_gradient(field_component, stack_dim=channel(&#39;gradient&#39;), order=order, implicit=implicit) for field_component in grid.vector]
-        grad_grid = grid.with_values(math.stack([component.values for component in grad_list], channel(velocity)))
+    if u.is_grid and u.is_staggered:
+        grad_list = [spatial_gradient(field_component, stack_dim=channel(&#39;grad_dim&#39;), order=order, implicit=implicit) for field_component in u.vector]
+        grad_grid = u.with_values(math.stack([component.values for component in grad_list], channel(velocity).as_dual()))
         if order == 4:
-            amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.gradient, velocity.vector)]  # ToDo resampling does not yet support order=4
+            amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.grad_dim, velocity.vector)]  # ToDo resampling does not yet support order=4
         else:
-            grad_grid.gradient[0].elements
             velocity.vector[0].at(grad_grid.gradient[0], order=order, implicit=implicit)
             amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.gradient, velocity.vector)]
-        amount = sum(amounts)
-    else:
-        assert isinstance(grid, CenteredGrid), f&#34;grid must be CenteredGrid or StaggeredGrid but got {type(grid)}&#34;
-        grad = spatial_gradient(grid, stack_dim=channel(&#39;gradient&#39;), order=order, implicit=implicit)
+        return - sum(amounts)
+    elif u.is_grid and u.is_centered:
+        assert u.is_grid and u.is_centered, f&#34;grid must be CenteredGrid or StaggeredGrid but got {type(u)}&#34;
+        grad = spatial_gradient(u, stack_dim=channel(&#39;gradient&#39;), order=order, implicit=implicit)
         velocity = stack(unstack(velocity, dim=&#39;vector&#39;), dim=channel(&#39;gradient&#39;))
         amounts = velocity * grad
-        amount = sum(amounts.gradient)
-    return - amount
+        return amounts.with_values(- math.sum(amounts.values, &#39;gradient&#39;))
+    elif u.is_mesh:
+        u = u.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
+        velocity = velocity.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
+        conv = density * u.mesh.integrate_surface(u.values * (velocity.values.vector @ velocity.face_normals.vector)) / u.mesh.volume
+        return Field(u.geometry, -conv, 0)
+    raise NotImplementedError(u)
 
 
-def points(field: PointCloud, velocity: Field, dt: float, integrator=euler):
+finite_difference = differential
+
+
+def points(points: Union[Field, Geometry, Tensor], velocity: Field, dt: float, integrator=euler):
     &#34;&#34;&#34;
     Advects the sample points of a point cloud using a simple Euler step.
     Each point moves by an amount equal to the local velocity times `dt`.
 
     Args:
-        field: point cloud to be advected
+        points: Points to be advected. Can be provided as position `Tensor`, `Geometry` or `Field`.
         velocity: velocity sampled at the same points as the point cloud
         dt: Euler step time increment
         integrator: ODE integrator for solving the movement.
 
     Returns:
-        Advected point cloud
+        Advected points, same type as `points`.
     &#34;&#34;&#34;
-    new_elements = integrator(field.elements, velocity, dt)
-    return field.with_elements(new_elements)
+    field = points if isinstance(points, Field) else PointCloud(points)
+    new_elements = field.geometry.at(integrator(field, velocity, dt))
+    result = field.with_elements(new_elements)
+    return result if isinstance(points, Field) else (result.geometry if isinstance(points, Geometry) else result.center)
 
 
-def semi_lagrangian(field: GridType,
+def semi_lagrangian(field: Field,
                     velocity: Field,
                     dt: float,
-                    integrator=euler) -&gt; GridType:
+                    integrator=euler) -&gt; Field:
     &#34;&#34;&#34;
     Semi-Lagrangian advection with simple backward lookup.
     
@@ -190,16 +207,16 @@ def semi_lagrangian(field: GridType,
         Field with same sample points as `field`
 
     &#34;&#34;&#34;
-    lookup = integrator(field.elements, velocity, -dt)
+    lookup = integrator(field, velocity, -dt)
     interpolated = reduce_sample(field, lookup)
     return field.with_values(interpolated)
 
 
-def mac_cormack(field: GridType,
+def mac_cormack(field: Field,
                 velocity: Field,
                 dt: float,
                 correction_strength=1.0,
-                integrator=euler) -&gt; GridType:
+                integrator=euler) -&gt; Field:
     &#34;&#34;&#34;
     MacCormack advection uses a forward and backward lookup to determine the first-order error of semi-Lagrangian advection.
     It then uses that error estimate to correct the field values.
@@ -215,18 +232,15 @@ def mac_cormack(field: GridType,
 
     Returns:
         Advected field of type `type(field)`
-
     &#34;&#34;&#34;
-    v0 = sample(velocity, field.elements)
-    points_bwd = integrator(field.elements, velocity, -dt, v0=v0)
-    points_fwd = integrator(field.elements, velocity, dt, v0=v0)
-    # Semi-Lagrangian advection
-    field_semi_la = field.with_values(reduce_sample(field, points_bwd))
-    # Inverse semi-Lagrangian advection
-    field_inv_semi_la = field.with_values(reduce_sample(field_semi_la, points_fwd))
-    # correction
-    new_field = field_semi_la + correction_strength * 0.5 * (field - field_inv_semi_la)
-    # Address overshoots
+    v0 = resample(velocity, to=field).values
+    points_bwd = integrator(field, velocity, -dt, v0=v0)
+    points_fwd = integrator(field, velocity, dt, v0=v0)
+    # --- forward+backward semi-Lagrangian advection ---
+    fwd_adv = field.with_values(reduce_sample(field, points_bwd))
+    bwd_adv = field.with_values(reduce_sample(fwd_adv, points_fwd))
+    new_field = fwd_adv + correction_strength * 0.5 * (field - bwd_adv)
+    # --- Clamp overshoots ---
     limits = field.closest_values(points_bwd)
     lower_limit = math.min(limits, [f&#39;closest_{dim}&#39; for dim in field.shape.spatial.names])
     upper_limit = math.max(limits, [f&#39;closest_{dim}&#39; for dim in field.shape.spatial.names])
@@ -242,19 +256,19 @@ def mac_cormack(field: GridType,
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.physics.advect.advect"><code class="name flex">
-<span>def <span class="ident">advect</span></span>(<span>field: phi.field._field.SampledField, velocity: phi.field._field.Field, dt: Union[phiml.math._tensors.Tensor, float], integrator=&lt;function euler&gt;) ‑> ~FieldType</span>
+<span>def <span class="ident">advect</span></span>(<span>field: phi.field._field.Field, velocity: phi.field._field.Field, dt: float, integrator=&lt;function euler&gt;) ‑> phi.field._field.Field</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Advect <code>field</code> along the <code>velocity</code> vectors using the specified integrator.</p>
 <p>The behavior depends on the type of <code>field</code>:</p>
 <ul>
-<li><code><a title="phi.field.PointCloud" href="../field/index.html#phi.field.PointCloud">PointCloud</a></code>: Points are advected forward, see <code><a title="phi.physics.advect.points" href="#phi.physics.advect.points">points()</a></code>.</li>
-<li><code><a title="phi.field.Grid" href="../field/index.html#phi.field.Grid">Grid</a></code>: Sample points are traced backward, see <code><a title="phi.physics.advect.semi_lagrangian" href="#phi.physics.advect.semi_lagrangian">semi_lagrangian()</a></code>.</li>
+<li><code><a title="phi.field.PointCloud" href="../field/index.html#phi.field.PointCloud">PointCloud()</a></code>: Points are advected forward, see <code><a title="phi.physics.advect.points" href="#phi.physics.advect.points">points()</a></code>.</li>
+<li><code>phi.field.Grid</code>: Sample points are traced backward, see <code><a title="phi.physics.advect.semi_lagrangian" href="#phi.physics.advect.semi_lagrangian">semi_lagrangian()</a></code>.</li>
 </ul>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>field</code></strong></dt>
-<dd>Field to be advected as <code><a title="phi.field.SampledField" href="../field/index.html#phi.field.SampledField">SampledField</a></code>.</dd>
+<dd>Field to be advected as <code><a title="phi.field.Field" href="../field/index.html#phi.field.Field">Field</a></code>.</dd>
 <dt><strong><code>velocity</code></strong></dt>
 <dd>Any <code><a title="phi.field.Field" href="../field/index.html#phi.field.Field">Field</a></code> that can be sampled in the elements of <code>field</code>.</dd>
 <dt><strong><code>dt</code></strong></dt>
@@ -268,10 +282,10 @@ def mac_cormack(field: GridType,
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def advect(field: SampledField,
+<pre><code class="python">def advect(field: Field,
            velocity: Field,
-           dt: Union[float, math.Tensor],
-           integrator=euler) -&gt; FieldType:
+           dt: float or math.Tensor,
+           integrator=euler) -&gt; Field:
     &#34;&#34;&#34;
     Advect `field` along the `velocity` vectors using the specified integrator.
 
@@ -281,7 +295,7 @@ def mac_cormack(field: GridType,
     * `phi.field.Grid`: Sample points are traced backward, see `semi_lagrangian`.
 
     Args:
-        field: Field to be advected as `phi.field.SampledField`.
+        field: Field to be advected as `phi.field.Field`.
         velocity: Any `phi.field.Field` that can be sampled in the elements of `field`.
         dt: Time increment
         integrator: ODE integrator for solving the movement.
@@ -289,15 +303,101 @@ def mac_cormack(field: GridType,
     Returns:
         Advected field of same type as `field`
     &#34;&#34;&#34;
-    if isinstance(field, PointCloud):
+    if field.is_point_cloud:
         return points(field, velocity, dt=dt, integrator=integrator)
-    elif isinstance(field, Grid):
+    elif field.is_grid:
         return semi_lagrangian(field, velocity, dt=dt, integrator=integrator)
     raise NotImplementedError(field)</code></pre>
 </details>
 </dd>
+<dt id="phi.physics.advect.differential"><code class="name flex">
+<span>def <span class="ident">differential</span></span>(<span>u: phi.field._field.Field, velocity: phi.field._field.Field, density: float = 1.0, order=2, implicit: phiml.math._optimize.Solve = None, upwind=True) ‑> phi.field._field.Field</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Computes the differential advection term using the differentiation Scheme indicated by <code>order</code>, ´implicit´ and <code>upwind</code>.</p>
+<p>For a velocity field u, the advection term as it appears on the right-hand-side of a PDE is -u·∇u, including the negative sign.</p>
+<p>For unstructured meshes, computes -1/V ∑_f (n·u_prev) u ρ A</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>u</code></strong></dt>
+<dd>Scalar or vector-valued <code>Field</code> sampled on a <code>CenteredGrid</code>, <code>StaggeredGrid</code> or <code>Mesh</code>.</dd>
+<dt><strong><code>velocity</code></strong></dt>
+<dd><code>Field</code> that can be sampled at the elements of <code>u</code>.
+For FVM, the advection term is typically linearized by setting <code>velocity = previous_velocity</code>.
+Passing <code>velocity=u</code> yields non-linear terms which cannot be traced inside linear functions.</dd>
+<dt><strong><code>order</code></strong></dt>
+<dd>Spatial order of accuracy.
+Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
+Supported for grids: 2 explicit, 4 explicit, 6 implicit (inherited from <code><a title="phi.field.spatial_gradient" href="../field/index.html#phi.field.spatial_gradient">spatial_gradient()</a></code> and resampling).
+Passing order=4 currently uses 2nd-order resampling. This is work-in-progress.
+For FVM, the order is used when interpolating centroid values to faces if needed.</dd>
+<dt><strong><code>implicit</code></strong></dt>
+<dd>When a <code>Solve</code> object is passed, performs an implicit operation with the specified solver and tolerances.
+Otherwise, an explicit stencil is used.</dd>
+<dt><strong><code>upwind</code></strong></dt>
+<dd>Whether to use upwind interpolation. Only supported for FVM at the moment.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Differential convection term as <code>Field</code> on the same geometry.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def differential(u: Field,
+                 velocity: Field,
+                 density: float = 1.,
+                 order=2,
+                 implicit: Solve = None,
+                 upwind=True) -&gt; Field:
+    &#34;&#34;&#34;
+    Computes the differential advection term using the differentiation Scheme indicated by `order`, ´implicit´ and `upwind`.
+
+    For a velocity field u, the advection term as it appears on the right-hand-side of a PDE is -u·∇u, including the negative sign.
+
+    For unstructured meshes, computes -1/V ∑_f (n·u_prev) u ρ A
+
+    Args:
+        u: Scalar or vector-valued `Field` sampled on a `CenteredGrid`, `StaggeredGrid` or `Mesh`.
+        velocity: `Field` that can be sampled at the elements of `u`.
+            For FVM, the advection term is typically linearized by setting `velocity = previous_velocity`.
+            Passing `velocity=u` yields non-linear terms which cannot be traced inside linear functions.
+        order: Spatial order of accuracy.
+            Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
+            Supported for grids: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.spatial_gradient()` and resampling).
+            Passing order=4 currently uses 2nd-order resampling. This is work-in-progress.
+            For FVM, the order is used when interpolating centroid values to faces if needed.
+        implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
+            Otherwise, an explicit stencil is used.
+        upwind: Whether to use upwind interpolation. Only supported for FVM at the moment.
+
+    Returns:
+        Differential convection term as `Field` on the same geometry.
+    &#34;&#34;&#34;
+    if u.is_grid and u.is_staggered:
+        grad_list = [spatial_gradient(field_component, stack_dim=channel(&#39;grad_dim&#39;), order=order, implicit=implicit) for field_component in u.vector]
+        grad_grid = u.with_values(math.stack([component.values for component in grad_list], channel(velocity).as_dual()))
+        if order == 4:
+            amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.grad_dim, velocity.vector)]  # ToDo resampling does not yet support order=4
+        else:
+            velocity.vector[0].at(grad_grid.gradient[0], order=order, implicit=implicit)
+            amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.gradient, velocity.vector)]
+        return - sum(amounts)
+    elif u.is_grid and u.is_centered:
+        assert u.is_grid and u.is_centered, f&#34;grid must be CenteredGrid or StaggeredGrid but got {type(u)}&#34;
+        grad = spatial_gradient(u, stack_dim=channel(&#39;gradient&#39;), order=order, implicit=implicit)
+        velocity = stack(unstack(velocity, dim=&#39;vector&#39;), dim=channel(&#39;gradient&#39;))
+        amounts = velocity * grad
+        return amounts.with_values(- math.sum(amounts.values, &#39;gradient&#39;))
+    elif u.is_mesh:
+        u = u.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
+        velocity = velocity.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
+        conv = density * u.mesh.integrate_surface(u.values * (velocity.values.vector @ velocity.face_normals.vector)) / u.mesh.volume
+        return Field(u.geometry, -conv, 0)
+    raise NotImplementedError(u)</code></pre>
+</details>
+</dd>
 <dt id="phi.physics.advect.euler"><code class="name flex">
-<span>def <span class="ident">euler</span></span>(<span>elements: phi.geom._geom.Geometry, velocity: phi.field._field.Field, dt: float, v0: phiml.math._tensors.Tensor = None) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">euler</span></span>(<span>data: phi.field._field.Field, velocity: phi.field._field.Field, dt: float, v0: phiml.math._tensors.Tensor = None) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Euler integrator.</p></div>
@@ -305,81 +405,101 @@ def mac_cormack(field: GridType,
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def euler(elements: Geometry, velocity: Field, dt: float, v0: math.Tensor = None) -&gt; Geometry:
+<pre><code class="python">def euler(data: Field, velocity: Field, dt: float, v0: Tensor = None) -&gt; Tensor:
     &#34;&#34;&#34; Euler integrator. &#34;&#34;&#34;
     if v0 is None:
-        v0 = sample(velocity, elements)
-    return elements.shifted(v0 * dt)</code></pre>
+        v0 = sample(velocity, data.geometry, at=data.sampled_at, boundary=data.boundary)
+    return data.points + v0 * dt</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.advect.finite_difference"><code class="name flex">
-<span>def <span class="ident">finite_difference</span></span>(<span>grid: phi.field._grid.Grid, velocity: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None) ‑> phi.field._field.Field</span>
+<span>def <span class="ident">finite_difference</span></span>(<span>u: phi.field._field.Field, velocity: phi.field._field.Field, density: float = 1.0, order=2, implicit: phiml.math._optimize.Solve = None, upwind=True) ‑> phi.field._field.Field</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Finite difference advection using the differentiation Scheme indicated by <code>scheme</code> and a simple Euler step</p>
+<div class="desc"><p>Computes the differential advection term using the differentiation Scheme indicated by <code>order</code>, ´implicit´ and <code>upwind</code>.</p>
+<p>For a velocity field u, the advection term as it appears on the right-hand-side of a PDE is -u·∇u, including the negative sign.</p>
+<p>For unstructured meshes, computes -1/V ∑_f (n·u_prev) u ρ A</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>grid</code></strong></dt>
-<dd>Grid to be advected</dd>
+<dt><strong><code>u</code></strong></dt>
+<dd>Scalar or vector-valued <code>Field</code> sampled on a <code>CenteredGrid</code>, <code>StaggeredGrid</code> or <code>Mesh</code>.</dd>
 <dt><strong><code>velocity</code></strong></dt>
-<dd><code>Grid</code> that can be sampled in the elements of <code>grid</code>.</dd>
+<dd><code>Field</code> that can be sampled at the elements of <code>u</code>.
+For FVM, the advection term is typically linearized by setting <code>velocity = previous_velocity</code>.
+Passing <code>velocity=u</code> yields non-linear terms which cannot be traced inside linear functions.</dd>
 <dt><strong><code>order</code></strong></dt>
 <dd>Spatial order of accuracy.
 Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
-Supported: 2 explicit, 4 explicit, 6 implicit (inherited from <code><a title="phi.field.spatial_gradient" href="../field/index.html#phi.field.spatial_gradient">spatial_gradient()</a></code> and resampling).
-Passing order=4 currently uses 2nd-order resampling. This is work-in-progress.</dd>
+Supported for grids: 2 explicit, 4 explicit, 6 implicit (inherited from <code><a title="phi.field.spatial_gradient" href="../field/index.html#phi.field.spatial_gradient">spatial_gradient()</a></code> and resampling).
+Passing order=4 currently uses 2nd-order resampling. This is work-in-progress.
+For FVM, the order is used when interpolating centroid values to faces if needed.</dd>
 <dt><strong><code>implicit</code></strong></dt>
 <dd>When a <code>Solve</code> object is passed, performs an implicit operation with the specified solver and tolerances.
 Otherwise, an explicit stencil is used.</dd>
+<dt><strong><code>upwind</code></strong></dt>
+<dd>Whether to use upwind interpolation. Only supported for FVM at the moment.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Advected grid of same type as <code>grid</code></p></div>
+<p>Differential convection term as <code>Field</code> on the same geometry.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def finite_difference(grid: Grid,
-                      velocity: Field,
-                      order=2,
-                      implicit: Solve = None) -&gt; Field:
-
+<pre><code class="python">def differential(u: Field,
+                 velocity: Field,
+                 density: float = 1.,
+                 order=2,
+                 implicit: Solve = None,
+                 upwind=True) -&gt; Field:
     &#34;&#34;&#34;
-    Finite difference advection using the differentiation Scheme indicated by `scheme` and a simple Euler step
+    Computes the differential advection term using the differentiation Scheme indicated by `order`, ´implicit´ and `upwind`.
+
+    For a velocity field u, the advection term as it appears on the right-hand-side of a PDE is -u·∇u, including the negative sign.
+
+    For unstructured meshes, computes -1/V ∑_f (n·u_prev) u ρ A
 
     Args:
-        grid: Grid to be advected
-        velocity: `Grid` that can be sampled in the elements of `grid`.
+        u: Scalar or vector-valued `Field` sampled on a `CenteredGrid`, `StaggeredGrid` or `Mesh`.
+        velocity: `Field` that can be sampled at the elements of `u`.
+            For FVM, the advection term is typically linearized by setting `velocity = previous_velocity`.
+            Passing `velocity=u` yields non-linear terms which cannot be traced inside linear functions.
         order: Spatial order of accuracy.
             Higher orders entail larger stencils and more computation time but result in more accurate results assuming a large enough resolution.
-            Supported: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.spatial_gradient()` and resampling).
+            Supported for grids: 2 explicit, 4 explicit, 6 implicit (inherited from `phi.field.spatial_gradient()` and resampling).
             Passing order=4 currently uses 2nd-order resampling. This is work-in-progress.
+            For FVM, the order is used when interpolating centroid values to faces if needed.
         implicit: When a `Solve` object is passed, performs an implicit operation with the specified solver and tolerances.
             Otherwise, an explicit stencil is used.
+        upwind: Whether to use upwind interpolation. Only supported for FVM at the moment.
 
     Returns:
-        Advected grid of same type as `grid`
+        Differential convection term as `Field` on the same geometry.
     &#34;&#34;&#34;
-    if isinstance(grid, StaggeredGrid):
-        grad_list = [spatial_gradient(field_component, stack_dim=channel(&#39;gradient&#39;), order=order, implicit=implicit) for field_component in grid.vector]
-        grad_grid = grid.with_values(math.stack([component.values for component in grad_list], channel(velocity)))
+    if u.is_grid and u.is_staggered:
+        grad_list = [spatial_gradient(field_component, stack_dim=channel(&#39;grad_dim&#39;), order=order, implicit=implicit) for field_component in u.vector]
+        grad_grid = u.with_values(math.stack([component.values for component in grad_list], channel(velocity).as_dual()))
         if order == 4:
-            amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.gradient, velocity.vector)]  # ToDo resampling does not yet support order=4
+            amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.grad_dim, velocity.vector)]  # ToDo resampling does not yet support order=4
         else:
-            grad_grid.gradient[0].elements
             velocity.vector[0].at(grad_grid.gradient[0], order=order, implicit=implicit)
             amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.gradient, velocity.vector)]
-        amount = sum(amounts)
-    else:
-        assert isinstance(grid, CenteredGrid), f&#34;grid must be CenteredGrid or StaggeredGrid but got {type(grid)}&#34;
-        grad = spatial_gradient(grid, stack_dim=channel(&#39;gradient&#39;), order=order, implicit=implicit)
+        return - sum(amounts)
+    elif u.is_grid and u.is_centered:
+        assert u.is_grid and u.is_centered, f&#34;grid must be CenteredGrid or StaggeredGrid but got {type(u)}&#34;
+        grad = spatial_gradient(u, stack_dim=channel(&#39;gradient&#39;), order=order, implicit=implicit)
         velocity = stack(unstack(velocity, dim=&#39;vector&#39;), dim=channel(&#39;gradient&#39;))
         amounts = velocity * grad
-        amount = sum(amounts.gradient)
-    return - amount</code></pre>
+        return amounts.with_values(- math.sum(amounts.values, &#39;gradient&#39;))
+    elif u.is_mesh:
+        u = u.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
+        velocity = velocity.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
+        conv = density * u.mesh.integrate_surface(u.values * (velocity.values.vector @ velocity.face_normals.vector)) / u.mesh.volume
+        return Field(u.geometry, -conv, 0)
+    raise NotImplementedError(u)</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.advect.finite_rk4"><code class="name flex">
-<span>def <span class="ident">finite_rk4</span></span>(<span>elements: phi.geom._geom.Geometry, velocity: phi.field._grid.Grid, dt: float, v0: phiml.math._tensors.Tensor = None) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">finite_rk4</span></span>(<span>data: phi.field._field.Field, velocity: phi.field._field.Field, dt: float, v0: phiml.math._tensors.Tensor = None) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Runge-Kutta-4 integrator with Euler fallback where velocity values are NaN.</p></div>
@@ -387,19 +507,20 @@ Otherwise, an explicit stencil is used.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def finite_rk4(elements: Geometry, velocity: Grid, dt: float, v0: math.Tensor = None) -&gt; Geometry:
+<pre><code class="python">def finite_rk4(data: Field, velocity: Grid, dt: float, v0: math.Tensor = None) -&gt; Tensor:
     &#34;&#34;&#34; Runge-Kutta-4 integrator with Euler fallback where velocity values are NaN. &#34;&#34;&#34;
-    v0 = sample(velocity, elements)
-    vel_half = sample(velocity, elements.shifted(0.5 * dt * v0))
-    vel_half2 = sample(velocity, elements.shifted(0.5 * dt * vel_half))
-    vel_full = sample(velocity, elements.shifted(dt * vel_half2))
-    vel_rk4 = (1 / 6.) * (v0 + 2 * (vel_half + vel_half2) + vel_full)
-    vel_nan = math.where(math.is_finite(vel_rk4), vel_rk4, v0)
-    return elements.shifted(dt * vel_nan)</code></pre>
+    if v0 is None:
+        v0 = sample(velocity, data.geometry, at=data.sampled_at, boundary=data.boundary)
+    v_half = sample(velocity, data.points + 0.5 * dt * v0, at=data.sampled_at, boundary=data.boundary)
+    v_half2 = sample(velocity, data.points + 0.5 * dt * v_half, at=data.sampled_at, boundary=data.boundary)
+    v_full = sample(velocity, data.points + dt * v_half2, at=data.sampled_at, boundary=data.boundary)
+    v_rk4 = (1 / 6.) * (v0 + 2 * (v_half + v_half2) + v_full)
+    v_nan = math.where(math.is_finite(v_rk4), v_rk4, v0)
+    return data.points + dt * v_nan</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.advect.mac_cormack"><code class="name flex">
-<span>def <span class="ident">mac_cormack</span></span>(<span>field: ~GridType, velocity: phi.field._field.Field, dt: float, correction_strength=1.0, integrator=&lt;function euler&gt;) ‑> ~GridType</span>
+<span>def <span class="ident">mac_cormack</span></span>(<span>field: phi.field._field.Field, velocity: phi.field._field.Field, dt: float, correction_strength=1.0, integrator=&lt;function euler&gt;) ‑> phi.field._field.Field</span>
 </code></dt>
 <dd>
 <div class="desc"><p>MacCormack advection uses a forward and backward lookup to determine the first-order error of semi-Lagrangian advection.
@@ -425,11 +546,11 @@ The case correction_strength=0 equals semi-lagrangian advection. Set lower than 
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def mac_cormack(field: GridType,
+<pre><code class="python">def mac_cormack(field: Field,
                 velocity: Field,
                 dt: float,
                 correction_strength=1.0,
-                integrator=euler) -&gt; GridType:
+                integrator=euler) -&gt; Field:
     &#34;&#34;&#34;
     MacCormack advection uses a forward and backward lookup to determine the first-order error of semi-Lagrangian advection.
     It then uses that error estimate to correct the field values.
@@ -445,18 +566,15 @@ The case correction_strength=0 equals semi-lagrangian advection. Set lower than 
 
     Returns:
         Advected field of type `type(field)`
-
     &#34;&#34;&#34;
-    v0 = sample(velocity, field.elements)
-    points_bwd = integrator(field.elements, velocity, -dt, v0=v0)
-    points_fwd = integrator(field.elements, velocity, dt, v0=v0)
-    # Semi-Lagrangian advection
-    field_semi_la = field.with_values(reduce_sample(field, points_bwd))
-    # Inverse semi-Lagrangian advection
-    field_inv_semi_la = field.with_values(reduce_sample(field_semi_la, points_fwd))
-    # correction
-    new_field = field_semi_la + correction_strength * 0.5 * (field - field_inv_semi_la)
-    # Address overshoots
+    v0 = resample(velocity, to=field).values
+    points_bwd = integrator(field, velocity, -dt, v0=v0)
+    points_fwd = integrator(field, velocity, dt, v0=v0)
+    # --- forward+backward semi-Lagrangian advection ---
+    fwd_adv = field.with_values(reduce_sample(field, points_bwd))
+    bwd_adv = field.with_values(reduce_sample(fwd_adv, points_fwd))
+    new_field = fwd_adv + correction_strength * 0.5 * (field - bwd_adv)
+    # --- Clamp overshoots ---
     limits = field.closest_values(points_bwd)
     lower_limit = math.min(limits, [f&#39;closest_{dim}&#39; for dim in field.shape.spatial.names])
     upper_limit = math.max(limits, [f&#39;closest_{dim}&#39; for dim in field.shape.spatial.names])
@@ -465,15 +583,15 @@ The case correction_strength=0 equals semi-lagrangian advection. Set lower than 
 </details>
 </dd>
 <dt id="phi.physics.advect.points"><code class="name flex">
-<span>def <span class="ident">points</span></span>(<span>field: phi.field._point_cloud.PointCloud, velocity: phi.field._field.Field, dt: float, integrator=&lt;function euler&gt;)</span>
+<span>def <span class="ident">points</span></span>(<span>points: Union[phi.field._field.Field, phi.geom._geom.Geometry, phiml.math._tensors.Tensor], velocity: phi.field._field.Field, dt: float, integrator=&lt;function euler&gt;)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Advects the sample points of a point cloud using a simple Euler step.
 Each point moves by an amount equal to the local velocity times <code>dt</code>.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt><strong><code>field</code></strong></dt>
-<dd>point cloud to be advected</dd>
+<dt><strong><code>points</code></strong></dt>
+<dd>Points to be advected. Can be provided as position <code>Tensor</code>, <code>Geometry</code> or <code>Field</code>.</dd>
 <dt><strong><code>velocity</code></strong></dt>
 <dd>velocity sampled at the same points as the point cloud</dd>
 <dt><strong><code>dt</code></strong></dt>
@@ -482,31 +600,33 @@ Each point moves by an amount equal to the local velocity times <code>dt</code>.
 <dd>ODE integrator for solving the movement.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>Advected point cloud</p></div>
+<p>Advected points, same type as <code><a title="phi.physics.advect.points" href="#phi.physics.advect.points">points()</a></code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def points(field: PointCloud, velocity: Field, dt: float, integrator=euler):
+<pre><code class="python">def points(points: Union[Field, Geometry, Tensor], velocity: Field, dt: float, integrator=euler):
     &#34;&#34;&#34;
     Advects the sample points of a point cloud using a simple Euler step.
     Each point moves by an amount equal to the local velocity times `dt`.
 
     Args:
-        field: point cloud to be advected
+        points: Points to be advected. Can be provided as position `Tensor`, `Geometry` or `Field`.
         velocity: velocity sampled at the same points as the point cloud
         dt: Euler step time increment
         integrator: ODE integrator for solving the movement.
 
     Returns:
-        Advected point cloud
+        Advected points, same type as `points`.
     &#34;&#34;&#34;
-    new_elements = integrator(field.elements, velocity, dt)
-    return field.with_elements(new_elements)</code></pre>
+    field = points if isinstance(points, Field) else PointCloud(points)
+    new_elements = field.geometry.at(integrator(field, velocity, dt))
+    result = field.with_elements(new_elements)
+    return result if isinstance(points, Field) else (result.geometry if isinstance(points, Geometry) else result.center)</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.advect.rk4"><code class="name flex">
-<span>def <span class="ident">rk4</span></span>(<span>elements: phi.geom._geom.Geometry, velocity: phi.field._field.Field, dt: float, v0: phiml.math._tensors.Tensor = None) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">rk4</span></span>(<span>data: phi.field._field.Field, velocity: phi.field._field.Field, dt: float, v0: phiml.math._tensors.Tensor = None) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Runge-Kutta-4 integrator.</p></div>
@@ -514,19 +634,19 @@ Each point moves by an amount equal to the local velocity times <code>dt</code>.
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def rk4(elements: Geometry, velocity: Field, dt: float, v0: math.Tensor = None) -&gt; Geometry:
+<pre><code class="python">def rk4(data: Field, velocity: Field, dt: float, v0: Tensor = None) -&gt; Tensor:
     &#34;&#34;&#34; Runge-Kutta-4 integrator. &#34;&#34;&#34;
     if v0 is None:
-        v0 = sample(velocity, elements)
-    vel_half = sample(velocity, elements.shifted(0.5 * dt * v0))
-    vel_half2 = sample(velocity, elements.shifted(0.5 * dt * vel_half))
-    vel_full = sample(velocity, elements.shifted(dt * vel_half2))
-    vel_rk4 = (1 / 6.) * (v0 + 2 * (vel_half + vel_half2) + vel_full)
-    return elements.shifted(dt * vel_rk4)</code></pre>
+        v0 = sample(velocity, data.geometry, at=data.sampled_at, boundary=data.boundary)
+    v_half = sample(velocity, data.points + 0.5 * dt * v0, at=data.sampled_at, boundary=data.boundary)
+    v_half2 = sample(velocity, data.points + 0.5 * dt * v_half, at=data.sampled_at, boundary=data.boundary)
+    v_full = sample(velocity, data.points + dt * v_half2, at=data.sampled_at, boundary=data.boundary)
+    v_rk4 = (1 / 6.) * (v0 + 2 * (v_half + v_half2) + v_full)
+    return data.points + dt * v_rk4</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.advect.semi_lagrangian"><code class="name flex">
-<span>def <span class="ident">semi_lagrangian</span></span>(<span>field: ~GridType, velocity: phi.field._field.Field, dt: float, integrator=&lt;function euler&gt;) ‑> ~GridType</span>
+<span>def <span class="ident">semi_lagrangian</span></span>(<span>field: phi.field._field.Field, velocity: phi.field._field.Field, dt: float, integrator=&lt;function euler&gt;) ‑> phi.field._field.Field</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Semi-Lagrangian advection with simple backward lookup.</p>
@@ -550,10 +670,10 @@ The new values are then determined by sampling <code>field</code> at these looku
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def semi_lagrangian(field: GridType,
+<pre><code class="python">def semi_lagrangian(field: Field,
                     velocity: Field,
                     dt: float,
-                    integrator=euler) -&gt; GridType:
+                    integrator=euler) -&gt; Field:
     &#34;&#34;&#34;
     Semi-Lagrangian advection with simple backward lookup.
     
@@ -571,7 +691,7 @@ The new values are then determined by sampling <code>field</code> at these looku
         Field with same sample points as `field`
 
     &#34;&#34;&#34;
-    lookup = integrator(field.elements, velocity, -dt)
+    lookup = integrator(field, velocity, -dt)
     interpolated = reduce_sample(field, lookup)
     return field.with_values(interpolated)</code></pre>
 </details>
@@ -595,6 +715,7 @@ The new values are then determined by sampling <code>field</code> at these looku
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
 <li><code><a title="phi.physics.advect.advect" href="#phi.physics.advect.advect">advect</a></code></li>
+<li><code><a title="phi.physics.advect.differential" href="#phi.physics.advect.differential">differential</a></code></li>
 <li><code><a title="phi.physics.advect.euler" href="#phi.physics.advect.euler">euler</a></code></li>
 <li><code><a title="phi.physics.advect.finite_difference" href="#phi.physics.advect.finite_difference">finite_difference</a></code></li>
 <li><code><a title="phi.physics.advect.finite_rk4" href="#phi.physics.advect.finite_rk4">finite_rk4</a></code></li>
