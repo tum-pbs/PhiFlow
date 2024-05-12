@@ -58,10 +58,8 @@ class TestSphere(TestCase):
         s = expand(s, batch(b=100))
         s = rename_dims(s, 'b', 'bat')
         s = unpack_dim(s, 'points', spatial(x=10, y=5))
-        assert not s.radius.shape
         assert batch(bat=100) & spatial(x=10, y=5) & channel(vector='x,y') == s.shape
         s = pack_dims(s, 'x,y', instance('particles'))
-        assert not s.radius.shape
         assert batch(bat=100) & instance(particles=50) & channel(vector='x,y') == s.shape
         s = flatten(s)
         assert batch(bat=100) & instance(flat=50) & channel(vector='x,y') == s.shape

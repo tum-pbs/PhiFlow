@@ -128,6 +128,9 @@ class Sphere(Geometry):
     def __value_attrs__(self):
         return '_center',
 
+    def __value_attrs__(self):
+        return '_center', '_radius'
+
     def __getitem__(self, item):
         item = slicing_dict(self, item)
         return Sphere(self._center[_keep_vector(item)], self._radius[item], radius_variable=self._radius_variable)
