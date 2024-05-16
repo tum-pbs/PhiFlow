@@ -484,7 +484,8 @@ Currently, only single-figure plots are supported.</p>
         shared_lim: Box = share_axes(*subplots.values(), axes=same_scale)
         subplots = {pos: replace_bounds(lim, shared_lim) for pos, lim in subplots.items()}
     # --- animate or plot ---
-    if fig_shape.volume == 1:
+    figures = []
+    for plot_idx in fig_shape.meshgrid():
         figure, axes = plots.create_figure(size, nrows, ncols, subplots, title_by_subplot, log_dims, plt_params)
         if animate:
             def plot_frame(frame: int):
@@ -498,8 +499,10 @@ Currently, only single-figure plots are supported.</p>
             if &#39;google.colab&#39; in sys.modules or &#39;ipykernel&#39; in sys.modules:
                 plots.close(figure)
             LAST_FIGURE[0] = anim
-            return anim
-        else:
+            if fig_shape.volume == 1:
+                return anim
+            figures.append(anim)
+        else:  # non-animated plot
             for pos, fields in positioning.items():
                 for i, f in enumerate(fields):
                     idx = indices[pos][i]
@@ -512,9 +515,8 @@ Currently, only single-figure plots are supported.</p>
                     plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color_, alpha[idx], err_)
             plots.finalize(figure)
             LAST_FIGURE[0] = figure
-            return layout(figure)
-    else:
-        raise NotImplementedError(f&#34;Figure batches not yet supported. Use rows and cols to reduce all batch dimensions. Not reduced. {fig_shape}&#34;)</code></pre>
+            figures.append(figure)
+    return stack([layout(f) for f in figures], fig_shape)</code></pre>
 </details>
 </dd>
 <dt id="phi.vis.plot_scalars"><code class="name flex">

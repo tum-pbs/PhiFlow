@@ -842,7 +842,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
                     assert isinstance(stacked, Shapable), &#34;__stack__ must return a Shapable object&#34;
                     assert hasattr(stacked, &#39;__unpack_dim__&#39;), &#34;If a value supports __unpack_dim__, the result of __stack__ must also support it.&#34;
                     reshaped = stacked.__unpack_dim__(stack_dim.name, dim, **kwargs)
-                    if kwargs is NotImplemented:
+                    if reshaped is NotImplemented:
                         warnings.warn(&#34;__unpack_dim__ is overridden but returned NotImplemented during multi-dimensional stack. This results in unnecessary stack operations.&#34;, RuntimeWarning, stacklevel=2)
                     else:
                         return reshaped
