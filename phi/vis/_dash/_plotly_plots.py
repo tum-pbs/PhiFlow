@@ -3,9 +3,11 @@ from typing import Tuple, Any, Dict, List, Callable, Union
 
 import numpy
 import numpy as np
+from phiml.math import reshaped_numpy, dual
 from plotly import graph_objects, figure_factory
 from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
+import plotly.io as pio
 
 from phi import math, field
 from phi.field import Field
@@ -214,24 +216,46 @@ class PointCloud2D(Recipe):
         if spatial(data):
             raise NotImplementedError("Plotly does not yet support plotting point clouds with spatial dimensions")
         for idx in non_channel(data.points).meshgrid(names=True):
-            x, y = math.reshaped_numpy(data.points[idx].vector[dims], [vector, data.shape.non_channel])
+            x, y = reshaped_numpy(data.points[idx].vector[dims], [vector, non_channel(data)])
             hex_color = color[idx].native()
+            if hex_color is None:
+                hex_color = pio.templates[pio.templates.default].layout.colorway[0]
+            alphas = reshaped_numpy(alpha, [non_channel(data)])
             subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1] * 100
             if isinstance(data.elements, Sphere):
-                symbol = 'circle'
-                marker_size = data.elements.bounding_radius().numpy() * 1.9
+                hex_color = [hex_color] * non_channel(data).volume if isinstance(hex_color, str) else hex_color
+                rad = reshaped_numpy(data.geometry.bounding_radius(), [data.shape.non_channel])
+                for xi, yi, ri, ci, a in zip(x, y, rad, hex_color, alphas):
+                    figure.add_shape(type="circle", xref="x", yref="y", x0=xi-ri, y0=yi-ri, x1=xi+ri, y1=yi+ri, fillcolor=ci, line_width=0)
             elif isinstance(data.elements, BaseBox):
-                symbol = 'square'
-                marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 2
-            elif isinstance(data.elements, Point):
-                symbol = 'x'
-                marker_size = 12 / (subplot_height / (yrange[1] - yrange[0]))
+                hex_color = [hex_color] * non_channel(data).volume if isinstance(hex_color, str) else hex_color
+                half_size = data.geometry.half_size
+                min_len = space.size.sum
+                half_size = math.where(math.is_finite(half_size), half_size, min_len)
+                w2, h2 = reshaped_numpy(half_size, ['vector', data.shape.non_channel])
+                if data.geometry.rotation_matrix is None:
+                    lower_x = x - w2
+                    lower_y = y - h2
+                    upper_x = x + w2
+                    upper_y = y + h2
+                    for lxi, lyi, uxi, uyi, ci, a in zip(lower_x, lower_y, upper_x, upper_y, hex_color, alphas):
+                        figure.add_shape(type="rect", xref="x", yref="y", x0=lxi, y0=lyi, x1=uxi, y1=uyi, fillcolor=ci, line_width=.5, line_color='#FFFFFF')
+                else:
+                    corners = data.geometry.corners()
+                    c4, c1, c3, c2 = reshaped_numpy(corners, [corners.shape.only(dims, reorder=True), non_channel(data), 'vector'])
+                    for c1i, c2i, c3i, c4i, ci, a in zip(c1, c2, c3, c4, hex_color, alphas):
+                        path = f"M{c1i[0]},{c1i[1]} L{c2i[0]},{c2i[1]} L{c3i[0]},{c3i[1]} L{c4i[0]},{c4i[1]} Z"
+                        figure.add_shape(type="path", xref="x", yref="y", path=path, fillcolor=ci, line_width=.5, line_color='#FFFFFF')
             else:
-                symbol = 'asterisk'
-                marker_size = data.elements.bounding_radius().numpy()
-            marker_size *= subplot_height / (yrange[1] - yrange[0])
-            marker = graph_objects.scatter.Marker(size=marker_size, color=hex_color, sizemode='diameter', symbol=symbol)
-            figure.add_scatter(mode='markers', x=x, y=y, marker=marker, row=row, col=col)
+                if isinstance(data.elements, Point):
+                    symbol = 'x'
+                    marker_size = 12 / (subplot_height / (yrange[1] - yrange[0]))
+                else:
+                    symbol = 'asterisk'
+                    marker_size = data.elements.bounding_radius().numpy()
+                marker_size *= subplot_height / (yrange[1] - yrange[0])
+                marker = graph_objects.scatter.Marker(size=marker_size, color=hex_color, sizemode='diameter', symbol=symbol)
+                figure.add_scatter(mode='markers', x=x, y=y, marker=marker, row=row, col=col)
         figure.update_layout(showlegend=False)
 
 
