@@ -16,8 +16,7 @@ from .. import math
 from ..field import Scene, Field
 from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
-from ..math import Tensor, layout, batch, Shape, concat, vec
-from ..math import wrap
+from phiml.math import Tensor, layout, batch, Shape, concat, vec, wrap, stack
 from phiml.math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape
 from phiml.math._tensors import Layout
 
@@ -389,7 +388,8 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
         shared_lim: Box = share_axes(*subplots.values(), axes=same_scale)
         subplots = {pos: replace_bounds(lim, shared_lim) for pos, lim in subplots.items()}
     # --- animate or plot ---
-    if fig_shape.volume == 1:
+    figures = []
+    for plot_idx in fig_shape.meshgrid():
         figure, axes = plots.create_figure(size, nrows, ncols, subplots, title_by_subplot, log_dims, plt_params)
         if animate:
             def plot_frame(frame: int):
@@ -403,8 +403,10 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
             if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
                 plots.close(figure)
             LAST_FIGURE[0] = anim
-            return anim
-        else:
+            if fig_shape.volume == 1:
+                return anim
+            figures.append(anim)
+        else:  # non-animated plot
             for pos, fields in positioning.items():
                 for i, f in enumerate(fields):
                     idx = indices[pos][i]
@@ -417,9 +419,9 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
                     plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color_, alpha[idx], err_)
             plots.finalize(figure)
             LAST_FIGURE[0] = figure
-            return layout(figure)
-    else:
-        raise NotImplementedError(f"Figure batches not yet supported. Use rows and cols to reduce all batch dimensions. Not reduced. {fig_shape}")
+            figures.append(figure)
+    return stack([layout(f) for f in figures], fig_shape)
+
 
 
 def layout_pytree_node(data, wrap_leaf=False):
