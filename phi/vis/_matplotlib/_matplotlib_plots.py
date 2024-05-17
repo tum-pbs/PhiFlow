@@ -786,7 +786,7 @@ class PointCloud3D(Recipe):
             elif isinstance(data.geometry, BaseBox):
                 a = alphas[0]
                 c = mpl_colors[0]
-                cx, cy, cz = math.reshaped_numpy(data.geometry.corners(), ['vector', *dims])
+                cx, cy, cz = math.reshaped_numpy(data.geometry.corners, ['vector', *['~'+d for d in dims]])
                 plot_surface(subplot, cx[:, :, 1], cy[:, :, 1], cz[:, :, 1], alpha=a, color=c)
                 plot_surface(subplot, cx[:, :, 0], cy[:, :, 0], cz[:, :, 0], alpha=a, color=c)
                 plot_surface(subplot, cx[:, 1, :], cy[:, 1, :], cz[:, 1, :], alpha=a, color=c)

@@ -162,3 +162,7 @@ class Sphere(Geometry):
     @property
     def face_shape(self) -> Shape:
         return self.shape.without('vector') & dual(shell=0)
+
+    @property
+    def corners(self) -> Tensor:
+        return math.zeros(self.shape & dual(corners=0))

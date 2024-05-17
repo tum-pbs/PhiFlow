@@ -188,9 +188,10 @@ class BaseBox(Geometry):  # not a Subwoofer
     def face_shape(self) -> Shape:
         return self.shape.without('vector') & dual(side='lower,upper') & dual(**self.shape['vector'].untyped_dict)
 
+    @property
     def corners(self):
         to_face = self.face_normals[{'~side': 'upper'}] * math.rename_dims(self.half_size, 'vector', dual)
-        lower_upper = math.meshgrid(math.instance, **{dim: [-1, 1] for dim in self.vector.item_names}, stack_dim=dual('vector'))  # (x=2, y=2, ... vector=x,y,...)
+        lower_upper = math.meshgrid(math.dual, **{dim: [-1, 1] for dim in self.vector.item_names}, stack_dim=dual('vector'))  # (x=2, y=2, ... vector=x,y,...)
         to_corner = math.sum(lower_upper * to_face, '~vector')
         return self.center + to_corner
 

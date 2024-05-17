@@ -63,3 +63,9 @@ class TestSphere(TestCase):
         assert batch(bat=100) & instance(particles=50) & channel(vector='x,y') == s.shape
         s = flatten(s)
         assert batch(bat=100) & instance(flat=50) & channel(vector='x,y') == s.shape
+
+    def test_sphere_no_corners(self):
+        s = Sphere(x=0, y=0, radius=1)
+        corners = s.corners
+        self.assertIn('vector', corners.shape)
+        self.assertEqual(0, corners.shape.volume)

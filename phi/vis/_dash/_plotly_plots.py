@@ -241,8 +241,8 @@ class PointCloud2D(Recipe):
                     for lxi, lyi, uxi, uyi, ci, a in zip(lower_x, lower_y, upper_x, upper_y, hex_color, alphas):
                         figure.add_shape(type="rect", xref="x", yref="y", x0=lxi, y0=lyi, x1=uxi, y1=uyi, fillcolor=ci, line_width=.5, line_color='#FFFFFF')
                 else:
-                    corners = data.geometry.corners()
-                    c4, c1, c3, c2 = reshaped_numpy(corners, [corners.shape.only(dims, reorder=True), non_channel(data), 'vector'])
+                    corners = data.geometry.corners
+                    c4, c1, c3, c2 = reshaped_numpy(corners, [corners.shape.only(['~'+d for d in dims], reorder=True), non_channel(data), 'vector'])
                     for c1i, c2i, c3i, c4i, ci, a in zip(c1, c2, c3, c4, hex_color, alphas):
                         path = f"M{c1i[0]},{c1i[1]} L{c2i[0]},{c2i[1]} L{c3i[0]},{c3i[1]} L{c4i[0]},{c4i[1]} Z"
                         figure.add_shape(type="path", xref="x", yref="y", path=path, fillcolor=ci, line_width=.5, line_color='#FFFFFF')
