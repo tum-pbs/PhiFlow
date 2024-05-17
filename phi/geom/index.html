@@ -1092,9 +1092,10 @@ A point lies inside the union if it lies within at least one of the geometries.<
     def face_shape(self) -&gt; Shape:
         return self.shape.without(&#39;vector&#39;) &amp; dual(side=&#39;lower,upper&#39;) &amp; dual(**self.shape[&#39;vector&#39;].untyped_dict)
 
+    @property
     def corners(self):
         to_face = self.face_normals[{&#39;~side&#39;: &#39;upper&#39;}] * math.rename_dims(self.half_size, &#39;vector&#39;, dual)
-        lower_upper = math.meshgrid(math.instance, **{dim: [-1, 1] for dim in self.vector.item_names}, stack_dim=dual(&#39;vector&#39;))  # (x=2, y=2, ... vector=x,y,...)
+        lower_upper = math.meshgrid(math.dual, **{dim: [-1, 1] for dim in self.vector.item_names}, stack_dim=dual(&#39;vector&#39;))  # (x=2, y=2, ... vector=x,y,...)
         to_corner = math.sum(lower_upper * to_face, &#39;~vector&#39;)
         return self.center + to_corner</code></pre>
 </details>
@@ -1153,6 +1154,24 @@ def boundary_faces(self) -&gt; Dict[Any, Dict[str, slice]]:
 <pre><code class="python">@property
 def center(self) -&gt; Tensor:
     raise NotImplementedError()</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.BaseBox.corners"><code class="name">var <span class="ident">corners</span></code></dt>
+<dd>
+<div class="desc"><h2 id="returns">Returns</h2>
+<p>Corner locations as <code>phiml.math.Tensor</code>.
+Corners belonging to one object or cell are listed along dual dimensions.
+If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def corners(self):
+    to_face = self.face_normals[{&#39;~side&#39;: &#39;upper&#39;}] * math.rename_dims(self.half_size, &#39;vector&#39;, dual)
+    lower_upper = math.meshgrid(math.dual, **{dim: [-1, 1] for dim in self.vector.item_names}, stack_dim=dual(&#39;vector&#39;))  # (x=2, y=2, ... vector=x,y,...)
+    to_corner = math.sum(lower_upper * to_face, &#39;~vector&#39;)
+    return self.center + to_corner</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.face_areas"><code class="name">var <span class="ident">face_areas</span> : phiml.math._tensors.Tensor</code></dt>
@@ -1477,22 +1496,6 @@ The sphere is centered at the center of this geometry.</p>
 <pre><code class="python">def corner_representation(self) -&gt; &#39;Box&#39;:
     assert self.rotation_matrix is None, f&#34;corner_representation does not support rotations&#34;
     return Box(self.lower, self.upper)</code></pre>
-</details>
-</dd>
-<dt id="phi.geom.BaseBox.corners"><code class="name flex">
-<span>def <span class="ident">corners</span></span>(<span>self)</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">def corners(self):
-    to_face = self.face_normals[{&#39;~side&#39;: &#39;upper&#39;}] * math.rename_dims(self.half_size, &#39;vector&#39;, dual)
-    lower_upper = math.meshgrid(math.instance, **{dim: [-1, 1] for dim in self.vector.item_names}, stack_dim=dual(&#39;vector&#39;))  # (x=2, y=2, ... vector=x,y,...)
-    to_corner = math.sum(lower_upper * to_face, &#39;~vector&#39;)
-    return self.center + to_corner</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.global_to_local"><code class="name flex">
@@ -2581,6 +2584,16 @@ Equality checks must also take this into account.</p></div>
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
+    @property
+    def corners(self) -&gt; Tensor:
+        &#34;&#34;&#34;
+        Returns:
+            Corner locations as `phiml.math.Tensor`.
+            Corners belonging to one object or cell are listed along dual dimensions.
+            If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.
+        &#34;&#34;&#34;
+        raise NotImplementedError(self.__class__)
+
     def integrate_surface(self, face_values: Tensor, divide_volume=False) -&gt; Tensor:
         &#34;&#34;&#34;
         Multiplies `values´ by the corresponding face area, computes the sum over all faces and divides by the cell volume.
@@ -3010,6 +3023,27 @@ def boundary_faces(self) -&gt; Dict[Any, Dict[str, slice]]:
 def center(self) -&gt; Tensor:
     &#34;&#34;&#34;
     Center location in single channel dimension.
+    &#34;&#34;&#34;
+    raise NotImplementedError(self.__class__)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Geometry.corners"><code class="name">var <span class="ident">corners</span> : phiml.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><h2 id="returns">Returns</h2>
+<p>Corner locations as <code>phiml.math.Tensor</code>.
+Corners belonging to one object or cell are listed along dual dimensions.
+If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def corners(self) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Returns:
+        Corner locations as `phiml.math.Tensor`.
+        Corners belonging to one object or cell are listed along dual dimensions.
+        If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.
     &#34;&#34;&#34;
     raise NotImplementedError(self.__class__)</code></pre>
 </details>
@@ -6200,6 +6234,10 @@ An instance of <code><a title="phi.geom.Point" href="#phi.geom.Point">Point</a><
     def face_shape(self) -&gt; Shape:
         return self.shape
 
+    @property
+    def corners(self):
+        return self._location
+
     def __getitem__(self, item):
         return Point(self._location[_keep_vector(slicing_dict(self, item))])</code></pre>
 </details>
@@ -6251,6 +6289,21 @@ def boundary_faces(self) -&gt; Dict[str, Tuple[Dict[str, slice], Dict[str, slice
 </summary>
 <pre><code class="python">@property
 def center(self) -&gt; Tensor:
+    return self._location</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Point.corners"><code class="name">var <span class="ident">corners</span></code></dt>
+<dd>
+<div class="desc"><h2 id="returns">Returns</h2>
+<p>Corner locations as <code>phiml.math.Tensor</code>.
+Corners belonging to one object or cell are listed along dual dimensions.
+If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def corners(self):
     return self._location</code></pre>
 </details>
 </dd>
@@ -6727,7 +6780,11 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
 
     @property
     def face_shape(self) -&gt; Shape:
-        return self.shape.without(&#39;vector&#39;) &amp; dual(shell=0)</code></pre>
+        return self.shape.without(&#39;vector&#39;) &amp; dual(shell=0)
+
+    @property
+    def corners(self) -&gt; Tensor:
+        return math.zeros(self.shape &amp; dual(corners=0))</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -6825,6 +6882,21 @@ def boundary_faces(self) -&gt; Dict[str, Tuple[Dict[str, slice], Dict[str, slice
 <pre><code class="python">@property
 def center(self):
     return self._center</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Sphere.corners"><code class="name">var <span class="ident">corners</span> : phiml.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><h2 id="returns">Returns</h2>
+<p>Corner locations as <code>phiml.math.Tensor</code>.
+Corners belonging to one object or cell are listed along dual dimensions.
+If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def corners(self) -&gt; Tensor:
+    return math.zeros(self.shape &amp; dual(corners=0))</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Sphere.face_areas"><code class="name">var <span class="ident">face_areas</span> : phiml.math._tensors.Tensor</code></dt>
@@ -7921,6 +7993,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Geometry.bounding_half_extent" href="#phi.geom.Geometry.bounding_half_extent">bounding_half_extent</a></code></li>
 <li><code><a title="phi.geom.Geometry.bounding_radius" href="#phi.geom.Geometry.bounding_radius">bounding_radius</a></code></li>
 <li><code><a title="phi.geom.Geometry.center" href="#phi.geom.Geometry.center">center</a></code></li>
+<li><code><a title="phi.geom.Geometry.corners" href="#phi.geom.Geometry.corners">corners</a></code></li>
 <li><code><a title="phi.geom.Geometry.face_areas" href="#phi.geom.Geometry.face_areas">face_areas</a></code></li>
 <li><code><a title="phi.geom.Geometry.face_centers" href="#phi.geom.Geometry.face_centers">face_centers</a></code></li>
 <li><code><a title="phi.geom.Geometry.face_normals" href="#phi.geom.Geometry.face_normals">face_normals</a></code></li>
@@ -8059,6 +8132,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Point.bounding_half_extent" href="#phi.geom.Point.bounding_half_extent">bounding_half_extent</a></code></li>
 <li><code><a title="phi.geom.Point.bounding_radius" href="#phi.geom.Point.bounding_radius">bounding_radius</a></code></li>
 <li><code><a title="phi.geom.Point.center" href="#phi.geom.Point.center">center</a></code></li>
+<li><code><a title="phi.geom.Point.corners" href="#phi.geom.Point.corners">corners</a></code></li>
 <li><code><a title="phi.geom.Point.face_areas" href="#phi.geom.Point.face_areas">face_areas</a></code></li>
 <li><code><a title="phi.geom.Point.face_centers" href="#phi.geom.Point.face_centers">face_centers</a></code></li>
 <li><code><a title="phi.geom.Point.face_normals" href="#phi.geom.Point.face_normals">face_normals</a></code></li>
@@ -8083,6 +8157,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Sphere.bounding_half_extent" href="#phi.geom.Sphere.bounding_half_extent">bounding_half_extent</a></code></li>
 <li><code><a title="phi.geom.Sphere.bounding_radius" href="#phi.geom.Sphere.bounding_radius">bounding_radius</a></code></li>
 <li><code><a title="phi.geom.Sphere.center" href="#phi.geom.Sphere.center">center</a></code></li>
+<li><code><a title="phi.geom.Sphere.corners" href="#phi.geom.Sphere.corners">corners</a></code></li>
 <li><code><a title="phi.geom.Sphere.face_areas" href="#phi.geom.Sphere.face_areas">face_areas</a></code></li>
 <li><code><a title="phi.geom.Sphere.face_centers" href="#phi.geom.Sphere.face_centers">face_centers</a></code></li>
 <li><code><a title="phi.geom.Sphere.face_normals" href="#phi.geom.Sphere.face_normals">face_normals</a></code></li>
