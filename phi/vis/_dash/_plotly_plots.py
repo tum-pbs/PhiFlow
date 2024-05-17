@@ -248,7 +248,7 @@ class PointCloud2D(Recipe):
                         figure.add_shape(type="path", xref="x", yref="y", path=path, fillcolor=ci, line_width=.5, line_color='#FFFFFF')
             else:
                 if isinstance(data.elements, Point):
-                    symbol = 'x'
+                    symbol = None
                     marker_size = 12 / (subplot_height / (yrange[1] - yrange[0]))
                 else:
                     symbol = 'asterisk'
@@ -286,7 +286,7 @@ class PointCloud3D(Recipe):
                 symbol = 'square'
                 marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 1
             elif isinstance(data.elements, Point):
-                symbol = 'x'
+                symbol = None
                 marker_size = 4 / (size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5)
             else:
                 symbol = 'asterisk'

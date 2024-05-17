@@ -623,7 +623,7 @@ class PointCloud2D(Recipe):
         alphas = reshaped_numpy(alpha, [non_channel(data)])
         if isinstance(data.geometry, Point):
             if spatial(data.points).is_empty:
-                axis.scatter(x, y, marker='x', color=mpl_colors, s=6 ** 2, alpha=alphas)
+                axis.scatter(x, y, color=mpl_colors, s=6 ** 2, alpha=alphas)
                 if (err != 0).any:
                     x_err = reshaped_numpy(err.vector[dims[0]], [instance(data)]) if dims[0] in err.vector.item_names else 0
                     y_err = reshaped_numpy(err.vector[dims[1]], [instance(data)]) if dims[1] in err.vector.item_names else 0
@@ -796,7 +796,7 @@ class PointCloud3D(Recipe):
             elif isinstance(data.geometry, Point):
                 if not spatial(data.geometry):
                     size = 6 / (0.5 * (x_scale+y_scale+z_scale)/3)
-                    subplot.scatter(x, y, z, marker='x', color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
+                    subplot.scatter(x, y, z, color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
             elif isinstance(data.geometry, _EmbeddedGeometry):
                 raise NotImplementedError(f"Plotting embedded geometries not yet supported")
             else:
