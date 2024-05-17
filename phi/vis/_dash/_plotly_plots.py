@@ -47,6 +47,7 @@ class PlotlyPlots(PlottingLibrary):
                 subplot.yaxis.update(title=bounds.vector.item_names[1], range=_get_range(bounds, 1))
                 subplot.zaxis.update(title=bounds.vector.item_names[2], range=_get_range(bounds, 2))
         fig._phi_size = size
+        fig.update_layout(width=size[0] * 70, height=size[1] * 70)  # 70 approximately matches matplotlib but it's not consistent
         return fig, {pos: (pos[0]+1, pos[1]+1) for pos in subplots.keys()}
 
     def animate(self, fig, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
