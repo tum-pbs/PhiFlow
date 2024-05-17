@@ -24,6 +24,9 @@ from phi.math import Tensor, channel, spatial, instance, non_channel, Shape, res
 from phi.vis._vis_base import display_name, PlottingLibrary, Recipe, index_label, only_stored_elements, to_field
 
 
+colormaps = matplotlib.colormaps if hasattr(matplotlib.colormaps, 'get_cmap') else matplotlib.cm
+
+
 class MatplotlibPlots(PlottingLibrary):
 
     def __init__(self):
@@ -498,7 +501,7 @@ class StreamPlot2D(Recipe):
         alphas = reshaped_numpy(alpha, [data.shape.without('vector')])
         a = float(alphas[0])
         prev_patches = set(subplot.patches)
-        stream = subplot.streamplot(x, y, u.T, v.T, color=col, cmap=plt.cm.get_cmap())
+        stream = subplot.streamplot(x, y, u.T, v.T, color=col, cmap=colormaps.get_cmap(matplotlib.rcParams['image.cmap']))
         stream.lines.set_alpha(a)
         new_patches = set(subplot.patches) - prev_patches
         for obj in new_patches:
@@ -872,7 +875,7 @@ def matplotlib_colors(color: Tensor, dims: Shape, default=None) -> Union[list, N
 
 def add_color_bar(axis: Axes, values, min_val, max_val, cmap=None):
     if cmap is None:
-        cmap = plt.cm.get_cmap()
+        cmap = colormaps.get_cmap(matplotlib.rcParams['image.cmap'])
     figure = axis.figure
     figure_has_color_bar = any(['colorbar' in ax.get_label() for ax in figure.axes])
     is_complex = np.iscomplex(max_val)
