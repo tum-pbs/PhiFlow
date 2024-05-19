@@ -161,3 +161,11 @@ class GridTest(TestCase):
         grid = math.expand(StaggeredGrid(1, x=10, y=10), batch(b=100))
         grid = math.rename_dims(grid, 'b', 'bat')
         self.assertEqual(batch(bat=100) & spatial(x=10, y=10) & channel(vector='x,y'), grid.shape)
+
+    def test_with_values_staggered(self):
+        grid = StaggeredGrid(Noise(), 1, x=10, y=10)
+        grid0 = grid.with_values(0)
+        self.assertEqual({'x', 'y', '~vector'}, set(grid0.values.shape.names))
+        cgrid = grid.with_values(math.zeros(spatial(x=10, y=10)))
+        self.assertEqual({'x', 'y'}, set(cgrid.values.shape.names))
+

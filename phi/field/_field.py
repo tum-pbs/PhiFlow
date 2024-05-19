@@ -394,6 +394,10 @@ class Field:
         if not isinstance(values, (Tensor, Number)):
             from ._resample import sample
             values = sample(values, self._geometry, self.sampled_at, self._boundary, dot_face_normal=self._geometry if 'vector' not in self._values.shape else None, **sampling_kwargs)
+        else:
+            if not spatial(values):
+                geo_shape = self.sampled_elements.shape if self.is_staggered else self._geometry.shape
+                values = expand(wrap(values), geo_shape.non_batch.non_channel)
         return Field(self._geometry, values, self._boundary)
 
     def with_boundary(self, boundary):
