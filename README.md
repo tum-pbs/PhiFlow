@@ -182,7 +182,7 @@ This will check for compatible PyTorch, Jax and TensorFlow installations as well
 * High-level linear equation solver with automated sparse matrix generation.
 
 
-## Documentation and Tutorials
+## 📖 Documentation and Tutorials
 [**Documentation Overview**](https://tum-pbs.github.io/PhiFlow/)
 &nbsp; • &nbsp; [**▶ YouTube Tutorials**](https://www.youtube.com/playlist?list=PLYLhRkuWBmZ5R6hYzusA2JBIUPFEE755O)
 &nbsp; • &nbsp; [**API**](https://tum-pbs.github.io/PhiFlow/phi/)
@@ -205,6 +205,21 @@ If you like to work with an IDE, like PyCharm or VS Code, the following demos wi
 * [smoke_plume.py](demos/smoke_plume.py) runs a smoke simulation and displays it in the web interface.
 * [optimize_pressure.py](demos/differentiate_pressure.py) uses TensorFlow to optimize a velocity field and displays it in the web interface.
 
+
+## 📄 Citation
+
+Please use the following citation:
+
+```
+@inproceedings{holl2024phiflow,
+  title={${\Phi}_{\text{Flow}}$ ({PhiFlow}): Differentiable Simulations for PyTorch, TensorFlow and Jax},
+  author={Holl, Philipp and Thuerey, Nils},
+  booktitle={International Conference on Machine Learning},
+  year={2024},
+  organization={PMLR}
+}
+```
+
 ## Publications
 
 We will upload a whitepaper, soon.
@@ -225,12 +240,12 @@ In the meantime, please cite the ICLR 2020 paper.
 
 [See more packages that use Φ<sub>Flow</sub>](https://github.com/tum-pbs/PhiFlow/network/dependents)
 
-## Version History
+## 🕒 Version History
 
 The [Version history](https://github.com/tum-pbs/PhiFlow/releases) lists all major changes since release.
 The releases are also listed on [PyPI](https://pypi.org/project/phiflow/).
 
-## Contributions
+## 👥 Contributions
 
 Contributions are welcome! Check out [this document](CONTRIBUTING.md) for guidelines.
 
