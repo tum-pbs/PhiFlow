@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from numbers import Number
-from typing import Dict, List, Sequence, Union
+from typing import Dict, List, Sequence, Union, Any
 
 import numpy as np
+from phi.geom import UniformGrid, Box
 
 from phiml.math import to_format, is_sparse, unstack, non_channel, non_batch, batch
 from phiml.math.extrapolation import as_extrapolation
@@ -462,3 +463,102 @@ def build_faces_2d(vertices: Tensor,
     vertex_pairs = stack([point_idx1, point_idx2], channel('face_vertices'))
     face_vertices = tensor_like(area, vertex_pairs, value_order='original')
     return faces, boundary_slices, vertex_connectivity, face_vertices
+
+
+def build_mesh(bounds: Box = None,
+               resolution=math.EMPTY_SHAPE,
+               obstacles: Union[Geometry, Dict[str, Geometry]] = None,
+               method='quad',
+               cell_dim: Shape = instance('cells'),
+               face_format: str = 'csc',
+               **resolution_: Union[int, Tensor, tuple, list, Any]) -> Mesh:
+    """
+    Build a mesh for a given domain, respecting obstacles.
+
+    Args:
+        bounds: Bounds for uniform cells.
+        resolution: Base resolution
+        obstacles: Single `Geometry` or `dict` mapping boundary name to corresponding `Geometry`.
+        method: Meshing algorithm. Only `quad` is currently supported.
+        cell_dim: Dimension along which to list the cells. This should be an instance dimension.
+        face_format: Sparse storage format for cell connectivity.
+        **resolution_: For uniform grid, pass resolution as `int` and specify `bounds`.
+            Or pass a sequence of floats for each dimension, specifying the vertex positions along each axis.
+            This allows for variable cell stretching.
+
+    Returns:
+        `Mesh`
+    """
+    if obstacles is None:
+        obstacles = {}
+    elif isinstance(obstacles, Geometry):
+        obstacles = {'obstacle': obstacles}
+    assert isinstance(obstacles, dict), f"obstacles needs to be a Geometry or dict"
+    if method == 'quad':
+        if bounds is None:  # **resolution_ specifies points
+            assert not resolution, f"When specifying vertex positions, bounds and resolution will be inferred and must not be specified."
+            resolution = spatial(**{dim: non_batch(x).volume for dim, x in resolution_.items()}) - 1
+            vert_pos = math.meshgrid(**resolution_)
+            # centroid_x = {dim: .5 * (wrap(x[:-1]) + wrap(x[1:])) for dim, x in resolution_.items()}
+            # centroids = math.meshgrid(**centroid_x)
+        else:  # uniform grid from bounds, resolution
+            resolution = resolution & spatial(**resolution_)
+            vert_pos = math.meshgrid(resolution + 1) / resolution * bounds.size + bounds.lower
+            # centroids = UniformGrid(resolution, bounds).center
+        return quadrilaterals(vert_pos, resolution, obstacles, cell_dim=cell_dim, face_format=face_format)
+
+
+def quadrilaterals(vert_pos,
+                   resolution: Shape,
+                   obstacles: Dict[str, Geometry],
+                   cell_dim: Shape,
+                   face_format: str) -> Mesh:
+    # --- process args ---
+    vert_id = math.range_tensor(resolution + 1)
+    # --- obstacles ---
+    boundaries = {}
+    full_mask = expand(False, resolution)
+    for boundary, obstacle in obstacles.items():
+        assert isinstance(obstacle, Geometry), f"all obstacles must be Geometry objects but got {type(obstacle)}"
+        obs_mask_vert = obstacle.lies_inside(vert_pos)
+        obs_mask_cell = math.convolve(~obs_mask_vert, expand(1, resolution.with_sizes(2))) == 0  # use all cells with one non-blocked vertex
+        math.assert_close(False, obs_mask_cell & full_mask, msg="Obstacles must not overlap. For overlapping obstacles, use union() to assign a single boundary.")
+        lo, up = math.shift(obs_mask_cell, (0, 1), padding=None)
+        face_mask = lo != up
+        for dim, dim_mask in dict(**face_mask.shift).items():
+            dim_mask = face_mask.shift[dim]
+            face_verts = vert_id[{dim: slice(1, -1)}]
+            start_vert = face_verts[{d: slice(None, -1) for d in resolution.names if d != dim}]
+            end_vert = face_verts[{d: slice(1, None) for d in resolution.names if d != dim}]
+            edge_list = [(s, e) for s, e, m in zip(start_vert, end_vert, dim_mask) if m]
+            boundaries.setdefault(boundary, []).extend(edge_list)
+        full_mask |= obs_mask_cell
+    # --- outer boundaries ---
+    def all_faces(ids: Tensor, edge_mask: Tensor, dim):
+        assert ids.rank == 1
+        return [(i, j) for i, j, m in zip(ids[:-1], ids[1:], edge_mask) if not m]
+    for dim in resolution.names:
+        boundaries[dim+'-'] = all_faces(vert_id[{dim: 0}], full_mask[{dim: 0}], dim)
+        boundaries[dim+'+'] = all_faces(vert_id[{dim: -1}], full_mask[{dim: -1}], dim)
+    # --- cells ---
+    cell_indices = math.nonzero(~full_mask)
+    if resolution.rank == 2:
+        d1, d2 = resolution.names
+        c1 = vert_id[{d1: slice(0, -1), d2: slice(0, -1)}]
+        c2 = vert_id[{d1: slice(0, -1), d2: slice(1, None)}]
+        c3 = vert_id[{d1: slice(1, None), d2: slice(1, None)}]
+        c4 = vert_id[{d1: slice(1, None), d2: slice(0, -1)}]
+        polygons = stack([c1, c2, c3, c4], channel('polygon'))
+        polygons = polygons[cell_indices]
+        polygon_list = math.reshaped_numpy(polygons, [..., channel])
+    else:
+        raise NotImplementedError(resolution.rank)
+    # --- move vertices outside of obstacle ---
+    ext_mask = math.pad(~full_mask, {d: (0, 1) for d in resolution.names}, False)
+    has_cell = math.convolve(ext_mask, expand(1, resolution.with_sizes(2)), math.extrapolation.ZERO)  # vertices without a cell could be removed to improve memory/cache efficiency
+    for obstacle in obstacles.values():
+        shifted_verts = obstacle.push(vert_pos)
+        vert_pos = math.where(has_cell, shifted_verts, vert_pos)
+    # --- build mesh data ---
+    points_np = math.reshaped_numpy(vert_pos, [spatial, channel])
+    return mesh_from_numpy(points_np, polygon_list, boundaries, cell_dim=cell_dim, face_format=face_format)

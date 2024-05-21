@@ -16,7 +16,7 @@ from ._box import Box, BaseBox, Cuboid
 from ._sphere import Sphere
 from ._grid import UniformGrid
 from ._graph import Graph
-from ._mesh import Mesh, mesh, load_su2, mesh_from_numpy
+from ._mesh import Mesh, mesh, load_su2, mesh_from_numpy, build_mesh
 from ._transform import embed, infinite_cylinder
 from ._heightmap import Heightmap
 from ._geom_ops import union
