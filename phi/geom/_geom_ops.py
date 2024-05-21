@@ -245,7 +245,7 @@ def expel(geometry: Geometry,
     signed_distance, vec_to_surface, *_ = geometry.approximate_closest_surface(location)
     if not invert:
         shift_amount = math.maximum(0, min_separation - signed_distance)  # expel
-        direction = vec_to_surface / -signed_distance  # this always points outward
+        direction = math.safe_div(vec_to_surface, -signed_distance)  # this always points outward
     else:
         raise NotImplementedError
     return location + direction * shift_amount

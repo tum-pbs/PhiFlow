@@ -1,7 +1,7 @@
 from typing import Union, Dict, Tuple
 
 from phi import math
-from phiml.math import Shape, dual, PI
+from phiml.math import Shape, dual, PI, non_channel
 from ._geom import Geometry, _keep_vector, NO_GEOMETRY
 from ..math import wrap, Tensor, expand
 from ..math.magic import slicing_dict
@@ -103,6 +103,17 @@ class Sphere(Geometry):
         distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite spatial_gradient at sphere center
         distance = math.sqrt(distance_squared)
         return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions
+
+    def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        center_delta = location - self.center
+        center_dist = math.vec_length(center_delta)
+        sgn_dist = center_dist - self.radius
+        normal = center_delta / center_dist
+        surface_pos = self.center + self.radius * normal
+        delta = surface_pos - location
+        face_index = expand(0, non_channel(location))
+        offset = normal.vector @ surface_pos.vector
+        return sgn_dist, delta, normal, offset, face_index
 
     def sample_uniform(self, *shape: math.Shape):
         raise NotImplementedError('Not yet implemented')  # ToDo
