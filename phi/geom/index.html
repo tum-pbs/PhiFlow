@@ -52,7 +52,7 @@ from ._box import Box, BaseBox, Cuboid
 from ._sphere import Sphere
 from ._grid import UniformGrid
 from ._graph import Graph
-from ._mesh import Mesh, mesh, load_su2, mesh_from_numpy
+from ._mesh import Mesh, mesh, load_su2, mesh_from_numpy, build_mesh
 from ._transform import embed, infinite_cylinder
 from ._heightmap import Heightmap
 from ._geom_ops import union
@@ -81,6 +81,79 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
     rank1_, rank2_ = _rank(rank1), _rank(rank2)
     if rank1_ is not None and rank2_ is not None:
         assert rank1_ == rank2_, &#39;Ranks do not match: %s and %s. %s&#39; % (rank1_, rank2_, error_message)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.build_mesh"><code class="name flex">
+<span>def <span class="ident">build_mesh</span></span>(<span>bounds: phi.geom._box.Box = None, resolution=(), obstacles: Union[phi.geom._geom.Geometry, Dict[str, phi.geom._geom.Geometry]] = None, method='quad', cell_dim: phiml.math._shape.Shape = (cellsⁱ=None), face_format: str = 'csc', **resolution_: Union[int, phiml.math._tensors.Tensor, tuple, list, Any]) ‑> phi.geom._mesh.Mesh</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Build a mesh for a given domain, respecting obstacles.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>Bounds for uniform cells.</dd>
+<dt><strong><code>resolution</code></strong></dt>
+<dd>Base resolution</dd>
+<dt><strong><code>obstacles</code></strong></dt>
+<dd>Single <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> or <code>dict</code> mapping boundary name to corresponding <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.</dd>
+<dt><strong><code>method</code></strong></dt>
+<dd>Meshing algorithm. Only <code>quad</code> is currently supported.</dd>
+<dt><strong><code>cell_dim</code></strong></dt>
+<dd>Dimension along which to list the cells. This should be an instance dimension.</dd>
+<dt><strong><code>face_format</code></strong></dt>
+<dd>Sparse storage format for cell connectivity.</dd>
+<dt><strong><code>**resolution_</code></strong></dt>
+<dd>For uniform grid, pass resolution as <code>int</code> and specify <code>bounds</code>.
+Or pass a sequence of floats for each dimension, specifying the vertex positions along each axis.
+This allows for variable cell stretching.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def build_mesh(bounds: Box = None,
+               resolution=math.EMPTY_SHAPE,
+               obstacles: Union[Geometry, Dict[str, Geometry]] = None,
+               method=&#39;quad&#39;,
+               cell_dim: Shape = instance(&#39;cells&#39;),
+               face_format: str = &#39;csc&#39;,
+               **resolution_: Union[int, Tensor, tuple, list, Any]) -&gt; Mesh:
+    &#34;&#34;&#34;
+    Build a mesh for a given domain, respecting obstacles.
+
+    Args:
+        bounds: Bounds for uniform cells.
+        resolution: Base resolution
+        obstacles: Single `Geometry` or `dict` mapping boundary name to corresponding `Geometry`.
+        method: Meshing algorithm. Only `quad` is currently supported.
+        cell_dim: Dimension along which to list the cells. This should be an instance dimension.
+        face_format: Sparse storage format for cell connectivity.
+        **resolution_: For uniform grid, pass resolution as `int` and specify `bounds`.
+            Or pass a sequence of floats for each dimension, specifying the vertex positions along each axis.
+            This allows for variable cell stretching.
+
+    Returns:
+        `Mesh`
+    &#34;&#34;&#34;
+    if obstacles is None:
+        obstacles = {}
+    elif isinstance(obstacles, Geometry):
+        obstacles = {&#39;obstacle&#39;: obstacles}
+    assert isinstance(obstacles, dict), f&#34;obstacles needs to be a Geometry or dict&#34;
+    if method == &#39;quad&#39;:
+        if bounds is None:  # **resolution_ specifies points
+            assert not resolution, f&#34;When specifying vertex positions, bounds and resolution will be inferred and must not be specified.&#34;
+            resolution = spatial(**{dim: non_batch(x).volume for dim, x in resolution_.items()}) - 1
+            vert_pos = math.meshgrid(**resolution_)
+            # centroid_x = {dim: .5 * (wrap(x[:-1]) + wrap(x[1:])) for dim, x in resolution_.items()}
+            # centroids = math.meshgrid(**centroid_x)
+        else:  # uniform grid from bounds, resolution
+            resolution = resolution &amp; spatial(**resolution_)
+            vert_pos = math.meshgrid(resolution + 1) / resolution * bounds.size + bounds.lower
+            # centroids = UniformGrid(resolution, bounds).center
+        return quadrilaterals(vert_pos, resolution, obstacles, cell_dim=cell_dim, face_format=face_format)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.concat"><code class="name flex">
@@ -6723,6 +6796,17 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
         distance = math.sqrt(distance_squared)
         return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions
 
+    def approximate_closest_surface(self, location: Tensor) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        center_delta = location - self.center
+        center_dist = math.vec_length(center_delta)
+        sgn_dist = center_dist - self.radius
+        normal = center_delta / center_dist
+        surface_pos = self.center + self.radius * normal
+        delta = surface_pos - location
+        face_index = expand(0, non_channel(location))
+        offset = normal.vector @ surface_pos.vector
+        return sgn_dist, delta, normal, offset, face_index
+
     def sample_uniform(self, *shape: math.Shape):
         raise NotImplementedError(&#39;Not yet implemented&#39;)  # ToDo
 
@@ -7014,6 +7098,47 @@ def volume(self) -&gt; math.Tensor:
 </dl>
 <h3>Methods</h3>
 <dl>
+<dt id="phi.geom.Sphere.approximate_closest_surface"><code class="name flex">
+<span>def <span class="ident">approximate_closest_surface</span></span>(<span>self, location: phiml.math._tensors.Tensor) ‑> Tuple[phiml.math._tensors.Tensor, phiml.math._tensors.Tensor, phiml.math._tensors.Tensor, phiml.math._tensors.Tensor, phiml.math._tensors.Tensor]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Find the closest surface face of this geometry given a point that can be outside or inside the geometry.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>location</code></strong></dt>
+<dd><code>Tensor</code> with a single channel dimension called vector. Can have arbitrary other dimensions.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>signed_distance</code></dt>
+<dd>Scalar signed distance from <code>location</code>
+to the closest point on the surface.
+Positive values indicate the point lies outside the geometry, negative values indicate the point lies inside the geometry.</dd>
+<dt><code>delta</code></dt>
+<dd>Vector-valued distance vector from <code>location</code> to the closest point on the surface.</dd>
+<dt><code>normal</code></dt>
+<dd>Closest surface normal vector.</dd>
+<dt><code>offset</code></dt>
+<dd>Min distance of a surface-tangential plane from 0 as a scalar.</dd>
+<dt><code>face_index</code></dt>
+<dd>(Optional) An index vector pointing at the closest face.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def approximate_closest_surface(self, location: Tensor) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+    center_delta = location - self.center
+    center_dist = math.vec_length(center_delta)
+    sgn_dist = center_dist - self.radius
+    normal = center_delta / center_dist
+    surface_pos = self.center + self.radius * normal
+    delta = surface_pos - location
+    face_index = expand(0, non_channel(location))
+    offset = normal.vector @ surface_pos.vector
+    return sgn_dist, delta, normal, offset, face_index</code></pre>
+</details>
+</dd>
 <dt id="phi.geom.Sphere.approximate_signed_distance"><code class="name flex">
 <span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: Union[phiml.math._tensors.Tensor, tuple])</span>
 </code></dt>
@@ -7892,6 +8017,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
 <li><code><a title="phi.geom.assert_same_rank" href="#phi.geom.assert_same_rank">assert_same_rank</a></code></li>
+<li><code><a title="phi.geom.build_mesh" href="#phi.geom.build_mesh">build_mesh</a></code></li>
 <li><code><a title="phi.geom.concat" href="#phi.geom.concat">concat</a></code></li>
 <li><code><a title="phi.geom.embed" href="#phi.geom.embed">embed</a></code></li>
 <li><code><a title="phi.geom.infinite_cylinder" href="#phi.geom.infinite_cylinder">infinite_cylinder</a></code></li>
@@ -8150,6 +8276,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li>
 <h4><code><a title="phi.geom.Sphere" href="#phi.geom.Sphere">Sphere</a></code></h4>
 <ul class="">
+<li><code><a title="phi.geom.Sphere.approximate_closest_surface" href="#phi.geom.Sphere.approximate_closest_surface">approximate_closest_surface</a></code></li>
 <li><code><a title="phi.geom.Sphere.approximate_signed_distance" href="#phi.geom.Sphere.approximate_signed_distance">approximate_signed_distance</a></code></li>
 <li><code><a title="phi.geom.Sphere.at" href="#phi.geom.Sphere.at">at</a></code></li>
 <li><code><a title="phi.geom.Sphere.boundary_elements" href="#phi.geom.Sphere.boundary_elements">boundary_elements</a></code></li>
