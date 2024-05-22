@@ -126,10 +126,11 @@ def make_incompressible(velocity: Field,
                         solve: Solve = Solve(),
                         active: CenteredGrid = None,
                         order: int = 2,
-                        correct_skew=False) -&gt; Tuple[Field, Field]:
+                        correct_skew=False,
+                        wide_stencil: bool = None) -&gt; Tuple[Field, Field]:
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
-    
+
     This method is similar to :func:`field.divergence_free()` but differs in how the boundary conditions are specified.
 
     Args:
@@ -179,7 +180,9 @@ def make_incompressible(velocity: Field,
         solve = copy_with(solve, x0=Field(div.geometry, 0, pressure_extrapolation))  # convert=False
     if (batch(math.merge_shapes(*obstacles)) &amp; batch(velocity)).without(batch(solve.x0.values)):  # The initial pressure guess must contain all batch dimensions
         solve = copy_with(solve, x0=solve.x0.with_values(expand(solve.x0.values, batch(math.merge_shapes(*obstacles)) &amp; batch(velocity))))
-    pressure = math.solve_linear(masked_laplace, div, solve, velocity.boundary, hard_bcs, active, wide_stencil=False, order=order, implicit=None, upwind=None, correct_skew=correct_skew)
+    if wide_stencil is None:
+        wide_stencil = not velocity.is_staggered
+    pressure = math.solve_linear(masked_laplace, div, solve, velocity.boundary, hard_bcs, active, wide_stencil=wide_stencil, order=order, implicit=None, upwind=None, correct_skew=correct_skew)
     # --- Subtract grad p ---
     grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, at=velocity.sampled_at, order=order, scheme=&#39;green-gauss&#39;)
     if hard_bcs is not None:
@@ -225,7 +228,7 @@ def masked_laplace(pressure: Field,
         grad = spatial_gradient(pressure, v_boundary, at=&#39;center&#39; if wide_stencil else &#39;face&#39;)
         valid_grad = grad * hard_bcs if hard_bcs is not None else grad
         valid_grad = valid_grad.with_boundary(valid_grad.boundary - valid_grad.boundary)  # remove constant terms
-        assert valid_grad.boundary == extrapolation.remove_constant_offset(valid_grad.extrapolation)  # ToDo remove
+        assert valid_grad.boundary == extrapolation.remove_constant_offset(valid_grad.extrapolation)  # ToDo remove after testing
         div = divergence(valid_grad)
         return where(active, div, pressure) if active is not None else div
     else:
@@ -422,7 +425,7 @@ obstacles: <code><a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.
 </details>
 </dd>
 <dt id="phi.physics.fluid.boundary_push"><code class="name flex">
-<span>def <span class="ident">boundary_push</span></span>(<span>particles: <function PointCloud at 0x7fc5a3f424c0>, obstacles: tuple, separation: float = 0.5) ‑> <function PointCloud at 0x7fc5a3f424c0></span>
+<span>def <span class="ident">boundary_push</span></span>(<span>particles: <function PointCloud at 0x7f1918d454c0>, obstacles: tuple, separation: float = 0.5) ‑> <function PointCloud at 0x7f1918d454c0></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of
@@ -547,7 +550,7 @@ supported: explicit 2/4th order - implicit 6th order (obstacles are only support
 </details>
 </dd>
 <dt id="phi.physics.fluid.make_incompressible"><code class="name flex">
-<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._field.Field, obstacles: <a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a> = (), solve: phiml.math._optimize.Solve = auto with tolerance None (rel), None (abs), max_iterations=1000, active: <function CenteredGrid at 0x7fc5a3f42040> = None, order: int = 2, correct_skew=False) ‑> Tuple[phi.field._field.Field, phi.field._field.Field]</span>
+<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._field.Field, obstacles: <a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a> = (), solve: phiml.math._optimize.Solve = auto with tolerance None (rel), None (abs), max_iterations=1000, active: <function CenteredGrid at 0x7f1918d45040> = None, order: int = 2, correct_skew=False, wide_stencil: bool = None) ‑> Tuple[phi.field._field.Field, phi.field._field.Field]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>
@@ -586,10 +589,11 @@ supported: explicit 2/4th order - implicit 6th order (obstacles are only support
                         solve: Solve = Solve(),
                         active: CenteredGrid = None,
                         order: int = 2,
-                        correct_skew=False) -&gt; Tuple[Field, Field]:
+                        correct_skew=False,
+                        wide_stencil: bool = None) -&gt; Tuple[Field, Field]:
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
-    
+
     This method is similar to :func:`field.divergence_free()` but differs in how the boundary conditions are specified.
 
     Args:
@@ -639,7 +643,9 @@ supported: explicit 2/4th order - implicit 6th order (obstacles are only support
         solve = copy_with(solve, x0=Field(div.geometry, 0, pressure_extrapolation))  # convert=False
     if (batch(math.merge_shapes(*obstacles)) &amp; batch(velocity)).without(batch(solve.x0.values)):  # The initial pressure guess must contain all batch dimensions
         solve = copy_with(solve, x0=solve.x0.with_values(expand(solve.x0.values, batch(math.merge_shapes(*obstacles)) &amp; batch(velocity))))
-    pressure = math.solve_linear(masked_laplace, div, solve, velocity.boundary, hard_bcs, active, wide_stencil=False, order=order, implicit=None, upwind=None, correct_skew=correct_skew)
+    if wide_stencil is None:
+        wide_stencil = not velocity.is_staggered
+    pressure = math.solve_linear(masked_laplace, div, solve, velocity.boundary, hard_bcs, active, wide_stencil=wide_stencil, order=order, implicit=None, upwind=None, correct_skew=correct_skew)
     # --- Subtract grad p ---
     grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, at=velocity.sampled_at, order=order, scheme=&#39;green-gauss&#39;)
     if hard_bcs is not None:
