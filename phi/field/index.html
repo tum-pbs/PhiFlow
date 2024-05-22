@@ -879,7 +879,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f1918d45040></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f6878982040></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -1933,8 +1933,7 @@ Otherwise, an explicit stencil is used.</dd>
         nb_distances = u.mesh.neighbor_distances
         connecting_grad = (u.mesh.connectivity * neighbor_val - u.values) / nb_distances  # (T_N - T_P) / d_PN
         if correct_skew and gradient is not None:  # skewness correction
-            assert dual(gradient), f&#34;prev_grad must contain a dual dimension listing the gradient components&#34;
-            gradient = rename_dims(gradient, dual, &#39;vector&#39;)
+            assert dual(gradient).names == (&#39;~vector&#39;,), f&#34;gradient must contain one dual dim &#39;~vector&#39; listing the gradient components but got {gradient.shape}&#34;
             gradient = gradient.at_faces(boundary=NONE, order=order, upwind=upwind).values
             nb_offsets = u.mesh.neighbor_offsets
             n1 = (u.face_normals.vector @ nb_offsets.vector) * nb_offsets / nb_distances ** 2  # (n·d_PN) d_PN / d_PN^2
