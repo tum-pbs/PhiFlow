@@ -879,7 +879,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f3de3142040></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fc5a3f42040></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -3405,7 +3405,7 @@ Otherwise, an explicit stencil is used.</dd>
 </details>
 </dd>
 <dt id="phi.field.stagger"><code class="name flex">
-<span>def <span class="ident">stagger</span></span>(<span>field: phi.field._field.Field, face_function: Callable, extrapolation: float, at='face', dims=&lt;function spatial&gt;)</span>
+<span>def <span class="ident">stagger</span></span>(<span>field: phi.field._field.Field, face_function: Callable, boundary: float, at='face', dims=&lt;function spatial&gt;)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates a new grid by evaluating <code>face_function</code> given two neighbouring cells.
@@ -3419,20 +3419,22 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
 <dd>Grid</dd>
 <dt><strong><code>face_function</code></strong></dt>
 <dd>function mapping (value1: Tensor, value2: Tensor) -&gt; center_value: Tensor</dd>
-<dt><strong><code>extrapolation</code></strong></dt>
+<dt><strong><code>boundary</code></strong></dt>
 <dd>extrapolation mode of the returned grid. Has no effect on the values.</dd>
 <dt><strong><code>at</code></strong></dt>
 <dd>Where the result should be sampled, one of 'face', 'center'</dd>
+<dt><strong><code>dims</code></strong></dt>
+<dd>Which dimensions to stagger. Defaults to all spatial axes.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>grid of type matching the <code>type</code> argument</p></div>
+<p>Grid sampled either at centers or faces depending on <code>at</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def stagger(field: Field,
             face_function: Callable,
-            extrapolation: float or math.extrapolation.Extrapolation,
+            boundary: float or math.extrapolation.Extrapolation,
             at=&#39;face&#39;,
             dims=spatial):
     &#34;&#34;&#34;
@@ -3446,20 +3448,20 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
     Args:
         field: Grid
         face_function: function mapping (value1: Tensor, value2: Tensor) -&gt; center_value: Tensor
-        extrapolation: extrapolation mode of the returned grid. Has no effect on the values.
+        boundary: extrapolation mode of the returned grid. Has no effect on the values.
         at: Where the result should be sampled, one of &#39;face&#39;, &#39;center&#39;
+        dims: Which dimensions to stagger. Defaults to all spatial axes.
 
     Returns:
-        grid of type matching the `type` argument
-
+        Grid sampled either at centers or faces depending on `at`.
     &#34;&#34;&#34;
-    extrapolation = as_boundary(extrapolation, field.geometry)
+    boundary = as_boundary(boundary, field.geometry)
     all_lower = []
     all_upper = []
     dims = field.shape.only(dims, reorder=True).names
     if at == &#39;face&#39;:
         for dim in dims:
-            valid_lo, valid_up = extrapolation.valid_outer_faces(dim)
+            valid_lo, valid_up = boundary.valid_outer_faces(dim)
             if valid_lo and valid_up:
                 width_lower, width_upper = {dim: (1, 0)}, {dim: (0, 1)}
             elif valid_lo and not valid_up:
@@ -3474,14 +3476,14 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
         all_upper = math.stack(all_upper, dual(vector=dims))
         all_lower = math.stack(all_lower, dual(vector=dims))
         values = face_function(all_lower, all_upper)
-        result = Field(field.geometry, values, extrapolation)
+        result = Field(field.geometry, values, boundary)
         assert result.resolution == field.resolution
         return result
     else:
         assert at == &#39;center&#39;, f&#34;type must be &#39;face&#39; or &#39;center&#39; but got &#39;{at}&#39;&#34;
         left, right = math.shift(field.values, (-1, 1), dims=dims, padding=field.extrapolation, stack_dim=channel(&#39;vector&#39;))
         values = face_function(left, right)
-        return CenteredGrid(values, bounds=field.bounds, extrapolation=extrapolation)</code></pre>
+        return CenteredGrid(values, boundary, field.bounds)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.stop_gradient"><code class="name flex">

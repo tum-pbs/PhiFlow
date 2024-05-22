@@ -34,7 +34,7 @@ Functions for simulating incompressible fluids, both grid-based and particle-bas
 The main function for incompressible fluids (Eulerian as well as FLIP / PIC) is `make_incompressible()` which removes the divergence of a velocity field.
 &#34;&#34;&#34;
 import warnings
-from typing import Tuple, Callable, Union
+from typing import Tuple, Callable, Union, List, Optional
 
 from phi import math, field
 from phi.math import wrap, channel, Solve
@@ -112,7 +112,7 @@ class Obstacle:
         return self.geometry == other.geometry and self.velocity == other.velocity and self.angular_velocity == other.angular_velocity
 
 
-def _get_obstacles_for(obstacles, space: Field):
+def _get_obstacles_for(obstacles, space: Field) -&gt; List[Obstacle]:
     obstacles = [obstacles] if isinstance(obstacles, (Obstacle, Geometry)) else obstacles
     assert isinstance(obstacles, (tuple, list)), f&#34;obstacles must be an Obstacle or Geometry or a tuple/list thereof but got {type(obstacles)}&#34;
     obstacles = [Obstacle(o) if isinstance(o, Geometry) else o for o in obstacles]
@@ -125,7 +125,8 @@ def make_incompressible(velocity: Field,
                         obstacles: Obstacle or Geometry or tuple or list = (),
                         solve: Solve = Solve(),
                         active: CenteredGrid = None,
-                        order: int = 2) -&gt; Tuple[Field, Field]:
+                        order: int = 2,
+                        correct_skew=False) -&gt; Tuple[Field, Field]:
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -147,41 +148,56 @@ def make_incompressible(velocity: Field,
         velocity: divergence-free velocity of type `type(velocity)`
         pressure: solved pressure field, `CenteredGrid`
     &#34;&#34;&#34;
+    assert not correct_skew
     obstacles = _get_obstacles_for(obstacles, velocity)
-    assert order == 2 or len(obstacles) == 0, f&#34;obstacles are not supported with higher order schemes&#34;
+    assert order &lt;= 2 or len(obstacles) == 0, f&#34;obstacles are not supported with higher order schemes&#34;
+    assert not velocity.is_mesh or not obstacles, f&#34;Meshes don&#39;t support obstacle masks. Apply the obstacle when building the mesh instead.&#34;
     input_velocity = velocity
-    # --- Create masks ---
-    accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
-    with NUMPY:
-        accessible = CenteredGrid(~union([obs.geometry for obs in obstacles]), accessible_extrapolation, velocity.bounds, velocity.resolution)
-        hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, at=velocity.sampled_at, dims=velocity.vector.item_names)
+    div = divergence(velocity, order=order)
+    # --- Obstacles ---
     all_active = active is None
-    if active is None:
-        active = accessible.with_extrapolation(extrapolation.NONE)
-    else:
-        active *= accessible  # no pressure inside obstacles
-    # --- Linear solve ---
-    velocity = apply_boundary_conditions(velocity, obstacles)
-    div = divergence(velocity, order=order) * active
+    active = None
+    hard_bcs = None
+    if obstacles:
+        accessible_boundary = _accessible_extrapolation(input_velocity.extrapolation)
+        with NUMPY:
+            accessible = Field(velocity.geometry, ~union([obs.geometry for obs in obstacles]), accessible_boundary)
+            # accessible = CenteredGrid(~union([obs.geometry for obs in obstacles]), accessible_boundary, velocity.bounds, velocity.resolution)
+            hard_bcs = field.stagger(accessible, math.minimum, velocity.boundary, at=velocity.sampled_at, dims=velocity.vector.item_names)
+        active = accessible.with_extrapolation(extrapolation.NONE) if active is None else active * accessible  # no pressure inside obstacles
+        velocity = apply_boundary_conditions(velocity, obstacles)
+    if active is not None:
+        div *= active  # inactive cells must solvable
     assert not channel(div), f&#34;Divergence must not have any channel dimensions. This is likely caused by an improper velocity field v={input_velocity}&#34;
+    # --- Linear solve for pressure ---
     if not all_active:  # NaN in velocity allowed
         div = field.where(field.is_finite(div), div, 0)
     if not input_velocity.extrapolation.is_flexible and all_active:
         solve = solve.with_preprocessing(_balance_divergence, active)
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
-        solve = copy_with(solve, x0=CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution, convert=False))
-    if (batch(math.merge_shapes(*obstacles)) &amp; batch(velocity.dx)).without(batch(solve.x0.values)):  # The initial pressure guess must contain all batch dimensions
-        solve = copy_with(solve, x0=solve.x0.with_values(expand(solve.x0.values, batch(math.merge_shapes(*obstacles)) &amp; batch(velocity.dx))))
-    pressure = math.solve_linear(masked_laplace, div, solve, hard_bcs, active, order=order)
+        solve = copy_with(solve, x0=Field(div.geometry, 0, pressure_extrapolation))  # convert=False
+    if (batch(math.merge_shapes(*obstacles)) &amp; batch(velocity)).without(batch(solve.x0.values)):  # The initial pressure guess must contain all batch dimensions
+        solve = copy_with(solve, x0=solve.x0.with_values(expand(solve.x0.values, batch(math.merge_shapes(*obstacles)) &amp; batch(velocity))))
+    pressure = math.solve_linear(masked_laplace, div, solve, velocity.boundary, hard_bcs, active, wide_stencil=False, order=order, implicit=None, upwind=None, correct_skew=correct_skew)
     # --- Subtract grad p ---
-    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, dims=velocity.vector.item_names, at=velocity.sampled_at, order=order) * hard_bcs
+    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, at=velocity.sampled_at, order=order, scheme=&#39;green-gauss&#39;)
+    if hard_bcs is not None:
+        grad_pressure *= hard_bcs
     velocity = (velocity - grad_pressure).with_extrapolation(input_velocity.extrapolation)
     return velocity, pressure
 
 
 @math.jit_compile_linear(auxiliary_args=&#39;hard_bcs,active,order,implicit&#39;, forget_traces=True)  # jit compilation is required for boundary conditions that add a constant offset solving Ax + b = y
-def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid, order=2, implicit: Solve = None) -&gt; CenteredGrid:
+def masked_laplace(pressure: Field,
+                   v_boundary: Extrapolation,
+                   hard_bcs: Field,
+                   active: Field,
+                   wide_stencil=False,
+                   order=2,
+                   implicit: Solve = None,
+                   upwind=None,
+                   correct_skew=False) -&gt; CenteredGrid:
     &#34;&#34;&#34;
     Computes the laplace of `pressure` in the presence of obstacles.
 
@@ -202,19 +218,25 @@ def masked_laplace(pressure: CenteredGrid, hard_bcs: Grid, active: CenteredGrid,
     Returns:
         `CenteredGrid`
     &#34;&#34;&#34;
+    if pressure.is_mesh:
+        return field.laplace(pressure, gradient=None, order=order, upwind=upwind, correct_skew=correct_skew)
+    assert pressure.is_grid and pressure.is_centered, f&#34;Only mesh and centered grid supported for pressure&#34;
     if order == 2 and not implicit:
-        grad = spatial_gradient(pressure, hard_bcs.extrapolation, dims=hard_bcs.vector.item_names, at=&#39;face&#39; if hard_bcs.is_staggered else &#39;center&#39;)
-        valid_grad = grad * hard_bcs
-        valid_grad = valid_grad.with_extrapolation(extrapolation.remove_constant_offset(valid_grad.extrapolation))
+        grad = spatial_gradient(pressure, v_boundary, at=&#39;center&#39; if wide_stencil else &#39;face&#39;)
+        valid_grad = grad * hard_bcs if hard_bcs is not None else grad
+        valid_grad = valid_grad.with_boundary(valid_grad.boundary - valid_grad.boundary)  # remove constant terms
+        assert valid_grad.boundary == extrapolation.remove_constant_offset(valid_grad.extrapolation)  # ToDo remove
         div = divergence(valid_grad)
-        laplace = where(active, div, pressure)
+        return where(active, div, pressure) if active is not None else div
     else:
-        laplace = field.laplace(pressure, order=order, implicit=implicit)
-    return laplace
+        return field.laplace(pressure, order=order, implicit=implicit)
 
 
-def _balance_divergence(div, active):
-    return div - active * (field.mean(div) / field.mean(active))
+def _balance_divergence(div: Field, active: Optional[Field]) -&gt; Field:
+    if active is not None:
+        return div - active * (field.mean(div) / field.mean(active))
+    else:
+        return div - field.mean(div)
 
 
 def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: Obstacle or Geometry or tuple or list):
@@ -400,7 +422,7 @@ obstacles: <code><a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.
 </details>
 </dd>
 <dt id="phi.physics.fluid.boundary_push"><code class="name flex">
-<span>def <span class="ident">boundary_push</span></span>(<span>particles: <function PointCloud at 0x7f3de31424c0>, obstacles: tuple, separation: float = 0.5) ‑> <function PointCloud at 0x7f3de31424c0></span>
+<span>def <span class="ident">boundary_push</span></span>(<span>particles: <function PointCloud at 0x7fc5a3f424c0>, obstacles: tuple, separation: float = 0.5) ‑> <function PointCloud at 0x7fc5a3f424c0></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of
@@ -525,7 +547,7 @@ supported: explicit 2/4th order - implicit 6th order (obstacles are only support
 </details>
 </dd>
 <dt id="phi.physics.fluid.make_incompressible"><code class="name flex">
-<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._field.Field, obstacles: <a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a> = (), solve: phiml.math._optimize.Solve = auto with tolerance None (rel), None (abs), max_iterations=1000, active: <function CenteredGrid at 0x7f3de3142040> = None, order: int = 2) ‑> Tuple[phi.field._field.Field, phi.field._field.Field]</span>
+<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._field.Field, obstacles: <a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a> = (), solve: phiml.math._optimize.Solve = auto with tolerance None (rel), None (abs), max_iterations=1000, active: <function CenteredGrid at 0x7fc5a3f42040> = None, order: int = 2, correct_skew=False) ‑> Tuple[phi.field._field.Field, phi.field._field.Field]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>
@@ -563,7 +585,8 @@ supported: explicit 2/4th order - implicit 6th order (obstacles are only support
                         obstacles: Obstacle or Geometry or tuple or list = (),
                         solve: Solve = Solve(),
                         active: CenteredGrid = None,
-                        order: int = 2) -&gt; Tuple[Field, Field]:
+                        order: int = 2,
+                        correct_skew=False) -&gt; Tuple[Field, Field]:
     &#34;&#34;&#34;
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
     
@@ -585,35 +608,42 @@ supported: explicit 2/4th order - implicit 6th order (obstacles are only support
         velocity: divergence-free velocity of type `type(velocity)`
         pressure: solved pressure field, `CenteredGrid`
     &#34;&#34;&#34;
+    assert not correct_skew
     obstacles = _get_obstacles_for(obstacles, velocity)
-    assert order == 2 or len(obstacles) == 0, f&#34;obstacles are not supported with higher order schemes&#34;
+    assert order &lt;= 2 or len(obstacles) == 0, f&#34;obstacles are not supported with higher order schemes&#34;
+    assert not velocity.is_mesh or not obstacles, f&#34;Meshes don&#39;t support obstacle masks. Apply the obstacle when building the mesh instead.&#34;
     input_velocity = velocity
-    # --- Create masks ---
-    accessible_extrapolation = _accessible_extrapolation(input_velocity.extrapolation)
-    with NUMPY:
-        accessible = CenteredGrid(~union([obs.geometry for obs in obstacles]), accessible_extrapolation, velocity.bounds, velocity.resolution)
-        hard_bcs = field.stagger(accessible, math.minimum, input_velocity.extrapolation, at=velocity.sampled_at, dims=velocity.vector.item_names)
+    div = divergence(velocity, order=order)
+    # --- Obstacles ---
     all_active = active is None
-    if active is None:
-        active = accessible.with_extrapolation(extrapolation.NONE)
-    else:
-        active *= accessible  # no pressure inside obstacles
-    # --- Linear solve ---
-    velocity = apply_boundary_conditions(velocity, obstacles)
-    div = divergence(velocity, order=order) * active
+    active = None
+    hard_bcs = None
+    if obstacles:
+        accessible_boundary = _accessible_extrapolation(input_velocity.extrapolation)
+        with NUMPY:
+            accessible = Field(velocity.geometry, ~union([obs.geometry for obs in obstacles]), accessible_boundary)
+            # accessible = CenteredGrid(~union([obs.geometry for obs in obstacles]), accessible_boundary, velocity.bounds, velocity.resolution)
+            hard_bcs = field.stagger(accessible, math.minimum, velocity.boundary, at=velocity.sampled_at, dims=velocity.vector.item_names)
+        active = accessible.with_extrapolation(extrapolation.NONE) if active is None else active * accessible  # no pressure inside obstacles
+        velocity = apply_boundary_conditions(velocity, obstacles)
+    if active is not None:
+        div *= active  # inactive cells must solvable
     assert not channel(div), f&#34;Divergence must not have any channel dimensions. This is likely caused by an improper velocity field v={input_velocity}&#34;
+    # --- Linear solve for pressure ---
     if not all_active:  # NaN in velocity allowed
         div = field.where(field.is_finite(div), div, 0)
     if not input_velocity.extrapolation.is_flexible and all_active:
         solve = solve.with_preprocessing(_balance_divergence, active)
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
-        solve = copy_with(solve, x0=CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution, convert=False))
-    if (batch(math.merge_shapes(*obstacles)) &amp; batch(velocity.dx)).without(batch(solve.x0.values)):  # The initial pressure guess must contain all batch dimensions
-        solve = copy_with(solve, x0=solve.x0.with_values(expand(solve.x0.values, batch(math.merge_shapes(*obstacles)) &amp; batch(velocity.dx))))
-    pressure = math.solve_linear(masked_laplace, div, solve, hard_bcs, active, order=order)
+        solve = copy_with(solve, x0=Field(div.geometry, 0, pressure_extrapolation))  # convert=False
+    if (batch(math.merge_shapes(*obstacles)) &amp; batch(velocity)).without(batch(solve.x0.values)):  # The initial pressure guess must contain all batch dimensions
+        solve = copy_with(solve, x0=solve.x0.with_values(expand(solve.x0.values, batch(math.merge_shapes(*obstacles)) &amp; batch(velocity))))
+    pressure = math.solve_linear(masked_laplace, div, solve, velocity.boundary, hard_bcs, active, wide_stencil=False, order=order, implicit=None, upwind=None, correct_skew=correct_skew)
     # --- Subtract grad p ---
-    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, dims=velocity.vector.item_names, at=velocity.sampled_at, order=order) * hard_bcs
+    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, at=velocity.sampled_at, order=order, scheme=&#39;green-gauss&#39;)
+    if hard_bcs is not None:
+        grad_pressure *= hard_bcs
     velocity = (velocity - grad_pressure).with_extrapolation(input_velocity.extrapolation)
     return velocity, pressure</code></pre>
 </details>
