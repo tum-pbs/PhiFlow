@@ -87,8 +87,7 @@ def laplace(u: Field,
         nb_distances = u.mesh.neighbor_distances
         connecting_grad = (u.mesh.connectivity * neighbor_val - u.values) / nb_distances  # (T_N - T_P) / d_PN
         if correct_skew and gradient is not None:  # skewness correction
-            assert dual(gradient), f"prev_grad must contain a dual dimension listing the gradient components"
-            gradient = rename_dims(gradient, dual, 'vector')
+            assert dual(gradient).names == ('~vector',), f"gradient must contain one dual dim '~vector' listing the gradient components but got {gradient.shape}"
             gradient = gradient.at_faces(boundary=NONE, order=order, upwind=upwind).values
             nb_offsets = u.mesh.neighbor_offsets
             n1 = (u.face_normals.vector @ nb_offsets.vector) * nb_offsets / nb_distances ** 2  # (n·d_PN) d_PN / d_PN^2
