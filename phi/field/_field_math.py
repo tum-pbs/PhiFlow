@@ -322,7 +322,7 @@ def shift(grid: Field, offsets: tuple, stack_dim: Optional[Shape] = channel('shi
 
 def stagger(field: Field,
             face_function: Callable,
-            extrapolation: float or math.extrapolation.Extrapolation,
+            boundary: float or math.extrapolation.Extrapolation,
             at='face',
             dims=spatial):
     """
@@ -336,20 +336,20 @@ def stagger(field: Field,
     Args:
         field: Grid
         face_function: function mapping (value1: Tensor, value2: Tensor) -> center_value: Tensor
-        extrapolation: extrapolation mode of the returned grid. Has no effect on the values.
+        boundary: extrapolation mode of the returned grid. Has no effect on the values.
         at: Where the result should be sampled, one of 'face', 'center'
+        dims: Which dimensions to stagger. Defaults to all spatial axes.
 
     Returns:
-        grid of type matching the `type` argument
-
+        Grid sampled either at centers or faces depending on `at`.
     """
-    extrapolation = as_boundary(extrapolation, field.geometry)
+    boundary = as_boundary(boundary, field.geometry)
     all_lower = []
     all_upper = []
     dims = field.shape.only(dims, reorder=True).names
     if at == 'face':
         for dim in dims:
-            valid_lo, valid_up = extrapolation.valid_outer_faces(dim)
+            valid_lo, valid_up = boundary.valid_outer_faces(dim)
             if valid_lo and valid_up:
                 width_lower, width_upper = {dim: (1, 0)}, {dim: (0, 1)}
             elif valid_lo and not valid_up:
@@ -364,14 +364,14 @@ def stagger(field: Field,
         all_upper = math.stack(all_upper, dual(vector=dims))
         all_lower = math.stack(all_lower, dual(vector=dims))
         values = face_function(all_lower, all_upper)
-        result = Field(field.geometry, values, extrapolation)
+        result = Field(field.geometry, values, boundary)
         assert result.resolution == field.resolution
         return result
     else:
         assert at == 'center', f"type must be 'face' or 'center' but got '{at}'"
         left, right = math.shift(field.values, (-1, 1), dims=dims, padding=field.extrapolation, stack_dim=channel('vector'))
         values = face_function(left, right)
-        return CenteredGrid(values, bounds=field.bounds, extrapolation=extrapolation)
+        return CenteredGrid(values, boundary, field.bounds)
 
 
 def divergence(field: Field, order=2, implicit: Solve = None, upwind: Field = None) -> CenteredGrid:
