@@ -141,7 +141,7 @@ class Mesh(Geometry):
         for name, b_slice in widths.items():
             if b_slice[dim].stop - b_slice[dim].start > 0:
                 slices.append(b_slice[dim])
-                values.append(mode.sparse_pad_values(value, connectivity[b_slice], name, **kwargs))
+                values.append(mode.sparse_pad_values(value, connectivity[b_slice], name, mesh=self, **kwargs))
         perm = np.argsort([s.start for s in slices])
         ordered_pieces = [values[i] for i in perm]
         return concat(ordered_pieces, dim, expand_values=True)
