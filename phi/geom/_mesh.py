@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 from numbers import Number
-from typing import Dict, List, Sequence, Union, Any
+from typing import Dict, List, Sequence, Union, Any, Tuple, Optional
 
 import numpy as np
 from phi.geom import UniformGrid, Box
 
-from phiml.math import to_format, is_sparse, unstack, non_channel, non_batch, batch
+from phiml.math import to_format, is_sparse, unstack, non_channel, non_batch, batch, pack_dims
 from phiml.math.extrapolation import as_extrapolation
 from phiml.math.magic import slicing_dict
 from ._geom import Geometry, Point
@@ -471,6 +471,7 @@ def build_mesh(bounds: Box = None,
                method='quad',
                cell_dim: Shape = instance('cells'),
                face_format: str = 'csc',
+               max_squish: Optional[float] = None,
                **resolution_: Union[int, Tensor, tuple, list, Any]) -> Mesh:
     """
     Build a mesh for a given domain, respecting obstacles.
@@ -505,17 +506,37 @@ def build_mesh(bounds: Box = None,
             resolution = resolution & spatial(**resolution_)
             vert_pos = math.meshgrid(resolution + 1) / resolution * bounds.size + bounds.lower
             # centroids = UniformGrid(resolution, bounds).center
-        return quadrilaterals(vert_pos, resolution, obstacles, cell_dim=cell_dim, face_format=face_format)
+        vert_pos, polygons, boundaries = build_quadrilaterals(vert_pos, resolution, obstacles)
+        if max_squish is not None:
+            dx = {dim: (wrap(x[1:]) - wrap(x[:-1])) for dim, x in resolution_.items()}
+            regular_size = min([s.min for s in dx.values()])
+            lin_vert_pos = pack_dims(vert_pos, spatial, instance('polygon'))
+            corner_pos = lin_vert_pos[polygons]
+            min_pos = math.min(corner_pos, '~polygon')
+            max_pos = math.max(corner_pos, '~polygon')
+            cell_sizes = math.min(max_pos - min_pos, 'vector')
+            too_small = cell_sizes < regular_size * max_squish
+            # --- remove too small cells ---
+            removed = polygons[too_small]
+            removed_centers = math.mean(lin_vert_pos[removed], '~polygon')
+            kept_vert = removed[{'~polygon': 0}]
+            vert_pos = math.scatter(lin_vert_pos, kept_vert, removed_centers)
+            vertex_map = math.range(non_channel(lin_vert_pos))
+            vertex_map = math.scatter(vertex_map, rename_dims(removed, '~polygon', instance('poly_list')), expand(kept_vert, instance(poly_list=4)))
+            polygons = polygons[~too_small]
+            polygons = vertex_map[polygons]
+            boundaries = {boundary: vertex_map[edge_list] for boundary, edge_list in boundaries.items()}
+            boundaries = {boundary: edge_list[edge_list[{'~vert': 'start'}] != edge_list[{'~vert': 'end'}]] for boundary, edge_list in boundaries.items()}
+            # ToDo remove eges which now point to the same vertex
+        points_np = math.reshaped_numpy(vert_pos, [..., channel])
+        polygon_list = math.reshaped_numpy(polygons, [..., dual])
+        boundaries = {b: edges.numpy('edges,~vert') for b, edges in boundaries.items()}
+        return mesh_from_numpy(points_np, polygon_list, boundaries, cell_dim=cell_dim, face_format=face_format)
 
 
-def quadrilaterals(vert_pos,
-                   resolution: Shape,
-                   obstacles: Dict[str, Geometry],
-                   cell_dim: Shape,
-                   face_format: str) -> Mesh:
-    # --- process args ---
+def build_quadrilaterals(vert_pos, resolution: Shape, obstacles: Dict[str, Geometry]) -> Tuple[Tensor, Tensor, dict]:
     vert_id = math.range_tensor(resolution + 1)
-    # --- obstacles ---
+    # --- obstacles: mask and boundaries ---
     boundaries = {}
     full_mask = expand(False, resolution)
     for boundary, obstacle in obstacles.items():
@@ -526,17 +547,24 @@ def quadrilaterals(vert_pos,
         lo, up = math.shift(obs_mask_cell, (0, 1), padding=None)
         face_mask = lo != up
         for dim, dim_mask in dict(**face_mask.shift).items():
-            dim_mask = face_mask.shift[dim]
             face_verts = vert_id[{dim: slice(1, -1)}]
             start_vert = face_verts[{d: slice(None, -1) for d in resolution.names if d != dim}]
             end_vert = face_verts[{d: slice(1, None) for d in resolution.names if d != dim}]
-            edge_list = [(s, e) for s, e, m in zip(start_vert, end_vert, dim_mask) if m]
-            boundaries.setdefault(boundary, []).extend(edge_list)
+            mask_indices = math.nonzero(face_mask.shift[dim], list_dim=instance('edges'))
+            edges = stack([start_vert[mask_indices], end_vert[mask_indices]], dual(vert='start,end'))
+            boundaries.setdefault(boundary, []).append(edges)
+            # edge_list = [(s, e) for s, e, m in zip(start_vert, end_vert, dim_mask) if m]
+            # boundaries.setdefault(boundary, []).extend(edge_list)
         full_mask |= obs_mask_cell
+    boundaries = {boundary: concat(edge_tensors, 'edges') for boundary, edge_tensors in boundaries.items()}
     # --- outer boundaries ---
     def all_faces(ids: Tensor, edge_mask: Tensor, dim):
         assert ids.rank == 1
-        return [(i, j) for i, j, m in zip(ids[:-1], ids[1:], edge_mask) if not m]
+        mask_indices = math.nonzero(~edge_mask, list_dim=instance('edges'))
+        start_vert = ids[:-1]
+        end_vert = ids[1:]
+        return stack([start_vert[mask_indices], end_vert[mask_indices]], dual(vert='start,end'))
+        # return [(i, j) for i, j, m in zip(ids[:-1], ids[1:], edge_mask) if not m]
     for dim in resolution.names:
         boundaries[dim+'-'] = all_faces(vert_id[{dim: 0}], full_mask[{dim: 0}], dim)
         boundaries[dim+'+'] = all_faces(vert_id[{dim: -1}], full_mask[{dim: -1}], dim)
@@ -548,17 +576,14 @@ def quadrilaterals(vert_pos,
         c2 = vert_id[{d1: slice(0, -1), d2: slice(1, None)}]
         c3 = vert_id[{d1: slice(1, None), d2: slice(1, None)}]
         c4 = vert_id[{d1: slice(1, None), d2: slice(0, -1)}]
-        polygons = stack([c1, c2, c3, c4], channel('polygon'))
+        polygons = stack([c1, c2, c3, c4], dual('polygon'))
         polygons = polygons[cell_indices]
-        polygon_list = math.reshaped_numpy(polygons, [..., channel])
     else:
         raise NotImplementedError(resolution.rank)
-    # --- move vertices outside of obstacle ---
+    # --- push vertices out of obstacles ---
     ext_mask = math.pad(~full_mask, {d: (0, 1) for d in resolution.names}, False)
     has_cell = math.convolve(ext_mask, expand(1, resolution.with_sizes(2)), math.extrapolation.ZERO)  # vertices without a cell could be removed to improve memory/cache efficiency
     for obstacle in obstacles.values():
         shifted_verts = obstacle.push(vert_pos)
         vert_pos = math.where(has_cell, shifted_verts, vert_pos)
-    # --- build mesh data ---
-    points_np = math.reshaped_numpy(vert_pos, [spatial, channel])
-    return mesh_from_numpy(points_np, polygon_list, boundaries, cell_dim=cell_dim, face_format=face_format)
+    return vert_pos, polygons, boundaries
