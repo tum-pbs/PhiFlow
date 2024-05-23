@@ -6908,16 +6908,19 @@ Each value samples the SDF value at the center of a virtual cell.</dd>
         float_idx = (location - self._bounds.lower) / self.size * self.resolution
         sdf_val = math.grid_sample(self._sdf, float_idx - .5, math.extrapolation.ZERO_GRADIENT)
         sdf_grad = math.grid_sample(self._grad, float_idx - 1, math.extrapolation.ZERO_GRADIENT)
-        normal = math.vec_normalize(sdf_grad)
+        sdf_grad = math.vec_normalize(sdf_grad)  # theoretically not necessary
         sgn_dist = sdf_val
         if self._approximate_outside:
             within_bounds = self._bounds.lies_inside(location)
             from_center = location - self._center
             dist_from_center = math.vec_length(from_center) - self._bounding_radius
             sgn_dist = math.where(within_bounds, sdf_val, dist_from_center)
-            normal = math.where(within_bounds, normal, math.vec_normalize(from_center))
-        delta = sgn_dist * -normal
+            sdf_grad = math.where(within_bounds, sdf_grad, math.vec_normalize(from_center))
+        delta = sgn_dist * -sdf_grad
         surface_pos = location + delta
+        surf_float_idx = (surface_pos - self._bounds.lower) / self.size * self.resolution
+        normal = math.grid_sample(self._grad, surf_float_idx - 1, math.extrapolation.ZERO_GRADIENT)
+        normal = math.vec_normalize(normal)
         face_index = expand(0, non_channel(location))
         offset = normal.vector @ surface_pos.vector
         return sgn_dist, delta, normal, offset, face_index
@@ -7222,16 +7225,19 @@ Positive values indicate the point lies outside the geometry, negative values in
     float_idx = (location - self._bounds.lower) / self.size * self.resolution
     sdf_val = math.grid_sample(self._sdf, float_idx - .5, math.extrapolation.ZERO_GRADIENT)
     sdf_grad = math.grid_sample(self._grad, float_idx - 1, math.extrapolation.ZERO_GRADIENT)
-    normal = math.vec_normalize(sdf_grad)
+    sdf_grad = math.vec_normalize(sdf_grad)  # theoretically not necessary
     sgn_dist = sdf_val
     if self._approximate_outside:
         within_bounds = self._bounds.lies_inside(location)
         from_center = location - self._center
         dist_from_center = math.vec_length(from_center) - self._bounding_radius
         sgn_dist = math.where(within_bounds, sdf_val, dist_from_center)
-        normal = math.where(within_bounds, normal, math.vec_normalize(from_center))
-    delta = sgn_dist * -normal
+        sdf_grad = math.where(within_bounds, sdf_grad, math.vec_normalize(from_center))
+    delta = sgn_dist * -sdf_grad
     surface_pos = location + delta
+    surf_float_idx = (surface_pos - self._bounds.lower) / self.size * self.resolution
+    normal = math.grid_sample(self._grad, surf_float_idx - 1, math.extrapolation.ZERO_GRADIENT)
+    normal = math.vec_normalize(normal)
     face_index = expand(0, non_channel(location))
     offset = normal.vector @ surface_pos.vector
     return sgn_dist, delta, normal, offset, face_index</code></pre>
