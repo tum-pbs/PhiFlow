@@ -99,9 +99,7 @@ class Sphere(Geometry):
           float tensor of shape (*location.shape[:-1], 1).
 
         """
-        distance_squared = math.vec_squared(location - self.center)
-        distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite spatial_gradient at sphere center
-        distance = math.sqrt(distance_squared)
+        distance = math.vec_length(location - self._center, eps=1e-3)
         return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions
 
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
