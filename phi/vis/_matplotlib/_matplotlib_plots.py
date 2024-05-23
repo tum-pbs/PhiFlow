@@ -16,7 +16,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from phi import math
 from phi.field import StaggeredGrid, Field
-from phi.geom import Sphere, BaseBox, Point, Box, Mesh, Graph
+from phi.geom import Sphere, BaseBox, Point, Box, Mesh, Graph, SDFGrid
 from phi.geom._heightmap import Heightmap
 from phi.geom._geom_ops import GeometryStack
 from phi.geom._transform import _EmbeddedGeometry
@@ -687,6 +687,12 @@ class PointCloud2D(Recipe):
                 else:
                     for i, (x1_, x2_, y1_, y2_, col) in enumerate(zip(x1, x2, y1, y2, edge_colors)):
                         axis.plot([x1_, x2_], [y1_, y2_], color=col, alpha=alphas[0])
+            elif isinstance(data.geometry, SDFGrid):
+                d = data.geometry.values.numpy(dims)
+                x, y = data.geometry.points.numpy(('vector',) + dims)
+                x = x[:, 0]
+                y = y[0, :]
+                axis.contourf(x, y, d.T, levels=[float('-inf'), 0], colors=[mpl_colors[0]], alpha=alphas[0])
             else:
                 rad = reshaped_numpy(data.geometry.bounding_radius(), [data.shape.non_channel])
                 shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=a, facecolor=ci) for xi, yi, ri, ci, a in zip(x, y, rad, mpl_colors, alphas)]
@@ -824,20 +830,6 @@ class PointCloud3D(Recipe):
                             subplot.plot(xs[:, i], ys[:, i], zs[:, i], color=col, alpha=alpha_f)
                             if isinstance(data.geometry, Point) and 2 < spatial(data.geometry).volume < 100:
                                 subplot.scatter(xs[:, i], ys[:, i], zs[:, i], s=3, marker='o', c=col, alpha=alphas)
-
-# class Mesh2D(Recipe):
-#
-#     def can_plot(self, data: Field, space: Box) -> bool:
-#         return data.is_mesh and data.spatial_rank == 2
-#
-#     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
-#         dims = space.vector.item_names
-#         point_cloud = PointCloud(data.geometry, data.values, data.extrapolation, bounds=data.bounds)
-#         PointCloud2D().plot(point_cloud, figure, subplot, space, min_val, max_val, show_color_bar, color, alpha, err)
-#         i, j = math.nonzero(data.edges).vector
-#         i_x, i_y = reshaped_numpy(data.points[{instance(data).name: i}][dims], ['vector', 'nonzero'])
-#         j_x, j_y = reshaped_numpy(data.points[{instance(data).name: j}][dims], ['vector', 'nonzero'])
-#         subplot.plot(np.stack([i_x, j_x]), np.stack([i_y, j_y]), color=_plt_col(color), alpha=float(alpha.max))
 
 
 def _plt_col(col):
