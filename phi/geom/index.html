@@ -6920,6 +6920,7 @@ Each value samples the SDF value at the center of a virtual cell.</dd>
         surface_pos = location + delta
         surf_float_idx = (surface_pos - self._bounds.lower) / self.size * self.resolution
         normal = math.grid_sample(self._grad, surf_float_idx - 1, math.extrapolation.ZERO_GRADIENT)
+        normal = math.where(self._bounds.lies_inside(surface_pos), normal, sdf_grad)  # use current normal if surface point is outside SDF grid
         normal = math.vec_normalize(normal)
         face_index = expand(0, non_channel(location))
         offset = normal.vector @ surface_pos.vector
@@ -7237,6 +7238,7 @@ Positive values indicate the point lies outside the geometry, negative values in
     surface_pos = location + delta
     surf_float_idx = (surface_pos - self._bounds.lower) / self.size * self.resolution
     normal = math.grid_sample(self._grad, surf_float_idx - 1, math.extrapolation.ZERO_GRADIENT)
+    normal = math.where(self._bounds.lies_inside(surface_pos), normal, sdf_grad)  # use current normal if surface point is outside SDF grid
     normal = math.vec_normalize(normal)
     face_index = expand(0, non_channel(location))
     offset = normal.vector @ surface_pos.vector
