@@ -5,8 +5,8 @@ import numpy as np
 
 from phi import math
 from phi.math import DimFilter
-from phiml.math import rename_dims, vec, stack
-from phiml.math._shape import parse_dim_order, dual
+from phiml.math import rename_dims, vec, stack, expand
+from phiml.math._shape import parse_dim_order, dual, non_channel
 from ._geom import Geometry, _keep_vector
 from ..math import wrap, INF, Shape, channel, Tensor
 from ..math.magic import slicing_dict
@@ -126,10 +126,20 @@ class BaseBox(Geometry):  # not a Subwoofer
 
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         loc_to_center = self.global_to_local(location, scale=False, origin='center')
-        sgn_dist_from_surface = math.abs(loc_to_center) - self.half_size
-        normal_if_inside = (sgn_dist_from_surface == math.max(sgn_dist_from_surface, 'vector')) & (sgn_dist_from_surface < 0)
-        raise NotImplementedError
-        # return signed_dist, delta, normals, offsets, face_idx
+        sgn_surf_delta = math.abs(loc_to_center) - self.half_size
+        # is_inside = math.all(sgn_surf_delta < 0, 'vector')
+        # abs_surf_delta = abs(sgn_surf_delta)
+        max_sgn_dist = math.max(sgn_surf_delta, 'vector')
+        normal_axis = max_sgn_dist == sgn_surf_delta
+        normal = math.vec_normalize(normal_axis * math.sign(loc_to_center))
+        surf_to_center = math.where(normal_axis, math.sign(loc_to_center) * self.half_size, loc_to_center)
+        closest_to_center = math.clip(surf_to_center, -self.half_size, self.half_size)
+        surface_pos = self.local_to_global(closest_to_center, scale=False, origin='center')
+        delta = surface_pos - location
+        face_index = expand(0, non_channel(location))
+        offset = normal.vector @ surface_pos.vector
+        sgn_surf_dist = math.vec_length(delta) * math.sign(max_sgn_dist)
+        return sgn_surf_dist, delta, normal, offset, face_index
 
     def project(self, *dimensions: str):
         """ Project this box into a lower-dimensional space. """
