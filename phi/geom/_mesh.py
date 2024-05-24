@@ -74,7 +74,7 @@ class Mesh(Geometry):
         # e_face =
 
     def __variable_attrs__(self):
-        return '_vertices', '_center', '_volume', '_faces', '_valid_mask', '_face_vertices', '_relative_face_distance', '_neighbor_offsets'
+        return '_vertices', '_polygons', '_vertex_count', '_center', '_volume', '_faces', '_valid_mask', '_face_vertices', '_relative_face_distance', '_neighbor_offsets'
 
     def __value_attrs__(self):
         return '_vertices',
@@ -528,10 +528,12 @@ def build_mesh(bounds: Box = None,
             boundaries = {boundary: vertex_map[edge_list] for boundary, edge_list in boundaries.items()}
             boundaries = {boundary: edge_list[edge_list[{'~vert': 'start'}] != edge_list[{'~vert': 'end'}]] for boundary, edge_list in boundaries.items()}
             # ToDo remove eges which now point to the same vertex
-        points_np = math.reshaped_numpy(vert_pos, [..., channel])
-        polygon_list = math.reshaped_numpy(polygons, [..., dual])
-        boundaries = {b: edges.numpy('edges,~vert') for b, edges in boundaries.items()}
-        return mesh_from_numpy(points_np, polygon_list, boundaries, cell_dim=cell_dim, face_format=face_format)
+        def build_single_mesh(vert_pos, polygons, boundaries):
+            points_np = math.reshaped_numpy(vert_pos, [..., channel])
+            polygon_list = math.reshaped_numpy(polygons, [..., dual])
+            boundaries = {b: edges.numpy('edges,~vert') for b, edges in boundaries.items()}
+            return mesh_from_numpy(points_np, polygon_list, boundaries, cell_dim=cell_dim, face_format=face_format)
+        return math.map(build_single_mesh, vert_pos, polygons, boundaries, dims=batch)
 
 
 def build_quadrilaterals(vert_pos, resolution: Shape, obstacles: Dict[str, Geometry]) -> Tuple[Tensor, Tensor, dict]:
