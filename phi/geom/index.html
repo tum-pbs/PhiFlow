@@ -177,10 +177,12 @@ This allows for variable cell stretching.</dd>
             boundaries = {boundary: vertex_map[edge_list] for boundary, edge_list in boundaries.items()}
             boundaries = {boundary: edge_list[edge_list[{&#39;~vert&#39;: &#39;start&#39;}] != edge_list[{&#39;~vert&#39;: &#39;end&#39;}]] for boundary, edge_list in boundaries.items()}
             # ToDo remove eges which now point to the same vertex
-        points_np = math.reshaped_numpy(vert_pos, [..., channel])
-        polygon_list = math.reshaped_numpy(polygons, [..., dual])
-        boundaries = {b: edges.numpy(&#39;edges,~vert&#39;) for b, edges in boundaries.items()}
-        return mesh_from_numpy(points_np, polygon_list, boundaries, cell_dim=cell_dim, face_format=face_format)</code></pre>
+        def build_single_mesh(vert_pos, polygons, boundaries):
+            points_np = math.reshaped_numpy(vert_pos, [..., channel])
+            polygon_list = math.reshaped_numpy(polygons, [..., dual])
+            boundaries = {b: edges.numpy(&#39;edges,~vert&#39;) for b, edges in boundaries.items()}
+            return mesh_from_numpy(points_np, polygon_list, boundaries, cell_dim=cell_dim, face_format=face_format)
+        return math.map(build_single_mesh, vert_pos, polygons, boundaries, dims=batch)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.concat"><code class="name flex">
@@ -1182,10 +1184,20 @@ A point lies inside the union if it lies within at least one of the geometries.<
 
     def approximate_closest_surface(self, location: Tensor) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         loc_to_center = self.global_to_local(location, scale=False, origin=&#39;center&#39;)
-        sgn_dist_from_surface = math.abs(loc_to_center) - self.half_size
-        normal_if_inside = (sgn_dist_from_surface == math.max(sgn_dist_from_surface, &#39;vector&#39;)) &amp; (sgn_dist_from_surface &lt; 0)
-        raise NotImplementedError
-        # return signed_dist, delta, normals, offsets, face_idx
+        sgn_surf_delta = math.abs(loc_to_center) - self.half_size
+        # is_inside = math.all(sgn_surf_delta &lt; 0, &#39;vector&#39;)
+        # abs_surf_delta = abs(sgn_surf_delta)
+        max_sgn_dist = math.max(sgn_surf_delta, &#39;vector&#39;)
+        normal_axis = max_sgn_dist == sgn_surf_delta
+        normal = math.vec_normalize(normal_axis * math.sign(loc_to_center))
+        surf_to_center = math.where(normal_axis, math.sign(loc_to_center) * self.half_size, loc_to_center)
+        closest_to_center = math.clip(surf_to_center, -self.half_size, self.half_size)
+        surface_pos = self.local_to_global(closest_to_center, scale=False, origin=&#39;center&#39;)
+        delta = surface_pos - location
+        face_index = expand(0, non_channel(location))
+        offset = normal.vector @ surface_pos.vector
+        sgn_surf_dist = math.vec_length(delta) * math.sign(max_sgn_dist)
+        return sgn_surf_dist, delta, normal, offset, face_index
 
     def project(self, *dimensions: str):
         &#34;&#34;&#34; Project this box into a lower-dimensional space. &#34;&#34;&#34;
@@ -1534,10 +1546,20 @@ Positive values indicate the point lies outside the geometry, negative values in
 </summary>
 <pre><code class="python">def approximate_closest_surface(self, location: Tensor) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
     loc_to_center = self.global_to_local(location, scale=False, origin=&#39;center&#39;)
-    sgn_dist_from_surface = math.abs(loc_to_center) - self.half_size
-    normal_if_inside = (sgn_dist_from_surface == math.max(sgn_dist_from_surface, &#39;vector&#39;)) &amp; (sgn_dist_from_surface &lt; 0)
-    raise NotImplementedError
-    # return signed_dist, delta, normals, offsets, face_idx</code></pre>
+    sgn_surf_delta = math.abs(loc_to_center) - self.half_size
+    # is_inside = math.all(sgn_surf_delta &lt; 0, &#39;vector&#39;)
+    # abs_surf_delta = abs(sgn_surf_delta)
+    max_sgn_dist = math.max(sgn_surf_delta, &#39;vector&#39;)
+    normal_axis = max_sgn_dist == sgn_surf_delta
+    normal = math.vec_normalize(normal_axis * math.sign(loc_to_center))
+    surf_to_center = math.where(normal_axis, math.sign(loc_to_center) * self.half_size, loc_to_center)
+    closest_to_center = math.clip(surf_to_center, -self.half_size, self.half_size)
+    surface_pos = self.local_to_global(closest_to_center, scale=False, origin=&#39;center&#39;)
+    delta = surface_pos - location
+    face_index = expand(0, non_channel(location))
+    offset = normal.vector @ surface_pos.vector
+    sgn_surf_dist = math.vec_length(delta) * math.sign(max_sgn_dist)
+    return sgn_surf_dist, delta, normal, offset, face_index</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.approximate_signed_distance"><code class="name flex">
@@ -5524,7 +5546,7 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
         # e_face =
 
     def __variable_attrs__(self):
-        return &#39;_vertices&#39;, &#39;_center&#39;, &#39;_volume&#39;, &#39;_faces&#39;, &#39;_valid_mask&#39;, &#39;_face_vertices&#39;, &#39;_relative_face_distance&#39;, &#39;_neighbor_offsets&#39;
+        return &#39;_vertices&#39;, &#39;_polygons&#39;, &#39;_vertex_count&#39;, &#39;_center&#39;, &#39;_volume&#39;, &#39;_faces&#39;, &#39;_valid_mask&#39;, &#39;_face_vertices&#39;, &#39;_relative_face_distance&#39;, &#39;_neighbor_offsets&#39;
 
     def __value_attrs__(self):
         return &#39;_vertices&#39;,
