@@ -76,20 +76,18 @@ making it easy to build end-to-end differentiable functions involving both learn
 
 ### Mesh
 
-Meshes are new in Φ<sub>Flow</sub> 3.0. We are working on the demos!
-
 <table>
     <tbody>
         <tr>
-            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/mesh/.html"><img src="docs/figures/examples/mesh/"></a></td>
-            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/mesh/.html"><img src="docs/figures/examples/mesh/"></a></td>
-            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/mesh/.html"><img src="docs/figures/examples/mesh/"></a></td>
-            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/mesh/.html"><img src="docs/figures/examples/mesh/"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/mesh/FVM_Fluid.html"><img src="docs/figures/examples/mesh/FVM_Fluid.png"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/mesh/FVM_Heat.html"><img src="docs/figures/examples/mesh/FVM_Heat.png"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/mesh/Build_Mesh.html"><img src="docs/figures/examples/mesh/Build_Mesh.png"></a></td>
         </tr>
         <tr>
             <td align="center">FVM fluid</td>
             <td align="center">Heat flow</td>
             <td align="center">Mesh construction</td>
+            <td style="width: 25%;"></td>
         </tr>
     </tbody>
 </table>
