@@ -1,8 +1,8 @@
 from numbers import Number
-from typing import Union, Tuple, Dict, Any
+from typing import Union, Tuple, Dict, Any, Optional, Sequence
 
 from phiml import math
-from phiml.math import Shape, Tensor, spatial, channel, non_spatial, expand, non_channel, instance
+from phiml.math import Shape, Tensor, spatial, channel, non_spatial, expand, non_channel, instance, stack, batch
 from . import UniformGrid
 from ._geom import Geometry
 from ._box import Box
@@ -188,7 +188,13 @@ class SDFGrid(Geometry):
         return SDFGrid(self._sdf[item], self._bounds[item], self._approximate_outside, self._grad[item], self._center[item], self._volume[item], self._bounding_radius[item])
 
 
-def sdf_from_geometry(geometry: Geometry, bounds: Box, resolution: Shape = math.EMPTY_SHAPE, approximate_outside=True, **resolution_: int) -> SDFGrid:
+def sdf_from_geometry(geometry: Geometry,
+                      bounds: Box,
+                      resolution: Shape = math.EMPTY_SHAPE,
+                      approximate_outside=True,
+                      rebuild: Optional[str] ='auto',
+                      valid_dist=None,
+                      **resolution_: int) -> SDFGrid:
     """
     Build a grid of signed distance values for a given `Geometry` object.
 
@@ -196,8 +202,11 @@ def sdf_from_geometry(geometry: Geometry, bounds: Box, resolution: Shape = math.
         geometry: `Geometry` to capture.
         bounds: Grid limits in world space.
         resolution: Grid resolution.
-        approximate_outside: Whether queries outside the SDF grid should return approximate values. This requires additional computations.
         **resolution_: Grid resolution as `kwargs`, e.g. `x=64, y=32`.
+        approximate_outside: Whether queries outside the SDF grid should return approximate values. This requires additional computations.
+        rebuild: If `'from-surface'`, SDF values are calculated from a narrow strip above the enclosed surface. This is more accurate but requires additional steps.
+            If `None`, SDF values are queried from `geometry`.
+            The default `'auto'` rebuilds when geometry quierying is expected to be in accurate.
 
     Returns:
         SDF grid as `Geometry`.
@@ -209,8 +218,53 @@ def sdf_from_geometry(geometry: Geometry, bounds: Box, resolution: Shape = math.
         center = math.mean(geometry.center, instance)
         volume = None
         bounding_radius = None
+        rebuild = 'from-surface' if rebuild == 'auto' else rebuild
     else:
         center = geometry.center
         volume = geometry.volume
         bounding_radius = geometry.bounding_radius()
+        rebuild = None if rebuild == 'auto' else rebuild
+    approximate = SDFGrid(sdf, bounds, approximate_outside, center=center, volume=volume, bounding_radius=bounding_radius)
+    if rebuild is None:
+        return approximate
+    assert rebuild in ['from-surface']
+    dx = bounds.size / resolution
+    min_dist = math.sum(dx ** 2) ** (1 / geometry.spatial_rank)
+    valid_dist = math.maximum(min_dist, valid_dist) if valid_dist is not None else min_dist
+    sdf = rebuild_sdf(approximate, 0, valid_dist, refine=[geometry])
     return SDFGrid(sdf, bounds, approximate_outside, center=center, volume=volume, bounding_radius=bounding_radius)
+
+
+def rebuild_sdf(sdf: SDFGrid, min_level=None, max_level=None, step_count: int = None, refine: Sequence[Geometry] = ()) -> Tensor:
+    sample_points = sdf.points
+    dist0, delta, *_ = sdf.approximate_closest_surface(sample_points)
+    closest = sample_points + delta
+    closest = math.where((sdf.values >= min_level) & (sdf.values <= max_level), closest, math.NAN)
+    for _ in range(step_count if step_count is not None else sum(sdf.resolution.sizes)):
+        abs_dist = math.vec_length(closest - sample_points)
+        abs_dist = math.where(math.is_finite(abs_dist), abs_dist, math.INF)
+        if step_count is None and math.all(math.is_finite(abs_dist)):
+            break
+        closest_nb = math.at_min_neighbor(closest, key_grid=abs_dist, padding=math.INF, offsets=(-1, 0, 1), diagonal=False)
+        closest = math.where(math.is_finite(abs_dist), closest, closest_nb)
+    for geo in refine:
+        closest = refine_closest(sample_points, closest, geo, max_level)
+    dist = math.vec_length(closest - sample_points) * math.sign(dist0)
+    return dist
+
+
+def refine_closest(sample_points, closest, refine: Geometry, max_step, steps=10):
+    # trj = [closest]
+    for ref_step in range(steps):
+        sgn_dist, delta, normal, offset, _ = refine.approximate_closest_surface(closest)
+        tang_proj = sample_points - normal * (normal.vector @ sample_points.vector - offset)
+        walk_on_surface = math.clip_length(tang_proj - closest, 0, max_step * min(1, .5 ** (ref_step - steps / 2)))
+        better_closest = (closest + delta) + walk_on_surface
+        closest = math.where(refine.lies_inside(better_closest), closest, better_closest)  # don't walk into negative SDF
+        # trj.append(closest)
+    # from phi.vis import plot
+    # from phi.field import PointCloud
+    # plot(PointCloud(sample_points, stack(trj, batch('t')) - sample_points), animate='t', frame_time=250)
+    _, delta, *_ = refine.approximate_closest_surface(closest)
+    closest += delta
+    return closest

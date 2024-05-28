@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from phi.geom import Box, Sphere, sdf_from_geometry, SDFGrid
 from phiml import math
-from phiml.math import channel
+from phiml.math import channel, vec
 
 
 class TestSDFGrid(TestCase):
@@ -45,3 +45,9 @@ class TestSDFGrid(TestCase):
         math.assert_close(delta_sph, delta_sdf, abs_tolerance=.1)
         math.assert_close(normal_sph, normal_sdf, abs_tolerance=.1)
         math.assert_close(offset_sph, offset_sdf, abs_tolerance=.1)
+
+    def test_sdf_rebuild(self):
+        spheres = Sphere(vec(x=[1, 2], y=1), radius=.8)
+        bounds = Box(x=3, y=2)
+        sdf = sdf_from_geometry(spheres, bounds, x=64, y=64, rebuild='from-surface')
+
