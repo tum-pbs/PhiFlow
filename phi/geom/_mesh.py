@@ -239,7 +239,7 @@ class Mesh(Geometry):
 
     def bounding_half_extent(self) -> Tensor:
         center = self.center
-        vertex_pos = self._vertices.center[self._polygons]
+        vertex_pos = self._vertices.center[{instance: self._polygons}]
         max_delta = math.max(abs(vertex_pos - center) * self._valid_mask, spatial)
         return max_delta
 
@@ -442,8 +442,8 @@ def build_faces_2d(vertices: Tensor,
     indices = wrap(poly_pairs, face_dim, channel(vector=[instance(polygons).name, '~neighbors']))
     point_idx1 = wrap(points1 + points2 + b_points1, face_dim)
     point_idx2 = wrap(points2 + points1 + b_points2, face_dim)
-    loc_points1 = vertices[point_idx1]
-    loc_points2 = vertices[point_idx2]
+    loc_points1 = vertices[{instance: point_idx1}]
+    loc_points2 = vertices[{instance: point_idx2}]
     # --- Compute edge properties ---
     delta = loc_points2 - loc_points1
     area = vec_length(delta)

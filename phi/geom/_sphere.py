@@ -106,7 +106,9 @@ class Sphere(Geometry):
         center_delta = location - self.center
         center_dist = math.vec_length(center_delta)
         sgn_dist = center_dist - self.radius
-        normal = center_delta / center_dist
+        normal = math.safe_div(center_delta, center_dist)
+        default_normal = wrap([1] + [0] * (self.spatial_rank-1), self.shape['vector'])
+        normal = math.where(center_dist == 0, default_normal, normal)
         surface_pos = self.center + self.radius * normal
         delta = surface_pos - location
         face_index = expand(0, non_channel(location))
