@@ -5711,7 +5711,7 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
 
     def bounding_half_extent(self) -&gt; Tensor:
         center = self.center
-        vertex_pos = self._vertices.center[self._polygons]
+        vertex_pos = self._vertices.center[{instance: self._polygons}]
         max_delta = math.max(abs(vertex_pos - center) * self._valid_mask, spatial)
         return max_delta
 
@@ -6141,7 +6141,7 @@ Then, no point of the geometry lies further away from its center point than <cod
 </summary>
 <pre><code class="python">def bounding_half_extent(self) -&gt; Tensor:
     center = self.center
-    vertex_pos = self._vertices.center[self._polygons]
+    vertex_pos = self._vertices.center[{instance: self._polygons}]
     max_delta = math.max(abs(vertex_pos - center) * self._valid_mask, spatial)
     return max_delta</code></pre>
 </details>
@@ -7603,7 +7603,9 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
         center_delta = location - self.center
         center_dist = math.vec_length(center_delta)
         sgn_dist = center_dist - self.radius
-        normal = center_delta / center_dist
+        normal = math.safe_div(center_delta, center_dist)
+        default_normal = wrap([1] + [0] * (self.spatial_rank-1), self.shape[&#39;vector&#39;])
+        normal = math.where(center_dist == 0, default_normal, normal)
         surface_pos = self.center + self.radius * normal
         delta = surface_pos - location
         face_index = expand(0, non_channel(location))
@@ -7934,7 +7936,9 @@ Positive values indicate the point lies outside the geometry, negative values in
     center_delta = location - self.center
     center_dist = math.vec_length(center_delta)
     sgn_dist = center_dist - self.radius
-    normal = center_delta / center_dist
+    normal = math.safe_div(center_delta, center_dist)
+    default_normal = wrap([1] + [0] * (self.spatial_rank-1), self.shape[&#39;vector&#39;])
+    normal = math.where(center_dist == 0, default_normal, normal)
     surface_pos = self.center + self.radius * normal
     delta = surface_pos - location
     face_index = expand(0, non_channel(location))
