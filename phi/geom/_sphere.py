@@ -1,7 +1,7 @@
 from typing import Union, Dict, Tuple
 
 from phi import math
-from phiml.math import Shape, dual, PI, non_channel
+from phiml.math import Shape, dual, PI, non_channel, instance
 from ._geom import Geometry, _keep_vector, NO_GEOMETRY
 from ..math import wrap, Tensor, expand
 from ..math.magic import slicing_dict
@@ -103,13 +103,17 @@ class Sphere(Geometry):
         return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions
 
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
-        center_delta = location - self.center
+        self_center = self.center
+        self_radius = self.radius
+        center_delta = location - self_center
         center_dist = math.vec_length(center_delta)
-        sgn_dist = center_dist - self.radius
+        sgn_dist = center_dist - self_radius
+        if instance(self):
+            self_center, self_radius, sgn_dist, center_delta, center_dist = math.at_min((self.center, self.radius, sgn_dist, center_delta, center_dist), key=abs(sgn_dist), dim=instance)
         normal = math.safe_div(center_delta, center_dist)
         default_normal = wrap([1] + [0] * (self.spatial_rank-1), self.shape['vector'])
         normal = math.where(center_dist == 0, default_normal, normal)
-        surface_pos = self.center + self.radius * normal
+        surface_pos = self_center + self_radius * normal
         delta = surface_pos - location
         face_index = expand(0, non_channel(location))
         offset = normal.vector @ surface_pos.vector
