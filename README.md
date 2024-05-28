@@ -174,8 +174,8 @@ This will check for compatible PyTorch, Jax and TensorFlow installations as well
 
 ## Features
 
-* Variety of built-in PDE operations with focus on fluid phenomena, allowing for concise formulation of simulations.
 * Tight integration with PyTorch, Jax and TensorFlow for straightforward neural network training with fully differentiable simulations that can [run on the GPU](https://tum-pbs.github.io/PhiFlow/GPU_Execution.html#enabling-gpu-execution).
+* Built-in PDE operations with focus on fluid phenomena, allowing for concise formulation of simulations.
 * Flexible, easy-to-use [web interface](https://tum-pbs.github.io/PhiFlow/Web_Interface.html) featuring live visualizations and interactive controls that can affect simulations or network training on the fly.
 * Object-oriented, vectorized design for expressive code, ease of use, flexibility and extensibility.
 * Reusable simulation code, independent of backend and dimensionality, i.e. the exact same code can run a 2D fluid sim using NumPy and a 3D fluid sim on the GPU using TensorFlow or PyTorch.
@@ -192,18 +192,42 @@ This will check for compatible PyTorch, Jax and TensorFlow installations as well
 Φ-Flow builds on the tensor functionality from [Φ<sub>ML</sub>](https://github.com/tum-pbs/PhiML).
 To understand how Φ<sub>Flow</sub> works, check [named and typed dimensions](https://tum-pbs.github.io/PhiML/Introduction.html) first.
 
-To get started, check out our YouTube tutorial series and the following Jupyter notebooks:
+### Getting started
 
-* [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16>](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Math_Introduction.ipynb) [Tensors](https://tum-pbs.github.io/PhiFlow/Math_Introduction.html): Introduction to tensors.
-* [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16>](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Fluids_Tutorial.ipynb) [Fluids](https://tum-pbs.github.io/PhiFlow/Fluids_Tutorial.html): Introduction to core classes and fluid-related functions.
-* [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16>](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Planets_Tutorial.ipynb) [Solar System](https://tum-pbs.github.io/PhiFlow/Planets_Tutorial.html): Visualize a many-body system with Newtonian gravity.
-* [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16>](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Learn_to_Throw_Tutorial.ipynb) [Learn to Throw](https://tum-pbs.github.io/PhiFlow/Learn_to_Throw_Tutorial.html): Train a neural network to hit a target, comparing supervised and differentiable physics losses.
+* [Installation instructions](https://tum-pbs.github.io/PhiFlow/Installation_Instructions.html)
+* [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16>](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Math_Introduction.ipynb) [Tensors](https://tum-pbs.github.io/PhiFlow/Math_Introduction.html)
+* [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16>](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Fluids_Tutorial.ipynb) [Fluids](https://tum-pbs.github.io/PhiFlow/Fluids_Tutorial.html)
+* [<img src="https://www.tensorflow.org/images/colab_logo_32px.png" height=16>](https://colab.research.google.com/github/tum-pbs/PhiFlow/blob/develop/docs/Cookbook.ipynb) [Cookbook](https://tum-pbs.github.io/PhiFlow/Cookbook.html)
+
+### Physics
+
+* [Grid-based fluids](https://tum-pbs.github.io/PhiFlow/Fluid_Simulation.html)
+* [Higher-order schemes](https://tum-pbs.github.io/PhiFlow/Taylor_Green_Comparison.html)
+
+### Fields
+
+* [Overview](https://tum-pbs.github.io/PhiFlow/Fields.html)
+* [Staggered grids](https://tum-pbs.github.io/PhiFlow/Staggered_Grids.html)
+* [I/O](https://tum-pbs.github.io/PhiFlow/Reading_and_Writing_Data.html) & [scene format](https://tum-pbs.github.io/PhiFlow/Scene_Format_Specification.html)
+
+### Geometry
+
+* [Overview](https://tum-pbs.github.io/PhiFlow/Geometry.html)
+* [Signed distance fields](https://tum-pbs.github.io/PhiFlow/SDF.html)
+* [Heightmaps](https://tum-pbs.github.io/PhiFlow/Heightmaps.html)
+
+### Tensors
+
+* [▶️ Introduction Video](https://youtu.be/4nYwL8ZZDK8)
+* [Introduction Notebook](Math_Introduction.html)
+* [GPU execution](https://tum-pbs.github.io/PhiFlow/GPU_Execution.html#enabling-gpu-execution)
+
+### Other
+
 * [Φ<sub>Flow</sub> to Blender](https://github.com/intergalactic-mammoth/phiflow2blender) 
-
-If you like to work with an IDE, like PyCharm or VS Code, the following demos will also be helpful:
-
-* [smoke_plume.py](demos/smoke_plume.py) runs a smoke simulation and displays it in the web interface.
-* [optimize_pressure.py](demos/differentiate_pressure.py) uses TensorFlow to optimize a velocity field and displays it in the web interface.
+* [What to Avoid](https://tum-pbs.github.io/PhiFlow/Known_Issues.html): How to keep your code compatible with PyTorch, TensorFlow and Jax
+* [Legacy visualization](https://tum-pbs.github.io/PhiFlow/Visualization.html) & [Dash](https://tum-pbs.github.io/PhiFlow/Web_Interface.html) & [Console](https://tum-pbs.github.io/PhiFlow/ConsoleUI.html)
+* [Legacy physics overview](https://tum-pbs.github.io/PhiFlow/Physics.html)
 
 
 ## 📄 Citation
