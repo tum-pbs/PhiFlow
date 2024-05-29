@@ -501,7 +501,12 @@ class StreamPlot2D(Recipe):
         alphas = reshaped_numpy(alpha, [data.shape.without('vector')])
         a = float(alphas[0])
         prev_patches = set(subplot.patches)
-        stream = subplot.streamplot(x, y, u.T, v.T, color=col, cmap=colormaps.get_cmap(matplotlib.rcParams['image.cmap']))
+        try:
+            stream = subplot.streamplot(x, y, u.T, v.T, color=col, cmap=colormaps.get_cmap(matplotlib.rcParams['image.cmap']))
+        except ValueError as err:  # no lines cause
+            if err.args[0] == "need at least one array to concatenate":
+                return
+            raise err
         stream.lines.set_alpha(a)
         new_patches = set(subplot.patches) - prev_patches
         for obj in new_patches:
