@@ -10,7 +10,7 @@ from ._field import Field, FieldInitializer, as_boundary, slice_off_constant_fac
 from phiml.math._tensors import may_vary_along
 
 
-def resample(value: Union[Field, Geometry, Tensor, float, FieldInitializer], to: Field, keep_extrapolation=False, **kwargs):
+def resample(value: Union[Field, Geometry, Tensor, float, FieldInitializer], to: Union[Field, Geometry], keep_boundary=False, **kwargs):
     """
     Samples a `Field`, `Geometry` or value at the sample points of the field `to`.
     The result will approximate `value` on the data structure of `to`.
@@ -27,7 +27,7 @@ def resample(value: Union[Field, Geometry, Tensor, float, FieldInitializer], to:
             This can be
         to: `Field` (`CenteredGrid`, `StaggeredGrid` or `PointCloud`) object defining the sample points.
             The current values of `to` are ignored.
-        keep_extrapolation: Only available if `self` is a `Field`.
+        keep_boundary: Only available if `self` is a `Field`.
             If True, the resampled field will inherit the extrapolation from `self` instead of `representation`.
             This can result in non-compatible value tensors for staggered grids where the tensor size depends on the extrapolation type.
         **kwargs: Sampling arguments, e.g. to specify the numerical scheme.
@@ -48,11 +48,17 @@ def resample(value: Union[Field, Geometry, Tensor, float, FieldInitializer], to:
         >>> field.resample(grid, to=grid) == grid
         True
     """
+    assert isinstance(to, (Field, Geometry)), f"'to' must be a Field or Geomoetry but got {to}"
     if not isinstance(value, (Field, Geometry, FieldInitializer)):
         return to.with_values(value)
-    extrap = value.extrapolation if isinstance(value, Field) and keep_extrapolation else to.extrapolation
-    resampled = sample(value, to, at=to.sampled_at, boundary=extrap, dot_face_normal=to.geometry, **kwargs)
-    return Field(to.geometry, resampled, extrap)
+    if isinstance(value, Field) and keep_boundary:
+        extrap = value.extrapolation
+    elif isinstance(to, Field) and not keep_boundary:
+        extrap = to.extrapolation
+    else:
+        raise AssertionError(f"Boundary cannot be determined, keep_boundary={keep_boundary}, value: {type(value)}, to: {type(to)}")
+    resampled = sample(value, to, at=to.sampled_at if isinstance(to, Field) else 'center', boundary=extrap, dot_face_normal=to.geometry, **kwargs)
+    return Field(to.geometry if isinstance(to, Field) else to, resampled, extrap)
 
 
 def reduce_sample(field: Union[Field, Geometry, FieldInitializer, Callable],
@@ -422,10 +428,10 @@ def sample_mesh(f: Field,
     elif order == 2:
         values = rename_dims(f.mesh.pad_boundary(f.values, mode=f.boundary), dual, instance(f))
         v0 = values[idx]
-        gradient = gradient if isinstance(gradient, Field) else f.gradient(scheme=gradient, order=order)
+        gradient = gradient if isinstance(gradient, Field) else f.gradient(scheme=gradient, order=order, stack_dim=f.geometry.shape['vector'].as_dual())
         grad = gradient.values[math.where(is_outside_mesh, 0, idx)]
         dx = location - f.mesh.center[math.where(is_outside_mesh, 0, idx)]
-        return math.where(is_outside_mesh, v0, v0 + dx.vector @ grad.vector)
+        return math.where(is_outside_mesh, v0, v0 + grad @ dx)
     raise NotImplementedError(f"sampling meshes only supports order <= 2 but got order={order}")
 
 

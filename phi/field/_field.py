@@ -347,7 +347,7 @@ class Field:
     def sampled_at(self):
         return 'face' if self.is_staggered else 'center'
 
-    def at(self, representation: 'Field', keep_extrapolation=False, **kwargs) -> 'Field':
+    def at(self, representation: Union['Field', Geometry], keep_boundary=False, **kwargs) -> 'Field':
         """
         Short for `resample(self, representation)`
 
@@ -358,7 +358,7 @@ class Field:
             Field object of same type as `representation`
         """
         from ._resample import resample
-        return resample(self, representation, keep_extrapolation, **kwargs)
+        return resample(self, representation, keep_boundary, **kwargs)
 
     def closest_values(self, points: Tensor):
         """
@@ -575,18 +575,18 @@ class Field:
         # Deprecated. Use `resample(value, field)` instead.
         warnings.warn("value @ field is deprecated. Use resample(value, field) instead.", DeprecationWarning)
         from ._resample import resample
-        return resample(self, to=other, keep_extrapolation=False)
+        return resample(self, to=other, keep_boundary=False)
 
     def __rmatmul__(self, other):  # values @ representation
         if isinstance(other, (Geometry, Number, tuple, list, FieldInitializer)):
             warnings.warn("value @ field is deprecated. Use resample(value, field) instead.", DeprecationWarning)
             from ._resample import resample
-            return resample(other, to=self, keep_extrapolation=False)
+            return resample(other, to=self, keep_boundary=False)
         return NotImplemented
 
     def __rshift__(self, other):
         warnings.warn(">> operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.", SyntaxWarning, stacklevel=2)
-        return self.at(other, keep_extrapolation=False)
+        return self.at(other, keep_boundary=False)
 
     def __rrshift__(self, other):
         warnings.warn(">> operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.", SyntaxWarning, stacklevel=2)
@@ -594,7 +594,7 @@ class Field:
             return NotImplemented
         if isinstance(other, (Geometry, float, int, complex, tuple, list, FieldInitializer)):
             from ._resample import resample
-            return resample(other, to=self, keep_extrapolation=False)
+            return resample(other, to=self, keep_boundary=False)
         return NotImplemented
 
     def __getitem__(self, item) -> 'Field':
