@@ -782,7 +782,7 @@ If <code>None</code>, rotates about the center point(s).</dd>
 </details>
 </dd>
 <dt id="phi.geom.sdf_from_geometry"><code class="name flex">
-<span>def <span class="ident">sdf_from_geometry</span></span>(<span>geometry: phi.geom._geom.Geometry, bounds: phi.geom._box.Box, resolution: phiml.math._shape.Shape = (), approximate_outside=True, **resolution_: int) ‑> phi.geom._sdf_grid.SDFGrid</span>
+<span>def <span class="ident">sdf_from_geometry</span></span>(<span>geometry: phi.geom._geom.Geometry, bounds: phi.geom._box.Box, resolution: phiml.math._shape.Shape = (), approximate_outside=True, rebuild: Optional[str] = 'auto', valid_dist=None, **resolution_: int) ‑> phi.geom._sdf_grid.SDFGrid</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Build a grid of signed distance values for a given <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> object.</p>
@@ -794,10 +794,14 @@ If <code>None</code>, rotates about the center point(s).</dd>
 <dd>Grid limits in world space.</dd>
 <dt><strong><code>resolution</code></strong></dt>
 <dd>Grid resolution.</dd>
-<dt><strong><code>approximate_outside</code></strong></dt>
-<dd>Whether queries outside the SDF grid should return approximate values. This requires additional computations.</dd>
 <dt><strong><code>**resolution_</code></strong></dt>
 <dd>Grid resolution as <code>kwargs</code>, e.g. <code>x=64, y=32</code>.</dd>
+<dt><strong><code>approximate_outside</code></strong></dt>
+<dd>Whether queries outside the SDF grid should return approximate values. This requires additional computations.</dd>
+<dt><strong><code>rebuild</code></strong></dt>
+<dd>If <code>'from-surface'</code>, SDF values are calculated from a narrow strip above the enclosed surface. This is more accurate but requires additional steps.
+If <code>None</code>, SDF values are queried from <code>geometry</code>.
+The default <code>'auto'</code> rebuilds when geometry quierying is expected to be in accurate.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>SDF grid as <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.</p></div>
@@ -805,7 +809,13 @@ If <code>None</code>, rotates about the center point(s).</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def sdf_from_geometry(geometry: Geometry, bounds: Box, resolution: Shape = math.EMPTY_SHAPE, approximate_outside=True, **resolution_: int) -&gt; SDFGrid:
+<pre><code class="python">def sdf_from_geometry(geometry: Geometry,
+                      bounds: Box,
+                      resolution: Shape = math.EMPTY_SHAPE,
+                      approximate_outside=True,
+                      rebuild: Optional[str] =&#39;auto&#39;,
+                      valid_dist=None,
+                      **resolution_: int) -&gt; SDFGrid:
     &#34;&#34;&#34;
     Build a grid of signed distance values for a given `Geometry` object.
 
@@ -813,8 +823,11 @@ If <code>None</code>, rotates about the center point(s).</dd>
         geometry: `Geometry` to capture.
         bounds: Grid limits in world space.
         resolution: Grid resolution.
-        approximate_outside: Whether queries outside the SDF grid should return approximate values. This requires additional computations.
         **resolution_: Grid resolution as `kwargs`, e.g. `x=64, y=32`.
+        approximate_outside: Whether queries outside the SDF grid should return approximate values. This requires additional computations.
+        rebuild: If `&#39;from-surface&#39;`, SDF values are calculated from a narrow strip above the enclosed surface. This is more accurate but requires additional steps.
+            If `None`, SDF values are queried from `geometry`.
+            The default `&#39;auto&#39;` rebuilds when geometry quierying is expected to be in accurate.
 
     Returns:
         SDF grid as `Geometry`.
@@ -826,10 +839,20 @@ If <code>None</code>, rotates about the center point(s).</dd>
         center = math.mean(geometry.center, instance)
         volume = None
         bounding_radius = None
+        rebuild = &#39;from-surface&#39; if rebuild == &#39;auto&#39; else rebuild
     else:
         center = geometry.center
         volume = geometry.volume
         bounding_radius = geometry.bounding_radius()
+        rebuild = None if rebuild == &#39;auto&#39; else rebuild
+    approximate = SDFGrid(sdf, bounds, approximate_outside, center=center, volume=volume, bounding_radius=bounding_radius)
+    if rebuild is None:
+        return approximate
+    assert rebuild in [&#39;from-surface&#39;]
+    dx = bounds.size / resolution
+    min_dist = math.sum(dx ** 2) ** (1 / geometry.spatial_rank)
+    valid_dist = math.maximum(min_dist, valid_dist) if valid_dist is not None else min_dist
+    sdf = rebuild_sdf(approximate, 0, valid_dist, refine=[geometry])
     return SDFGrid(sdf, bounds, approximate_outside, center=center, volume=volume, bounding_radius=bounding_radius)</code></pre>
 </details>
 </dd>
@@ -7600,13 +7623,17 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
         return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions
 
     def approximate_closest_surface(self, location: Tensor) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
-        center_delta = location - self.center
+        self_center = self.center
+        self_radius = self.radius
+        center_delta = location - self_center
         center_dist = math.vec_length(center_delta)
-        sgn_dist = center_dist - self.radius
+        sgn_dist = center_dist - self_radius
+        if instance(self):
+            self_center, self_radius, sgn_dist, center_delta, center_dist = math.at_min((self.center, self.radius, sgn_dist, center_delta, center_dist), key=abs(sgn_dist), dim=instance)
         normal = math.safe_div(center_delta, center_dist)
         default_normal = wrap([1] + [0] * (self.spatial_rank-1), self.shape[&#39;vector&#39;])
         normal = math.where(center_dist == 0, default_normal, normal)
-        surface_pos = self.center + self.radius * normal
+        surface_pos = self_center + self_radius * normal
         delta = surface_pos - location
         face_index = expand(0, non_channel(location))
         offset = normal.vector @ surface_pos.vector
@@ -7933,13 +7960,17 @@ Positive values indicate the point lies outside the geometry, negative values in
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def approximate_closest_surface(self, location: Tensor) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
-    center_delta = location - self.center
+    self_center = self.center
+    self_radius = self.radius
+    center_delta = location - self_center
     center_dist = math.vec_length(center_delta)
-    sgn_dist = center_dist - self.radius
+    sgn_dist = center_dist - self_radius
+    if instance(self):
+        self_center, self_radius, sgn_dist, center_delta, center_dist = math.at_min((self.center, self.radius, sgn_dist, center_delta, center_dist), key=abs(sgn_dist), dim=instance)
     normal = math.safe_div(center_delta, center_dist)
     default_normal = wrap([1] + [0] * (self.spatial_rank-1), self.shape[&#39;vector&#39;])
     normal = math.where(center_dist == 0, default_normal, normal)
-    surface_pos = self.center + self.radius * normal
+    surface_pos = self_center + self_radius * normal
     delta = surface_pos - location
     face_index = expand(0, non_channel(location))
     offset = normal.vector @ surface_pos.vector

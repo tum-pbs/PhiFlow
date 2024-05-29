@@ -879,7 +879,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fbbeff13310></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f9bea519430></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -2544,7 +2544,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
 </details>
 </dd>
 <dt id="phi.field.resample"><code class="name flex">
-<span>def <span class="ident">resample</span></span>(<span>value: Union[phi.field._field.Field, phi.geom._geom.Geometry, phiml.math._tensors.Tensor, float, phi.field._field.FieldInitializer], to: phi.field._field.Field, keep_extrapolation=False, **kwargs)</span>
+<span>def <span class="ident">resample</span></span>(<span>value: Union[phi.field._field.Field, phi.geom._geom.Geometry, phiml.math._tensors.Tensor, float, phi.field._field.FieldInitializer], to: Union[phi.field._field.Field, phi.geom._geom.Geometry], keep_boundary=False, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Samples a <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>, <code>Geometry</code> or value at the sample points of the field <code>to</code>.
@@ -2562,7 +2562,7 @@ This can be</dd>
 <dt><strong><code>to</code></strong></dt>
 <dd><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> (<code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a></code>, <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid()</a></code> or <code><a title="phi.field.PointCloud" href="#phi.field.PointCloud">PointCloud()</a></code>) object defining the sample points.
 The current values of <code>to</code> are ignored.</dd>
-<dt><strong><code>keep_extrapolation</code></strong></dt>
+<dt><strong><code>keep_boundary</code></strong></dt>
 <dd>Only available if <code>self</code> is a <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>.
 If True, the resampled field will inherit the extrapolation from <code>self</code> instead of <code>representation</code>.
 This can result in non-compatible value tensors for staggered grids where the tensor size depends on the extrapolation type.</dd>
@@ -2588,7 +2588,7 @@ True
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def resample(value: Union[Field, Geometry, Tensor, float, FieldInitializer], to: Field, keep_extrapolation=False, **kwargs):
+<pre><code class="python">def resample(value: Union[Field, Geometry, Tensor, float, FieldInitializer], to: Union[Field, Geometry], keep_boundary=False, **kwargs):
     &#34;&#34;&#34;
     Samples a `Field`, `Geometry` or value at the sample points of the field `to`.
     The result will approximate `value` on the data structure of `to`.
@@ -2605,7 +2605,7 @@ True
             This can be
         to: `Field` (`CenteredGrid`, `StaggeredGrid` or `PointCloud`) object defining the sample points.
             The current values of `to` are ignored.
-        keep_extrapolation: Only available if `self` is a `Field`.
+        keep_boundary: Only available if `self` is a `Field`.
             If True, the resampled field will inherit the extrapolation from `self` instead of `representation`.
             This can result in non-compatible value tensors for staggered grids where the tensor size depends on the extrapolation type.
         **kwargs: Sampling arguments, e.g. to specify the numerical scheme.
@@ -2626,11 +2626,17 @@ True
         &gt;&gt;&gt; field.resample(grid, to=grid) == grid
         True
     &#34;&#34;&#34;
+    assert isinstance(to, (Field, Geometry)), f&#34;&#39;to&#39; must be a Field or Geomoetry but got {to}&#34;
     if not isinstance(value, (Field, Geometry, FieldInitializer)):
         return to.with_values(value)
-    extrap = value.extrapolation if isinstance(value, Field) and keep_extrapolation else to.extrapolation
-    resampled = sample(value, to, at=to.sampled_at, boundary=extrap, dot_face_normal=to.geometry, **kwargs)
-    return Field(to.geometry, resampled, extrap)</code></pre>
+    if isinstance(value, Field) and keep_boundary:
+        extrap = value.extrapolation
+    elif isinstance(to, Field) and not keep_boundary:
+        extrap = to.extrapolation
+    else:
+        raise AssertionError(f&#34;Boundary cannot be determined, keep_boundary={keep_boundary}, value: {type(value)}, to: {type(to)}&#34;)
+    resampled = sample(value, to, at=to.sampled_at if isinstance(to, Field) else &#39;center&#39;, boundary=extrap, dot_face_normal=to.geometry, **kwargs)
+    return Field(to.geometry if isinstance(to, Field) else to, resampled, extrap)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.round"><code class="name flex">
@@ -4305,7 +4311,7 @@ This is the case with rotating rigid bodies, for example.</p></div>
     def sampled_at(self):
         return &#39;face&#39; if self.is_staggered else &#39;center&#39;
 
-    def at(self, representation: &#39;Field&#39;, keep_extrapolation=False, **kwargs) -&gt; &#39;Field&#39;:
+    def at(self, representation: Union[&#39;Field&#39;, Geometry], keep_boundary=False, **kwargs) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
         Short for `resample(self, representation)`
 
@@ -4316,7 +4322,7 @@ This is the case with rotating rigid bodies, for example.</p></div>
             Field object of same type as `representation`
         &#34;&#34;&#34;
         from ._resample import resample
-        return resample(self, representation, keep_extrapolation, **kwargs)
+        return resample(self, representation, keep_boundary, **kwargs)
 
     def closest_values(self, points: Tensor):
         &#34;&#34;&#34;
@@ -4533,18 +4539,18 @@ This is the case with rotating rigid bodies, for example.</p></div>
         # Deprecated. Use `resample(value, field)` instead.
         warnings.warn(&#34;value @ field is deprecated. Use resample(value, field) instead.&#34;, DeprecationWarning)
         from ._resample import resample
-        return resample(self, to=other, keep_extrapolation=False)
+        return resample(self, to=other, keep_boundary=False)
 
     def __rmatmul__(self, other):  # values @ representation
         if isinstance(other, (Geometry, Number, tuple, list, FieldInitializer)):
             warnings.warn(&#34;value @ field is deprecated. Use resample(value, field) instead.&#34;, DeprecationWarning)
             from ._resample import resample
-            return resample(other, to=self, keep_extrapolation=False)
+            return resample(other, to=self, keep_boundary=False)
         return NotImplemented
 
     def __rshift__(self, other):
         warnings.warn(&#34;&gt;&gt; operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.&#34;, SyntaxWarning, stacklevel=2)
-        return self.at(other, keep_extrapolation=False)
+        return self.at(other, keep_boundary=False)
 
     def __rrshift__(self, other):
         warnings.warn(&#34;&gt;&gt; operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.&#34;, SyntaxWarning, stacklevel=2)
@@ -4552,7 +4558,7 @@ This is the case with rotating rigid bodies, for example.</p></div>
             return NotImplemented
         if isinstance(other, (Geometry, float, int, complex, tuple, list, FieldInitializer)):
             from ._resample import resample
-            return resample(other, to=self, keep_extrapolation=False)
+            return resample(other, to=self, keep_boundary=False)
         return NotImplemented
 
     def __getitem__(self, item) -&gt; &#39;Field&#39;:
@@ -5334,7 +5340,7 @@ Defaults to <code>instance('elements')</code>.</dd>
 </details>
 </dd>
 <dt id="phi.field.Field.at"><code class="name flex">
-<span>def <span class="ident">at</span></span>(<span>self, representation: <a title="phi.field.Field" href="#phi.field.Field">Field</a>, keep_extrapolation=False, **kwargs) ‑> phi.field._field.Field</span>
+<span>def <span class="ident">at</span></span>(<span>self, representation: Union[ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>'), phi.geom._geom.Geometry], keep_boundary=False, **kwargs) ‑> phi.field._field.Field</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Short for <code><a title="phi.field.resample" href="#phi.field.resample">resample()</a>(self, representation)</code></p>
@@ -5346,7 +5352,7 @@ Defaults to <code>instance('elements')</code>.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def at(self, representation: &#39;Field&#39;, keep_extrapolation=False, **kwargs) -&gt; &#39;Field&#39;:
+<pre><code class="python">def at(self, representation: Union[&#39;Field&#39;, Geometry], keep_boundary=False, **kwargs) -&gt; &#39;Field&#39;:
     &#34;&#34;&#34;
     Short for `resample(self, representation)`
 
@@ -5357,7 +5363,7 @@ Defaults to <code>instance('elements')</code>.</dd>
         Field object of same type as `representation`
     &#34;&#34;&#34;
     from ._resample import resample
-    return resample(self, representation, keep_extrapolation, **kwargs)</code></pre>
+    return resample(self, representation, keep_boundary, **kwargs)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.at_centers"><code class="name flex">
@@ -6316,7 +6322,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     def sampled_at(self):
         return &#39;face&#39; if self.is_staggered else &#39;center&#39;
 
-    def at(self, representation: &#39;Field&#39;, keep_extrapolation=False, **kwargs) -&gt; &#39;Field&#39;:
+    def at(self, representation: Union[&#39;Field&#39;, Geometry], keep_boundary=False, **kwargs) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
         Short for `resample(self, representation)`
 
@@ -6327,7 +6333,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
             Field object of same type as `representation`
         &#34;&#34;&#34;
         from ._resample import resample
-        return resample(self, representation, keep_extrapolation, **kwargs)
+        return resample(self, representation, keep_boundary, **kwargs)
 
     def closest_values(self, points: Tensor):
         &#34;&#34;&#34;
@@ -6544,18 +6550,18 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         # Deprecated. Use `resample(value, field)` instead.
         warnings.warn(&#34;value @ field is deprecated. Use resample(value, field) instead.&#34;, DeprecationWarning)
         from ._resample import resample
-        return resample(self, to=other, keep_extrapolation=False)
+        return resample(self, to=other, keep_boundary=False)
 
     def __rmatmul__(self, other):  # values @ representation
         if isinstance(other, (Geometry, Number, tuple, list, FieldInitializer)):
             warnings.warn(&#34;value @ field is deprecated. Use resample(value, field) instead.&#34;, DeprecationWarning)
             from ._resample import resample
-            return resample(other, to=self, keep_extrapolation=False)
+            return resample(other, to=self, keep_boundary=False)
         return NotImplemented
 
     def __rshift__(self, other):
         warnings.warn(&#34;&gt;&gt; operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.&#34;, SyntaxWarning, stacklevel=2)
-        return self.at(other, keep_extrapolation=False)
+        return self.at(other, keep_boundary=False)
 
     def __rrshift__(self, other):
         warnings.warn(&#34;&gt;&gt; operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.&#34;, SyntaxWarning, stacklevel=2)
@@ -6563,7 +6569,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
             return NotImplemented
         if isinstance(other, (Geometry, float, int, complex, tuple, list, FieldInitializer)):
             from ._resample import resample
-            return resample(other, to=self, keep_extrapolation=False)
+            return resample(other, to=self, keep_boundary=False)
         return NotImplemented
 
     def __getitem__(self, item) -&gt; &#39;Field&#39;:
@@ -7345,7 +7351,7 @@ Defaults to <code>instance('elements')</code>.</dd>
 </details>
 </dd>
 <dt id="phi.field.Field.at"><code class="name flex">
-<span>def <span class="ident">at</span></span>(<span>self, representation: <a title="phi.field.Field" href="#phi.field.Field">Field</a>, keep_extrapolation=False, **kwargs) ‑> phi.field._field.Field</span>
+<span>def <span class="ident">at</span></span>(<span>self, representation: Union[ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>'), phi.geom._geom.Geometry], keep_boundary=False, **kwargs) ‑> phi.field._field.Field</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Short for <code><a title="phi.field.resample" href="#phi.field.resample">resample()</a>(self, representation)</code></p>
@@ -7357,7 +7363,7 @@ Defaults to <code>instance('elements')</code>.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def at(self, representation: &#39;Field&#39;, keep_extrapolation=False, **kwargs) -&gt; &#39;Field&#39;:
+<pre><code class="python">def at(self, representation: Union[&#39;Field&#39;, Geometry], keep_boundary=False, **kwargs) -&gt; &#39;Field&#39;:
     &#34;&#34;&#34;
     Short for `resample(self, representation)`
 
@@ -7368,7 +7374,7 @@ Defaults to <code>instance('elements')</code>.</dd>
         Field object of same type as `representation`
     &#34;&#34;&#34;
     from ._resample import resample
-    return resample(self, representation, keep_extrapolation, **kwargs)</code></pre>
+    return resample(self, representation, keep_boundary, **kwargs)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.at_centers"><code class="name flex">
@@ -8326,7 +8332,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     def sampled_at(self):
         return &#39;face&#39; if self.is_staggered else &#39;center&#39;
 
-    def at(self, representation: &#39;Field&#39;, keep_extrapolation=False, **kwargs) -&gt; &#39;Field&#39;:
+    def at(self, representation: Union[&#39;Field&#39;, Geometry], keep_boundary=False, **kwargs) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
         Short for `resample(self, representation)`
 
@@ -8337,7 +8343,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
             Field object of same type as `representation`
         &#34;&#34;&#34;
         from ._resample import resample
-        return resample(self, representation, keep_extrapolation, **kwargs)
+        return resample(self, representation, keep_boundary, **kwargs)
 
     def closest_values(self, points: Tensor):
         &#34;&#34;&#34;
@@ -8554,18 +8560,18 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         # Deprecated. Use `resample(value, field)` instead.
         warnings.warn(&#34;value @ field is deprecated. Use resample(value, field) instead.&#34;, DeprecationWarning)
         from ._resample import resample
-        return resample(self, to=other, keep_extrapolation=False)
+        return resample(self, to=other, keep_boundary=False)
 
     def __rmatmul__(self, other):  # values @ representation
         if isinstance(other, (Geometry, Number, tuple, list, FieldInitializer)):
             warnings.warn(&#34;value @ field is deprecated. Use resample(value, field) instead.&#34;, DeprecationWarning)
             from ._resample import resample
-            return resample(other, to=self, keep_extrapolation=False)
+            return resample(other, to=self, keep_boundary=False)
         return NotImplemented
 
     def __rshift__(self, other):
         warnings.warn(&#34;&gt;&gt; operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.&#34;, SyntaxWarning, stacklevel=2)
-        return self.at(other, keep_extrapolation=False)
+        return self.at(other, keep_boundary=False)
 
     def __rrshift__(self, other):
         warnings.warn(&#34;&gt;&gt; operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.&#34;, SyntaxWarning, stacklevel=2)
@@ -8573,7 +8579,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
             return NotImplemented
         if isinstance(other, (Geometry, float, int, complex, tuple, list, FieldInitializer)):
             from ._resample import resample
-            return resample(other, to=self, keep_extrapolation=False)
+            return resample(other, to=self, keep_boundary=False)
         return NotImplemented
 
     def __getitem__(self, item) -&gt; &#39;Field&#39;:
@@ -9355,7 +9361,7 @@ Defaults to <code>instance('elements')</code>.</dd>
 </details>
 </dd>
 <dt id="phi.field.Field.at"><code class="name flex">
-<span>def <span class="ident">at</span></span>(<span>self, representation: <a title="phi.field.Field" href="#phi.field.Field">Field</a>, keep_extrapolation=False, **kwargs) ‑> phi.field._field.Field</span>
+<span>def <span class="ident">at</span></span>(<span>self, representation: Union[ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>'), phi.geom._geom.Geometry], keep_boundary=False, **kwargs) ‑> phi.field._field.Field</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Short for <code><a title="phi.field.resample" href="#phi.field.resample">resample()</a>(self, representation)</code></p>
@@ -9367,7 +9373,7 @@ Defaults to <code>instance('elements')</code>.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def at(self, representation: &#39;Field&#39;, keep_extrapolation=False, **kwargs) -&gt; &#39;Field&#39;:
+<pre><code class="python">def at(self, representation: Union[&#39;Field&#39;, Geometry], keep_boundary=False, **kwargs) -&gt; &#39;Field&#39;:
     &#34;&#34;&#34;
     Short for `resample(self, representation)`
 
@@ -9378,7 +9384,7 @@ Defaults to <code>instance('elements')</code>.</dd>
         Field object of same type as `representation`
     &#34;&#34;&#34;
     from ._resample import resample
-    return resample(self, representation, keep_extrapolation, **kwargs)</code></pre>
+    return resample(self, representation, keep_boundary, **kwargs)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.at_centers"><code class="name flex">
