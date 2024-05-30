@@ -143,21 +143,9 @@ def TopOpt(params):
         (loss, (velocity,pressure, darcy_params) ), dJ_da = gradient_fn(velocity, pressure, obs_list, darcy_param, total_time_steps, params)
         
         J1 = math.sum(loss, dim='x,y,z')
-        
-        print('math.sum(velocity*INLET_NORMAL_MASK)')
-        print(math.sum(field.sample(velocity*INLET_NORMAL_MASK, domain_grid) , dim='x,y,z,vector'))
-        
-        print('math.sum(velocity*OUTLET_NORMAL_MASK)')
-        print(math.sum(field.sample(velocity*OUTLET_NORMAL_MASK, domain_grid), dim='x,y,z,vector'))
-        
-        print('math.sum(p*INLET_MASK)')
-        print(math.sum(field.sample(pressure*INLET_MASK, domain_grid)))
-        
-        print('math.sum(p*OUTLET_MASK)')
-        print(math.sum(field.sample(pressure*OUTLET_MASK, domain_grid)))
 
-        print(params['start_t'])
-        print('J1= ')
+        print(f'Iteration: {params["start_t"]}')
+        print('Pressure Drop J= ')
         math.print(J1)
 
         ## Wherever dJ_da exceeds the threshold -> Change fluid cells to solid
