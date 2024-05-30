@@ -179,24 +179,11 @@ def TopOpt(params):
 
         print(num_fluid_cells)
         
-        if params['element_type'] != 'Box':
-            obst_grid = torch.zeros(X,Y,Z).to(params['device'])
-            obst_grid[total_obst_idxs[:,0],total_obst_idxs[:,1],total_obst_idxs[:,2]] = 1
-            OBS_GEOMS = Voxels(UniformGrid(resolution=domain_grid.shape, bounds=Box(x=X, y=Y, z=Z)), to_phi_t(obst_grid.int()))
-            obs_list = [Obstacle(OBS_GEOMS)]
-
-        else:
-            cell_locs_torch = math.reshaped_native(darcy_param, groups=['x','y','z']).float() 
-            
-            OBS_GEOMS = []
-            for x_val in range(int(darcy_param.shape['x'])):
-                for y_val in range(int(darcy_param.shape['y'])):
-                    for z_val in range(int(darcy_param.shape['z'])):
-                        if cell_locs_torch[x_val, y_val, z_val] == 0:
-                            lx, ly, lz = start_x+x_val, start_y+y_val, start_z+z_val
-                            OBS_GEOMS.append(Box['x,y,z',lx:lx+1, ly:ly+1, lz:lz+1])
-            
-            obs_list = [Obstacle(union(OBS_GEOMS + OBS_WALL_GEOMETRY))]
+        ## Compose the obstacle grid for the next iteration using voxel geometry object
+        obst_grid = torch.zeros(X,Y,Z).to(params['device'])
+        obst_grid[total_obst_idxs[:,0],total_obst_idxs[:,1],total_obst_idxs[:,2]] = 1
+        OBS_GEOMS = Voxels(UniformGrid(resolution=domain_grid.shape, bounds=Box(x=X, y=Y, z=Z)), to_phi_t(obst_grid.int()))
+        obs_list = [Obstacle(OBS_GEOMS)]
 
         params['start_t']+=1
 
