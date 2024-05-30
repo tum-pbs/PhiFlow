@@ -30,12 +30,11 @@ from postprocess_utils import write_vtk_darcy3d
 
 from typing import Union, Tuple, Dict, Any
     
-## Simulation Function, Solves fluid flow equations specified transient number of time steps    
+## Simulation Function, Solves fluid flow equations for specified transient number of time steps    
 def step_darcy3d(v,p,obs_list,darcy_param, total_time_steps, wall_tensor, DOMAIN, BOUNDARY_MASK, VEL_BOUNDARY, num_fluid_cells, params, dt=4):
         
     time_steps = 0
 
-    # No. of boundary/border cells: t
     t = int(params['t'])
     res = int(params['topopt_domain_res'])
     X = res + 2*t
@@ -79,7 +78,7 @@ def step_darcy3d(v,p,obs_list,darcy_param, total_time_steps, wall_tensor, DOMAIN
         
         time_steps+=1
 
-
+    ## Write results in a vtk file
     write_vtk_darcy3d(u=math.reshaped_native(sampled_vel.vector['x'], groups=['x','y', 'z']), 
                         v=math.reshaped_native(sampled_vel.vector['y'], groups=['x','y', 'z']),
                         w=math.reshaped_native(sampled_vel.vector['z'], groups=['x','y','z']),
@@ -161,6 +160,7 @@ def TopOpt(params):
         print('J1= ')
         math.print(J1)
 
+        ## Wherever dJ_da exceeds the threshold -> Change fluid cells to solid
         thresh_solid_cells = int(params['tightness'] * res**3)
         dJ_da_torch = math.reshaped_native(dJ_da, groups=['x','y','z'])
         sorted, _ = torch.sort(dJ_da_torch.reshape(-1), descending=True)
