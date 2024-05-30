@@ -3,9 +3,10 @@ import warnings
 from phi import math
 from ._geom import Geometry, NO_GEOMETRY
 from ._box import bounding_box, Box
-from ..math._shape import merge_shapes
-from ..math._magic_ops import variable_attributes, copy_with
-from ..math.magic import PhiTreeNode
+from phiml.math import Tensor
+from phiml.math._shape import merge_shapes
+from phiml.math._magic_ops import variable_attributes, copy_with
+from phiml.math.magic import PhiTreeNode
 
 
 class Union(Geometry):
@@ -60,8 +61,17 @@ class Union(Geometry):
         upper = math.max([b.upper for b in boxes], dim='0')
         return Box(lower, upper)
 
+    def __variable_attrs__(self):
+        return '_geometries'
+    
+    def __value_attrs__(self):
+        return '_geometries'
+    
     def shifted(self, delta) -> Geometry:
         return Union([geometry.shifted(delta) for geometry in self.geometries])
+
+    def at(self, center: Tensor) -> 'Geometry':
+        raise AssertionError("Cannot position a union of geometries")
 
     def rotated(self, angle) -> Geometry:
         from ._transform import rotate
