@@ -61,6 +61,12 @@ class Union(Geometry):
         upper = math.max([b.upper for b in boxes], dim='0')
         return Box(lower, upper)
 
+    def __variable_attrs__(self):
+        return '_geometries'
+    
+    def __value_attrs__(self):
+        return '_geometries'
+    
     def shifted(self, delta) -> Geometry:
         return Union([geometry.shifted(delta) for geometry in self.geometries])
 

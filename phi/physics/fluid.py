@@ -56,6 +56,9 @@ class Obstacle:
 
     def __variable_attrs__(self) -> Tuple[str, ...]:
         return 'geometry', 'velocity', 'angular_velocity'
+    
+    def __value_attrs__(self) -> Tuple[str, ...]:
+        return 'geometry', 'velocity', 'angular_velocity'
 
     def __eq__(self, other):
         if not isinstance(other, Obstacle):
