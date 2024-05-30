@@ -30,7 +30,7 @@ from postprocess_utils import write_vtk_darcy3d
 
 from typing import Union, Tuple, Dict, Any
     
-    
+## Simulation Function, Solves fluid flow equations specified transient number of time steps    
 def step_darcy3d(v,p,obs_list,darcy_param, total_time_steps, wall_tensor, DOMAIN, BOUNDARY_MASK, VEL_BOUNDARY, num_fluid_cells, params, dt=4):
         
     time_steps = 0
@@ -90,16 +90,18 @@ def step_darcy3d(v,p,obs_list,darcy_param, total_time_steps, wall_tensor, DOMAIN
     return v,p, darcy_params
 
 
-# Domain
 def TopOpt(params):
-    print(phi.verify())
+    
     start = datetime.now()
     pressure = None
 
     obs_list = []
+    ## Domain Resolution: res
     res = int(params['topopt_domain_res'])
+    ## Wall thickness t
     t = int(params['t'])
 
+    ## Resolution 
     X = res + 2*t 
     Y = res + 2*t
     Z = res + 2*t
@@ -115,7 +117,6 @@ def TopOpt(params):
     darcy_param_torch = torch.ones(end_x-start_x, end_y-start_y, end_z-start_z).to(params['device'])
 
     num_fluid_cells = (end_x-start_x)*(end_y-start_y)*(end_z-start_z)
-    prev_num_fluid_cells = 0
 
     print(params)
 
@@ -134,7 +135,6 @@ def TopOpt(params):
     gradient_fn = math.functional_gradient(loss_fn, 'darcy_param', get_output=True)
     
     while True:
-
         if params['start_t'] == 0:
             total_time_steps = 100
         else:
@@ -180,7 +180,7 @@ def TopOpt(params):
         print(num_fluid_cells)
         
         if params['element_type'] != 'Box':
-            obst_grid = torch.zeros(X,Y,Z).to('cuda')
+            obst_grid = torch.zeros(X,Y,Z).to(params['device'])
             obst_grid[total_obst_idxs[:,0],total_obst_idxs[:,1],total_obst_idxs[:,2]] = 1
             OBS_GEOMS = Voxels(UniformGrid(resolution=domain_grid.shape, bounds=Box(x=X, y=Y, z=Z)), to_phi_t(obst_grid.int()))
             obs_list = [Obstacle(OBS_GEOMS)]
@@ -203,7 +203,6 @@ def TopOpt(params):
         velocity = StaggeredGrid((0.,0., 0.), ZERO_GRADIENT, **DOMAIN)
         pressure = None
 
-        prev_num_fluid_cells = num_fluid_cells
         print(f'Time for execution: {datetime.now() - start}')
         gradient_fn.traces.clear()
         gradient_fn.recorded_mappings.clear()
@@ -212,5 +211,21 @@ def TopOpt(params):
 
 if __name__ == '__main__':
     assert backend.default_backend().set_default_device('GPU')
+    ## Example sim
+    params = {'orifice_locs': [(5, 2), (2, 2), (2, 2)], 
+              'orifice_widths': [2.0, 2.0, 2.0], 
+              'orifice_types': ['outlet', 'inlet', 'inlet'], 
+              'orifice_walls': ['right', 'top', 'back'], 
+              'inlet_velocities': [0.0, 1, 1], 
+              'topopt_domain_res': 60, 
+              'viscosity': 0.2, 
+              'convergence_norm': 0.0001, 
+              'time_step': 4, 
+              'restart_file': None, 
+              'start_t': 0, 
+              'orifice_locs_on_each_wall': {'left': [], 'bottom': [], 'right': [(5, 2)], 'top': [(2, 2)], 'back': [(2, 2)], 'front': []}, 
+              'outlet_wall': 'right', 'device': 'cuda', 
+              'sim_name': 'TopOpt_res60_orifices[0_0_1_1_1_0]_outlets[right]_0', 
+              't': 5, 'element_type': 'Voxel', 'tightness': 0.75}
     TopOpt(params)
     
