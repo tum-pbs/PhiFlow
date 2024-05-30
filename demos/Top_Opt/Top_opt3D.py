@@ -1,9 +1,9 @@
 """Topology Optimization
-Fluid flow in a cubic container with inlets and outlets set at random.
+Fluid flow in a cubic container with inlets and outlets set using params dictionary.
 After every few time steps non optimal regions are filled with obstacles and optimization simulation is restarted
 """
-# from phi.flow import *  # minimal dependencies
-import os, argparse, subprocess, pickle, logging, time
+
+import argparse
 from datetime import datetime
 
 
@@ -18,7 +18,6 @@ pargs = parser.parse_args()
 import phi
 from phi.torch.flow import *
 from geom import create_geometry3d, to_phi_t
-from PIL import Image as im
 from phi.geom._voxels import Voxels
 from phi.geom import UniformGrid
 
