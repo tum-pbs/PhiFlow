@@ -65,9 +65,11 @@ class Mesh(Geometry):
         self._face_vertices = face_vertices
         cell_deltas = pairwise_distances(self.center, format=self.cell_connectivity, default=None)
         cell_distances = math.vec_length(cell_deltas)
+        assert (cell_distances > 0).all, f"All cells must have distance > 0 but found 0 distance at {math.nonzero(cell_distances == 0)}"
         face_distances = math.vec_length(self.face_centers[self.interior_faces] - self.center)
         self._relative_face_distance = math.concat([face_distances / cell_distances, self.boundary_connectivity], '~neighbors')
         boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
+        assert (math.vec_length(boundary_deltas) > 0).all, f"All boundary faces must be separated from the cell centers but 0 distance at the following {channel(math.stored_indices(boundary_deltas)).item_names[0]}:\n{math.nonzero(math.vec_length(boundary_deltas) == 0):full}"
         self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], '~neighbors')
         # --- skewness ---
         # theta_e = math.PI * (vertex_count - 2) / vertex_count
@@ -512,7 +514,7 @@ def build_mesh(bounds: Box = None,
                method='quad',
                cell_dim: Shape = instance('cells'),
                face_format: str = 'csc',
-               max_squish: Optional[float] = None,
+               max_squish: Optional[float] = .5,
                **resolution_: Union[int, Tensor, tuple, list, Any]) -> Mesh:
     """
     Build a mesh for a given domain, respecting obstacles.
@@ -524,6 +526,7 @@ def build_mesh(bounds: Box = None,
         method: Meshing algorithm. Only `quad` is currently supported.
         cell_dim: Dimension along which to list the cells. This should be an instance dimension.
         face_format: Sparse storage format for cell connectivity.
+        max_squish: Smallest allowed cell size compared to the smallest regular cell.
         **resolution_: For uniform grid, pass resolution as `int` and specify `bounds`.
             Or pass a sequence of floats for each dimension, specifying the vertex positions along each axis.
             This allows for variable cell stretching.
@@ -541,16 +544,17 @@ def build_mesh(bounds: Box = None,
             assert not resolution, f"When specifying vertex positions, bounds and resolution will be inferred and must not be specified."
             resolution = spatial(**{dim: non_batch(x).volume for dim, x in resolution_.items()}) - 1
             vert_pos = math.meshgrid(**resolution_)
+            bounds = Box(**{dim: (x[0], x[-1]) for dim, x in resolution_.items()})
             # centroid_x = {dim: .5 * (wrap(x[:-1]) + wrap(x[1:])) for dim, x in resolution_.items()}
             # centroids = math.meshgrid(**centroid_x)
         else:  # uniform grid from bounds, resolution
             resolution = resolution & spatial(**resolution_)
             vert_pos = math.meshgrid(resolution + 1) / resolution * bounds.size + bounds.lower
             # centroids = UniformGrid(resolution, bounds).center
-        vert_pos, polygons, boundaries = build_quadrilaterals(vert_pos, resolution, obstacles)
+        dx = bounds.size / resolution
+        regular_size = math.min(dx, channel)
+        vert_pos, polygons, boundaries = build_quadrilaterals(vert_pos, resolution, obstacles, bounds, regular_size * max_squish)
         if max_squish is not None:
-            dx = {dim: (wrap(x[1:]) - wrap(x[:-1])) for dim, x in resolution_.items()}
-            regular_size = min([s.min for s in dx.values()])
             lin_vert_pos = pack_dims(vert_pos, spatial, instance('polygon'))
             corner_pos = lin_vert_pos[polygons]
             min_pos = math.min(corner_pos, '~polygon')
@@ -568,7 +572,7 @@ def build_mesh(bounds: Box = None,
             polygons = vertex_map[polygons]
             boundaries = {boundary: vertex_map[edge_list] for boundary, edge_list in boundaries.items()}
             boundaries = {boundary: edge_list[edge_list[{'~vert': 'start'}] != edge_list[{'~vert': 'end'}]] for boundary, edge_list in boundaries.items()}
-            # ToDo remove eges which now point to the same vertex
+            # ToDo remove edges which now point to the same vertex
         def build_single_mesh(vert_pos, polygons, boundaries):
             points_np = math.reshaped_numpy(vert_pos, [..., channel])
             polygon_list = math.reshaped_numpy(polygons, [..., dual])
@@ -577,15 +581,15 @@ def build_mesh(bounds: Box = None,
         return math.map(build_single_mesh, vert_pos, polygons, boundaries, dims=batch)
 
 
-def build_quadrilaterals(vert_pos, resolution: Shape, obstacles: Dict[str, Geometry]) -> Tuple[Tensor, Tensor, dict]:
+def build_quadrilaterals(vert_pos, resolution: Shape, obstacles: Dict[str, Geometry], bounds: Box, min_size) -> Tuple[Tensor, Tensor, dict]:
     vert_id = math.range_tensor(resolution + 1)
     # --- obstacles: mask and boundaries ---
     boundaries = {}
     full_mask = expand(False, resolution)
     for boundary, obstacle in obstacles.items():
         assert isinstance(obstacle, Geometry), f"all obstacles must be Geometry objects but got {type(obstacle)}"
-        obs_mask_vert = obstacle.lies_inside(vert_pos)
-        obs_mask_cell = math.convolve(~obs_mask_vert, expand(1, resolution.with_sizes(2))) == 0  # use all cells with one non-blocked vertex
+        active_mask_vert = obstacle.approximate_signed_distance(vert_pos) > min_size
+        obs_mask_cell = math.convolve(active_mask_vert, expand(1, resolution.with_sizes(2))) == 0  # use all cells with one non-blocked vertex
         math.assert_close(False, obs_mask_cell & full_mask, msg="Obstacles must not overlap. For overlapping obstacles, use union() to assign a single boundary.")
         lo, up = math.shift(obs_mask_cell, (0, 1), padding=None)
         face_mask = lo != up
@@ -629,4 +633,5 @@ def build_quadrilaterals(vert_pos, resolution: Shape, obstacles: Dict[str, Geome
     for obstacle in obstacles.values():
         shifted_verts = obstacle.push(vert_pos)
         vert_pos = math.where(has_cell, shifted_verts, vert_pos)
+    vert_pos = bounds.push(vert_pos, outward=False)
     return vert_pos, polygons, boundaries
