@@ -5,7 +5,7 @@ import numpy as np
 
 from phi import math
 from phi.math import DimFilter
-from phiml.math import rename_dims, vec, stack, expand
+from phiml.math import rename_dims, vec, stack, expand, instance
 from phiml.math._shape import parse_dim_order, dual, non_channel
 from ._geom import Geometry, _keep_vector
 from ..math import wrap, INF, Shape, channel, Tensor
@@ -114,19 +114,26 @@ class BaseBox(Geometry):  # not a Subwoofer
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
         loc_to_center = self.global_to_local(positions, scale=False, origin='center')
         sgn_dist_from_surface = math.abs(loc_to_center) - self.half_size
+        rotation_matrix = self.rotation_matrix
         if outward:
             # --- get negative distances (particles are inside) towards the nearest boundary and add shift_amount ---
             distances_of_interest = (sgn_dist_from_surface == math.max(sgn_dist_from_surface, 'vector')) & (sgn_dist_from_surface < 0)
             shift = distances_of_interest * (sgn_dist_from_surface - shift_amount)
-        else:
+            # ToDo reduce instance dim
+        else:  # inward
             shift = (sgn_dist_from_surface + shift_amount) * (sgn_dist_from_surface > 0)  # get positive distances (particles are outside) and add shift_amount
-            shift = math.where(math.abs(shift) > math.abs(loc_to_center), math.abs(loc_to_center), shift)  # ensure inward shift ends at center
-        shift = math.rotate_vector(shift, self.rotation_matrix)
+            if instance(self):
+                shift, loc_to_center, rotation_matrix = math.at_min((shift, loc_to_center, rotation_matrix), key=math.vec_length(shift), dim=instance)
+            shift = math.where(abs(shift) > abs(loc_to_center), abs(loc_to_center), shift)  # ensure inward shift ends at center
+        shift = math.rotate_vector(shift, rotation_matrix)
         return positions + math.where(loc_to_center < 0, 1, -1) * shift
 
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         loc_to_center = self.global_to_local(location, scale=False, origin='center')
         sgn_surf_delta = math.abs(loc_to_center) - self.half_size
+        if instance(self):
+            raise NotImplementedError
+            self_center, self_radius, sgn_dist, center_delta, center_dist = math.at_min((self.center, self.radius, sgn_dist, center_delta, center_dist), key=abs(sgn_dist), dim=instance)
         # is_inside = math.all(sgn_surf_delta < 0, 'vector')
         # abs_surf_delta = abs(sgn_surf_delta)
         max_sgn_dist = math.max(sgn_surf_delta, 'vector')

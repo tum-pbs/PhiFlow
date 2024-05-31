@@ -237,11 +237,10 @@ class Geometry:
         This also holds for negative distances.
 
         Args:
-          location: float tensor of shape (batch_size, ..., rank)
+            location: `Tensor` with one channel dim `vector` matching the geometry's `vector` dim.
 
         Returns:
-          float tensor of shape (*location.shape[:-1], 1).
-
+            Float `Tensor`
         """
         raise NotImplementedError(self.__class__)
 
