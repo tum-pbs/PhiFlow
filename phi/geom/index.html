@@ -52,7 +52,7 @@ from ._box import Box, BaseBox, Cuboid
 from ._sphere import Sphere
 from ._grid import UniformGrid
 from ._graph import Graph
-from ._mesh import Mesh, mesh, load_su2, mesh_from_numpy, build_mesh
+from ._mesh import Mesh, mesh, load_su2, load_gmsh, mesh_from_numpy, build_mesh
 from ._transform import embed, infinite_cylinder
 from ._heightmap import Heightmap
 from ._sdf_grid import SDFGrid, sdf_from_geometry
@@ -425,11 +425,73 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
     return ~geometry</code></pre>
 </details>
 </dd>
+<dt id="phi.geom.load_gmsh"><code class="name flex">
+<span>def <span class="ident">load_gmsh</span></span>(<span>file: str, boundary_names: Sequence[str] = None, cell_dim=(cellsⁱ=None), face_format: str = 'csc')</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Load an unstructured mesh from a <code>.msh</code> file.</p>
+<p>This requires the package <code>meshio</code> to be installed.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>file</code></strong></dt>
+<dd>Path to <code>.su2</code> file.</dd>
+<dt><strong><code>boundary_names</code></strong></dt>
+<dd>Boundary identifiers corresponding to the blocks in the file. If not specified, boundaries will be numbered.</dd>
+<dt><strong><code>cell_dim</code></strong></dt>
+<dd>Dimension along which to list the cells. This should be an instance dimension.</dd>
+<dt><strong><code>face_format</code></strong></dt>
+<dd>Sparse storage format for cell connectivity.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code></p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def load_gmsh(file: str, boundary_names: Sequence[str] = None, cell_dim=instance(&#39;cells&#39;), face_format: str = &#39;csc&#39;):
+    &#34;&#34;&#34;
+    Load an unstructured mesh from a `.msh` file.
+
+    This requires the package `meshio` to be installed.
+
+    Args:
+        file: Path to `.su2` file.
+        boundary_names: Boundary identifiers corresponding to the blocks in the file. If not specified, boundaries will be numbered.
+        cell_dim: Dimension along which to list the cells. This should be an instance dimension.
+        face_format: Sparse storage format for cell connectivity.
+
+    Returns:
+        `Mesh`
+    &#34;&#34;&#34;
+    import meshio
+    from meshio import Mesh
+    mesh: Mesh = meshio.read(file)
+    dim = max([c.dim for c in mesh.cells])
+    if dim == 2 and mesh.points.shape[-1] == 3:
+        points = mesh.points[..., :2]
+    else:
+        assert dim == 3, f&#34;Only 2D and 3D meshes are supported but got {dim} in {file}&#34;
+        points = mesh.points
+    elements = []
+    boundaries = {}
+    for cell_block in mesh.cells:
+        if cell_block.dim == dim:  # cells
+            elements.extend(cell_block.data)
+        elif cell_block.dim == dim - 1:
+            # derive name from cell_block.tags if present?
+            boundary = str(len(boundaries)) if boundary_names is None else boundary_names[len(boundaries)]
+            boundaries[boundary] = cell_block.data
+        else:
+            raise AssertionError(f&#34;Illegal cell block of type {cell_block.type} for {dim}D mesh&#34;)
+    return mesh_from_numpy(points, elements, boundaries, cell_dim=cell_dim, face_format=face_format)</code></pre>
+</details>
+</dd>
 <dt id="phi.geom.load_su2"><code class="name flex">
 <span>def <span class="ident">load_su2</span></span>(<span>file_or_mesh: str, cell_dim=(cellsⁱ=None), face_format: str = 'csc') ‑> phi.geom._mesh.Mesh</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Loads an unstructured mesh from a <code>.su2</code> file.</p>
+<div class="desc"><p>Load an unstructured mesh from a <code>.su2</code> file.</p>
+<p>This requires the package <code>ezmesh</code> to be installed.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>file_or_mesh</code></strong></dt>
@@ -447,7 +509,9 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
 </summary>
 <pre><code class="python">def load_su2(file_or_mesh: str, cell_dim=instance(&#39;cells&#39;), face_format: str = &#39;csc&#39;) -&gt; Mesh:
     &#34;&#34;&#34;
-    Loads an unstructured mesh from a `.su2` file.
+    Load an unstructured mesh from a `.su2` file.
+
+    This requires the package `ezmesh` to be installed.
 
     Args:
         file_or_mesh: Path to `.su2` file or *ezmesh* `Mesh` instance.
@@ -465,9 +529,10 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
     if mesh.dim == 2 and mesh.points.shape[-1] == 3:
         points = mesh.points[..., :2]
     else:
+        assert mesh.dim == 3, f&#34;Only 2D and 3D meshes are supported but got {mesh.dim} in {file_or_mesh}&#34;
         points = mesh.points
     boundaries = {name.strip(): markers for name, markers in mesh.markers.items()}
-    return mesh_from_numpy(points, mesh.elements, boundaries, cell_dim, face_format=face_format)</code></pre>
+    return mesh_from_numpy(points, mesh.elements, boundaries, cell_dim=cell_dim, face_format=face_format)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.mesh"><code class="name flex">
@@ -8858,6 +8923,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.embed" href="#phi.geom.embed">embed</a></code></li>
 <li><code><a title="phi.geom.infinite_cylinder" href="#phi.geom.infinite_cylinder">infinite_cylinder</a></code></li>
 <li><code><a title="phi.geom.invert" href="#phi.geom.invert">invert</a></code></li>
+<li><code><a title="phi.geom.load_gmsh" href="#phi.geom.load_gmsh">load_gmsh</a></code></li>
 <li><code><a title="phi.geom.load_su2" href="#phi.geom.load_su2">load_su2</a></code></li>
 <li><code><a title="phi.geom.mesh" href="#phi.geom.mesh">mesh</a></code></li>
 <li><code><a title="phi.geom.mesh_from_numpy" href="#phi.geom.mesh_from_numpy">mesh_from_numpy</a></code></li>
