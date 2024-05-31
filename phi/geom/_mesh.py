@@ -268,7 +268,9 @@ class Mesh(Geometry):
 
 def load_su2(file_or_mesh: str, cell_dim=instance('cells'), face_format: str = 'csc') -> Mesh:
     """
-    Loads an unstructured mesh from a `.su2` file.
+    Load an unstructured mesh from a `.su2` file.
+
+    This requires the package `ezmesh` to be installed.
 
     Args:
         file_or_mesh: Path to `.su2` file or *ezmesh* `Mesh` instance.
@@ -286,9 +288,48 @@ def load_su2(file_or_mesh: str, cell_dim=instance('cells'), face_format: str = '
     if mesh.dim == 2 and mesh.points.shape[-1] == 3:
         points = mesh.points[..., :2]
     else:
+        assert mesh.dim == 3, f"Only 2D and 3D meshes are supported but got {mesh.dim} in {file_or_mesh}"
         points = mesh.points
     boundaries = {name.strip(): markers for name, markers in mesh.markers.items()}
-    return mesh_from_numpy(points, mesh.elements, boundaries, cell_dim, face_format=face_format)
+    return mesh_from_numpy(points, mesh.elements, boundaries, cell_dim=cell_dim, face_format=face_format)
+
+
+def load_gmsh(file: str, boundary_names: Sequence[str] = None, cell_dim=instance('cells'), face_format: str = 'csc'):
+    """
+    Load an unstructured mesh from a `.msh` file.
+
+    This requires the package `meshio` to be installed.
+
+    Args:
+        file: Path to `.su2` file.
+        boundary_names: Boundary identifiers corresponding to the blocks in the file. If not specified, boundaries will be numbered.
+        cell_dim: Dimension along which to list the cells. This should be an instance dimension.
+        face_format: Sparse storage format for cell connectivity.
+
+    Returns:
+        `Mesh`
+    """
+    import meshio
+    from meshio import Mesh
+    mesh: Mesh = meshio.read(file)
+    dim = max([c.dim for c in mesh.cells])
+    if dim == 2 and mesh.points.shape[-1] == 3:
+        points = mesh.points[..., :2]
+    else:
+        assert dim == 3, f"Only 2D and 3D meshes are supported but got {dim} in {file}"
+        points = mesh.points
+    elements = []
+    boundaries = {}
+    for cell_block in mesh.cells:
+        if cell_block.dim == dim:  # cells
+            elements.extend(cell_block.data)
+        elif cell_block.dim == dim - 1:
+            # derive name from cell_block.tags if present?
+            boundary = str(len(boundaries)) if boundary_names is None else boundary_names[len(boundaries)]
+            boundaries[boundary] = cell_block.data
+        else:
+            raise AssertionError(f"Illegal cell block of type {cell_block.type} for {dim}D mesh")
+    return mesh_from_numpy(points, elements, boundaries, cell_dim=cell_dim, face_format=face_format)
 
 
 def mesh_from_numpy(points: Union[list, np.ndarray],
