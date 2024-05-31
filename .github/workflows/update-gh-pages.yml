@@ -35,6 +35,7 @@ jobs:
       - name: Build static HTML for Jupyter Notebooks
         run: |
           jupyter nbconvert --to html --output-dir docs/examples/grids/ examples/grids/*.ipynb
+          jupyter nbconvert --to html --output-dir docs/examples/mesh/ examples/mesh/*.ipynb
           jupyter nbconvert --to html --output-dir docs/examples/optim/ examples/optim/*.ipynb
           jupyter nbconvert --to html --output-dir docs/examples/particles/ examples/particles/*.ipynb
           jupyter nbconvert --to html --output-dir docs/ docs/prerendered/*.ipynb
