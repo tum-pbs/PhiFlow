@@ -85,7 +85,7 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 </details>
 </dd>
 <dt id="phi.geom.build_mesh"><code class="name flex">
-<span>def <span class="ident">build_mesh</span></span>(<span>bounds: phi.geom._box.Box = None, resolution=(), obstacles: Union[phi.geom._geom.Geometry, Dict[str, phi.geom._geom.Geometry]] = None, method='quad', cell_dim: phiml.math._shape.Shape = (cellsⁱ=None), face_format: str = 'csc', max_squish: Optional[float] = None, **resolution_: Union[int, phiml.math._tensors.Tensor, tuple, list, Any]) ‑> phi.geom._mesh.Mesh</span>
+<span>def <span class="ident">build_mesh</span></span>(<span>bounds: phi.geom._box.Box = None, resolution=(), obstacles: Union[phi.geom._geom.Geometry, Dict[str, phi.geom._geom.Geometry]] = None, method='quad', cell_dim: phiml.math._shape.Shape = (cellsⁱ=None), face_format: str = 'csc', max_squish: Optional[float] = 0.5, **resolution_: Union[int, phiml.math._tensors.Tensor, tuple, list, Any]) ‑> phi.geom._mesh.Mesh</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Build a mesh for a given domain, respecting obstacles.</p>
@@ -103,6 +103,8 @@ __all__ = [key for key in globals().keys() if not key.startswith(&#39;_&#39;)]</
 <dd>Dimension along which to list the cells. This should be an instance dimension.</dd>
 <dt><strong><code>face_format</code></strong></dt>
 <dd>Sparse storage format for cell connectivity.</dd>
+<dt><strong><code>max_squish</code></strong></dt>
+<dd>Smallest allowed cell size compared to the smallest regular cell.</dd>
 <dt><strong><code>**resolution_</code></strong></dt>
 <dd>For uniform grid, pass resolution as <code>int</code> and specify <code>bounds</code>.
 Or pass a sequence of floats for each dimension, specifying the vertex positions along each axis.
@@ -120,7 +122,7 @@ This allows for variable cell stretching.</dd>
                method=&#39;quad&#39;,
                cell_dim: Shape = instance(&#39;cells&#39;),
                face_format: str = &#39;csc&#39;,
-               max_squish: Optional[float] = None,
+               max_squish: Optional[float] = .5,
                **resolution_: Union[int, Tensor, tuple, list, Any]) -&gt; Mesh:
     &#34;&#34;&#34;
     Build a mesh for a given domain, respecting obstacles.
@@ -132,6 +134,7 @@ This allows for variable cell stretching.</dd>
         method: Meshing algorithm. Only `quad` is currently supported.
         cell_dim: Dimension along which to list the cells. This should be an instance dimension.
         face_format: Sparse storage format for cell connectivity.
+        max_squish: Smallest allowed cell size compared to the smallest regular cell.
         **resolution_: For uniform grid, pass resolution as `int` and specify `bounds`.
             Or pass a sequence of floats for each dimension, specifying the vertex positions along each axis.
             This allows for variable cell stretching.
@@ -149,16 +152,17 @@ This allows for variable cell stretching.</dd>
             assert not resolution, f&#34;When specifying vertex positions, bounds and resolution will be inferred and must not be specified.&#34;
             resolution = spatial(**{dim: non_batch(x).volume for dim, x in resolution_.items()}) - 1
             vert_pos = math.meshgrid(**resolution_)
+            bounds = Box(**{dim: (x[0], x[-1]) for dim, x in resolution_.items()})
             # centroid_x = {dim: .5 * (wrap(x[:-1]) + wrap(x[1:])) for dim, x in resolution_.items()}
             # centroids = math.meshgrid(**centroid_x)
         else:  # uniform grid from bounds, resolution
             resolution = resolution &amp; spatial(**resolution_)
             vert_pos = math.meshgrid(resolution + 1) / resolution * bounds.size + bounds.lower
             # centroids = UniformGrid(resolution, bounds).center
-        vert_pos, polygons, boundaries = build_quadrilaterals(vert_pos, resolution, obstacles)
+        dx = bounds.size / resolution
+        regular_size = math.min(dx, channel)
+        vert_pos, polygons, boundaries = build_quadrilaterals(vert_pos, resolution, obstacles, bounds, regular_size * max_squish)
         if max_squish is not None:
-            dx = {dim: (wrap(x[1:]) - wrap(x[:-1])) for dim, x in resolution_.items()}
-            regular_size = min([s.min for s in dx.values()])
             lin_vert_pos = pack_dims(vert_pos, spatial, instance(&#39;polygon&#39;))
             corner_pos = lin_vert_pos[polygons]
             min_pos = math.min(corner_pos, &#39;~polygon&#39;)
@@ -176,7 +180,7 @@ This allows for variable cell stretching.</dd>
             polygons = vertex_map[polygons]
             boundaries = {boundary: vertex_map[edge_list] for boundary, edge_list in boundaries.items()}
             boundaries = {boundary: edge_list[edge_list[{&#39;~vert&#39;: &#39;start&#39;}] != edge_list[{&#39;~vert&#39;: &#39;end&#39;}]] for boundary, edge_list in boundaries.items()}
-            # ToDo remove eges which now point to the same vertex
+            # ToDo remove edges which now point to the same vertex
         def build_single_mesh(vert_pos, polygons, boundaries):
             points_np = math.reshaped_numpy(vert_pos, [..., channel])
             polygon_list = math.reshaped_numpy(polygons, [..., dual])
@@ -1260,19 +1264,26 @@ A point lies inside the union if it lies within at least one of the geometries.<
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
         loc_to_center = self.global_to_local(positions, scale=False, origin=&#39;center&#39;)
         sgn_dist_from_surface = math.abs(loc_to_center) - self.half_size
+        rotation_matrix = self.rotation_matrix
         if outward:
             # --- get negative distances (particles are inside) towards the nearest boundary and add shift_amount ---
             distances_of_interest = (sgn_dist_from_surface == math.max(sgn_dist_from_surface, &#39;vector&#39;)) &amp; (sgn_dist_from_surface &lt; 0)
             shift = distances_of_interest * (sgn_dist_from_surface - shift_amount)
-        else:
+            # ToDo reduce instance dim
+        else:  # inward
             shift = (sgn_dist_from_surface + shift_amount) * (sgn_dist_from_surface &gt; 0)  # get positive distances (particles are outside) and add shift_amount
-            shift = math.where(math.abs(shift) &gt; math.abs(loc_to_center), math.abs(loc_to_center), shift)  # ensure inward shift ends at center
-        shift = math.rotate_vector(shift, self.rotation_matrix)
+            if instance(self):
+                shift, loc_to_center, rotation_matrix = math.at_min((shift, loc_to_center, rotation_matrix), key=math.vec_length(shift), dim=instance)
+            shift = math.where(abs(shift) &gt; abs(loc_to_center), abs(loc_to_center), shift)  # ensure inward shift ends at center
+        shift = math.rotate_vector(shift, rotation_matrix)
         return positions + math.where(loc_to_center &lt; 0, 1, -1) * shift
 
     def approximate_closest_surface(self, location: Tensor) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         loc_to_center = self.global_to_local(location, scale=False, origin=&#39;center&#39;)
         sgn_surf_delta = math.abs(loc_to_center) - self.half_size
+        if instance(self):
+            raise NotImplementedError
+            self_center, self_radius, sgn_dist, center_delta, center_dist = math.at_min((self.center, self.radius, sgn_dist, center_delta, center_dist), key=abs(sgn_dist), dim=instance)
         # is_inside = math.all(sgn_surf_delta &lt; 0, &#39;vector&#39;)
         # abs_surf_delta = abs(sgn_surf_delta)
         max_sgn_dist = math.max(sgn_surf_delta, &#39;vector&#39;)
@@ -1635,6 +1646,9 @@ Positive values indicate the point lies outside the geometry, negative values in
 <pre><code class="python">def approximate_closest_surface(self, location: Tensor) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
     loc_to_center = self.global_to_local(location, scale=False, origin=&#39;center&#39;)
     sgn_surf_delta = math.abs(loc_to_center) - self.half_size
+    if instance(self):
+        raise NotImplementedError
+        self_center, self_radius, sgn_dist, center_delta, center_dist = math.at_min((self.center, self.radius, sgn_dist, center_delta, center_dist), key=abs(sgn_dist), dim=instance)
     # is_inside = math.all(sgn_surf_delta &lt; 0, &#39;vector&#39;)
     # abs_surf_delta = abs(sgn_surf_delta)
     max_sgn_dist = math.max(sgn_surf_delta, &#39;vector&#39;)
@@ -1880,14 +1894,18 @@ The sphere is centered at the center of this geometry.</p>
 <pre><code class="python">def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -&gt; Tensor:
     loc_to_center = self.global_to_local(positions, scale=False, origin=&#39;center&#39;)
     sgn_dist_from_surface = math.abs(loc_to_center) - self.half_size
+    rotation_matrix = self.rotation_matrix
     if outward:
         # --- get negative distances (particles are inside) towards the nearest boundary and add shift_amount ---
         distances_of_interest = (sgn_dist_from_surface == math.max(sgn_dist_from_surface, &#39;vector&#39;)) &amp; (sgn_dist_from_surface &lt; 0)
         shift = distances_of_interest * (sgn_dist_from_surface - shift_amount)
-    else:
+        # ToDo reduce instance dim
+    else:  # inward
         shift = (sgn_dist_from_surface + shift_amount) * (sgn_dist_from_surface &gt; 0)  # get positive distances (particles are outside) and add shift_amount
-        shift = math.where(math.abs(shift) &gt; math.abs(loc_to_center), math.abs(loc_to_center), shift)  # ensure inward shift ends at center
-    shift = math.rotate_vector(shift, self.rotation_matrix)
+        if instance(self):
+            shift, loc_to_center, rotation_matrix = math.at_min((shift, loc_to_center, rotation_matrix), key=math.vec_length(shift), dim=instance)
+        shift = math.where(abs(shift) &gt; abs(loc_to_center), abs(loc_to_center), shift)  # ensure inward shift ends at center
+    shift = math.rotate_vector(shift, rotation_matrix)
     return positions + math.where(loc_to_center &lt; 0, 1, -1) * shift</code></pre>
 </details>
 </dd>
@@ -2964,11 +2982,10 @@ Equality checks must also take this into account.</p></div>
         This also holds for negative distances.
 
         Args:
-          location: float tensor of shape (batch_size, ..., rank)
+            location: `Tensor` with one channel dim `vector` matching the geometry&#39;s `vector` dim.
 
         Returns:
-          float tensor of shape (*location.shape[:-1], 1).
-
+            Float `Tensor`
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
@@ -3578,10 +3595,10 @@ This also holds for negative distances.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>location</code></strong></dt>
-<dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
+<dd><code>Tensor</code> with one channel dim <code>vector</code> matching the geometry's <code>vector</code> dim.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>float tensor of shape (*location.shape[:-1], 1).</p></div>
+<p>Float <code>Tensor</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3599,11 +3616,10 @@ This also holds for negative distances.</p>
     This also holds for negative distances.
 
     Args:
-      location: float tensor of shape (batch_size, ..., rank)
+        location: `Tensor` with one channel dim `vector` matching the geometry&#39;s `vector` dim.
 
     Returns:
-      float tensor of shape (*location.shape[:-1], 1).
-
+        Float `Tensor`
     &#34;&#34;&#34;
     raise NotImplementedError(self.__class__)</code></pre>
 </details>
@@ -4556,10 +4572,10 @@ This also holds for negative distances.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>location</code></strong></dt>
-<dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
+<dd><code>Tensor</code> with one channel dim <code>vector</code> matching the geometry's <code>vector</code> dim.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>float tensor of shape (*location.shape[:-1], 1).</p></div>
+<p>Float <code>Tensor</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -5366,10 +5382,10 @@ This also holds for negative distances.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>location</code></strong></dt>
-<dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
+<dd><code>Tensor</code> with one channel dim <code>vector</code> matching the geometry's <code>vector</code> dim.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>float tensor of shape (*location.shape[:-1], 1).</p></div>
+<p>Float <code>Tensor</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -5625,9 +5641,11 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
         self._face_vertices = face_vertices
         cell_deltas = pairwise_distances(self.center, format=self.cell_connectivity, default=None)
         cell_distances = math.vec_length(cell_deltas)
+        assert (cell_distances &gt; 0).all, f&#34;All cells must have distance &gt; 0 but found 0 distance at {math.nonzero(cell_distances == 0)}&#34;
         face_distances = math.vec_length(self.face_centers[self.interior_faces] - self.center)
         self._relative_face_distance = math.concat([face_distances / cell_distances, self.boundary_connectivity], &#39;~neighbors&#39;)
         boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
+        assert (math.vec_length(boundary_deltas) &gt; 0).all, f&#34;All boundary faces must be separated from the cell centers but 0 distance at the following {channel(math.stored_indices(boundary_deltas)).item_names[0]}:\n{math.nonzero(math.vec_length(boundary_deltas) == 0):full}&#34;
         self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], &#39;~neighbors&#39;)
         # --- skewness ---
         # theta_e = math.PI * (vertex_count - 2) / vertex_count
@@ -6177,10 +6195,10 @@ This also holds for negative distances.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>location</code></strong></dt>
-<dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
+<dd><code>Tensor</code> with one channel dim <code>vector</code> matching the geometry's <code>vector</code> dim.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>float tensor of shape (*location.shape[:-1], 1).</p></div>
+<p>Float <code>Tensor</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -6685,10 +6703,10 @@ This also holds for negative distances.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>location</code></strong></dt>
-<dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
+<dd><code>Tensor</code> with one channel dim <code>vector</code> matching the geometry's <code>vector</code> dim.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>float tensor of shape (*location.shape[:-1], 1).</p></div>
+<p>Float <code>Tensor</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -7369,10 +7387,10 @@ This also holds for negative distances.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>location</code></strong></dt>
-<dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
+<dd><code>Tensor</code> with one channel dim <code>vector</code> matching the geometry's <code>vector</code> dim.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
-<p>float tensor of shape (*location.shape[:-1], 1).</p></div>
+<p>Float <code>Tensor</code></p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>

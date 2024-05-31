@@ -15198,17 +15198,17 @@ The default, <code>csc</code> allows for efficient boundary condition handling b
 Cell <span class="ansi-green-fg">In[3], line 1</span>
 <span class="ansi-green-fg">----&gt; 1</span> mesh <span style="color: rgb(98,98,98)">=</span> <span class="ansi-yellow-bg">geom</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">.</span><span class="ansi-yellow-bg">load_su2</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">mesh_wedge_inv.su2</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">face_format</span><span class="ansi-yellow-bg" style="color: rgb(98,98,98)">=</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">csc</span><span class="ansi-yellow-bg" style="color: rgb(175,0,0)">&#39;</span><span class="ansi-yellow-bg">)</span>
 
-File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.18/x64/lib/python3.8/site-packages/phi/geom/_mesh.py:284</span>, in <span class="ansi-cyan-fg">load_su2</span><span class="ansi-blue-fg">(file_or_mesh, cell_dim, face_format)</span>
-<span class="ansi-green-intense-fg ansi-bold">    270</span> <span style="color: rgb(175,0,0)">&#34;&#34;&#34;</span>
-<span class="ansi-green-intense-fg ansi-bold">    271</span> <span style="color: rgb(175,0,0)">Load an unstructured mesh from a `.su2` file.</span>
-<span class="ansi-green-intense-fg ansi-bold">    272</span> 
+File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.8.18/x64/lib/python3.8/site-packages/phi/geom/_mesh.py:286</span>, in <span class="ansi-cyan-fg">load_su2</span><span class="ansi-blue-fg">(file_or_mesh, cell_dim, face_format)</span>
+<span class="ansi-green-intense-fg ansi-bold">    272</span> <span style="color: rgb(175,0,0)">&#34;&#34;&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    273</span> <span style="color: rgb(175,0,0)">Load an unstructured mesh from a `.su2` file.</span>
+<span class="ansi-green-intense-fg ansi-bold">    274</span> 
 <span class="ansi-green-fg">   (...)</span>
-<span class="ansi-green-intense-fg ansi-bold">    281</span> <span style="color: rgb(175,0,0)">    `Mesh`</span>
-<span class="ansi-green-intense-fg ansi-bold">    282</span> <span style="color: rgb(175,0,0)">&#34;&#34;&#34;</span>
-<span class="ansi-green-intense-fg ansi-bold">    283</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(file_or_mesh, <span style="color: rgb(0,135,0)">str</span>):
-<span class="ansi-green-fg">--&gt; 284</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">from</span> <span class="ansi-bold" style="color: rgb(0,0,255)">ezmesh</span> <span class="ansi-bold" style="color: rgb(0,135,0)">import</span> import_from_file
-<span class="ansi-green-intense-fg ansi-bold">    285</span>     mesh <span style="color: rgb(98,98,98)">=</span> import_from_file(file_or_mesh)
-<span class="ansi-green-intense-fg ansi-bold">    286</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
+<span class="ansi-green-intense-fg ansi-bold">    283</span> <span style="color: rgb(175,0,0)">    `Mesh`</span>
+<span class="ansi-green-intense-fg ansi-bold">    284</span> <span style="color: rgb(175,0,0)">&#34;&#34;&#34;</span>
+<span class="ansi-green-intense-fg ansi-bold">    285</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(file_or_mesh, <span style="color: rgb(0,135,0)">str</span>):
+<span class="ansi-green-fg">--&gt; 286</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">from</span> <span class="ansi-bold" style="color: rgb(0,0,255)">ezmesh</span> <span class="ansi-bold" style="color: rgb(0,135,0)">import</span> import_from_file
+<span class="ansi-green-intense-fg ansi-bold">    287</span>     mesh <span style="color: rgb(98,98,98)">=</span> import_from_file(file_or_mesh)
+<span class="ansi-green-intense-fg ansi-bold">    288</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
 
 <span class="ansi-red-fg">ModuleNotFoundError</span>: No module named &#39;ezmesh&#39;</pre>
 </div>
