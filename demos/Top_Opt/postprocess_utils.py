@@ -1,5 +1,5 @@
-import numpy as np
 import sys
+
 from phi.torch.flow import *
 
 np.set_printoptions(threshold=sys.maxsize)
