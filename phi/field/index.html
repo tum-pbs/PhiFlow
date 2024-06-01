@@ -417,8 +417,10 @@ If <code>bounds</code> is given as a <code>Box</code>, the resolution may be spe
             if not spatial(values):
                 values = expand_staggered(values, resolution, extrapolation)
             if not all(extrapolation.valid_outer_faces(d)[0] != extrapolation.valid_outer_faces(d)[1] for d in resolution.names):  # non-uniform values required
-                if &#39;~vector&#39; not in values.shape:
+                if &#39;~vector&#39; not in values.shape:  # legacy behavior: we are given a padded staggered tensor
                     values = unstack_staggered_tensor(values, extrapolation)
+                    resolution = resolution_from_staggered_tensor(values, extrapolation)
+                    elements = UniformGrid(resolution, bounds)
                 else:  # Keep dim order from data and check it matches resolution
                     assert set(resolution_from_staggered_tensor(values, extrapolation)) == set(resolution), f&#34;Failed to create StaggeredGrid: values {values.shape} do not match given resolution {resolution} for extrapolation {extrapolation}. See https://tum-pbs.github.io/PhiFlow/Staggered_Grids.html&#34;
         elif isinstance(values, (Geometry, Field, FieldInitializer)):
@@ -879,7 +881,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f5690553700></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f2d91b10700></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
