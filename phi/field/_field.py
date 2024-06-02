@@ -268,6 +268,22 @@ class Field:
         assert isinstance(self._geometry, (UniformGrid, Mesh))
         return self._geometry
 
+    def to_grid(self, resolution=math.EMPTY_SHAPE, bounds=None, **resolution_):
+        resolution = resolution.spatial & spatial(**resolution_)
+        if self.is_grid and (not resolution or resolution == self.resolution) and (bounds is None or bounds == self.bounds):
+            return self
+        bounds = self.bounds if bounds is None else bounds
+        if not resolution:
+            half_sizes = self._geometry.bounding_half_extent()
+            if (half_sizes > 0).all:
+                size = math.min(2 * half_sizes, non_batch(half_sizes).non_channel)
+            else:
+                cell_count = non_batch(self._geometry).non_channel.non_dual.volume
+                size = (bounds.volume / cell_count) ** (1 / self.spatial_rank)
+            res = math.maximum(1, math.round(bounds.size / size))
+            resolution = spatial(**res.vector)
+        return Field(UniformGrid(resolution, bounds), self, self.boundary)
+
     def as_points(self, list_dim: Optional[Shape] = instance('elements')) -> 'Field':
         """
         Returns this field as a PointCloud.

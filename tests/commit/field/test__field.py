@@ -1,9 +1,10 @@
 from unittest import TestCase
 
-from phi import math
-from phi.field import CenteredGrid, Noise, assert_close, AngularVelocity, StaggeredGrid, resample
+from phi import math, geom
+from phi.field import CenteredGrid, Noise, assert_close, AngularVelocity, StaggeredGrid, resample, Field
 from phi.geom import Box, Sphere, Point
 from phiml.math import batch, spatial, vec, channel
+from phiml.math.extrapolation import ZERO_GRADIENT
 
 
 class TestField(TestCase):
@@ -90,3 +91,15 @@ class TestField(TestCase):
         math.assert_close(1, spheres.geometry.volume)
         self.assertEqual(math.EMPTY_SHAPE, spheres.geometry.volume.shape)
         math.assert_close(math.flatten(grid.points), math.flatten(spheres.points))
+
+    def test_mesh_to_grid(self):
+        domain = Box(x=2, y=1)
+        resolution = spatial(x=30, y=10)
+        mesh = geom.build_mesh(domain, resolution)
+        v = Field(mesh, vec(x=0, y=0), {'x-': vec(x=1, y=0), 'x+': ZERO_GRADIENT, 'y': 0})
+        grid = v.to_grid()
+        self.assertEqual(resolution, grid.resolution)
+        self.assertEqual(grid.bounds, mesh.bounds)
+        grid = v.to_grid(x=10, y=10)
+        self.assertEqual(resolution.with_sizes(10), grid.resolution)
+        self.assertEqual(grid.bounds, mesh.bounds)

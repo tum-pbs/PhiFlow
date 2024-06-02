@@ -245,6 +245,10 @@ class Mesh(Geometry):
         max_delta = math.max(abs(vertex_pos - center) * self._valid_mask, spatial)
         return max_delta
 
+    @property
+    def bounds(self):
+        return Box(math.min(self._vertices.center, instance), math.max(self._vertices.center, instance))
+
     def at(self, center: Tensor) -> 'Geometry':
         raise NotImplementedError
 
