@@ -24,7 +24,7 @@ making it easy to build end-to-end differentiable functions involving both learn
 <table>
     <tbody>
         <tr>
-            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Fluid_Logo.html"><img src="docs/figures/RenderedSmoke.gif"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Fluid_Logo.html"><img src="docs/figures/examples/grids/Fluid_Logo.gif"></a></td>
             <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Wake_Flow.html"><img src="docs/figures/examples/grids/Wake_Flow.png"></a></td>
             <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Lid_Driven_Cavity.html"><img src="docs/figures/examples/grids/Lid_Driven_Cavity.png"></a></td>
             <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Taylor_Green.html"><img src="docs/figures/examples/grids/Taylor_Green.jpg"></a></td>
