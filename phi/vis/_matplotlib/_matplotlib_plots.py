@@ -615,16 +615,20 @@ class PointCloud2D(Recipe):
             if math.is_finite(data.values).any:
                 values = reshaped_numpy(data.values, [non_channel(data)])
                 mpl_colors = add_color_bar(axis, values, min_val, max_val)
+                single_color = False
                 # if np.any(values != values[0]):
                 # else:
                 #     mpl_colors = [_next_line_color(axis, 'lines' if connected else 'collections')] * non_channel(data).volume
             else:
                 mpl_colors = [_next_line_color(axis, 'lines' if connected else 'collections')] * non_channel(data).volume
+                single_color = True
         elif non_channel(data).only(color.shape) and color.dtype.kind == float:  # use color map
             values = reshaped_numpy(color, [non_channel(data)])
             mpl_colors = add_color_bar(axis, values, None, None)
+            single_color = False
         else:
             mpl_colors = matplotlib_colors(color, non_channel(data), default=0)
+            single_color = True
         alphas = reshaped_numpy(alpha, [non_channel(data)])
         if isinstance(data.geometry, Point):
             if spatial(data.points).is_empty:
@@ -659,7 +663,8 @@ class PointCloud2D(Recipe):
             elif isinstance(data.geometry, Mesh):
                 xs, ys = reshaped_numpy(data.geometry.vertices.center[{instance: data.geometry.polygons}], ['vector', instance, spatial])
                 counts = reshaped_numpy(math.sum(data.geometry.polygons >= 0, spatial), [instance])
-                shapes = [plt.Polygon(np.stack([x[:count], y[:count]], -1), closed=True, edgecolor='white', alpha=a, facecolor=ci) for x, y, count, ci, a in zip(xs, ys, counts, mpl_colors, alphas)]
+                edgecolor = 'white' if single_color else None
+                shapes = [plt.Polygon(np.stack([x[:count], y[:count]], -1), closed=True, edgecolor=edgecolor, alpha=a, facecolor=ci) for x, y, count, ci, a in zip(xs, ys, counts, mpl_colors, alphas)]
                 axis.add_collection(matplotlib.collections.PatchCollection(shapes, match_original=True))
             elif isinstance(data.geometry, Graph):
                 xs, ys = reshaped_numpy(data.geometry.center, ['vector', non_channel])
