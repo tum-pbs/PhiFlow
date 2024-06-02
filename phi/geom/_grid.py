@@ -156,6 +156,11 @@ class UniformGrid(BaseBox):
         from ._geom_ops import GeometryStack
         return GeometryStack(math.layout(values, dim))
 
+    def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'UniformGrid':
+        resolution = math.rename_dims(self._resolution, dims, new_dims).spatial
+        bounds = math.rename_dims(self._bounds, dims, new_dims, **kwargs)[resolution.name_list]
+        return UniformGrid(resolution, bounds)
+
     def list_cells(self, dim_name):
         center = math.pack_dims(self.center, self._shape.spatial.names, dim_name)
         return Cuboid(center, self.half_size, size_variable=False)
