@@ -881,7 +881,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f2d91b10700></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fd0dd3158b0></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -4234,6 +4234,22 @@ This is the case with rotating rigid bodies, for example.</p></div>
         assert isinstance(self._geometry, (UniformGrid, Mesh))
         return self._geometry
 
+    def to_grid(self, resolution=math.EMPTY_SHAPE, bounds=None, **resolution_):
+        resolution = resolution.spatial &amp; spatial(**resolution_)
+        if self.is_grid and (not resolution or resolution == self.resolution) and (bounds is None or bounds == self.bounds):
+            return self
+        bounds = self.bounds if bounds is None else bounds
+        if not resolution:
+            half_sizes = self._geometry.bounding_half_extent()
+            if (half_sizes &gt; 0).all:
+                size = math.min(2 * half_sizes, non_batch(half_sizes).non_channel)
+            else:
+                cell_count = non_batch(self._geometry).non_channel.non_dual.volume
+                size = (bounds.volume / cell_count) ** (1 / self.spatial_rank)
+            res = math.maximum(1, math.round(bounds.size / size))
+            resolution = spatial(**res.vector)
+        return Field(UniformGrid(resolution, bounds), self, self.boundary)
+
     def as_points(self, list_dim: Optional[Shape] = instance(&#39;elements&#39;)) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
         Returns this field as a PointCloud.
@@ -5805,6 +5821,32 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
     result = math.stack(padded, channel(vector=self.resolution))
     assert result.shape.is_uniform
     return result</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Field.to_grid"><code class="name flex">
+<span>def <span class="ident">to_grid</span></span>(<span>self, resolution=(), bounds=None, **resolution_)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_grid(self, resolution=math.EMPTY_SHAPE, bounds=None, **resolution_):
+    resolution = resolution.spatial &amp; spatial(**resolution_)
+    if self.is_grid and (not resolution or resolution == self.resolution) and (bounds is None or bounds == self.bounds):
+        return self
+    bounds = self.bounds if bounds is None else bounds
+    if not resolution:
+        half_sizes = self._geometry.bounding_half_extent()
+        if (half_sizes &gt; 0).all:
+            size = math.min(2 * half_sizes, non_batch(half_sizes).non_channel)
+        else:
+            cell_count = non_batch(self._geometry).non_channel.non_dual.volume
+            size = (bounds.volume / cell_count) ** (1 / self.spatial_rank)
+        res = math.maximum(1, math.round(bounds.size / size))
+        resolution = spatial(**res.vector)
+    return Field(UniformGrid(resolution, bounds), self, self.boundary)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.uniform_values"><code class="name flex">
@@ -6245,6 +6287,22 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         assert isinstance(self._geometry, (UniformGrid, Mesh))
         return self._geometry
 
+    def to_grid(self, resolution=math.EMPTY_SHAPE, bounds=None, **resolution_):
+        resolution = resolution.spatial &amp; spatial(**resolution_)
+        if self.is_grid and (not resolution or resolution == self.resolution) and (bounds is None or bounds == self.bounds):
+            return self
+        bounds = self.bounds if bounds is None else bounds
+        if not resolution:
+            half_sizes = self._geometry.bounding_half_extent()
+            if (half_sizes &gt; 0).all:
+                size = math.min(2 * half_sizes, non_batch(half_sizes).non_channel)
+            else:
+                cell_count = non_batch(self._geometry).non_channel.non_dual.volume
+                size = (bounds.volume / cell_count) ** (1 / self.spatial_rank)
+            res = math.maximum(1, math.round(bounds.size / size))
+            resolution = spatial(**res.vector)
+        return Field(UniformGrid(resolution, bounds), self, self.boundary)
+
     def as_points(self, list_dim: Optional[Shape] = instance(&#39;elements&#39;)) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
         Returns this field as a PointCloud.
@@ -7816,6 +7874,32 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
     result = math.stack(padded, channel(vector=self.resolution))
     assert result.shape.is_uniform
     return result</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Field.to_grid"><code class="name flex">
+<span>def <span class="ident">to_grid</span></span>(<span>self, resolution=(), bounds=None, **resolution_)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_grid(self, resolution=math.EMPTY_SHAPE, bounds=None, **resolution_):
+    resolution = resolution.spatial &amp; spatial(**resolution_)
+    if self.is_grid and (not resolution or resolution == self.resolution) and (bounds is None or bounds == self.bounds):
+        return self
+    bounds = self.bounds if bounds is None else bounds
+    if not resolution:
+        half_sizes = self._geometry.bounding_half_extent()
+        if (half_sizes &gt; 0).all:
+            size = math.min(2 * half_sizes, non_batch(half_sizes).non_channel)
+        else:
+            cell_count = non_batch(self._geometry).non_channel.non_dual.volume
+            size = (bounds.volume / cell_count) ** (1 / self.spatial_rank)
+        res = math.maximum(1, math.round(bounds.size / size))
+        resolution = spatial(**res.vector)
+    return Field(UniformGrid(resolution, bounds), self, self.boundary)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.uniform_values"><code class="name flex">
@@ -8255,6 +8339,22 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         assert isinstance(self._geometry, (UniformGrid, Mesh))
         return self._geometry
 
+    def to_grid(self, resolution=math.EMPTY_SHAPE, bounds=None, **resolution_):
+        resolution = resolution.spatial &amp; spatial(**resolution_)
+        if self.is_grid and (not resolution or resolution == self.resolution) and (bounds is None or bounds == self.bounds):
+            return self
+        bounds = self.bounds if bounds is None else bounds
+        if not resolution:
+            half_sizes = self._geometry.bounding_half_extent()
+            if (half_sizes &gt; 0).all:
+                size = math.min(2 * half_sizes, non_batch(half_sizes).non_channel)
+            else:
+                cell_count = non_batch(self._geometry).non_channel.non_dual.volume
+                size = (bounds.volume / cell_count) ** (1 / self.spatial_rank)
+            res = math.maximum(1, math.round(bounds.size / size))
+            resolution = spatial(**res.vector)
+        return Field(UniformGrid(resolution, bounds), self, self.boundary)
+
     def as_points(self, list_dim: Optional[Shape] = instance(&#39;elements&#39;)) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
         Returns this field as a PointCloud.
@@ -9826,6 +9926,32 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
     result = math.stack(padded, channel(vector=self.resolution))
     assert result.shape.is_uniform
     return result</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Field.to_grid"><code class="name flex">
+<span>def <span class="ident">to_grid</span></span>(<span>self, resolution=(), bounds=None, **resolution_)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def to_grid(self, resolution=math.EMPTY_SHAPE, bounds=None, **resolution_):
+    resolution = resolution.spatial &amp; spatial(**resolution_)
+    if self.is_grid and (not resolution or resolution == self.resolution) and (bounds is None or bounds == self.bounds):
+        return self
+    bounds = self.bounds if bounds is None else bounds
+    if not resolution:
+        half_sizes = self._geometry.bounding_half_extent()
+        if (half_sizes &gt; 0).all:
+            size = math.min(2 * half_sizes, non_batch(half_sizes).non_channel)
+        else:
+            cell_count = non_batch(self._geometry).non_channel.non_dual.volume
+            size = (bounds.volume / cell_count) ** (1 / self.spatial_rank)
+        res = math.maximum(1, math.round(bounds.size / size))
+        resolution = spatial(**res.vector)
+    return Field(UniformGrid(resolution, bounds), self, self.boundary)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.uniform_values"><code class="name flex">
@@ -11664,6 +11790,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <li><code><a title="phi.field.Field.shifted_to" href="#phi.field.Field.shifted_to">shifted_to</a></code></li>
 <li><code><a title="phi.field.Field.spatial_rank" href="#phi.field.Field.spatial_rank">spatial_rank</a></code></li>
 <li><code><a title="phi.field.Field.staggered_tensor" href="#phi.field.Field.staggered_tensor">staggered_tensor</a></code></li>
+<li><code><a title="phi.field.Field.to_grid" href="#phi.field.Field.to_grid">to_grid</a></code></li>
 <li><code><a title="phi.field.Field.uniform_values" href="#phi.field.Field.uniform_values">uniform_values</a></code></li>
 <li><code><a title="phi.field.Field.values" href="#phi.field.Field.values">values</a></code></li>
 <li><code><a title="phi.field.Field.with_boundary" href="#phi.field.Field.with_boundary">with_boundary</a></code></li>
@@ -11723,6 +11850,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <li><code><a title="phi.field.Field.shifted_to" href="#phi.field.Field.shifted_to">shifted_to</a></code></li>
 <li><code><a title="phi.field.Field.spatial_rank" href="#phi.field.Field.spatial_rank">spatial_rank</a></code></li>
 <li><code><a title="phi.field.Field.staggered_tensor" href="#phi.field.Field.staggered_tensor">staggered_tensor</a></code></li>
+<li><code><a title="phi.field.Field.to_grid" href="#phi.field.Field.to_grid">to_grid</a></code></li>
 <li><code><a title="phi.field.Field.uniform_values" href="#phi.field.Field.uniform_values">uniform_values</a></code></li>
 <li><code><a title="phi.field.Field.values" href="#phi.field.Field.values">values</a></code></li>
 <li><code><a title="phi.field.Field.with_boundary" href="#phi.field.Field.with_boundary">with_boundary</a></code></li>
@@ -11782,6 +11910,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <li><code><a title="phi.field.Field.shifted_to" href="#phi.field.Field.shifted_to">shifted_to</a></code></li>
 <li><code><a title="phi.field.Field.spatial_rank" href="#phi.field.Field.spatial_rank">spatial_rank</a></code></li>
 <li><code><a title="phi.field.Field.staggered_tensor" href="#phi.field.Field.staggered_tensor">staggered_tensor</a></code></li>
+<li><code><a title="phi.field.Field.to_grid" href="#phi.field.Field.to_grid">to_grid</a></code></li>
 <li><code><a title="phi.field.Field.uniform_values" href="#phi.field.Field.uniform_values">uniform_values</a></code></li>
 <li><code><a title="phi.field.Field.values" href="#phi.field.Field.values">values</a></code></li>
 <li><code><a title="phi.field.Field.with_boundary" href="#phi.field.Field.with_boundary">with_boundary</a></code></li>

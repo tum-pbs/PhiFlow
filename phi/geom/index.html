@@ -5821,6 +5821,10 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
         max_delta = math.max(abs(vertex_pos - center) * self._valid_mask, spatial)
         return max_delta
 
+    @property
+    def bounds(self):
+        return Box(math.min(self._vertices.center, instance), math.max(self._vertices.center, instance))
+
     def at(self, center: Tensor) -&gt; &#39;Geometry&#39;:
         raise NotImplementedError
 
@@ -5904,6 +5908,18 @@ Dynamic graphs return slices along the dual dimensions.</p>
 <pre><code class="python">@property
 def boundary_faces(self) -&gt; Dict[str, Dict[str, slice]]:
     return self._boundaries</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Mesh.bounds"><code class="name">var <span class="ident">bounds</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def bounds(self):
+    return Box(math.min(self._vertices.center, instance), math.max(self._vertices.center, instance))</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Mesh.cell_connectivity"><code class="name">var <span class="ident">cell_connectivity</span> : phiml.math._tensors.Tensor</code></dt>
@@ -8386,6 +8402,11 @@ Returns:</p></div>
         from ._geom_ops import GeometryStack
         return GeometryStack(math.layout(values, dim))
 
+    def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -&gt; &#39;UniformGrid&#39;:
+        resolution = math.rename_dims(self._resolution, dims, new_dims).spatial
+        bounds = math.rename_dims(self._bounds, dims, new_dims, **kwargs)[resolution.name_list]
+        return UniformGrid(resolution, bounds)
+
     def list_cells(self, dim_name):
         center = math.pack_dims(self.center, self._shape.spatial.names, dim_name)
         return Cuboid(center, self.half_size, size_variable=False)
@@ -9143,6 +9164,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Mesh.boundary_faces" href="#phi.geom.Mesh.boundary_faces">boundary_faces</a></code></li>
 <li><code><a title="phi.geom.Mesh.bounding_half_extent" href="#phi.geom.Mesh.bounding_half_extent">bounding_half_extent</a></code></li>
 <li><code><a title="phi.geom.Mesh.bounding_radius" href="#phi.geom.Mesh.bounding_radius">bounding_radius</a></code></li>
+<li><code><a title="phi.geom.Mesh.bounds" href="#phi.geom.Mesh.bounds">bounds</a></code></li>
 <li><code><a title="phi.geom.Mesh.cell_connectivity" href="#phi.geom.Mesh.cell_connectivity">cell_connectivity</a></code></li>
 <li><code><a title="phi.geom.Mesh.cell_count" href="#phi.geom.Mesh.cell_count">cell_count</a></code></li>
 <li><code><a title="phi.geom.Mesh.center" href="#phi.geom.Mesh.center">center</a></code></li>
