@@ -881,7 +881,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f97d8f518b0></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f5b06c26a60></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -2778,9 +2778,7 @@ Grids also support 6th order implicit sampling at mid-points.</dd>
             faces = math.unstack(slice_off_constant_faces(geometry.faces, geometry.boundary_faces, boundary), dual)
             sampled = [sample(field, face, **kwargs) for face in faces]
             return math.stack(sampled, dual(geometry.face_shape))
-        elif field.is_mesh and field.is_centered:
-            if not field.geometry.shallow_equals(geometry):
-                raise NotImplementedError(&#34;Resampling to different mesh is not yet supported&#34;)
+        elif field.is_mesh and field.is_centered and field.geometry.shallow_equals(geometry):
             return centroid_to_faces(field, boundary, **kwargs)
         elif field.is_mesh and field.is_staggered and field.geometry.shallow_equals(geometry):
             return field.with_boundary(boundary)

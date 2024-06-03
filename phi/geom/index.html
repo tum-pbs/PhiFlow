@@ -5575,7 +5575,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 </dd>
 <dt id="phi.geom.Mesh"><code class="flex name class">
 <span>class <span class="ident">Mesh</span></span>
-<span>(</span><span>vertices: phi.geom._graph.Graph, polygons: phiml.math._tensors.Tensor, vertex_count: float, boundaries: Dict[str, Dict[str, slice]], center: phiml.math._tensors.Tensor, volume: phiml.math._tensors.Tensor, faces: phi.geom._mesh.Face, valid_mask: phiml.math._tensors.Tensor, face_vertices: phiml.math._tensors.Tensor)</span>
+<span>(</span><span>vertices: phi.geom._graph.Graph, polygons: phiml.math._tensors.Tensor, vertex_count: float, boundaries: Dict[str, Dict[str, slice]], center: phiml.math._tensors.Tensor, volume: phiml.math._tensors.Tensor, faces: phi.geom._mesh.Face, valid_mask: phiml.math._tensors.Tensor, face_vertices: phiml.math._tensors.Tensor, max_cell_walk: int = 2)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Unstructured mesh.
@@ -5614,7 +5614,8 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
                  volume: Tensor,
                  faces: Face,
                  valid_mask: Tensor,
-                 face_vertices: Tensor):
+                 face_vertices: Tensor,
+                 max_cell_walk: int = 2):
         &#34;&#34;&#34;
         Args:
             vertices: Vertex positions, shape (vertices:i, vector:c)
@@ -5647,6 +5648,7 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
         boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
         assert (math.vec_length(boundary_deltas) &gt; 0).all, f&#34;All boundary faces must be separated from the cell centers but 0 distance at the following {channel(math.stored_indices(boundary_deltas)).item_names[0]}:\n{math.nonzero(math.vec_length(boundary_deltas) == 0):full}&#34;
         self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], &#39;~neighbors&#39;)
+        self._max_cell_walk = max_cell_walk
         # --- skewness ---
         # theta_e = math.PI * (vertex_count - 2) / vertex_count
         # e_face =
@@ -5801,10 +5803,50 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
         return self._volume
 
     def lies_inside(self, location: Tensor) -&gt; Tensor:
-        raise NotImplementedError
+        idx = math.find_closest(self._center, location)
+        for i in range(self._max_cell_walk):
+            idx, leaves_mesh, is_outside, *_ = self.cell_walk_towards(location, idx, allow_exit=i == self._max_cell_walk - 1)
+        return ~(leaves_mesh &amp; is_outside)
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]) -&gt; Tensor:
+        idx = math.find_closest(self._center, location)
+        for i in range(self._max_cell_walk):
+            idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
+        return math.max(distances, dual)
+
+    def approximate_closest_surface(self, location: Tensor) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        # idx = math.find_closest(self._center, location)
+        # for i in range(self._max_cell_walk):
+        #     idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
+        # sgn_dist = math.max(distances, dual)
+        # cell_normals = self.face_normals[idx]
+        # normal = cell_normals[{dual: nb_idx}]
+        # return sgn_dist, delta, normal, offset, face_index
         raise NotImplementedError
+
+    def cell_walk_towards(self, location: Tensor, start_cell_idx: Tensor, allow_exit=False):
+        &#34;&#34;&#34;
+        If `location` is not within the cell at index `from_cell_idx`, moves to a closer neighbor cell.
+
+        Args:
+            location: Target location as `Tensor`.
+            start_cell_idx: Index of starting cell. Must be a valid cell index.
+            allow_exit: If `True`, returns an invalid index for points outside the mesh, otherwise keeps the current index.
+
+        Returns:
+            index: Index of the neighbor cell or starting cell.
+            leaves_mesh: Whether the walk crossed the mesh boundary. Then `index` is invalid. This is only possible if `allow_exit` is true.
+            is_outside: Whether `location` was outside the cell at index `start_cell_idx`.
+        &#34;&#34;&#34;
+        closest_normals = self.face_normals[start_cell_idx]
+        closest_face_centers = self.face_centers[start_cell_idx]
+        offsets = closest_normals.vector @ closest_face_centers.vector  # this dot product could be cashed in the mesh
+        distances = closest_normals.vector @ location.vector - offsets
+        is_outside = math.any(distances &gt; 0, dual)
+        nb_idx = math.argmax(distances, dual).index[0]  # cell index or boundary face index
+        leaves_mesh = nb_idx &gt;= instance(self).volume
+        next_idx = math.where(is_outside &amp; (~leaves_mesh | allow_exit), nb_idx, start_cell_idx)
+        return next_idx, leaves_mesh, is_outside, distances, nb_idx
 
     def sample_uniform(self, *shape: math.Shape) -&gt; Tensor:
         raise NotImplementedError
@@ -6197,6 +6239,46 @@ def volume(self) -&gt; Tensor:
 </dl>
 <h3>Methods</h3>
 <dl>
+<dt id="phi.geom.Mesh.approximate_closest_surface"><code class="name flex">
+<span>def <span class="ident">approximate_closest_surface</span></span>(<span>self, location: phiml.math._tensors.Tensor) ‑> Tuple[phiml.math._tensors.Tensor, phiml.math._tensors.Tensor, phiml.math._tensors.Tensor, phiml.math._tensors.Tensor, phiml.math._tensors.Tensor]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Find the closest surface face of this geometry given a point that can be outside or inside the geometry.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>location</code></strong></dt>
+<dd><code>Tensor</code> with a single channel dimension called vector. Can have arbitrary other dimensions.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>signed_distance</code></dt>
+<dd>Scalar signed distance from <code>location</code>
+to the closest point on the surface.
+Positive values indicate the point lies outside the geometry, negative values indicate the point lies inside the geometry.</dd>
+<dt><code>delta</code></dt>
+<dd>Vector-valued distance vector from <code>location</code> to the closest point on the surface.</dd>
+<dt><code>normal</code></dt>
+<dd>Closest surface normal vector.</dd>
+<dt><code>offset</code></dt>
+<dd>Min distance of a surface-tangential plane from 0 as a scalar.</dd>
+<dt><code>face_index</code></dt>
+<dd>(Optional) An index vector pointing at the closest face.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def approximate_closest_surface(self, location: Tensor) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+    # idx = math.find_closest(self._center, location)
+    # for i in range(self._max_cell_walk):
+    #     idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
+    # sgn_dist = math.max(distances, dual)
+    # cell_normals = self.face_normals[idx]
+    # normal = cell_normals[{dual: nb_idx}]
+    # return sgn_dist, delta, normal, offset, face_index
+    raise NotImplementedError</code></pre>
+</details>
+</dd>
 <dt id="phi.geom.Mesh.approximate_signed_distance"><code class="name flex">
 <span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: Union[phiml.math._tensors.Tensor, tuple]) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
@@ -6220,7 +6302,10 @@ This also holds for negative distances.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def approximate_signed_distance(self, location: Union[Tensor, tuple]) -&gt; Tensor:
-    raise NotImplementedError</code></pre>
+    idx = math.find_closest(self._center, location)
+    for i in range(self._max_cell_walk):
+        idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
+    return math.max(distances, dual)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Mesh.at"><code class="name flex">
@@ -6288,6 +6373,58 @@ The sphere is centered at the center of this geometry.</p>
     return max_dist</code></pre>
 </details>
 </dd>
+<dt id="phi.geom.Mesh.cell_walk_towards"><code class="name flex">
+<span>def <span class="ident">cell_walk_towards</span></span>(<span>self, location: phiml.math._tensors.Tensor, start_cell_idx: phiml.math._tensors.Tensor, allow_exit=False)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>If <code>location</code> is not within the cell at index <code>from_cell_idx</code>, moves to a closer neighbor cell.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>location</code></strong></dt>
+<dd>Target location as <code>Tensor</code>.</dd>
+<dt><strong><code>start_cell_idx</code></strong></dt>
+<dd>Index of starting cell. Must be a valid cell index.</dd>
+<dt><strong><code>allow_exit</code></strong></dt>
+<dd>If <code>True</code>, returns an invalid index for points outside the mesh, otherwise keeps the current index.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>index</code></dt>
+<dd>Index of the neighbor cell or starting cell.</dd>
+<dt><code>leaves_mesh</code></dt>
+<dd>Whether the walk crossed the mesh boundary. Then <code>index</code> is invalid. This is only possible if <code>allow_exit</code> is true.</dd>
+<dt><code>is_outside</code></dt>
+<dd>Whether <code>location</code> was outside the cell at index <code>start_cell_idx</code>.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def cell_walk_towards(self, location: Tensor, start_cell_idx: Tensor, allow_exit=False):
+    &#34;&#34;&#34;
+    If `location` is not within the cell at index `from_cell_idx`, moves to a closer neighbor cell.
+
+    Args:
+        location: Target location as `Tensor`.
+        start_cell_idx: Index of starting cell. Must be a valid cell index.
+        allow_exit: If `True`, returns an invalid index for points outside the mesh, otherwise keeps the current index.
+
+    Returns:
+        index: Index of the neighbor cell or starting cell.
+        leaves_mesh: Whether the walk crossed the mesh boundary. Then `index` is invalid. This is only possible if `allow_exit` is true.
+        is_outside: Whether `location` was outside the cell at index `start_cell_idx`.
+    &#34;&#34;&#34;
+    closest_normals = self.face_normals[start_cell_idx]
+    closest_face_centers = self.face_centers[start_cell_idx]
+    offsets = closest_normals.vector @ closest_face_centers.vector  # this dot product could be cashed in the mesh
+    distances = closest_normals.vector @ location.vector - offsets
+    is_outside = math.any(distances &gt; 0, dual)
+    nb_idx = math.argmax(distances, dual).index[0]  # cell index or boundary face index
+    leaves_mesh = nb_idx &gt;= instance(self).volume
+    next_idx = math.where(is_outside &amp; (~leaves_mesh | allow_exit), nb_idx, start_cell_idx)
+    return next_idx, leaves_mesh, is_outside, distances, nb_idx</code></pre>
+</details>
+</dd>
 <dt id="phi.geom.Mesh.faces_to_vertices"><code class="name flex">
 <span>def <span class="ident">faces_to_vertices</span></span>(<span>self, values: phiml.math._tensors.Tensor, reduce=&lt;built-in function sum&gt;)</span>
 </code></dt>
@@ -6323,7 +6460,10 @@ The sphere is centered at the center of this geometry.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def lies_inside(self, location: Tensor) -&gt; Tensor:
-    raise NotImplementedError</code></pre>
+    idx = math.find_closest(self._center, location)
+    for i in range(self._max_cell_walk):
+        idx, leaves_mesh, is_outside, *_ = self.cell_walk_towards(location, idx, allow_exit=i == self._max_cell_walk - 1)
+    return ~(leaves_mesh &amp; is_outside)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Mesh.pad_boundary"><code class="name flex">
@@ -9157,6 +9297,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <h4><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code></h4>
 <ul class="">
 <li><code><a title="phi.geom.Mesh.all_boundary_faces" href="#phi.geom.Mesh.all_boundary_faces">all_boundary_faces</a></code></li>
+<li><code><a title="phi.geom.Mesh.approximate_closest_surface" href="#phi.geom.Mesh.approximate_closest_surface">approximate_closest_surface</a></code></li>
 <li><code><a title="phi.geom.Mesh.approximate_signed_distance" href="#phi.geom.Mesh.approximate_signed_distance">approximate_signed_distance</a></code></li>
 <li><code><a title="phi.geom.Mesh.at" href="#phi.geom.Mesh.at">at</a></code></li>
 <li><code><a title="phi.geom.Mesh.boundary_connectivity" href="#phi.geom.Mesh.boundary_connectivity">boundary_connectivity</a></code></li>
@@ -9167,6 +9308,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Mesh.bounds" href="#phi.geom.Mesh.bounds">bounds</a></code></li>
 <li><code><a title="phi.geom.Mesh.cell_connectivity" href="#phi.geom.Mesh.cell_connectivity">cell_connectivity</a></code></li>
 <li><code><a title="phi.geom.Mesh.cell_count" href="#phi.geom.Mesh.cell_count">cell_count</a></code></li>
+<li><code><a title="phi.geom.Mesh.cell_walk_towards" href="#phi.geom.Mesh.cell_walk_towards">cell_walk_towards</a></code></li>
 <li><code><a title="phi.geom.Mesh.center" href="#phi.geom.Mesh.center">center</a></code></li>
 <li><code><a title="phi.geom.Mesh.connectivity" href="#phi.geom.Mesh.connectivity">connectivity</a></code></li>
 <li><code><a title="phi.geom.Mesh.distance_matrix" href="#phi.geom.Mesh.distance_matrix">distance_matrix</a></code></li>
