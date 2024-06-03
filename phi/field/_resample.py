@@ -157,9 +157,7 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
             faces = math.unstack(slice_off_constant_faces(geometry.faces, geometry.boundary_faces, boundary), dual)
             sampled = [sample(field, face, **kwargs) for face in faces]
             return math.stack(sampled, dual(geometry.face_shape))
-        elif field.is_mesh and field.is_centered:
-            if not field.geometry.shallow_equals(geometry):
-                raise NotImplementedError("Resampling to different mesh is not yet supported")
+        elif field.is_mesh and field.is_centered and field.geometry.shallow_equals(geometry):
             return centroid_to_faces(field, boundary, **kwargs)
         elif field.is_mesh and field.is_staggered and field.geometry.shallow_equals(geometry):
             return field.with_boundary(boundary)
