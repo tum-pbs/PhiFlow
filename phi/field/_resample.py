@@ -408,19 +408,11 @@ def sample_mesh(f: Field,
                 location: Tensor,
                 gradient: Union[str, Field] = 'green-gauss',
                 order=2,
-                max_steps=2):  # at least 2 to resolve locations outside the mesh
+                max_steps=None):  # at least 2 to resolve locations outside the mesh
+    max_steps = f.mesh._max_cell_walk if max_steps is None else max_steps
     idx = math.find_closest(f.center, location)
     for i in range(max_steps):
-        is_last_step = i == max_steps - 1
-        # --- check if inside, else move to neighbor cell ---
-        closest_normals = f.mesh.face_normals[idx]
-        closest_face_centers = f.mesh.face_centers[idx]
-        offsets = closest_normals.vector @ closest_face_centers.vector  # this dot product could be cashed in the mesh
-        distances = closest_normals.vector @ location.vector - offsets
-        is_outside = math.any(distances > 0, dual)
-        next_idx = math.argmax(distances, dual).index[0]
-        leaves_mesh = next_idx >= instance(f).volume
-        idx = math.where(is_outside & (~leaves_mesh | is_last_step), next_idx, idx)
+        idx, leaves_mesh, is_outside, *_ = f.mesh.cell_walk_towards(location, idx, allow_exit=i == max_steps - 1)
     is_outside_mesh = leaves_mesh & is_outside
     if order <= 1:
         values = rename_dims(f.mesh.pad_boundary(f.values, mode=f.boundary), dual, instance(f))

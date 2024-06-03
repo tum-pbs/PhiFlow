@@ -38,7 +38,8 @@ class Mesh(Geometry):
                  volume: Tensor,
                  faces: Face,
                  valid_mask: Tensor,
-                 face_vertices: Tensor):
+                 face_vertices: Tensor,
+                 max_cell_walk: int = 2):
         """
         Args:
             vertices: Vertex positions, shape (vertices:i, vector:c)
@@ -71,6 +72,7 @@ class Mesh(Geometry):
         boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
         assert (math.vec_length(boundary_deltas) > 0).all, f"All boundary faces must be separated from the cell centers but 0 distance at the following {channel(math.stored_indices(boundary_deltas)).item_names[0]}:\n{math.nonzero(math.vec_length(boundary_deltas) == 0):full}"
         self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], '~neighbors')
+        self._max_cell_walk = max_cell_walk
         # --- skewness ---
         # theta_e = math.PI * (vertex_count - 2) / vertex_count
         # e_face =
@@ -225,10 +227,50 @@ class Mesh(Geometry):
         return self._volume
 
     def lies_inside(self, location: Tensor) -> Tensor:
-        raise NotImplementedError
+        idx = math.find_closest(self._center, location)
+        for i in range(self._max_cell_walk):
+            idx, leaves_mesh, is_outside, *_ = self.cell_walk_towards(location, idx, allow_exit=i == self._max_cell_walk - 1)
+        return ~(leaves_mesh & is_outside)
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]) -> Tensor:
+        idx = math.find_closest(self._center, location)
+        for i in range(self._max_cell_walk):
+            idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
+        return math.max(distances, dual)
+
+    def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        # idx = math.find_closest(self._center, location)
+        # for i in range(self._max_cell_walk):
+        #     idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
+        # sgn_dist = math.max(distances, dual)
+        # cell_normals = self.face_normals[idx]
+        # normal = cell_normals[{dual: nb_idx}]
+        # return sgn_dist, delta, normal, offset, face_index
         raise NotImplementedError
+
+    def cell_walk_towards(self, location: Tensor, start_cell_idx: Tensor, allow_exit=False):
+        """
+        If `location` is not within the cell at index `from_cell_idx`, moves to a closer neighbor cell.
+
+        Args:
+            location: Target location as `Tensor`.
+            start_cell_idx: Index of starting cell. Must be a valid cell index.
+            allow_exit: If `True`, returns an invalid index for points outside the mesh, otherwise keeps the current index.
+
+        Returns:
+            index: Index of the neighbor cell or starting cell.
+            leaves_mesh: Whether the walk crossed the mesh boundary. Then `index` is invalid. This is only possible if `allow_exit` is true.
+            is_outside: Whether `location` was outside the cell at index `start_cell_idx`.
+        """
+        closest_normals = self.face_normals[start_cell_idx]
+        closest_face_centers = self.face_centers[start_cell_idx]
+        offsets = closest_normals.vector @ closest_face_centers.vector  # this dot product could be cashed in the mesh
+        distances = closest_normals.vector @ location.vector - offsets
+        is_outside = math.any(distances > 0, dual)
+        nb_idx = math.argmax(distances, dual).index[0]  # cell index or boundary face index
+        leaves_mesh = nb_idx >= instance(self).volume
+        next_idx = math.where(is_outside & (~leaves_mesh | allow_exit), nb_idx, start_cell_idx)
+        return next_idx, leaves_mesh, is_outside, distances, nb_idx
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
