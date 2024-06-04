@@ -5575,7 +5575,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 </dd>
 <dt id="phi.geom.Mesh"><code class="flex name class">
 <span>class <span class="ident">Mesh</span></span>
-<span>(</span><span>vertices: phi.geom._graph.Graph, polygons: phiml.math._tensors.Tensor, vertex_count: float, boundaries: Dict[str, Dict[str, slice]], center: phiml.math._tensors.Tensor, volume: phiml.math._tensors.Tensor, faces: phi.geom._mesh.Face, valid_mask: phiml.math._tensors.Tensor, face_vertices: phiml.math._tensors.Tensor, max_cell_walk: int = 2)</span>
+<span>(</span><span>vertices: phi.geom._graph.Graph, polygons: phiml.math._tensors.Tensor, vertex_count: float, boundaries: Dict[str, Dict[str, slice]], center: phiml.math._tensors.Tensor, volume: phiml.math._tensors.Tensor, faces: phi.geom._mesh.Face, valid_mask: phiml.math._tensors.Tensor, face_vertices: phiml.math._tensors.Tensor, max_cell_walk: int = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Unstructured mesh.
@@ -5615,7 +5615,7 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
                  faces: Face,
                  valid_mask: Tensor,
                  face_vertices: Tensor,
-                 max_cell_walk: int = 2):
+                 max_cell_walk: int = None):
         &#34;&#34;&#34;
         Args:
             vertices: Vertex positions, shape (vertices:i, vector:c)
@@ -5648,6 +5648,8 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
         boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
         assert (math.vec_length(boundary_deltas) &gt; 0).all, f&#34;All boundary faces must be separated from the cell centers but 0 distance at the following {channel(math.stored_indices(boundary_deltas)).item_names[0]}:\n{math.nonzero(math.vec_length(boundary_deltas) == 0):full}&#34;
         self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], &#39;~neighbors&#39;)
+        if max_cell_walk is None:
+            max_cell_walk = 2 if instance(polygons).volume &gt; 1 else 1
         self._max_cell_walk = max_cell_walk
         # --- skewness ---
         # theta_e = math.PI * (vertex_count - 2) / vertex_count
