@@ -39,7 +39,7 @@ class Mesh(Geometry):
                  faces: Face,
                  valid_mask: Tensor,
                  face_vertices: Tensor,
-                 max_cell_walk: int = 2):
+                 max_cell_walk: int = None):
         """
         Args:
             vertices: Vertex positions, shape (vertices:i, vector:c)
@@ -72,6 +72,8 @@ class Mesh(Geometry):
         boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
         assert (math.vec_length(boundary_deltas) > 0).all, f"All boundary faces must be separated from the cell centers but 0 distance at the following {channel(math.stored_indices(boundary_deltas)).item_names[0]}:\n{math.nonzero(math.vec_length(boundary_deltas) == 0):full}"
         self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], '~neighbors')
+        if max_cell_walk is None:
+            max_cell_walk = 2 if instance(polygons).volume > 1 else 1
         self._max_cell_walk = max_cell_walk
         # --- skewness ---
         # theta_e = math.PI * (vertex_count - 2) / vertex_count
