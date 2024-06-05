@@ -13,7 +13,8 @@ See `phi.tf.flow`, `phi.torch.flow`, `phi.jax.flow`.
 import numpy
 import numpy as np
 import phiml
-from phiml import math, backend
+from . import math
+from phiml import backend
 from phiml.math import extrapolation
 import phi
 from . import geom, field, physics, vis
