@@ -220,7 +220,7 @@ class Heightmap(Geometry):
         raise NotImplementedError
 
     def bounding_radius(self) -> Tensor:
-        raise NotImplementedError
+        return self._bounds.bounding_radius()
 
     def at(self, center: Tensor) -> 'Geometry':
         raise NotImplementedError
