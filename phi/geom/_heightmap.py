@@ -148,7 +148,7 @@ class Heightmap(Geometry):
         flat_normal = math.vec_normalize(normals[self.resolution.name_list], epsilon=1e-5)
         delta_edge = flat_normal * (delta_highest[self.resolution].vector @ flat_normal.vector)  # project onto flat normal
         delta_edge = concat([delta_edge, delta_highest[[self._hdim]]], 'vector')
-        distance_edge = math.vec_length(delta_edge)
+        distance_edge = math.vec_length(delta_edge, eps=1e-5)
         delta_highest, distance_edge = math.at_min((delta_highest, distance_edge), distance_edge, 'extremum')
         distance_edge = math.where(distances < 0, -distance_edge, distance_edge)  # copy sign of distances onto distance_edges to always return the signed distance
         distances = math.where(projects_onto_face, distances, distance_edge)
