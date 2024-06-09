@@ -423,7 +423,7 @@ obstacles: <code><a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.
 </details>
 </dd>
 <dt id="phi.physics.fluid.boundary_push"><code class="name flex">
-<span>def <span class="ident">boundary_push</span></span>(<span>particles: <function PointCloud at 0x7fa8e51171f0>, obstacles: tuple, separation: float = 0.5) ‑> <function PointCloud at 0x7fa8e51171f0></span>
+<span>def <span class="ident">boundary_push</span></span>(<span>particles: <function PointCloud at 0x7fb5a35561f0>, obstacles: tuple, separation: float = 0.5) ‑> <function PointCloud at 0x7fb5a35561f0></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of
@@ -548,7 +548,7 @@ supported: explicit 2/4th order - implicit 6th order (obstacles are only support
 </details>
 </dd>
 <dt id="phi.physics.fluid.make_incompressible"><code class="name flex">
-<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._field.Field, obstacles: <a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a> = (), solve: phiml.math._optimize.Solve = auto with tolerance None (rel), None (abs), max_iterations=1000, active: <function CenteredGrid at 0x7fa8e5105d30> = None, order: int = 2, correct_skew=False, wide_stencil: bool = None) ‑> Tuple[phi.field._field.Field, phi.field._field.Field]</span>
+<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._field.Field, obstacles: <a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a> = (), solve: phiml.math._optimize.Solve = auto with tolerance None (rel), None (abs), max_iterations=1000, active: <function CenteredGrid at 0x7fb5a3546d30> = None, order: int = 2, correct_skew=False, wide_stencil: bool = None) ‑> Tuple[phi.field._field.Field, phi.field._field.Field]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>
