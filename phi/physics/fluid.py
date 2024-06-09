@@ -229,16 +229,15 @@ def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: Obstacle 
         if isinstance(obstacle, Geometry):
             obstacle = Obstacle(obstacle)
         assert isinstance(obstacle, Obstacle)
-        obs_mask = resample(obstacle.geometry, velocity, soft=True, balance=1).values
+        obs_mask = resample(obstacle.geometry, velocity, soft=True, balance=1)
         if obstacle.is_stationary:
-            velocity = velocity.with_values(math.safe_mul(1 - obs_mask, velocity.values))
+            velocity = field.safe_mul(1 - obs_mask, velocity)
         else:
             if obstacle.is_rotating:
-                angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None) @ velocity
+                angular_velocity = resample(AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None), to=velocity)
             else:
                 angular_velocity = 0
-            velocity_val = (math.safe_mul(1 - obs_mask, velocity.values) + math.safe_mul(obs_mask, (angular_velocity + obstacle.velocity).values))
-            velocity = velocity.with_values(velocity_val)
+            velocity = field.safe_mul(1 - obs_mask, velocity) + field.safe_mul(obs_mask, angular_velocity + obstacle.velocity)
     return velocity
 
 

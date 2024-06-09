@@ -1018,3 +1018,9 @@ def mask(obj: Field or Geometry) -> Field:
 #     dx = math.pairwise_distances(points, max_distance=max_distance, format=format)
 #     con = math.vec_length(dx) > 0
 #     return connect(obj, con)
+
+def safe_mul(x, y):
+    """See `phiml.math.safe_mul()`"""
+    x, y = _auto_resample(x, y)
+    values = math.safe_mul(x.values, y.values)
+    return x.with_values(values)

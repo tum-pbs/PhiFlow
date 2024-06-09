@@ -47,6 +47,7 @@ from ._field_math import (
     integrate,
     pack_dims,
     support, mask,
+    safe_mul,
     # connect, connect_neighbors,
 )
 from ._field_io import write, read
