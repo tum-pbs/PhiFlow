@@ -154,7 +154,6 @@ def make_incompressible(velocity: Field,
     assert order &lt;= 2 or len(obstacles) == 0, f&#34;obstacles are not supported with higher order schemes&#34;
     assert not velocity.is_mesh or not obstacles, f&#34;Meshes don&#39;t support obstacle masks. Apply the obstacle when building the mesh instead.&#34;
     input_velocity = velocity
-    div = divergence(velocity, order=order)
     # --- Obstacles ---
     all_active = active is None
     hard_bcs = None
@@ -166,6 +165,7 @@ def make_incompressible(velocity: Field,
             hard_bcs = field.stagger(accessible, math.minimum, velocity.boundary, at=velocity.sampled_at, dims=velocity.vector.item_names)
         active = accessible.with_extrapolation(extrapolation.NONE) if active is None else active * accessible  # no pressure inside obstacles
         velocity = apply_boundary_conditions(velocity, obstacles)
+    div = divergence(velocity, order=order)
     if active is not None:
         div *= active  # inactive cells must solvable
     assert not channel(div), f&#34;Divergence must not have any channel dimensions. This is likely caused by an improper velocity field v={input_velocity}&#34;
@@ -267,8 +267,8 @@ def apply_boundary_conditions(velocity: Grid or PointCloud, obstacles: Obstacle 
                 angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None) @ velocity
             else:
                 angular_velocity = 0
-            velocity = (math.safe_mul(1 - obs_mask, velocity.values) + math.safe_mul(obs_mask, (angular_velocity + obstacle.velocity).values))
-            velocity = velocity.with_boundary(velocity.boundary)
+            velocity_val = (math.safe_mul(1 - obs_mask, velocity.values) + math.safe_mul(obs_mask, (angular_velocity + obstacle.velocity).values))
+            velocity = velocity.with_values(velocity_val)
     return velocity
 
 
@@ -419,13 +419,13 @@ obstacles: <code><a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.
                 angular_velocity = AngularVelocity(location=obstacle.geometry.center, strength=obstacle.angular_velocity, falloff=None) @ velocity
             else:
                 angular_velocity = 0
-            velocity = (math.safe_mul(1 - obs_mask, velocity.values) + math.safe_mul(obs_mask, (angular_velocity + obstacle.velocity).values))
-            velocity = velocity.with_boundary(velocity.boundary)
+            velocity_val = (math.safe_mul(1 - obs_mask, velocity.values) + math.safe_mul(obs_mask, (angular_velocity + obstacle.velocity).values))
+            velocity = velocity.with_values(velocity_val)
     return velocity</code></pre>
 </details>
 </dd>
 <dt id="phi.physics.fluid.boundary_push"><code class="name flex">
-<span>def <span class="ident">boundary_push</span></span>(<span>particles: <function PointCloud at 0x7f03e23131f0>, obstacles: tuple, separation: float = 0.5) ‑> <function PointCloud at 0x7f03e23131f0></span>
+<span>def <span class="ident">boundary_push</span></span>(<span>particles: <function PointCloud at 0x7fc1727591f0>, obstacles: tuple, separation: float = 0.5) ‑> <function PointCloud at 0x7fc1727591f0></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Enforces boundary conditions by correcting possible errors of the advection step and shifting particles out of
@@ -550,7 +550,7 @@ supported: explicit 2/4th order - implicit 6th order (obstacles are only support
 </details>
 </dd>
 <dt id="phi.physics.fluid.make_incompressible"><code class="name flex">
-<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._field.Field, obstacles: <a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a> = (), solve: phiml.math._optimize.Solve = auto with tolerance None (rel), None (abs), max_iterations=1000, active: <function CenteredGrid at 0x7f03e2304d30> = None, order: int = 2, correct_skew=False, wide_stencil: bool = None) ‑> Tuple[phi.field._field.Field, phi.field._field.Field]</span>
+<span>def <span class="ident">make_incompressible</span></span>(<span>velocity: phi.field._field.Field, obstacles: <a title="phi.physics.fluid.Obstacle" href="#phi.physics.fluid.Obstacle">Obstacle</a> = (), solve: phiml.math._optimize.Solve = auto with tolerance None (rel), None (abs), max_iterations=1000, active: <function CenteredGrid at 0x7fc172746d30> = None, order: int = 2, correct_skew=False, wide_stencil: bool = None) ‑> Tuple[phi.field._field.Field, phi.field._field.Field]</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.</p>
@@ -617,7 +617,6 @@ supported: explicit 2/4th order - implicit 6th order (obstacles are only support
     assert order &lt;= 2 or len(obstacles) == 0, f&#34;obstacles are not supported with higher order schemes&#34;
     assert not velocity.is_mesh or not obstacles, f&#34;Meshes don&#39;t support obstacle masks. Apply the obstacle when building the mesh instead.&#34;
     input_velocity = velocity
-    div = divergence(velocity, order=order)
     # --- Obstacles ---
     all_active = active is None
     hard_bcs = None
@@ -629,6 +628,7 @@ supported: explicit 2/4th order - implicit 6th order (obstacles are only support
             hard_bcs = field.stagger(accessible, math.minimum, velocity.boundary, at=velocity.sampled_at, dims=velocity.vector.item_names)
         active = accessible.with_extrapolation(extrapolation.NONE) if active is None else active * accessible  # no pressure inside obstacles
         velocity = apply_boundary_conditions(velocity, obstacles)
+    div = divergence(velocity, order=order)
     if active is not None:
         div *= active  # inactive cells must solvable
     assert not channel(div), f&#34;Divergence must not have any channel dimensions. This is likely caused by an improper velocity field v={input_velocity}&#34;
