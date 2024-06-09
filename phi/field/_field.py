@@ -8,7 +8,7 @@ from phi.geom._geom import slice_off_constant_faces
 from phi.math import Shape, Tensor, channel, non_batch, expand, instance, spatial, wrap, dual, non_dual
 from phi.math.extrapolation import Extrapolation
 from phi.math.magic import BoundDim, slicing_dict
-from phiml.math import batch, Solve, DimFilter, unstack, concat_shapes, pack_dims
+from phiml.math import batch, Solve, DimFilter, unstack, concat_shapes, pack_dims, shape
 
 
 class FieldInitializer:
@@ -413,6 +413,8 @@ class Field:
         else:
             if not spatial(values):
                 geo_shape = self.sampled_elements.shape if self.is_staggered else self._geometry.shape
+                if '~vector' in geo_shape and 'vector' in shape(values) and '~vector' not in shape(values):
+                    values = values.vector.as_dual()
                 values = expand(wrap(values), geo_shape.non_batch.non_channel)
         return Field(self._geometry, values, self._boundary)
 
