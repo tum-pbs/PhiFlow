@@ -124,7 +124,6 @@ def make_incompressible(velocity: Field,
     assert order <= 2 or len(obstacles) == 0, f"obstacles are not supported with higher order schemes"
     assert not velocity.is_mesh or not obstacles, f"Meshes don't support obstacle masks. Apply the obstacle when building the mesh instead."
     input_velocity = velocity
-    div = divergence(velocity, order=order)
     # --- Obstacles ---
     all_active = active is None
     hard_bcs = None
@@ -136,6 +135,7 @@ def make_incompressible(velocity: Field,
             hard_bcs = field.stagger(accessible, math.minimum, velocity.boundary, at=velocity.sampled_at, dims=velocity.vector.item_names)
         active = accessible.with_extrapolation(extrapolation.NONE) if active is None else active * accessible  # no pressure inside obstacles
         velocity = apply_boundary_conditions(velocity, obstacles)
+    div = divergence(velocity, order=order)
     if active is not None:
         div *= active  # inactive cells must solvable
     assert not channel(div), f"Divergence must not have any channel dimensions. This is likely caused by an improper velocity field v={input_velocity}"
