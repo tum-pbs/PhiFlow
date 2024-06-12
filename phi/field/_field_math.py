@@ -363,8 +363,6 @@ def perform_finite_difference_operation(field: Tensor, dim: str, differentiation
                                         order=2,
                                         implicit: Solve = None,
                                         implicitness: int = None):
-    if order == 20:
-        order = 2
 
     if output_ext is None:
         output_ext = ext
