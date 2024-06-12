@@ -9,6 +9,7 @@ from phi.math import Shape, Tensor, channel, non_batch, expand, instance, spatia
 from phi.math.extrapolation import Extrapolation
 from phi.math.magic import BoundDim, slicing_dict
 from phiml.math import batch, Solve, DimFilter, unstack, concat_shapes, pack_dims, shape
+from phiml.math.extrapolation import domain_slice
 
 
 class FieldInitializer:
@@ -629,7 +630,7 @@ class Field:
         item = slicing_dict(self, item)
         if not item:
             return self
-        boundary = self._boundary[item]
+        boundary = domain_slice(self._boundary, item, self.resolution)
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != 'vector'}
         geometry = self._geometry[item_without_vec]
         if self.is_staggered and 'vector' in item and '~vector' in self.geometry.face_shape:

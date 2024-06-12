@@ -6,7 +6,7 @@ from phi import geom
 from phi import math
 from phi.geom import Box, Geometry, UniformGrid
 from phiml.math._shape import auto, DimFilter
-from phiml.math.extrapolation import NONE
+from phiml.math.extrapolation import NONE, domain_slice
 from ._field import Field, as_boundary, slice_off_constant_faces
 from ._grid import CenteredGrid, StaggeredGrid, grid, unstack_staggered_tensor
 from ._point_cloud import PointCloud
@@ -436,7 +436,7 @@ def divergence(field: Field, order=2, implicit: Solve = None, upwind: Field = No
         for dim, component in zip(field.shape.spatial.names, field.values.vector.dual):
             border_valid = field.extrapolation.valid_outer_faces(dim)
             padding_widths = (base_widths[0] - border_valid[0], base_widths[1] - border_valid[1])
-            padded_components.append(math.pad(component, {dim: padding_widths}, field.extrapolation[{'vector': dim}], bounds=field.bounds))
+            padded_components.append(math.pad(component, {dim: padding_widths}, domain_slice(field.extrapolation, {'vector': dim}, field.resolution), bounds=field.bounds))
     elif field.is_grid and not field.is_staggered:
         padded_components = [math.pad(component, {dim: base_widths}, field.extrapolation[{'vector': dim}], bounds=field.bounds) for dim, component in zip(spatial_dims, field.values.vector)]
         if field.extrapolation == math.extrapolation.NONE:
