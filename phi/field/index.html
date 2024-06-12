@@ -882,7 +882,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fb5a3546d30></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fa0c4241ee0></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -974,7 +974,7 @@ Otherwise, an explicit stencil is used.</dd>
         for dim, component in zip(field.shape.spatial.names, field.values.vector.dual):
             border_valid = field.extrapolation.valid_outer_faces(dim)
             padding_widths = (base_widths[0] - border_valid[0], base_widths[1] - border_valid[1])
-            padded_components.append(math.pad(component, {dim: padding_widths}, field.extrapolation[{&#39;vector&#39;: dim}], bounds=field.bounds))
+            padded_components.append(math.pad(component, {dim: padding_widths}, domain_slice(field.extrapolation, {&#39;vector&#39;: dim}, field.resolution), bounds=field.bounds))
     elif field.is_grid and not field.is_staggered:
         padded_components = [math.pad(component, {dim: base_widths}, field.extrapolation[{&#39;vector&#39;: dim}], bounds=field.bounds) for dim, component in zip(spatial_dims, field.values.vector)]
         if field.extrapolation == math.extrapolation.NONE:
@@ -4610,7 +4610,7 @@ This is the case with rotating rigid bodies, for example.</p></div>
         item = slicing_dict(self, item)
         if not item:
             return self
-        boundary = self._boundary[item]
+        boundary = domain_slice(self._boundary, item, self.resolution)
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != &#39;vector&#39;}
         geometry = self._geometry[item_without_vec]
         if self.is_staggered and &#39;vector&#39; in item and &#39;~vector&#39; in self.geometry.face_shape:
@@ -6667,7 +6667,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         item = slicing_dict(self, item)
         if not item:
             return self
-        boundary = self._boundary[item]
+        boundary = domain_slice(self._boundary, item, self.resolution)
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != &#39;vector&#39;}
         geometry = self._geometry[item_without_vec]
         if self.is_staggered and &#39;vector&#39; in item and &#39;~vector&#39; in self.geometry.face_shape:
@@ -8723,7 +8723,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         item = slicing_dict(self, item)
         if not item:
             return self
-        boundary = self._boundary[item]
+        boundary = domain_slice(self._boundary, item, self.resolution)
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != &#39;vector&#39;}
         geometry = self._geometry[item_without_vec]
         if self.is_staggered and &#39;vector&#39; in item and &#39;~vector&#39; in self.geometry.face_shape:
