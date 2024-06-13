@@ -374,7 +374,8 @@ def perform_finite_difference_operation(field: Tensor, dim: str, differentiation
 
     assert dim in field.shape.spatial.names, "given Tensor needs to have the indicated spatial dimension"
 
-    leaf_exts = extrapolation.give_leaves(ext)
+    leaf_exts = set()
+    extrapolation.map(lambda e: extrapolation._NoExtrapolation(leaf_exts.add(e)), ext)
 
     def is_one_sided(ext):
         return (ext == extrapolation.ZERO_GRADIENT or isinstance(ext, extrapolation.ConstantExtrapolation)) and order > 2
