@@ -97,7 +97,6 @@ def make_incompressible_narrow_stencil(velocity: Field,
     div = divergence(velocity, order=order)
     pressure_extrapolation = _pressure_extrapolation(velocity.extrapolation)
     dummy = CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution)
-    solve = copy_with(solve, x0=dummy)
 
     system_is_underdetermined = pressure_extrapolation is extrapolation.ZERO_GRADIENT
     if system_is_underdetermined:
@@ -105,7 +104,8 @@ def make_incompressible_narrow_stencil(velocity: Field,
     else:
         rank_fix = 0
 
-    pressure = math.solve_linear(masked_laplace_higher_order, div, solve, order=order, fix_rank_deficiency=rank_fix)
+    solve = copy_with(solve, x0=dummy, rank_deficient=rank_fix)
+    pressure = math.solve_linear(masked_laplace_higher_order, div, solve, order=order)
     grad_pressure = field.spatial_gradient(pressure, at=velocity.sampled_at, order=order)
     velocity = velocity - grad_pressure
 
