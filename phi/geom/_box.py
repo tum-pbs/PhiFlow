@@ -380,6 +380,8 @@ class Box(BaseBox, metaclass=BoxType):
         return self.half_size
 
     def __repr__(self):
+        if self._lower is None or self._upper is None:  # traced
+            return f"Box[traced, shape={self._shape}]"
         if self.shape.non_channel.volume == 1:
             item_names = self.size.vector.item_names
             if item_names:
