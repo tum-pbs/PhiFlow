@@ -285,7 +285,9 @@ def find_most_important_neighbor(face: Face, dx, resolution, hdim, fill_below, m
     max_cells = math.maximum(1, math.to_int32(max_dist / dx))
     offsets = []
     errors = []
-    for i in unstack(math.meshgrid(spatial(**(max_cells * 2 + 1).vector)) - max_cells, spatial):
+    with math.NUMPY:
+        shifts = math.meshgrid(spatial(**(max_cells * 2 + 1).vector)) - max_cells
+    for i in unstack(shifts, spatial):
         flat_delta = i * dx
         flat_dist = math.vec_length(flat_delta)
         if (i != 0).any and ((flat_dist <= max_dist).all or (math.vec_squared(i) <= 1.5).all) and (abs(i) < resolution).all:
