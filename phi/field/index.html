@@ -882,7 +882,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </details>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fa0c4241ee0></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f0a5fcdae50></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -3550,7 +3550,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
     &#34;&#34;&#34;
     if isinstance(x, Shape):
         return x
-    return _backend_op1(x, Backend.stop_gradient)</code></pre>
+    return _backend_op1(x, Backend.stop_gradient, attr_type=variable_attributes)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.support"><code class="name flex">
