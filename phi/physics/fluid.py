@@ -104,7 +104,7 @@ def make_incompressible_narrow_stencil(velocity: Field,
     else:
         rank_fix = 0
 
-    solve = copy_with(solve, x0=dummy, rank_deficient=rank_fix)
+    solve = copy_with(solve, x0=dummy, rank_deficiency=rank_fix)
     pressure = math.solve_linear(masked_laplace_higher_order, div, solve, order=order)
     grad_pressure = field.spatial_gradient(pressure, at=velocity.sampled_at, order=order)
     velocity = velocity - grad_pressure
