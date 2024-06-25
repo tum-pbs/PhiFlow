@@ -245,14 +245,22 @@ class Field:
 
     @property
     def is_grid(self):
+        """A Field represents grid data if its `geometry` is a `phi.geom.UniformGrid` instance."""
         return isinstance(self._geometry, UniformGrid)
 
     @property
     def is_mesh(self):
+        """A Field represents mesh data if its `geometry` is a `phi.geom.Mesh` instance."""
         return isinstance(self._geometry, Mesh)
 
     @property
+    def is_graph(self):
+        """A Field represents graph data if its `geometry` is a `phi.geom.Graph` instance."""
+        return isinstance(self._geometry, Graph)
+
+    @property
     def is_point_cloud(self):
+        """A Field represents graph data if its `geometry` is not a set of connected elements, but rather individual geometric objects."""
         if isinstance(self._geometry, (UniformGrid, Mesh)):
             return False
         if isinstance(self._geometry, (BaseBox, Sphere, Point)):
@@ -796,7 +804,9 @@ class Field:
         elif self.is_mesh:
             type_name = "Mesh" if self.is_centered else "Mesh faces"
         elif self.is_point_cloud:
-            type_name = "Point cloud" if self.is_centered else "Point cloud faces"
+            type_name = "Point cloud" if self.is_centered else "Point cloud edges"
+        elif self.is_graph:
+            type_name = "Graph" if self.is_centered else "Graph edges"
         else:
             type_name = self.__class__.__name__
         if self._values is not None:
