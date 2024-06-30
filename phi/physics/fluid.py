@@ -179,7 +179,7 @@ def make_incompressible(velocity: Field,
     return velocity, pressure
 
 
-@math.jit_compile_linear(auxiliary_args='hard_bcs,active,order,implicit', forget_traces=True)  # jit compilation is required for boundary conditions that add a constant offset solving Ax + b = y
+@math.jit_compile_linear(auxiliary_args='hard_bcs,active,wide_stencil,order,implicit', forget_traces=True)  # jit compilation is required for boundary conditions that add a constant offset solving Ax + b = y
 def masked_laplace(pressure: Field,
                    v_boundary: Extrapolation,
                    hard_bcs: Field,
