@@ -67,7 +67,7 @@ def implicit(field: Field,
              gradient: Field = None,
              upwind: Field = None,
              correct_skew=True,
-             gradient_for_diffusivity=False) -> Field:
+             gradient_for_diffusivity=True) -> Field:
     """
     Implicit Euler diffusion.
 
@@ -87,7 +87,7 @@ def implicit(field: Field,
     Returns:
         Diffused field of same type as `field`.
     """
-    # @jit_compile_linear
+    @jit_compile_linear
     def sharpen(x):
         return explicit(x, diffusivity, -dt, gradient=gradient, upwind=upwind, correct_skew=correct_skew)
     if not solve.x0:
