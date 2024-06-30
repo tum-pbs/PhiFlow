@@ -90,9 +90,9 @@ def _get_obstacles_for(obstacles, space: Field) -> List[Obstacle]:
         assert obstacle.geometry.vector.item_names == space.vector.item_names, f"Obstacles must live in the same physical space as the velocity field {space.vector.item_names} but got {type(obstacle.geometry).__name__} obstacle with order {obstacle.geometry.vector.item_names}"
     return obstacles
 
-def make_incompressible_narrow_stencil(velocity: Field,
-                                       solve: Solve = Solve(),
-                                       order: int = 2) -> Tuple[Field, Field]:
+def make_incompressible_higher_order(velocity: Field,
+                                     solve: Solve = Solve(),
+                                     order: int = 2) -> Tuple[Field, Field]:
 
     div = divergence(velocity, order=order)
     pressure_extrapolation = _pressure_extrapolation(velocity.extrapolation)
@@ -151,7 +151,7 @@ def make_incompressible(velocity: Field,
     assert not velocity.is_mesh or not obstacles, f"Meshes don't support obstacle masks. Apply the obstacle when building the mesh instead."
 
     if order != 2 or narrow_stencil:
-        return make_incompressible_narrow_stencil(velocity, solve, order)
+        return make_incompressible_higher_order(velocity, solve, order)
 
     input_velocity = velocity
     # --- Obstacles ---
