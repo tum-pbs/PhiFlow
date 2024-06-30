@@ -90,32 +90,6 @@ def _get_obstacles_for(obstacles, space: Field) -> List[Obstacle]:
         assert obstacle.geometry.vector.item_names == space.vector.item_names, f"Obstacles must live in the same physical space as the velocity field {space.vector.item_names} but got {type(obstacle.geometry).__name__} obstacle with order {obstacle.geometry.vector.item_names}"
     return obstacles
 
-def make_incompressible_higher_order(velocity: Field,
-                                     solve: Solve = Solve(),
-                                     order: int = 2) -> Tuple[Field, Field]:
-
-    div = divergence(velocity, order=order)
-    pressure_extrapolation = _pressure_extrapolation(velocity.extrapolation)
-    dummy = CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution)
-
-    system_is_underdetermined = pressure_extrapolation is extrapolation.ZERO_GRADIENT
-    if system_is_underdetermined:
-        rank_fix = math.sqrt(1/div.dx.mean)
-    else:
-        rank_fix = 0
-
-    solve = copy_with(solve, x0=dummy, rank_deficiency=rank_fix)
-    pressure = math.solve_linear(masked_laplace_higher_order, div, solve, order=order)
-    grad_pressure = field.spatial_gradient(pressure, at=velocity.sampled_at, order=order)
-    velocity = velocity - grad_pressure
-
-    return velocity, pressure
-
-@math.jit_compile_linear(auxiliary_args='order', forget_traces=True)  # jit compilation is required for boundary conditions that add a constant offset solving Ax + b = y
-def masked_laplace_higher_order(pressure: CenteredGrid, order=2) -> CenteredGrid:
-    laplace = field.laplace(pressure, order=order)
-    return laplace
-
 
 def make_incompressible(velocity: Field,
                         obstacles: Obstacle or Geometry or tuple or list = (),
@@ -123,7 +97,7 @@ def make_incompressible(velocity: Field,
                         active: CenteredGrid = None,
                         order: int = 2,
                         correct_skew=False,
-                        narrow_stencil: bool = None) -> Tuple[Field, Field]:
+                        wide_stencil: bool = None) -> Tuple[Field, Field]:
     """
     Projects the given velocity field by solving for the pressure and subtracting its spatial_gradient.
 
@@ -150,8 +124,23 @@ def make_incompressible(velocity: Field,
     assert order <= 2 or len(obstacles) == 0, f"obstacles are not supported with higher order schemes"
     assert not velocity.is_mesh or not obstacles, f"Meshes don't support obstacle masks. Apply the obstacle when building the mesh instead."
 
-    if order != 2 or narrow_stencil:
-        return make_incompressible_higher_order(velocity, solve, order)
+    if order > 2:
+        div = divergence(velocity, order=order)
+        pressure_extrapolation = _pressure_extrapolation(velocity.extrapolation)
+        dummy = CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution)
+
+        system_is_underdetermined = pressure_extrapolation is extrapolation.ZERO_GRADIENT
+        if system_is_underdetermined:
+            rank_fix = math.sqrt(1 / div.dx.mean)
+        else:
+            rank_fix = 0
+
+        solve = copy_with(solve, x0=dummy, rank_deficiency=rank_fix)
+        pressure = math.solve_linear(masked_laplace_narrow_stencil, div, solve, order=order)
+        grad_pressure = field.spatial_gradient(pressure, at=velocity.sampled_at, order=order)
+        velocity = velocity - grad_pressure
+
+        return velocity, pressure
 
     input_velocity = velocity
     # --- Obstacles ---
@@ -226,6 +215,12 @@ def masked_laplace(pressure: Field,
     valid_grad = valid_grad.with_boundary(extrapolation.remove_constant_offset(valid_grad.extrapolation))
     div = divergence(valid_grad)
     return where(active, div, pressure) if active is not None else div
+
+
+@math.jit_compile_linear(auxiliary_args='order', forget_traces=True)  # jit compilation is required for boundary conditions that add a constant offset solving Ax + b = y
+def masked_laplace_narrow_stencil(pressure: CenteredGrid, order=2) -> CenteredGrid:
+    laplace = field.laplace(pressure, order=order)
+    return laplace
 
 
 def _balance_divergence(div: Field, active: Optional[Field]) -> Field:
