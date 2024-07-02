@@ -3,8 +3,13 @@ from typing import Tuple, Any, Dict, List, Callable, Union
 
 import numpy
 import numpy as np
-from phiml.math import reshaped_numpy, dual
+import plotly.graph_objs
+from plotly.graph_objs import layout
+from scipy.sparse import csr_matrix, coo_matrix
+
+from phiml.math import reshaped_numpy, dual, instance
 from plotly import graph_objects, figure_factory
+import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
 import plotly.io as pio
@@ -66,7 +71,12 @@ class PlotlyPlots(PlottingLibrary):
         width, height = figure._phi_size
         figure.layout.update(margin=dict(l=0, r=0, b=0, t=0))
         scale = dpi/90.
-        figure.write_image(path, width=width * dpi / scale, height=height * dpi / scale, scale=scale)
+        if path.endswith('.html'):
+            plotly.io.write_html(figure, path, auto_play=True, default_width="100%", default_height="100%")
+        elif path.endswith('.json'):
+            raise NotImplementedError("Call Plotly functions directly to save JSON.")
+        else:
+            figure.write_image(path, width=width * dpi / scale, height=height * dpi / scale, scale=scale)
 
 
 class LinePlot(Recipe):
@@ -162,12 +172,22 @@ class Heatmap3D(Recipe):
         figure.update_layout(uirevision=True)
 
 
-class VectorField3D(Recipe):
+class VectorCloud3D(Recipe):
 
     def can_plot(self, data: Field, space: Box) -> bool:
-        return data.is_grid and data.spatial_rank == 3
+        return data.spatial_rank == 3 and 'vector' in data.shape
 
-    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self,
+             data: Field,
+             figure,
+             subplot,
+             space: Box,
+             min_val: float,
+             max_val: float,
+             show_color_bar: bool,
+             color: Tensor,
+             alpha: Tensor,
+             err: Tensor):
         row, col = subplot
         dims = data.elements.vector.item_names
         vector = data.elements.shape['vector']
@@ -296,6 +316,88 @@ class PointCloud3D(Recipe):
             marker = graph_objects.scatter3d.Marker(size=marker_size, color=color, sizemode='diameter', symbol=symbol)
             figure.add_scatter3d(mode='markers', x=x, y=y, z=z, marker=marker, row=row, col=col)
         figure.update_layout(showlegend=False)
+
+
+class Graph3D(Recipe):
+
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return data.is_graph and data.spatial_rank == 3
+
+    def plot(self,
+             data: Field,
+             figure: plotly.graph_objs.Figure,
+             subplot,
+             space: Box,
+             min_val: float,
+             max_val: float,
+             show_color_bar: bool,
+             color: Tensor,
+             alpha: Tensor,
+             err: Tensor):
+        dims = space.vector.item_names
+        row, col = subplot
+        xyz = reshaped_numpy(data.graph.center.vector[dims], ['vector', instance])
+        connectivity: coo_matrix = data.graph.connectivity.numpy().tocoo()
+        x1, y1, z1 = xyz[:, connectivity.col]
+        x2, y2, z2 = xyz[:, connectivity.row]
+        x = np.stack([x1, x2, np.nan + x1], -1).flatten()
+        y = np.stack([y1, y2, np.nan + y1], -1).flatten()
+        z = np.stack([z1, z2, np.nan + z1], -1).flatten()
+        figure.add_scatter3d(x=x, y=y, z=z, mode='lines', row=row, col=col)
+
+
+class SurfaceMesh3D(Recipe):
+
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return data.is_mesh and data.spatial_rank == 3 and data.mesh.element_rank == 2 and not channel(data)
+
+    def plot(self,
+             data: Field,
+             figure: plotly.graph_objs.Figure,
+             subplot,
+             space: Box,
+             min_val: float,
+             max_val: float,
+             show_color_bar: bool,
+             color: Tensor,
+             alpha: Tensor,
+             err: Tensor):
+        dims = space.vector.item_names
+        row, col = subplot
+        x, y, z = reshaped_numpy(data.mesh.vertices.center.vector[dims], ['vector', instance])
+        elements: csr_matrix = data.mesh.elements.numpy().tocsr()
+        indices = elements.indices
+        pointers = elements.indptr
+        vertex_count = pointers[1:] - pointers[:-1]
+        v1, v2, v3 = [], [], []
+        # --- add triangles ---
+        tris, = np.where(vertex_count == 3)
+        tri_pointers = pointers[:-1][tris]
+        v1.extend(indices[tri_pointers])
+        v2.extend(indices[tri_pointers+1])
+        v3.extend(indices[tri_pointers+2])
+        # --- add two tris for each quad ---
+        quads, = np.where(vertex_count == 4)
+        quad_pointers = pointers[:-1][quads]
+        v1.extend(indices[quad_pointers])
+        v2.extend(indices[quad_pointers+1])
+        v3.extend(indices[quad_pointers+2])
+        v1.extend(indices[quad_pointers+1])
+        v2.extend(indices[quad_pointers+2])
+        v3.extend(indices[quad_pointers+3])
+        # --- polygons with > 4 vertices ---
+        if np.any(vertex_count > 4):
+            warnings.warn("Only tris and quads are currently supported with Plotly mesh render", RuntimeWarning)
+        # --- plot mesh ---
+        cbar = None if not channel(data) or not channel(data).item_names[0] else channel(data).item_names[0][0]
+        if math.is_nan(data.values).all:
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3)
+        else:
+            values = reshaped_numpy(data.values, [instance(data.mesh)])
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='cell')
+        figure.add_trace(mesh, row=row, col=col)
+        # fig = go.Figure(go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3))
+        # fig.write_html("plotly_direct.html")
 
 
 def _get_range(bounds: Box, index: int):
@@ -458,12 +560,16 @@ def join_curves(curves: List[np.ndarray]) -> np.ndarray:
 
 PLOTLY = PlotlyPlots()
 PLOTLY.recipes.extend([
-            LinePlot(),
-            Heatmap2D(),
-            VectorField2D(),
-            VectorField3D(),
-            VectorCloud2D(),
-            Heatmap3D(),
-            PointCloud2D(),
-            PointCloud3D(),
-        ])
+    LinePlot(),
+    # --- 2D ---
+    Heatmap2D(),
+    VectorField2D(),
+    VectorCloud2D(),
+    PointCloud2D(),
+    # --- 3D ---
+    Heatmap3D(),
+    SurfaceMesh3D(),
+    Graph3D(),
+    VectorCloud3D(),
+    PointCloud3D(),
+])
