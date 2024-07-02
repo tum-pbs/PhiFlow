@@ -715,10 +715,10 @@ def concat(fields: Sequence[Field], dim: str or Shape) -> Field:
     if fields[0].is_grid:
         values = math.concat([f.values for f in fields], dim)
         return fields[0].with_values(values)
-    elif fields[0].is_point_cloud:
-        elements = geom.concat([f.elements for f in fields], dim)
+    elif fields[0].is_point_cloud or fields[0].is_graph:
+        geometry = geom.concat([f.geometry for f in fields], dim)
         values = math.concat([math.expand(f.values, f.shape.only(dim)) for f in fields], dim)
-        return PointCloud(elements=elements, values=values, extrapolation=fields[0].extrapolation)
+        return PointCloud(elements=geometry, values=values, extrapolation=fields[0].extrapolation)
     elif fields[0].is_mesh:
         assert all([f.geometry == fields[0].geometry for f in fields])
         values = math.concat([math.expand(f.values, f.shape.only(dim)) for f in fields], dim)
@@ -755,10 +755,10 @@ def stack(fields: Sequence[Field], dim: Shape, dim_bounds: Box = None):
             return grid(values, boundary, fields[0].bounds * dim_bounds)
         else:
             return fields[0].with_values(values).with_boundary(boundary)
-    elif fields[0].is_point_cloud:
-        elements = geom.stack([f.elements for f in fields], dim)
+    elif fields[0].is_point_cloud or fields[0].is_graph:
+        geometry = geom.stack([f.geometry for f in fields], dim)
         values = math.stack([f.values for f in fields], dim)
-        return PointCloud(elements, values, boundary)
+        return PointCloud(geometry, values, boundary)
     elif fields[0].is_mesh:
         assert all([f.geometry == fields[0].geometry for f in fields]), f"stacking fields with different geometries is not supported. Got {[f.geometry for f in fields]}"
         values = math.stack([f.values for f in fields], dim)

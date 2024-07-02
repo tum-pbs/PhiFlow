@@ -261,7 +261,7 @@ class Field:
     @property
     def is_point_cloud(self):
         """A Field represents graph data if its `geometry` is not a set of connected elements, but rather individual geometric objects."""
-        if isinstance(self._geometry, (UniformGrid, Mesh)):
+        if isinstance(self._geometry, (UniformGrid, Mesh, Graph)):
             return False
         if isinstance(self._geometry, (BaseBox, Sphere, Point)):
             return True
