@@ -111,15 +111,17 @@ def differential(u: Field,
         if order == 4:
             amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.grad_dim, velocity.vector)]  # ToDo resampling does not yet support order=4
         else:
-            velocity.vector[0].at(grad_grid.gradient[0], order=order, implicit=implicit)
-            amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.gradient, velocity.vector)]
-        return - sum(amounts)
+            amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.grad_dim, velocity.vector)]
+        amount = sum(amounts)
+        return u.with_values(- amount)
     elif u.is_grid and u.is_centered:
-        assert u.is_grid and u.is_centered, f"grid must be CenteredGrid or StaggeredGrid but got {type(u)}"
-        grad = spatial_gradient(u, stack_dim=channel('gradient'), order=order, implicit=implicit)
-        velocity = stack(unstack(velocity, dim='vector'), dim=channel('gradient'))
-        amounts = velocity * grad
-        return amounts.with_values(- math.sum(amounts.values, 'gradient'))
+        grad_tensor = math.stack(
+            [spatial_gradient(component, stack_dim=channel('gradient'), order=order, implicit=implicit).values for
+             component in u.vector], dim=channel('vector'))
+        velocity_tensor = math.stack(math.unstack(velocity.values, dim='vector'), dim=channel('gradient'))
+        amounts = velocity_tensor * grad_tensor
+        amount = sum(amounts.gradient)
+        return velocity.with_values(- amount)
     elif u.is_mesh:
         u = u.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
         velocity = velocity.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)

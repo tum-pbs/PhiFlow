@@ -5,8 +5,8 @@ import numpy as np
 
 from phi import math
 from phi.math import DimFilter
-from phiml.math import rename_dims, vec, stack
-from phiml.math._shape import parse_dim_order, dual
+from phiml.math import rename_dims, vec, stack, expand, instance
+from phiml.math._shape import parse_dim_order, dual, non_channel
 from ._geom import Geometry, _keep_vector
 from ..math import wrap, INF, Shape, channel, Tensor
 from ..math.magic import slicing_dict
@@ -114,22 +114,39 @@ class BaseBox(Geometry):  # not a Subwoofer
     def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
         loc_to_center = self.global_to_local(positions, scale=False, origin='center')
         sgn_dist_from_surface = math.abs(loc_to_center) - self.half_size
+        rotation_matrix = self.rotation_matrix
         if outward:
             # --- get negative distances (particles are inside) towards the nearest boundary and add shift_amount ---
             distances_of_interest = (sgn_dist_from_surface == math.max(sgn_dist_from_surface, 'vector')) & (sgn_dist_from_surface < 0)
             shift = distances_of_interest * (sgn_dist_from_surface - shift_amount)
-        else:
+            # ToDo reduce instance dim
+        else:  # inward
             shift = (sgn_dist_from_surface + shift_amount) * (sgn_dist_from_surface > 0)  # get positive distances (particles are outside) and add shift_amount
-            shift = math.where(math.abs(shift) > math.abs(loc_to_center), math.abs(loc_to_center), shift)  # ensure inward shift ends at center
-        shift = math.rotate_vector(shift, self.rotation_matrix)
+            if instance(self):
+                shift, loc_to_center, rotation_matrix = math.at_min((shift, loc_to_center, rotation_matrix), key=math.vec_length(shift), dim=instance)
+            shift = math.where(abs(shift) > abs(loc_to_center), abs(loc_to_center), shift)  # ensure inward shift ends at center
+        shift = math.rotate_vector(shift, rotation_matrix)
         return positions + math.where(loc_to_center < 0, 1, -1) * shift
 
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         loc_to_center = self.global_to_local(location, scale=False, origin='center')
-        sgn_dist_from_surface = math.abs(loc_to_center) - self.half_size
-        normal_if_inside = (sgn_dist_from_surface == math.max(sgn_dist_from_surface, 'vector')) & (sgn_dist_from_surface < 0)
-        raise NotImplementedError
-        # return signed_dist, delta, normals, offsets, face_idx
+        sgn_surf_delta = math.abs(loc_to_center) - self.half_size
+        if instance(self):
+            raise NotImplementedError
+            self_center, self_radius, sgn_dist, center_delta, center_dist = math.at_min((self.center, self.radius, sgn_dist, center_delta, center_dist), key=abs(sgn_dist), dim=instance)
+        # is_inside = math.all(sgn_surf_delta < 0, 'vector')
+        # abs_surf_delta = abs(sgn_surf_delta)
+        max_sgn_dist = math.max(sgn_surf_delta, 'vector')
+        normal_axis = max_sgn_dist == sgn_surf_delta
+        normal = math.vec_normalize(normal_axis * math.sign(loc_to_center))
+        surf_to_center = math.where(normal_axis, math.sign(loc_to_center) * self.half_size, loc_to_center)
+        closest_to_center = math.clip(surf_to_center, -self.half_size, self.half_size)
+        surface_pos = self.local_to_global(closest_to_center, scale=False, origin='center')
+        delta = surface_pos - location
+        face_index = expand(0, non_channel(location))
+        offset = normal.vector @ surface_pos.vector
+        sgn_surf_dist = math.vec_length(delta) * math.sign(max_sgn_dist)
+        return sgn_surf_dist, delta, normal, offset, face_index
 
     def project(self, *dimensions: str):
         """ Project this box into a lower-dimensional space. """
@@ -188,9 +205,10 @@ class BaseBox(Geometry):  # not a Subwoofer
     def face_shape(self) -> Shape:
         return self.shape.without('vector') & dual(side='lower,upper') & dual(**self.shape['vector'].untyped_dict)
 
+    @property
     def corners(self):
         to_face = self.face_normals[{'~side': 'upper'}] * math.rename_dims(self.half_size, 'vector', dual)
-        lower_upper = math.meshgrid(math.instance, **{dim: [-1, 1] for dim in self.vector.item_names}, stack_dim=dual('vector'))  # (x=2, y=2, ... vector=x,y,...)
+        lower_upper = math.meshgrid(math.dual, **{dim: [-1, 1] for dim in self.vector.item_names}, stack_dim=dual('vector'))  # (x=2, y=2, ... vector=x,y,...)
         to_corner = math.sum(lower_upper * to_face, '~vector')
         return self.center + to_corner
 
@@ -362,6 +380,8 @@ class Box(BaseBox, metaclass=BoxType):
         return self.half_size
 
     def __repr__(self):
+        if self._lower is None or self._upper is None:  # traced
+            return f"Box[traced, shape={self._shape}]"
         if self.shape.non_channel.volume == 1:
             item_names = self.size.vector.item_names
             if item_names:

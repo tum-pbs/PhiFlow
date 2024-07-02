@@ -58,10 +58,14 @@ class TestSphere(TestCase):
         s = expand(s, batch(b=100))
         s = rename_dims(s, 'b', 'bat')
         s = unpack_dim(s, 'points', spatial(x=10, y=5))
-        assert not s.radius.shape
         assert batch(bat=100) & spatial(x=10, y=5) & channel(vector='x,y') == s.shape
         s = pack_dims(s, 'x,y', instance('particles'))
-        assert not s.radius.shape
         assert batch(bat=100) & instance(particles=50) & channel(vector='x,y') == s.shape
         s = flatten(s)
         assert batch(bat=100) & instance(flat=50) & channel(vector='x,y') == s.shape
+
+    def test_sphere_no_corners(self):
+        s = Sphere(x=0, y=0, radius=1)
+        corners = s.corners
+        self.assertIn('vector', corners.shape)
+        self.assertEqual(0, corners.shape.volume)

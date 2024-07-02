@@ -32,14 +32,3 @@ jobs:
       - name: Test with pytest
         run: |
           coverage run -m pytest tests/commit
-
-      - name: Upload coverage
-        run:
-          bash <(curl -s https://codecov.io/bash)
-
-      - name: pylint
-        continue-on-error: true
-        run: |
-          pylint --rcfile=./demos/.pylintrc demos
-          pylint --rcfile=./tests/.pylintrc tests
-          pylint --rcfile=./phi/.pylintrc phi

@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 from numbers import Number
-from typing import Dict, List, Sequence, Union
+from typing import Dict, List, Sequence, Union, Any, Tuple, Optional
 
 import numpy as np
+from phi.geom import UniformGrid, Box
 
-from phiml.math import to_format, is_sparse, unstack, non_channel, non_batch, batch
+from phiml.math import to_format, is_sparse, unstack, non_channel, non_batch, batch, pack_dims
 from phiml.math.extrapolation import as_extrapolation
 from phiml.math.magic import slicing_dict
 from ._geom import Geometry, Point
@@ -37,7 +38,8 @@ class Mesh(Geometry):
                  volume: Tensor,
                  faces: Face,
                  valid_mask: Tensor,
-                 face_vertices: Tensor):
+                 face_vertices: Tensor,
+                 max_cell_walk: int = None):
         """
         Args:
             vertices: Vertex positions, shape (vertices:i, vector:c)
@@ -64,16 +66,21 @@ class Mesh(Geometry):
         self._face_vertices = face_vertices
         cell_deltas = pairwise_distances(self.center, format=self.cell_connectivity, default=None)
         cell_distances = math.vec_length(cell_deltas)
+        assert (cell_distances > 0).all, f"All cells must have distance > 0 but found 0 distance at {math.nonzero(cell_distances == 0)}"
         face_distances = math.vec_length(self.face_centers[self.interior_faces] - self.center)
         self._relative_face_distance = math.concat([face_distances / cell_distances, self.boundary_connectivity], '~neighbors')
         boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
+        assert (math.vec_length(boundary_deltas) > 0).all, f"All boundary faces must be separated from the cell centers but 0 distance at the following {channel(math.stored_indices(boundary_deltas)).item_names[0]}:\n{math.nonzero(math.vec_length(boundary_deltas) == 0):full}"
         self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], '~neighbors')
+        if max_cell_walk is None:
+            max_cell_walk = 2 if instance(polygons).volume > 1 else 1
+        self._max_cell_walk = max_cell_walk
         # --- skewness ---
         # theta_e = math.PI * (vertex_count - 2) / vertex_count
         # e_face =
 
     def __variable_attrs__(self):
-        return '_vertices', '_center', '_volume', '_faces', '_valid_mask', '_face_vertices', '_relative_face_distance', '_neighbor_offsets'
+        return '_vertices', '_polygons', '_vertex_count', '_center', '_volume', '_faces', '_valid_mask', '_face_vertices', '_relative_face_distance', '_neighbor_offsets'
 
     def __value_attrs__(self):
         return '_vertices',
@@ -140,7 +147,7 @@ class Mesh(Geometry):
         for name, b_slice in widths.items():
             if b_slice[dim].stop - b_slice[dim].start > 0:
                 slices.append(b_slice[dim])
-                values.append(mode.sparse_pad_values(value, connectivity[b_slice], name, **kwargs))
+                values.append(mode.sparse_pad_values(value, connectivity[b_slice], name, mesh=self, **kwargs))
         perm = np.argsort([s.start for s in slices])
         ordered_pieces = [values[i] for i in perm]
         return concat(ordered_pieces, dim, expand_values=True)
@@ -222,10 +229,50 @@ class Mesh(Geometry):
         return self._volume
 
     def lies_inside(self, location: Tensor) -> Tensor:
-        raise NotImplementedError
+        idx = math.find_closest(self._center, location)
+        for i in range(self._max_cell_walk):
+            idx, leaves_mesh, is_outside, *_ = self.cell_walk_towards(location, idx, allow_exit=i == self._max_cell_walk - 1)
+        return ~(leaves_mesh & is_outside)
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]) -> Tensor:
+        idx = math.find_closest(self._center, location)
+        for i in range(self._max_cell_walk):
+            idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
+        return math.max(distances, dual)
+
+    def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        # idx = math.find_closest(self._center, location)
+        # for i in range(self._max_cell_walk):
+        #     idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
+        # sgn_dist = math.max(distances, dual)
+        # cell_normals = self.face_normals[idx]
+        # normal = cell_normals[{dual: nb_idx}]
+        # return sgn_dist, delta, normal, offset, face_index
         raise NotImplementedError
+
+    def cell_walk_towards(self, location: Tensor, start_cell_idx: Tensor, allow_exit=False):
+        """
+        If `location` is not within the cell at index `from_cell_idx`, moves to a closer neighbor cell.
+
+        Args:
+            location: Target location as `Tensor`.
+            start_cell_idx: Index of starting cell. Must be a valid cell index.
+            allow_exit: If `True`, returns an invalid index for points outside the mesh, otherwise keeps the current index.
+
+        Returns:
+            index: Index of the neighbor cell or starting cell.
+            leaves_mesh: Whether the walk crossed the mesh boundary. Then `index` is invalid. This is only possible if `allow_exit` is true.
+            is_outside: Whether `location` was outside the cell at index `start_cell_idx`.
+        """
+        closest_normals = self.face_normals[start_cell_idx]
+        closest_face_centers = self.face_centers[start_cell_idx]
+        offsets = closest_normals.vector @ closest_face_centers.vector  # this dot product could be cashed in the mesh
+        distances = closest_normals.vector @ location.vector - offsets
+        is_outside = math.any(distances > 0, dual)
+        nb_idx = math.argmax(distances, dual).index[0]  # cell index or boundary face index
+        leaves_mesh = nb_idx >= instance(self).volume
+        next_idx = math.where(is_outside & (~leaves_mesh | allow_exit), nb_idx, start_cell_idx)
+        return next_idx, leaves_mesh, is_outside, distances, nb_idx
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
@@ -238,9 +285,13 @@ class Mesh(Geometry):
 
     def bounding_half_extent(self) -> Tensor:
         center = self.center
-        vertex_pos = self._vertices.center[self._polygons]
+        vertex_pos = self._vertices.center[{instance: self._polygons}]
         max_delta = math.max(abs(vertex_pos - center) * self._valid_mask, spatial)
         return max_delta
+
+    @property
+    def bounds(self):
+        return Box(math.min(self._vertices.center, instance), math.max(self._vertices.center, instance))
 
     def at(self, center: Tensor) -> 'Geometry':
         raise NotImplementedError
@@ -267,7 +318,9 @@ class Mesh(Geometry):
 
 def load_su2(file_or_mesh: str, cell_dim=instance('cells'), face_format: str = 'csc') -> Mesh:
     """
-    Loads an unstructured mesh from a `.su2` file.
+    Load an unstructured mesh from a `.su2` file.
+
+    This requires the package `ezmesh` to be installed.
 
     Args:
         file_or_mesh: Path to `.su2` file or *ezmesh* `Mesh` instance.
@@ -285,9 +338,48 @@ def load_su2(file_or_mesh: str, cell_dim=instance('cells'), face_format: str = '
     if mesh.dim == 2 and mesh.points.shape[-1] == 3:
         points = mesh.points[..., :2]
     else:
+        assert mesh.dim == 3, f"Only 2D and 3D meshes are supported but got {mesh.dim} in {file_or_mesh}"
         points = mesh.points
     boundaries = {name.strip(): markers for name, markers in mesh.markers.items()}
-    return mesh_from_numpy(points, mesh.elements, boundaries, cell_dim, face_format=face_format)
+    return mesh_from_numpy(points, mesh.elements, boundaries, cell_dim=cell_dim, face_format=face_format)
+
+
+def load_gmsh(file: str, boundary_names: Sequence[str] = None, cell_dim=instance('cells'), face_format: str = 'csc'):
+    """
+    Load an unstructured mesh from a `.msh` file.
+
+    This requires the package `meshio` to be installed.
+
+    Args:
+        file: Path to `.su2` file.
+        boundary_names: Boundary identifiers corresponding to the blocks in the file. If not specified, boundaries will be numbered.
+        cell_dim: Dimension along which to list the cells. This should be an instance dimension.
+        face_format: Sparse storage format for cell connectivity.
+
+    Returns:
+        `Mesh`
+    """
+    import meshio
+    from meshio import Mesh
+    mesh: Mesh = meshio.read(file)
+    dim = max([c.dim for c in mesh.cells])
+    if dim == 2 and mesh.points.shape[-1] == 3:
+        points = mesh.points[..., :2]
+    else:
+        assert dim == 3, f"Only 2D and 3D meshes are supported but got {dim} in {file}"
+        points = mesh.points
+    elements = []
+    boundaries = {}
+    for cell_block in mesh.cells:
+        if cell_block.dim == dim:  # cells
+            elements.extend(cell_block.data)
+        elif cell_block.dim == dim - 1:
+            # derive name from cell_block.tags if present?
+            boundary = str(len(boundaries)) if boundary_names is None else boundary_names[len(boundaries)]
+            boundaries[boundary] = cell_block.data
+        else:
+            raise AssertionError(f"Illegal cell block of type {cell_block.type} for {dim}D mesh")
+    return mesh_from_numpy(points, elements, boundaries, cell_dim=cell_dim, face_format=face_format)
 
 
 def mesh_from_numpy(points: Union[list, np.ndarray],
@@ -441,8 +533,8 @@ def build_faces_2d(vertices: Tensor,
     indices = wrap(poly_pairs, face_dim, channel(vector=[instance(polygons).name, '~neighbors']))
     point_idx1 = wrap(points1 + points2 + b_points1, face_dim)
     point_idx2 = wrap(points2 + points1 + b_points2, face_dim)
-    loc_points1 = vertices[point_idx1]
-    loc_points2 = vertices[point_idx2]
+    loc_points1 = vertices[{instance: point_idx1}]
+    loc_points2 = vertices[{instance: point_idx2}]
     # --- Compute edge properties ---
     delta = loc_points2 - loc_points1
     area = vec_length(delta)
@@ -462,3 +554,132 @@ def build_faces_2d(vertices: Tensor,
     vertex_pairs = stack([point_idx1, point_idx2], channel('face_vertices'))
     face_vertices = tensor_like(area, vertex_pairs, value_order='original')
     return faces, boundary_slices, vertex_connectivity, face_vertices
+
+
+def build_mesh(bounds: Box = None,
+               resolution=math.EMPTY_SHAPE,
+               obstacles: Union[Geometry, Dict[str, Geometry]] = None,
+               method='quad',
+               cell_dim: Shape = instance('cells'),
+               face_format: str = 'csc',
+               max_squish: Optional[float] = .5,
+               **resolution_: Union[int, Tensor, tuple, list, Any]) -> Mesh:
+    """
+    Build a mesh for a given domain, respecting obstacles.
+
+    Args:
+        bounds: Bounds for uniform cells.
+        resolution: Base resolution
+        obstacles: Single `Geometry` or `dict` mapping boundary name to corresponding `Geometry`.
+        method: Meshing algorithm. Only `quad` is currently supported.
+        cell_dim: Dimension along which to list the cells. This should be an instance dimension.
+        face_format: Sparse storage format for cell connectivity.
+        max_squish: Smallest allowed cell size compared to the smallest regular cell.
+        **resolution_: For uniform grid, pass resolution as `int` and specify `bounds`.
+            Or pass a sequence of floats for each dimension, specifying the vertex positions along each axis.
+            This allows for variable cell stretching.
+
+    Returns:
+        `Mesh`
+    """
+    if obstacles is None:
+        obstacles = {}
+    elif isinstance(obstacles, Geometry):
+        obstacles = {'obstacle': obstacles}
+    assert isinstance(obstacles, dict), f"obstacles needs to be a Geometry or dict"
+    if method == 'quad':
+        if bounds is None:  # **resolution_ specifies points
+            assert not resolution, f"When specifying vertex positions, bounds and resolution will be inferred and must not be specified."
+            resolution = spatial(**{dim: non_batch(x).volume for dim, x in resolution_.items()}) - 1
+            vert_pos = math.meshgrid(**resolution_)
+            bounds = Box(**{dim: (x[0], x[-1]) for dim, x in resolution_.items()})
+            # centroid_x = {dim: .5 * (wrap(x[:-1]) + wrap(x[1:])) for dim, x in resolution_.items()}
+            # centroids = math.meshgrid(**centroid_x)
+        else:  # uniform grid from bounds, resolution
+            resolution = resolution & spatial(**resolution_)
+            vert_pos = math.meshgrid(resolution + 1) / resolution * bounds.size + bounds.lower
+            # centroids = UniformGrid(resolution, bounds).center
+        dx = bounds.size / resolution
+        regular_size = math.min(dx, channel)
+        vert_pos, polygons, boundaries = build_quadrilaterals(vert_pos, resolution, obstacles, bounds, regular_size * max_squish)
+        if max_squish is not None:
+            lin_vert_pos = pack_dims(vert_pos, spatial, instance('polygon'))
+            corner_pos = lin_vert_pos[polygons]
+            min_pos = math.min(corner_pos, '~polygon')
+            max_pos = math.max(corner_pos, '~polygon')
+            cell_sizes = math.min(max_pos - min_pos, 'vector')
+            too_small = cell_sizes < regular_size * max_squish
+            # --- remove too small cells ---
+            removed = polygons[too_small]
+            removed_centers = math.mean(lin_vert_pos[removed], '~polygon')
+            kept_vert = removed[{'~polygon': 0}]
+            vert_pos = math.scatter(lin_vert_pos, kept_vert, removed_centers)
+            vertex_map = math.range(non_channel(lin_vert_pos))
+            vertex_map = math.scatter(vertex_map, rename_dims(removed, '~polygon', instance('poly_list')), expand(kept_vert, instance(poly_list=4)))
+            polygons = polygons[~too_small]
+            polygons = vertex_map[polygons]
+            boundaries = {boundary: vertex_map[edge_list] for boundary, edge_list in boundaries.items()}
+            boundaries = {boundary: edge_list[edge_list[{'~vert': 'start'}] != edge_list[{'~vert': 'end'}]] for boundary, edge_list in boundaries.items()}
+            # ToDo remove edges which now point to the same vertex
+        def build_single_mesh(vert_pos, polygons, boundaries):
+            points_np = math.reshaped_numpy(vert_pos, [..., channel])
+            polygon_list = math.reshaped_numpy(polygons, [..., dual])
+            boundaries = {b: edges.numpy('edges,~vert') for b, edges in boundaries.items()}
+            return mesh_from_numpy(points_np, polygon_list, boundaries, cell_dim=cell_dim, face_format=face_format)
+        return math.map(build_single_mesh, vert_pos, polygons, boundaries, dims=batch)
+
+
+def build_quadrilaterals(vert_pos, resolution: Shape, obstacles: Dict[str, Geometry], bounds: Box, min_size) -> Tuple[Tensor, Tensor, dict]:
+    vert_id = math.range_tensor(resolution + 1)
+    # --- obstacles: mask and boundaries ---
+    boundaries = {}
+    full_mask = expand(False, resolution)
+    for boundary, obstacle in obstacles.items():
+        assert isinstance(obstacle, Geometry), f"all obstacles must be Geometry objects but got {type(obstacle)}"
+        active_mask_vert = obstacle.approximate_signed_distance(vert_pos) > min_size
+        obs_mask_cell = math.convolve(active_mask_vert, expand(1, resolution.with_sizes(2))) == 0  # use all cells with one non-blocked vertex
+        math.assert_close(False, obs_mask_cell & full_mask, msg="Obstacles must not overlap. For overlapping obstacles, use union() to assign a single boundary.")
+        lo, up = math.shift(obs_mask_cell, (0, 1), padding=None)
+        face_mask = lo != up
+        for dim, dim_mask in dict(**face_mask.shift).items():
+            face_verts = vert_id[{dim: slice(1, -1)}]
+            start_vert = face_verts[{d: slice(None, -1) for d in resolution.names if d != dim}]
+            end_vert = face_verts[{d: slice(1, None) for d in resolution.names if d != dim}]
+            mask_indices = math.nonzero(face_mask.shift[dim], list_dim=instance('edges'))
+            edges = stack([start_vert[mask_indices], end_vert[mask_indices]], dual(vert='start,end'))
+            boundaries.setdefault(boundary, []).append(edges)
+            # edge_list = [(s, e) for s, e, m in zip(start_vert, end_vert, dim_mask) if m]
+            # boundaries.setdefault(boundary, []).extend(edge_list)
+        full_mask |= obs_mask_cell
+    boundaries = {boundary: concat(edge_tensors, 'edges') for boundary, edge_tensors in boundaries.items()}
+    # --- outer boundaries ---
+    def all_faces(ids: Tensor, edge_mask: Tensor, dim):
+        assert ids.rank == 1
+        mask_indices = math.nonzero(~edge_mask, list_dim=instance('edges'))
+        start_vert = ids[:-1]
+        end_vert = ids[1:]
+        return stack([start_vert[mask_indices], end_vert[mask_indices]], dual(vert='start,end'))
+        # return [(i, j) for i, j, m in zip(ids[:-1], ids[1:], edge_mask) if not m]
+    for dim in resolution.names:
+        boundaries[dim+'-'] = all_faces(vert_id[{dim: 0}], full_mask[{dim: 0}], dim)
+        boundaries[dim+'+'] = all_faces(vert_id[{dim: -1}], full_mask[{dim: -1}], dim)
+    # --- cells ---
+    cell_indices = math.nonzero(~full_mask)
+    if resolution.rank == 2:
+        d1, d2 = resolution.names
+        c1 = vert_id[{d1: slice(0, -1), d2: slice(0, -1)}]
+        c2 = vert_id[{d1: slice(0, -1), d2: slice(1, None)}]
+        c3 = vert_id[{d1: slice(1, None), d2: slice(1, None)}]
+        c4 = vert_id[{d1: slice(1, None), d2: slice(0, -1)}]
+        polygons = stack([c1, c2, c3, c4], dual('polygon'))
+        polygons = polygons[cell_indices]
+    else:
+        raise NotImplementedError(resolution.rank)
+    # --- push vertices out of obstacles ---
+    ext_mask = math.pad(~full_mask, {d: (0, 1) for d in resolution.names}, False)
+    has_cell = math.convolve(ext_mask, expand(1, resolution.with_sizes(2)), math.extrapolation.ZERO)  # vertices without a cell could be removed to improve memory/cache efficiency
+    for obstacle in obstacles.values():
+        shifted_verts = obstacle.push(vert_pos)
+        vert_pos = math.where(has_cell, shifted_verts, vert_pos)
+    vert_pos = bounds.push(vert_pos, outward=False)
+    return vert_pos, polygons, boundaries

@@ -6,12 +6,10 @@ import numpy
 import phi
 from phi import math, geom
 from phi.field import StaggeredGrid, CenteredGrid, PointCloud, Noise
-from phi.field._field_math import _lhs_for_implicit_scheme, _ex_map_f, pad, shift, stack
 from phi.geom import Box, Sphere
 from phi import field
 from phi.math import extrapolation, instance, channel, spatial, batch
 from phi.math.backend import Backend
-from phi.math.extrapolation import combine_by_direction, REFLECT, SYMMETRIC
 from phiml.math import Tensor, wrap
 
 BACKENDS = phi.detect_backends()

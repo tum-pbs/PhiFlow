@@ -120,12 +120,12 @@ class TestBox(TestCase):
         math.assert_close(math.vec(x=0, y=1), n[{'~side': 'upper', '~vector': 'x'}], abs_tolerance=1e-5)
 
     def test_corners(self):
-        c = Box(x=50, y=10).corners()
-        math.assert_close(vec(x=50, y=10), c.x[1].y[1])
-        math.assert_close(vec(x=0, y=10), c.x[0].y[1])
-        math.assert_close(vec(x=0, y=0), c.x[0].y[0])
+        c = Box(x=50, y=10).corners
+        math.assert_close(vec(x=0, y=0), c[{'~x': 0, '~y': 0}])
+        math.assert_close(vec(x=0, y=10), c[{'~x': 0, '~y': 1}])
+        math.assert_close(vec(x=50, y=10), c[{'~x': 1, '~y': 1}])
         # --- rotated ---
-        c = Cuboid(x=50, y=10).rotated(math.PI / 2).corners()
-        math.assert_close(vec(x=5, y=-25), c.x[0].y[0])
-        math.assert_close(vec(x=-5, y=25), c.x[1].y[1])
-        math.assert_close(vec(x=-5, y=-25), c.x[0].y[1])
+        c = Cuboid(x=50, y=10).rotated(math.PI / 2).corners
+        math.assert_close(vec(x=5, y=-25), c[{'~x': 0, '~y': 0}])
+        math.assert_close(vec(x=-5, y=-25), c[{'~x': 0, '~y': 1}])
+        math.assert_close(vec(x=-5, y=25), c[{'~x': 1, '~y': 1}])

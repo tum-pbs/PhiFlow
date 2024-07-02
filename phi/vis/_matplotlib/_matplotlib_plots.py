@@ -16,12 +16,15 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from phi import math
 from phi.field import StaggeredGrid, Field
-from phi.geom import Sphere, BaseBox, Point, Box, Mesh, Graph
+from phi.geom import Sphere, BaseBox, Point, Box, Mesh, Graph, SDFGrid
 from phi.geom._heightmap import Heightmap
 from phi.geom._geom_ops import GeometryStack
 from phi.geom._transform import _EmbeddedGeometry
 from phi.math import Tensor, channel, spatial, instance, non_channel, Shape, reshaped_numpy, shape
 from phi.vis._vis_base import display_name, PlottingLibrary, Recipe, index_label, only_stored_elements, to_field
+
+
+colormaps = matplotlib.colormaps if hasattr(matplotlib.colormaps, 'get_cmap') else matplotlib.cm
 
 
 class MatplotlibPlots(PlottingLibrary):
@@ -498,7 +501,12 @@ class StreamPlot2D(Recipe):
         alphas = reshaped_numpy(alpha, [data.shape.without('vector')])
         a = float(alphas[0])
         prev_patches = set(subplot.patches)
-        stream = subplot.streamplot(x, y, u.T, v.T, color=col, cmap=plt.cm.get_cmap())
+        try:
+            stream = subplot.streamplot(x, y, u.T, v.T, color=col, cmap=colormaps.get_cmap(matplotlib.rcParams['image.cmap']))
+        except ValueError as err:  # no lines cause
+            if err.args[0] == "need at least one array to concatenate":
+                return
+            raise err
         stream.lines.set_alpha(a)
         new_patches = set(subplot.patches) - prev_patches
         for obj in new_patches:
@@ -607,20 +615,24 @@ class PointCloud2D(Recipe):
             if math.is_finite(data.values).any:
                 values = reshaped_numpy(data.values, [non_channel(data)])
                 mpl_colors = add_color_bar(axis, values, min_val, max_val)
+                single_color = False
                 # if np.any(values != values[0]):
                 # else:
                 #     mpl_colors = [_next_line_color(axis, 'lines' if connected else 'collections')] * non_channel(data).volume
             else:
                 mpl_colors = [_next_line_color(axis, 'lines' if connected else 'collections')] * non_channel(data).volume
+                single_color = True
         elif non_channel(data).only(color.shape) and color.dtype.kind == float:  # use color map
             values = reshaped_numpy(color, [non_channel(data)])
             mpl_colors = add_color_bar(axis, values, None, None)
+            single_color = False
         else:
             mpl_colors = matplotlib_colors(color, non_channel(data), default=0)
+            single_color = True
         alphas = reshaped_numpy(alpha, [non_channel(data)])
         if isinstance(data.geometry, Point):
             if spatial(data.points).is_empty:
-                axis.scatter(x, y, marker='x', color=mpl_colors, s=6 ** 2, alpha=alphas)
+                axis.scatter(x, y, color=mpl_colors, s=6 ** 2, alpha=alphas)
                 if (err != 0).any:
                     x_err = reshaped_numpy(err.vector[dims[0]], [instance(data)]) if dims[0] in err.vector.item_names else 0
                     y_err = reshaped_numpy(err.vector[dims[1]], [instance(data)]) if dims[1] in err.vector.item_names else 0
@@ -649,9 +661,10 @@ class PointCloud2D(Recipe):
                 shapes = [plt.Rectangle((lxi, lyi), w2i * 2, h2i * 2, angle=ang*180/np.pi, linewidth=1, edgecolor='white', alpha=a, facecolor=ci) for lxi, lyi, w2i, h2i, ang, ci, a in zip(lower_x, lower_y, w2, h2, angles, mpl_colors, alphas)]
                 axis.add_collection(matplotlib.collections.PatchCollection(shapes, match_original=True))
             elif isinstance(data.geometry, Mesh):
-                xs, ys = reshaped_numpy(data.geometry.vertices.center[data.geometry.polygons], ['vector', instance, spatial])
+                xs, ys = reshaped_numpy(data.geometry.vertices.center[{instance: data.geometry.polygons}], ['vector', instance, spatial])
                 counts = reshaped_numpy(math.sum(data.geometry.polygons >= 0, spatial), [instance])
-                shapes = [plt.Polygon(np.stack([x[:count], y[:count]], -1), closed=True, edgecolor='white', alpha=a, facecolor=ci) for x, y, count, ci, a in zip(xs, ys, counts, mpl_colors, alphas)]
+                edgecolor = 'white' if single_color else None
+                shapes = [plt.Polygon(np.stack([x[:count], y[:count]], -1), closed=True, edgecolor=edgecolor, alpha=a, facecolor=ci) for x, y, count, ci, a in zip(xs, ys, counts, mpl_colors, alphas)]
                 axis.add_collection(matplotlib.collections.PatchCollection(shapes, match_original=True))
             elif isinstance(data.geometry, Graph):
                 xs, ys = reshaped_numpy(data.geometry.center, ['vector', non_channel])
@@ -684,6 +697,12 @@ class PointCloud2D(Recipe):
                 else:
                     for i, (x1_, x2_, y1_, y2_, col) in enumerate(zip(x1, x2, y1, y2, edge_colors)):
                         axis.plot([x1_, x2_], [y1_, y2_], color=col, alpha=alphas[0])
+            elif isinstance(data.geometry, SDFGrid):
+                d = data.geometry.values.numpy(dims)
+                x, y = data.geometry.points.numpy(('vector',) + dims)
+                x = x[:, 0]
+                y = y[0, :]
+                axis.contourf(x, y, d.T, levels=[float('-inf'), 0], colors=[mpl_colors[0]], alpha=alphas[0])
             else:
                 rad = reshaped_numpy(data.geometry.bounding_radius(), [data.shape.non_channel])
                 shapes = [plt.Circle((xi, yi), radius=ri, linewidth=0, alpha=a, facecolor=ci) for xi, yi, ri, ci, a in zip(x, y, rad, mpl_colors, alphas)]
@@ -783,7 +802,7 @@ class PointCloud3D(Recipe):
             elif isinstance(data.geometry, BaseBox):
                 a = alphas[0]
                 c = mpl_colors[0]
-                cx, cy, cz = math.reshaped_numpy(data.geometry.corners(), ['vector', *dims])
+                cx, cy, cz = math.reshaped_numpy(data.geometry.corners, ['vector', *['~'+d for d in dims]])
                 plot_surface(subplot, cx[:, :, 1], cy[:, :, 1], cz[:, :, 1], alpha=a, color=c)
                 plot_surface(subplot, cx[:, :, 0], cy[:, :, 0], cz[:, :, 0], alpha=a, color=c)
                 plot_surface(subplot, cx[:, 1, :], cy[:, 1, :], cz[:, 1, :], alpha=a, color=c)
@@ -793,7 +812,7 @@ class PointCloud3D(Recipe):
             elif isinstance(data.geometry, Point):
                 if not spatial(data.geometry):
                     size = 6 / (0.5 * (x_scale+y_scale+z_scale)/3)
-                    subplot.scatter(x, y, z, marker='x', color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
+                    subplot.scatter(x, y, z, color=mpl_colors, alpha=alphas, s=(size * 0.5 * (x_scale + y_scale + z_scale) / 3) ** 2)
             elif isinstance(data.geometry, _EmbeddedGeometry):
                 raise NotImplementedError(f"Plotting embedded geometries not yet supported")
             else:
@@ -821,20 +840,6 @@ class PointCloud3D(Recipe):
                             subplot.plot(xs[:, i], ys[:, i], zs[:, i], color=col, alpha=alpha_f)
                             if isinstance(data.geometry, Point) and 2 < spatial(data.geometry).volume < 100:
                                 subplot.scatter(xs[:, i], ys[:, i], zs[:, i], s=3, marker='o', c=col, alpha=alphas)
-
-# class Mesh2D(Recipe):
-#
-#     def can_plot(self, data: Field, space: Box) -> bool:
-#         return data.is_mesh and data.spatial_rank == 2
-#
-#     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
-#         dims = space.vector.item_names
-#         point_cloud = PointCloud(data.geometry, data.values, data.extrapolation, bounds=data.bounds)
-#         PointCloud2D().plot(point_cloud, figure, subplot, space, min_val, max_val, show_color_bar, color, alpha, err)
-#         i, j = math.nonzero(data.edges).vector
-#         i_x, i_y = reshaped_numpy(data.points[{instance(data).name: i}][dims], ['vector', 'nonzero'])
-#         j_x, j_y = reshaped_numpy(data.points[{instance(data).name: j}][dims], ['vector', 'nonzero'])
-#         subplot.plot(np.stack([i_x, j_x]), np.stack([i_y, j_y]), color=_plt_col(color), alpha=float(alpha.max))
 
 
 def _plt_col(col):
@@ -872,7 +877,7 @@ def matplotlib_colors(color: Tensor, dims: Shape, default=None) -> Union[list, N
 
 def add_color_bar(axis: Axes, values, min_val, max_val, cmap=None):
     if cmap is None:
-        cmap = plt.cm.get_cmap()
+        cmap = colormaps.get_cmap(matplotlib.rcParams['image.cmap'])
     figure = axis.figure
     figure_has_color_bar = any(['colorbar' in ax.get_label() for ax in figure.axes])
     is_complex = np.iscomplex(max_val)

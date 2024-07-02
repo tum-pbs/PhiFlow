@@ -240,12 +240,12 @@ def expel(geometry: Geometry,
         return expel(geometry.geometry, location, min_separation, invert=not invert)
     if isinstance(geometry, Box):  # legacy
         return geometry.push(location, not invert, min_separation)
-    if math.always_close(geometry.volume, 0):
+    if math.always_close(geometry.bounding_radius(), 0):
         return location
     signed_distance, vec_to_surface, *_ = geometry.approximate_closest_surface(location)
     if not invert:
         shift_amount = math.maximum(0, min_separation - signed_distance)  # expel
-        direction = vec_to_surface / -signed_distance  # this always points outward
+        direction = math.safe_div(vec_to_surface, -signed_distance)  # this always points outward
     else:
         raise NotImplementedError
     return location + direction * shift_amount

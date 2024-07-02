@@ -3,7 +3,8 @@ from typing import Union, Tuple
 from phi.geom import UniformGrid, Box
 from phi.math import Tensor, spatial, Extrapolation, Shape, stack
 from phi.math.extrapolation import Undefined, ConstantExtrapolation, ZERO
-from phiml.math import unstack
+from phiml import math
+from phiml.math import unstack, rename_dims, instance, dual
 from ._field import Field
 from ._resample import sample
 
@@ -76,7 +77,14 @@ class FieldEmbedding(Extrapolation):
         return False
 
     def sparse_pad_values(self, value: Tensor, connectivity: Tensor, dim: str, **kwargs) -> Tensor:
-        raise NotImplementedError
+        assert 'mesh' in kwargs, f"sparse padding with Field as boundary only supported for meshes"
+        from ..geom import Mesh
+        mesh: Mesh = kwargs['mesh']
+        boundary_slice = mesh.boundary_faces[dim]
+        face_pos = mesh.face_centers[boundary_slice]
+        face_pos = math.stored_values(face_pos)  # does this always preserve the order?
+        sampled = sample(self.field, face_pos)
+        return rename_dims(sampled, instance, dual(value))
 
     def __eq__(self, other):
         if not isinstance(other, FieldEmbedding):

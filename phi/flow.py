@@ -13,7 +13,8 @@ See `phi.tf.flow`, `phi.torch.flow`, `phi.jax.flow`.
 import numpy
 import numpy as np
 import phiml
-from phiml import math, backend
+from . import math
+from phiml import backend
 from phiml.math import extrapolation
 import phi
 from . import geom, field, physics, vis
@@ -21,7 +22,7 @@ from .physics import fluid, advect, diffuse
 
 # Classes
 from phiml.math import Shape, Tensor, DType, Solve
-from .geom import Geometry, Sphere, Box, Cuboid
+from .geom import Geometry, Sphere, Box, Cuboid, UniformGrid, Mesh, Graph
 from .field import Field, Grid, CenteredGrid, StaggeredGrid, mask, Noise, PointCloud, Scene, resample, GeometryMask, SoftGeometryMask, HardGeometryMask
 from .vis import Viewer
 from .physics.fluid import Obstacle

@@ -148,7 +148,7 @@ class Heightmap(Geometry):
         flat_normal = math.vec_normalize(normals[self.resolution.name_list], epsilon=1e-5)
         delta_edge = flat_normal * (delta_highest[self.resolution].vector @ flat_normal.vector)  # project onto flat normal
         delta_edge = concat([delta_edge, delta_highest[[self._hdim]]], 'vector')
-        distance_edge = math.vec_length(delta_edge)
+        distance_edge = math.vec_length(delta_edge, eps=1e-5)
         delta_highest, distance_edge = math.at_min((delta_highest, distance_edge), distance_edge, 'extremum')
         distance_edge = math.where(distances < 0, -distance_edge, distance_edge)  # copy sign of distances onto distance_edges to always return the signed distance
         distances = math.where(projects_onto_face, distances, distance_edge)
@@ -220,7 +220,7 @@ class Heightmap(Geometry):
         raise NotImplementedError
 
     def bounding_radius(self) -> Tensor:
-        raise NotImplementedError
+        return self._bounds.bounding_radius()
 
     def at(self, center: Tensor) -> 'Geometry':
         raise NotImplementedError
@@ -285,7 +285,9 @@ def find_most_important_neighbor(face: Face, dx, resolution, hdim, fill_below, m
     max_cells = math.maximum(1, math.to_int32(max_dist / dx))
     offsets = []
     errors = []
-    for i in unstack(math.meshgrid(spatial(**(max_cells * 2 + 1).vector)) - max_cells, spatial):
+    with math.NUMPY:
+        shifts = math.meshgrid(spatial(**(max_cells * 2 + 1).vector)) - max_cells
+    for i in unstack(shifts, spatial):
         flat_delta = i * dx
         flat_dist = math.vec_length(flat_delta)
         if (i != 0).any and ((flat_dist <= max_dist).all or (math.vec_squared(i) <= 1.5).all) and (abs(i) < resolution).all:

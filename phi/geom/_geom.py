@@ -119,6 +119,16 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
+    @property
+    def corners(self) -> Tensor:
+        """
+        Returns:
+            Corner locations as `phiml.math.Tensor`.
+            Corners belonging to one object or cell are listed along dual dimensions.
+            If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.
+        """
+        raise NotImplementedError(self.__class__)
+
     def integrate_surface(self, face_values: Tensor, divide_volume=False) -> Tensor:
         """
         Multiplies `values´ by the corresponding face area, computes the sum over all faces and divides by the cell volume.
@@ -227,11 +237,10 @@ class Geometry:
         This also holds for negative distances.
 
         Args:
-          location: float tensor of shape (batch_size, ..., rank)
+            location: `Tensor` with one channel dim `vector` matching the geometry's `vector` dim.
 
         Returns:
-          float tensor of shape (*location.shape[:-1], 1).
-
+            Float `Tensor`
         """
         raise NotImplementedError(self.__class__)
 
@@ -715,6 +724,10 @@ class Point(Geometry):
     @property
     def face_shape(self) -> Shape:
         return self.shape
+
+    @property
+    def corners(self):
+        return self._location
 
     def __getitem__(self, item):
         return Point(self._location[_keep_vector(slicing_dict(self, item))])
