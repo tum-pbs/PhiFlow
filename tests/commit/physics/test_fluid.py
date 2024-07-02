@@ -32,9 +32,7 @@ class FluidTest(TestCase):
                     field.assert_close(result, abs_tolerance=1e-5, msg=f"Simulation with {backend} does not match {BACKENDS[:i]}")
 
     def test_make_incompressible_centered(self):
-        for i in range(10):
-            self._test_make_incompressible(CenteredGrid, ZERO)
-            print(i, "done")
+        self._test_make_incompressible(CenteredGrid, ZERO)
         self._test_make_incompressible(CenteredGrid, BOUNDARY, batch3=3, batch2=2)
 
     def test_make_incompressible_staggered_closed(self):
