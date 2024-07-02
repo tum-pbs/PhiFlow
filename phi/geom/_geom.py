@@ -3,6 +3,8 @@ import warnings
 from numbers import Number
 from typing import Union, Dict, Any, Tuple
 
+from phiml.math import instance
+
 from phi import math
 from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape, Extrapolation
 from phiml.math._magic_ops import variable_attributes, expand, stack, find_differences
@@ -325,12 +327,8 @@ class Geometry:
         Let the bounding half-extent have value `e` in dimension `d` (`extent[...,d] = e`).
         Then, no point of the geometry lies further away from its center point than `e` along `d` (in both axis directions).
 
-        :return: float vector
-
-        Args:
-
-        Returns:
-
+        When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+        If these dims are not present, all parts are assumed to have the same bounds.
         """
         raise NotImplementedError(self.__class__)
 
@@ -683,7 +681,7 @@ class Point(Geometry):
         return math.zeros()
 
     def bounding_half_extent(self) -> Tensor:
-        return math.zeros()
+        return expand(0, self._shape)
 
     def at(self, center: Tensor) -> 'Geometry':
         return Point(center)
