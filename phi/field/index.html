@@ -325,7 +325,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f8f2121a430></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fac138773a0></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -1728,7 +1728,7 @@ This is the case with rotating rigid bodies, for example.</p></div>
     @property
     def is_point_cloud(self):
         &#34;&#34;&#34;A Field represents graph data if its `geometry` is not a set of connected elements, but rather individual geometric objects.&#34;&#34;&#34;
-        if isinstance(self._geometry, (UniformGrid, Mesh)):
+        if isinstance(self._geometry, (UniformGrid, Mesh, Graph)):
             return False
         if isinstance(self._geometry, (BaseBox, Sphere, Point)):
             return True
@@ -2626,7 +2626,7 @@ def is_mesh(self):
 <pre><code class="python">@property
 def is_point_cloud(self):
     &#34;&#34;&#34;A Field represents graph data if its `geometry` is not a set of connected elements, but rather individual geometric objects.&#34;&#34;&#34;
-    if isinstance(self._geometry, (UniformGrid, Mesh)):
+    if isinstance(self._geometry, (UniformGrid, Mesh, Graph)):
         return False
     if isinstance(self._geometry, (BaseBox, Sphere, Point)):
         return True
@@ -3307,7 +3307,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     @property
     def is_point_cloud(self):
         &#34;&#34;&#34;A Field represents graph data if its `geometry` is not a set of connected elements, but rather individual geometric objects.&#34;&#34;&#34;
-        if isinstance(self._geometry, (UniformGrid, Mesh)):
+        if isinstance(self._geometry, (UniformGrid, Mesh, Graph)):
             return False
         if isinstance(self._geometry, (BaseBox, Sphere, Point)):
             return True
@@ -4205,7 +4205,7 @@ def is_mesh(self):
 <pre><code class="python">@property
 def is_point_cloud(self):
     &#34;&#34;&#34;A Field represents graph data if its `geometry` is not a set of connected elements, but rather individual geometric objects.&#34;&#34;&#34;
-    if isinstance(self._geometry, (UniformGrid, Mesh)):
+    if isinstance(self._geometry, (UniformGrid, Mesh, Graph)):
         return False
     if isinstance(self._geometry, (BaseBox, Sphere, Point)):
         return True
@@ -4885,7 +4885,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     @property
     def is_point_cloud(self):
         &#34;&#34;&#34;A Field represents graph data if its `geometry` is not a set of connected elements, but rather individual geometric objects.&#34;&#34;&#34;
-        if isinstance(self._geometry, (UniformGrid, Mesh)):
+        if isinstance(self._geometry, (UniformGrid, Mesh, Graph)):
             return False
         if isinstance(self._geometry, (BaseBox, Sphere, Point)):
             return True
@@ -5783,7 +5783,7 @@ def is_mesh(self):
 <pre><code class="python">@property
 def is_point_cloud(self):
     &#34;&#34;&#34;A Field represents graph data if its `geometry` is not a set of connected elements, but rather individual geometric objects.&#34;&#34;&#34;
-    if isinstance(self._geometry, (UniformGrid, Mesh)):
+    if isinstance(self._geometry, (UniformGrid, Mesh, Graph)):
         return False
     if isinstance(self._geometry, (BaseBox, Sphere, Point)):
         return True

@@ -211,7 +211,7 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
 <dd><code>Tensor</code> with one instance and one channel dimension <code>vector</code>.</dd>
 <dt><strong><code>polygons</code></strong></dt>
 <dd>Lists of vertex indices as 2D tensor.
-The polygons must be listed along an instance dimension, and the vertex indices belonging to the same polygon must be listed along a spatial dimension.</dd>
+The elements must be listed along an instance dimension, and the vertex indices belonging to the same polygon must be listed along a spatial dimension.</dd>
 <dt><strong><code>boundaries</code></strong></dt>
 <dd>Pass a <code>str</code> to assign one name to all boundary faces.
 For multiple boundaries, pass a <code>dict</code> mapping group names <code>str</code> to lists of faces, defined by their vertices.
@@ -234,7 +234,7 @@ The <code>boundaries</code> <code>dict</code> maps boundary names to a list of e
 <dd>2D numpy array of shape (num_points, point_coord).
 The last dimension must have length 2 for 2D meshes and 3 for 3D meshes.</dd>
 <dt><strong><code>polygons</code></strong></dt>
-<dd>List of polygons. Each polygon is defined as a sequence of point indices mapping into `points'.
+<dd>List of elements. Each polygon is defined as a sequence of point indices mapping into `points'.
 E.g. <code>[(0, 1, 2)]</code> denotes a single triangle connecting points 0, 1, and 2.</dd>
 <dt><strong><code>boundaries</code></strong></dt>
 <dd>An unstructured mesh can have multiple boundaries, each defined by a name <code>str</code> and a list of faces, defined by their vertices.
@@ -1347,9 +1347,8 @@ This is equal to calling <code>self @ center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>:return: float vector</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Box.largest"><code class="name flex">
 <span>def <span class="ident">largest</span></span>(<span>self, dim: Union[str, tuple, list, set, ForwardRef('Shape'), Callable]) ‑> phi.geom._box.Box</span>
@@ -1683,9 +1682,8 @@ This is equal to calling <code>self @ center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>:return: float vector</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Cuboid.lies_inside"><code class="name flex">
 <span>def <span class="ident">lies_inside</span></span>(<span>self, location)</span>
@@ -2059,12 +2057,8 @@ Equality checks must also take this into account.</p></div>
         Let the bounding half-extent have value `e` in dimension `d` (`extent[...,d] = e`).
         Then, no point of the geometry lies further away from its center point than `e` along `d` (in both axis directions).
 
-        :return: float vector
-
-        Args:
-
-        Returns:
-
+        When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+        If these dims are not present, all parts are assumed to have the same bounds.
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
@@ -2565,9 +2559,8 @@ The center of the box may not be equal to <code>self.center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>:return: float vector</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Geometry.bounding_radius"><code class="name flex">
 <span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
@@ -3256,9 +3249,8 @@ This is equal to calling <code>self @ center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>:return: float vector</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Graph.bounding_radius"><code class="name flex">
 <span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
@@ -3955,9 +3947,8 @@ This is equal to calling <code>self @ center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>:return: float vector</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Heightmap.bounding_radius"><code class="name flex">
 <span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
@@ -4040,7 +4031,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 </dd>
 <dt id="phi.geom.Mesh"><code class="flex name class">
 <span>class <span class="ident">Mesh</span></span>
-<span>(</span><span>vertices: phi.geom._graph.Graph, polygons: phiml.math._tensors.Tensor, vertex_count: float, boundaries: Dict[str, Dict[str, slice]], center: phiml.math._tensors.Tensor, volume: phiml.math._tensors.Tensor, faces: phi.geom._mesh.Face, valid_mask: phiml.math._tensors.Tensor, face_vertices: phiml.math._tensors.Tensor, max_cell_walk: int = None)</span>
+<span>(</span><span>vertices: phi.geom._graph.Graph, elements: phiml.math._tensors.Tensor, element_rank: int, boundaries: Dict[str, Dict[str, slice]], center: phiml.math._tensors.Tensor, volume: phiml.math._tensors.Tensor, face_centers: phiml.math._tensors.Tensor, face_normals: phiml.math._tensors.Tensor, face_areas: phiml.math._tensors.Tensor, face_vertices: phiml.math._tensors.Tensor, max_cell_walk: int = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Unstructured mesh.
@@ -4050,14 +4041,9 @@ Use <code><a title="phi.geom.mesh" href="#phi.geom.mesh">mesh()</a></code> or <c
 <dt><strong><code>vertices</code></strong></dt>
 <dd>Vertex positions, shape (vertices:i, vector:c)
 Vertex 0 must be at position 0.</dd>
-<dt><strong><code>polygons</code></strong></dt>
-<dd><code>Tensor</code> listing ordered vertex indices per cell.
-Must have one instance dimensions listing polygons.
-Must have one spatial dimension listing vertex indices per polygon.
-This can be a sparse or dense tensor.
-Invalid indices (index &gt;= vertex_count) must still represent existing vertices. (or -1?)</dd>
-<dt><strong><code>vertex_count</code></strong></dt>
-<dd>Number of vertices per polygon, shape (polygons,)</dd>
+<dt><strong><code>elements</code></strong></dt>
+<dd>Sparse <code>Tensor</code> listing ordered vertex indices per cell. (cells, vertices).
+The vertex count is equal to the number of elements per row.</dd>
 <dt><strong><code>face_vertices</code></strong></dt>
 <dd>(cells, ~neighbors, face_vertices)</dd>
 </dl></div>
@@ -4071,68 +4057,64 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
     Use `phi.geom.mesh()` or `phi.geom.mesh_from_numpy()` to construct a mesh manually or `phi.geom.load_su2()` to load one from a file.
     &#34;&#34;&#34;
 
-    def __init__(self, vertices: Graph,
-                 polygons: Tensor,
-                 vertex_count: float or Tensor,
+    def __init__(self,
+                 vertices: Graph,
+                 elements: Tensor,
+                 element_rank: int,
                  boundaries: Dict[str, Dict[str, slice]],
                  center: Tensor,
                  volume: Tensor,
-                 faces: Face,
-                 valid_mask: Tensor,
+                 face_centers: Tensor,
+                 face_normals: Tensor,
+                 face_areas: Tensor,
                  face_vertices: Tensor,
                  max_cell_walk: int = None):
         &#34;&#34;&#34;
         Args:
             vertices: Vertex positions, shape (vertices:i, vector:c)
                 Vertex 0 must be at position 0.
-            polygons: `Tensor` listing ordered vertex indices per cell.
-                Must have one instance dimensions listing polygons.
-                Must have one spatial dimension listing vertex indices per polygon.
-                This can be a sparse or dense tensor.
-                Invalid indices (index &gt;= vertex_count) must still represent existing vertices. (or -1?)
-            vertex_count: Number of vertices per polygon, shape (polygons,)
+            elements: Sparse `Tensor` listing ordered vertex indices per cell. (cells, vertices).
+                The vertex count is equal to the number of elements per row.
             face_vertices: (cells, ~neighbors, face_vertices)
         &#34;&#34;&#34;
-        vertex_count = expand(vertex_count, instance(polygons))
-        assert polygons.dtype.kind == int, f&#34;polygons must be integer lists but got dtype {polygons.dtype}&#34;
+        assert elements.dtype.kind == int, f&#34;elements must be integer lists but got dtype {elements.dtype}&#34;
         assert isinstance(vertices, Graph), f&#34;vertices must be a Graph&#34;
         self._vertices = vertices
-        self._polygons = polygons
-        self._vertex_count = vertex_count
+        self._elements = elements
+        self._element_rank = element_rank
         self._boundaries = boundaries
         self._center = center
         self._volume = volume
-        self._faces = faces  # shapes (cells, ~cells+boundaries) -&gt; int
-        self._valid_mask = valid_mask
+        self._face_centers = face_centers
+        self._face_normals = face_normals
+        self._face_areas = face_areas
         self._face_vertices = face_vertices
         cell_deltas = pairwise_distances(self.center, format=self.cell_connectivity, default=None)
         cell_distances = math.vec_length(cell_deltas)
+        neighbors_dim = dual(face_areas)
         assert (cell_distances &gt; 0).all, f&#34;All cells must have distance &gt; 0 but found 0 distance at {math.nonzero(cell_distances == 0)}&#34;
         face_distances = math.vec_length(self.face_centers[self.interior_faces] - self.center)
-        self._relative_face_distance = math.concat([face_distances / cell_distances, self.boundary_connectivity], &#39;~neighbors&#39;)
+        self._relative_face_distance = math.concat([face_distances / cell_distances, self.boundary_connectivity], neighbors_dim)
         boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
         assert (math.vec_length(boundary_deltas) &gt; 0).all, f&#34;All boundary faces must be separated from the cell centers but 0 distance at the following {channel(math.stored_indices(boundary_deltas)).item_names[0]}:\n{math.nonzero(math.vec_length(boundary_deltas) == 0):full}&#34;
-        self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], &#39;~neighbors&#39;)
+        self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], neighbors_dim)
         if max_cell_walk is None:
-            max_cell_walk = 2 if instance(polygons).volume &gt; 1 else 1
+            max_cell_walk = 2 if instance(elements).volume &gt; 1 else 1
         self._max_cell_walk = max_cell_walk
-        # --- skewness ---
-        # theta_e = math.PI * (vertex_count - 2) / vertex_count
-        # e_face =
 
     def __variable_attrs__(self):
-        return &#39;_vertices&#39;, &#39;_polygons&#39;, &#39;_vertex_count&#39;, &#39;_center&#39;, &#39;_volume&#39;, &#39;_faces&#39;, &#39;_valid_mask&#39;, &#39;_face_vertices&#39;, &#39;_relative_face_distance&#39;, &#39;_neighbor_offsets&#39;
+        return &#39;_vertices&#39;, &#39;_elements&#39;, &#39;_vertex_count&#39;, &#39;_center&#39;, &#39;_volume&#39;, &#39;_face_centers&#39;, &#39;_face_normals&#39;, &#39;_face_areas&#39;, &#39;_face_vertices&#39;, &#39;_relative_face_distance&#39;, &#39;_neighbor_offsets&#39;
 
     def __value_attrs__(self):
         return &#39;_vertices&#39;,
 
     @property
     def shape(self) -&gt; Shape:
-        return shape(self._polygons).non_spatial &amp; channel(self._vertices)
+        return shape(self._elements).non_dual &amp; channel(self._vertices)
 
     @property
     def cell_count(self):
-        return instance(self._polygons).size
+        return instance(self._elements).size
 
     @property
     def center(self) -&gt; Tensor:
@@ -4140,15 +4122,15 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
 
     @property
     def face_centers(self) -&gt; Tensor:
-        return self._faces.center
+        return self._face_centers
 
     @property
     def face_areas(self) -&gt; Tensor:
-        return self._faces.area
+        return self._face_areas
 
     @property
     def face_normals(self) -&gt; Tensor:
-        return self._faces.normal
+        return self._face_normals
 
     @property
     def face_shape(self) -&gt; Shape:
@@ -4163,17 +4145,21 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
         return self._boundaries
 
     @property
+    def _nb(self):
+        return dual(self._face_areas)
+
+    @property
     def all_boundary_faces(self) -&gt; Dict[str, slice]:
-        return {&#39;~neighbors&#39;: slice(instance(self).volume, None)}
+        return {self._nb: slice(instance(self).volume, None)}
     
     @property
     def interior_faces(self) -&gt; Dict[str, slice]:
-        return {&#39;~neighbors&#39;: slice(0, instance(self).volume)}
+        return {self._nb: slice(0, instance(self).volume)}
 
     def pad_boundary(self, value: Tensor, widths: Dict[str, Dict[str, slice]] = None, mode: Extrapolation or Tensor or Number = 0, **kwargs) -&gt; Tensor:
         mode = as_extrapolation(mode)
-        if &#39;~neighbors&#39; not in value.shape:
-            value = math.replace_dims(value, instance, dual(&#39;neighbors&#39;))
+        if self._nb not in value.shape:
+            value = math.replace_dims(value, instance, self._nb)
         else:
             raise NotImplementedError
         if widths is None:
@@ -4210,10 +4196,10 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
 
     @property
     def connectivity(self) -&gt; Tensor:
-        if is_sparse(self._faces.area):
-            return tensor_like(self._faces.area, True)
+        if is_sparse(self._face_areas):
+            return tensor_like(self._face_areas, True)
         else:
-            return self._faces.area &gt; 0
+            return self._face_areas &gt; 0
 
     @property
     def distance_matrix(self):
@@ -4243,16 +4229,16 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
     @property
     def faces(self) -&gt; &#39;Geometry&#39;:
         &#34;&#34;&#34;
-        Assembles information about the boundaries of the polygons that make up the surface.
-        For 2D polygons, the faces are edges, for 3D polygons, the faces are planar polygons.
+        Assembles information about the boundaries of the elements that make up the surface.
+        For 2D elements, the faces are edges, for 3D elements, the faces are planar elements.
 
         Returns:
-            center: Center of face connecting a pair of polygons. Shape (~polygons, polygons, vector).
-                Returns 0-vectors for unconnected polygons.
-            area: Area of face connecting a pair of polygons. Shape (~polygons, polygons).
-                Returns 0 for unconnected polygons.
-            normal: Normal vector of face connecting a pair of polygons. Shape (~polygons, polygons, vector).
-                Unconnected polygons are assigned the vector 0.
+            center: Center of face connecting a pair of elements. Shape (~elements, elements, vector).
+                Returns 0-vectors for unconnected elements.
+            area: Area of face connecting a pair of elements. Shape (~elements, elements).
+                Returns 0 for unconnected elements.
+            normal: Normal vector of face connecting a pair of elements. Shape (~elements, elements, vector).
+                Unconnected elements are assigned the vector 0.
                 The vector points out of polygon and into ~polygon.
         &#34;&#34;&#34;
         return Point(self.face_centers)
@@ -4262,12 +4248,20 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
         return self._vertices
 
     @property
+    def elements(self):
+        return self._elements
+
+    @property
     def polygons(self):
-        return self._polygons
+        raise NotImplementedError  # ToDo return Tensor (elements, vertex_list:spatial)
 
     @property
     def volume(self) -&gt; Tensor:
         return self._volume
+
+    @property
+    def element_rank(self):
+        return self._element_rank
 
     def lies_inside(self, location: Tensor) -&gt; Tensor:
         idx = math.find_closest(self._center, location)
@@ -4319,15 +4313,16 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
         raise NotImplementedError
 
     def bounding_radius(self) -&gt; Tensor:
-        center = self.center
-        vertex_pos = self._vertices.center[self._polygons]
-        max_dist = math.max(math.vec_length(vertex_pos - center) * self._valid_mask, spatial)
+        center = self.connectivity * self.center
+        vert_pos = rename_dims(self._vertices.center, instance, dual)
+        dist_to_vert = math.vec_length(vert_pos - center)
+        max_dist = math.max(dist_to_vert, dual)
         return max_dist
 
     def bounding_half_extent(self) -&gt; Tensor:
-        center = self.center
-        vertex_pos = self._vertices.center[{instance: self._polygons}]
-        max_delta = math.max(abs(vertex_pos - center) * self._valid_mask, spatial)
+        center = self.connectivity * self.center
+        vert_pos = rename_dims(self._vertices.center, instance, dual)
+        max_delta = math.max(abs(vert_pos - center), dual)
         return max_delta
 
     @property
@@ -4345,16 +4340,15 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
 
     def __getitem__(self, item):
         item: dict = slicing_dict(self, item)
-        assert not spatial(self._polygons).only(tuple(item)), f&#34;Cannot slice vertex lists (&#39;{spatial(self._polygons)}&#39;) but got slicing dict {item}&#34;
+        assert not spatial(self._elements).only(tuple(item)), f&#34;Cannot slice vertex lists (&#39;{spatial(self._elements)}&#39;) but got slicing dict {item}&#34;
         assert not instance(self._vertices).only(tuple(item)), f&#34;Slicing by vertex indices (&#39;{instance(self._vertices)}&#39;) not supported but got slicing dict {item}&#34;
         cells = instance(self.shape).name
         if cells in item and isinstance(item[&#39;cells&#39;], int):
             item[cells] = slice(item[cells], item[cells] + 1)
         vertices = self._vertices[item]
-        polygons = self._polygons[item]
-        vertex_count = self._vertex_count[item]
-        faces = Face(self._faces.center[item], self._faces.normal[item], self._faces.area[item])
-        return Mesh(vertices, polygons, vertex_count, self._boundaries, self._center[item], self._volume[item], faces, self._valid_mask[item], self._face_vertices[item])</code></pre>
+        polygons = self._elements[item]
+        return Mesh(vertices, polygons, self._element_rank, self._boundaries, self._center[item], self._volume[item],
+                    self._face_centers[item], self._face_normals[item], self._face_areas[item], self._face_vertices[item])</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -4371,7 +4365,7 @@ Invalid indices (index &gt;= vertex_count) must still represent existing vertice
 </summary>
 <pre><code class="python">@property
 def all_boundary_faces(self) -&gt; Dict[str, slice]:
-    return {&#39;~neighbors&#39;: slice(instance(self).volume, None)}</code></pre>
+    return {self._nb: slice(instance(self).volume, None)}</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Mesh.boundary_connectivity"><code class="name">prop <span class="ident">boundary_connectivity</span> : phiml.math._tensors.Tensor</code></dt>
@@ -4462,7 +4456,7 @@ def cell_connectivity(self) -&gt; Tensor:
 </summary>
 <pre><code class="python">@property
 def cell_count(self):
-    return instance(self._polygons).size</code></pre>
+    return instance(self._elements).size</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Mesh.center"><code class="name">prop <span class="ident">center</span> : phiml.math._tensors.Tensor</code></dt>
@@ -4486,10 +4480,10 @@ def center(self) -&gt; Tensor:
 </summary>
 <pre><code class="python">@property
 def connectivity(self) -&gt; Tensor:
-    if is_sparse(self._faces.area):
-        return tensor_like(self._faces.area, True)
+    if is_sparse(self._face_areas):
+        return tensor_like(self._face_areas, True)
     else:
-        return self._faces.area &gt; 0</code></pre>
+        return self._face_areas &gt; 0</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Mesh.distance_matrix"><code class="name">prop <span class="ident">distance_matrix</span></code></dt>
@@ -4504,6 +4498,30 @@ def distance_matrix(self):
     return math.vec_length(math.pairwise_distances(self.center, edges=self.cell_connectivity, format=&#39;as edges&#39;, default=None))</code></pre>
 </details>
 </dd>
+<dt id="phi.geom.Mesh.element_rank"><code class="name">prop <span class="ident">element_rank</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def element_rank(self):
+    return self._element_rank</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Mesh.elements"><code class="name">prop <span class="ident">elements</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def elements(self):
+    return self._elements</code></pre>
+</details>
+</dd>
 <dt id="phi.geom.Mesh.face_areas"><code class="name">prop <span class="ident">face_areas</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"><p>Area of face connecting a pair of cells. Shape <code>(elements, ~)</code>.
@@ -4514,7 +4532,7 @@ Returns 0 for unconnected cells.</p></div>
 </summary>
 <pre><code class="python">@property
 def face_areas(self) -&gt; Tensor:
-    return self._faces.area</code></pre>
+    return self._face_areas</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Mesh.face_centers"><code class="name">prop <span class="ident">face_centers</span> : phiml.math._tensors.Tensor</code></dt>
@@ -4528,7 +4546,7 @@ Returns 0-vectors for unconnected cells.</p></div>
 </summary>
 <pre><code class="python">@property
 def face_centers(self) -&gt; Tensor:
-    return self._faces.center</code></pre>
+    return self._face_centers</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Mesh.face_normals"><code class="name">prop <span class="ident">face_normals</span> : phiml.math._tensors.Tensor</code></dt>
@@ -4542,7 +4560,7 @@ For meshes, The vectors point out of the primal cells and into the dual cells.</
 </summary>
 <pre><code class="python">@property
 def face_normals(self) -&gt; Tensor:
-    return self._faces.normal</code></pre>
+    return self._face_normals</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Mesh.face_shape"><code class="name">prop <span class="ident">face_shape</span> : phiml.math._shape.Shape</code></dt>
@@ -4561,19 +4579,19 @@ def face_shape(self) -&gt; Shape:
 </dd>
 <dt id="phi.geom.Mesh.faces"><code class="name">prop <span class="ident">faces</span> : <a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
 <dd>
-<div class="desc"><p>Assembles information about the boundaries of the polygons that make up the surface.
-For 2D polygons, the faces are edges, for 3D polygons, the faces are planar polygons.</p>
+<div class="desc"><p>Assembles information about the boundaries of the elements that make up the surface.
+For 2D elements, the faces are edges, for 3D elements, the faces are planar elements.</p>
 <h2 id="returns">Returns</h2>
 <dl>
 <dt><code>center</code></dt>
-<dd>Center of face connecting a pair of polygons. Shape (~polygons, polygons, vector).
-Returns 0-vectors for unconnected polygons.</dd>
+<dd>Center of face connecting a pair of elements. Shape (~elements, elements, vector).
+Returns 0-vectors for unconnected elements.</dd>
 <dt><code>area</code></dt>
-<dd>Area of face connecting a pair of polygons. Shape (~polygons, polygons).
-Returns 0 for unconnected polygons.</dd>
+<dd>Area of face connecting a pair of elements. Shape (~elements, elements).
+Returns 0 for unconnected elements.</dd>
 <dt><code>normal</code></dt>
-<dd>Normal vector of face connecting a pair of polygons. Shape (~polygons, polygons, vector).
-Unconnected polygons are assigned the vector 0.
+<dd>Normal vector of face connecting a pair of elements. Shape (~elements, elements, vector).
+Unconnected elements are assigned the vector 0.
 The vector points out of polygon and into ~polygon.</dd>
 </dl></div>
 <details class="source">
@@ -4583,16 +4601,16 @@ The vector points out of polygon and into ~polygon.</dd>
 <pre><code class="python">@property
 def faces(self) -&gt; &#39;Geometry&#39;:
     &#34;&#34;&#34;
-    Assembles information about the boundaries of the polygons that make up the surface.
-    For 2D polygons, the faces are edges, for 3D polygons, the faces are planar polygons.
+    Assembles information about the boundaries of the elements that make up the surface.
+    For 2D elements, the faces are edges, for 3D elements, the faces are planar elements.
 
     Returns:
-        center: Center of face connecting a pair of polygons. Shape (~polygons, polygons, vector).
-            Returns 0-vectors for unconnected polygons.
-        area: Area of face connecting a pair of polygons. Shape (~polygons, polygons).
-            Returns 0 for unconnected polygons.
-        normal: Normal vector of face connecting a pair of polygons. Shape (~polygons, polygons, vector).
-            Unconnected polygons are assigned the vector 0.
+        center: Center of face connecting a pair of elements. Shape (~elements, elements, vector).
+            Returns 0-vectors for unconnected elements.
+        area: Area of face connecting a pair of elements. Shape (~elements, elements).
+            Returns 0 for unconnected elements.
+        normal: Normal vector of face connecting a pair of elements. Shape (~elements, elements, vector).
+            Unconnected elements are assigned the vector 0.
             The vector points out of polygon and into ~polygon.
     &#34;&#34;&#34;
     return Point(self.face_centers)</code></pre>
@@ -4607,7 +4625,7 @@ def faces(self) -&gt; &#39;Geometry&#39;:
 </summary>
 <pre><code class="python">@property
 def interior_faces(self) -&gt; Dict[str, slice]:
-    return {&#39;~neighbors&#39;: slice(0, instance(self).volume)}</code></pre>
+    return {self._nb: slice(0, instance(self).volume)}</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Mesh.neighbor_distances"><code class="name">prop <span class="ident">neighbor_distances</span></code></dt>
@@ -4644,7 +4662,7 @@ def neighbor_offsets(self):
 </summary>
 <pre><code class="python">@property
 def polygons(self):
-    return self._polygons</code></pre>
+    raise NotImplementedError  # ToDo return Tensor (elements, vertex_list:spatial)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Mesh.relative_face_distance"><code class="name">prop <span class="ident">relative_face_distance</span></code></dt>
@@ -4675,7 +4693,7 @@ def relative_face_distance(self):
 </summary>
 <pre><code class="python">@property
 def shape(self) -&gt; Shape:
-    return shape(self._polygons).non_spatial &amp; channel(self._vertices)</code></pre>
+    return shape(self._elements).non_dual &amp; channel(self._vertices)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Mesh.vertices"><code class="name">prop <span class="ident">vertices</span> : phi.geom._graph.Graph</code></dt>
@@ -4775,9 +4793,8 @@ This is equal to calling <code>self @ center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>:return: float vector</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Mesh.bounding_radius"><code class="name flex">
 <span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
@@ -4948,7 +4965,7 @@ An instance of <code><a title="phi.geom.Point" href="#phi.geom.Point">Point</a><
         return math.zeros()
 
     def bounding_half_extent(self) -&gt; Tensor:
-        return math.zeros()
+        return expand(0, self._shape)
 
     def at(self, center: Tensor) -&gt; &#39;Geometry&#39;:
         return Point(center)
@@ -5207,9 +5224,8 @@ This is equal to calling <code>self @ center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>:return: float vector</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Point.bounding_radius"><code class="name flex">
 <span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
@@ -5802,9 +5818,8 @@ This is equal to calling <code>self @ center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>:return: float vector</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.SDFGrid.bounding_radius"><code class="name flex">
 <span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
@@ -6352,9 +6367,8 @@ This is equal to calling <code>self @ center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>:return: float vector</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Sphere.bounding_radius"><code class="name flex">
 <span>def <span class="ident">bounding_radius</span></span>(<span>self)</span>
@@ -6942,9 +6956,8 @@ def upper(self):
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>:return: float vector</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.UniformGrid.interior"><code class="name flex">
 <span>def <span class="ident">interior</span></span>(<span>self) ‑> phi.geom._geom.Geometry</span>
@@ -7259,6 +7272,8 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Mesh.center" href="#phi.geom.Mesh.center">center</a></code></li>
 <li><code><a title="phi.geom.Mesh.connectivity" href="#phi.geom.Mesh.connectivity">connectivity</a></code></li>
 <li><code><a title="phi.geom.Mesh.distance_matrix" href="#phi.geom.Mesh.distance_matrix">distance_matrix</a></code></li>
+<li><code><a title="phi.geom.Mesh.element_rank" href="#phi.geom.Mesh.element_rank">element_rank</a></code></li>
+<li><code><a title="phi.geom.Mesh.elements" href="#phi.geom.Mesh.elements">elements</a></code></li>
 <li><code><a title="phi.geom.Mesh.face_areas" href="#phi.geom.Mesh.face_areas">face_areas</a></code></li>
 <li><code><a title="phi.geom.Mesh.face_centers" href="#phi.geom.Mesh.face_centers">face_centers</a></code></li>
 <li><code><a title="phi.geom.Mesh.face_normals" href="#phi.geom.Mesh.face_normals">face_normals</a></code></li>
