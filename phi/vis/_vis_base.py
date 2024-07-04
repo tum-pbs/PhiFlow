@@ -374,7 +374,7 @@ class PlottingLibrary:
     def show(self, figure):
         raise NotImplementedError
 
-    def save(self, figure, path: str, dpi: float):
+    def save(self, figure, path: str, dpi: float, transparent: bool):
         raise NotImplementedError
 
     def plot(self, data, figure, subplot, space, *args, **kwargs):

@@ -179,9 +179,9 @@ class MatplotlibPlots(PlottingLibrary):
         else:
             raise ValueError(f"{type(figure)} is not a valid {self.name} figure")
 
-    def save(self, figure, path: str, dpi: float):
+    def save(self, figure, path: str, dpi: float, transparent: bool):
         if isinstance(figure, plt.Figure):
-            figure.savefig(path, dpi=dpi, transparent=True)
+            figure.savefig(path, dpi=dpi, transparent=transparent)
         elif isinstance(figure, animation.Animation):
             figure.save(path, dpi=dpi)
         else:

@@ -67,7 +67,7 @@ class PlotlyPlots(PlottingLibrary):
     def show(self, figure: graph_objects.Figure):
         figure.show()
 
-    def save(self, figure: graph_objects.Figure, path: str, dpi: float):
+    def save(self, figure: graph_objects.Figure, path: str, dpi: float, transparent: bool):
         width, height = figure._phi_size
         figure.layout.update(margin=dict(l=0, r=0, b=0, t=0))
         scale = dpi/90.

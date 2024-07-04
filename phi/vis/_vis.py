@@ -540,7 +540,7 @@ def overlay(*fields: Union[Field, Tensor, Geometry]) -> Tensor:
     return layout(fields, math.channel('overlay'))
 
 
-def write_image(path: str, figure=None, dpi=120., close=False):
+def write_image(path: str, figure=None, dpi=120., close=False, transparent=True):
     """
     Save a figure to an image file.
 
@@ -549,6 +549,7 @@ def write_image(path: str, figure=None, dpi=120., close=False):
         path: File path.
         dpi: Pixels per inch.
         close: Whether to close the figure after saving it.
+        transparent: Whether to save the figure with transparent background.
     """
     figure = figure or LAST_FIGURE[0]
     if figure is None:
@@ -558,7 +559,7 @@ def write_image(path: str, figure=None, dpi=120., close=False):
     path = os.path.expanduser(path)
     directory = os.path.abspath(os.path.dirname(path))
     os.path.isdir(directory) or os.makedirs(directory)
-    lib.save(figure, path, dpi)
+    lib.save(figure, path, dpi, transparent)
     if close:
         close_(figure=figure)
 
