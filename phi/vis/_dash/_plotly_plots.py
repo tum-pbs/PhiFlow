@@ -52,7 +52,10 @@ class PlotlyPlots(PlottingLibrary):
                 subplot.yaxis.update(title=bounds.vector.item_names[1], range=_get_range(bounds, 1))
                 subplot.zaxis.update(title=bounds.vector.item_names[2], range=_get_range(bounds, 2))
         fig._phi_size = size
-        fig.update_layout(width=size[0] * 70, height=size[1] * 70)  # 70 approximately matches matplotlib but it's not consistent
+        if size[0] is not None:
+            fig.update_layout(width=size[0] * 70)
+        if size[1] is not None:
+            fig.update_layout(height=size[1] * 70)  # 70 approximately matches matplotlib but it's not consistent
         return fig, {pos: (pos[0]+1, pos[1]+1) for pos in subplots.keys()}
 
     def animate(self, fig, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
@@ -268,13 +271,15 @@ class PointCloud2D(Recipe):
                         path = f"M{c1i[0]},{c1i[1]} L{c2i[0]},{c2i[1]} L{c3i[0]},{c3i[1]} L{c4i[0]},{c4i[1]} Z"
                         figure.add_shape(type="path", xref="x", yref="y", path=path, fillcolor=ci, line_width=.5, line_color='#FFFFFF')
             else:
+                subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1] * 100 if size[1] is not None else None
                 if isinstance(data.elements, Point):
                     symbol = None
-                    marker_size = 12 / (subplot_height / (yrange[1] - yrange[0]))
+                    marker_size = 12 / (subplot_height / (yrange[1] - yrange[0])) if subplot_height else None
                 else:
                     symbol = 'asterisk'
                     marker_size = data.elements.bounding_radius().numpy()
-                marker_size *= subplot_height / (yrange[1] - yrange[0])
+                if subplot_height:
+                    marker_size *= subplot_height / (yrange[1] - yrange[0])
                 marker = graph_objects.scatter.Marker(size=marker_size, color=hex_color, sizemode='diameter', symbol=symbol)
                 figure.add_scatter(mode='markers', x=x, y=y, marker=marker, row=row, col=col)
         figure.update_layout(showlegend=False)

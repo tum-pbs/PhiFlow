@@ -351,6 +351,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
     # --- Process arguments ---
     plots = default_plots() if lib is None else get_plots(lib)
     plt_params = {} if plt_params is None else dict(**plt_params)
+    size = (None, None) if size is None else size
     if title is None:
         title_by_subplot = {pos: title_label(common_index(*i, exclude=reduced_shape.singleton)) for pos, i in indices.items()}
     elif isinstance(title, Tensor) and ('rows' in title.shape or 'cols' in title.shape):
