@@ -2,7 +2,7 @@ from numbers import Number
 from typing import Union, List, Callable, Optional
 
 from phi import math
-from phi.geom import Geometry, Box, Point, UniformGrid, Mesh
+from phi.geom import Geometry, Box, Point, UniformGrid, Mesh, sample_function
 from phi.math import Shape, Tensor, instance, spatial, Solve, dual, si2d
 from phi.math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
 from phiml.math import unstack, channel, rename_dims, batch, extrapolation
@@ -423,34 +423,3 @@ def sample_mesh(f: Field,
         dx = location - f.mesh.center[math.where(is_outside_mesh, 0, idx)]
         return math.where(is_outside_mesh, v0, v0 + grad @ dx)
     raise NotImplementedError(f"sampling meshes only supports order <= 2 but got order={order}")
-
-
-def sample_function(f: Callable, elements: Geometry, at: str, extrapolation: Extrapolation) -> Tensor:
-    from phiml.math._functional import get_function_parameters
-    try:
-        params = get_function_parameters(f)
-        dims = elements.shape.get_size('vector')
-        names_match = tuple(params.keys())[:dims] == elements.shape.get_item_names('vector')
-        num_positional = 0
-        has_varargs = False
-        for n, p in params.items():
-            if p.default is p.empty:
-                num_positional += 1
-            if p.kind == 2:  # _ParameterKind.VAR_POSITIONAL
-                has_varargs = True
-        assert num_positional <= dims, f"Cannot sample {f.__name__}({', '.join(tuple(params))}) on physical space {elements.shape.get_item_names('vector')}"
-        pass_varargs = has_varargs or names_match or num_positional > 1 or num_positional == dims
-        if num_positional > 1 and not has_varargs:
-            assert names_match, f"Positional arguments of {f.__name__}({', '.join(tuple(params))}) should match physical space {elements.shape.get_item_names('vector')}"
-    except ValueError as err:  # signature not available for all functions
-        pass_varargs = False
-    if at == 'center':
-        pos = slice_off_constant_faces(elements.center, elements.boundary_elements, extrapolation)
-    else:
-        pos = slice_off_constant_faces(elements.face_centers, elements.boundary_faces, extrapolation)
-    if pass_varargs:
-        values = math.map_s2b(f)(*pos.vector)
-    else:
-        values = math.map_s2b(f)(pos)
-    assert isinstance(values, math.Tensor), f"values function must return a Tensor but returned {type(values)}"
-    return values

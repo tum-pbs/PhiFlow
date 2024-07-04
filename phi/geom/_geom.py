@@ -1,7 +1,7 @@
 import copy
 import warnings
 from numbers import Number
-from typing import Union, Dict, Any, Tuple
+from typing import Union, Dict, Any, Tuple, Callable
 
 from phiml.math import instance
 
@@ -806,3 +806,34 @@ def slice_off_constant_faces(obj, boundary_slices: Dict[Any, Dict[str, slice]], 
     """
     determined_slices = [s for k, s in boundary_slices.items() if boundary.determines_boundary_values(k)]
     return math.slice_off(obj, *determined_slices)
+
+
+def sample_function(f: Callable, elements: Geometry, at: str, extrapolation: Extrapolation) -> Tensor:
+    from phiml.math._functional import get_function_parameters
+    try:
+        params = get_function_parameters(f)
+        dims = elements.shape.get_size('vector')
+        names_match = tuple(params.keys())[:dims] == elements.shape.get_item_names('vector')
+        num_positional = 0
+        has_varargs = False
+        for n, p in params.items():
+            if p.default is p.empty:
+                num_positional += 1
+            if p.kind == 2:  # _ParameterKind.VAR_POSITIONAL
+                has_varargs = True
+        assert num_positional <= dims, f"Cannot sample {f.__name__}({', '.join(tuple(params))}) on physical space {elements.shape.get_item_names('vector')}"
+        pass_varargs = has_varargs or names_match or num_positional > 1 or num_positional == dims
+        if num_positional > 1 and not has_varargs:
+            assert names_match, f"Positional arguments of {f.__name__}({', '.join(tuple(params))}) should match physical space {elements.shape.get_item_names('vector')}"
+    except ValueError as err:  # signature not available for all functions
+        pass_varargs = False
+    if at == 'center':
+        pos = slice_off_constant_faces(elements.center, elements.boundary_elements, extrapolation)
+    else:
+        pos = slice_off_constant_faces(elements.face_centers, elements.boundary_faces, extrapolation)
+    if pass_varargs:
+        values = math.map_s2b(f)(*pos.vector)
+    else:
+        values = math.map_s2b(f)(pos)
+    assert isinstance(values, math.Tensor), f"values function must return a Tensor but returned {type(values)}"
+    return values
