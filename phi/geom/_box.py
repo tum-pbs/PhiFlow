@@ -153,9 +153,26 @@ class BaseBox(Geometry):  # not a Subwoofer
         warnings.warn("Box.project(dims) is deprecated. Use Box.vector[dims] instead", DeprecationWarning, stacklevel=2)
         return self.vector[dimensions]
 
-    def sample_uniform(self, *shape: math.Shape) -> Tensor:
+    def sample_uniform(self, *shape: Shape) -> Tensor:
         uniform = math.random_uniform(self.shape.non_singleton.without('vector'), *shape, self.shape['vector'])
         return self.lower + uniform * self.size
+
+    def sample_uniform_surface(self, *shape: Shape) -> Tensor:
+        assert not instance(self), "sample_uniform_surface not yet supported for unions of boxes"
+        samples = math.random_uniform(self.shape.non_singleton.non_instance, *shape, low=self.lower, high=self.upper)
+        which = math.random_uniform(samples.shape.without('vector'))
+        lo_or_up = math.where(which > .5, self.upper, self.lower)
+        which = which * 2 % 1
+        # --- which axis ---
+        areas = self.face_areas
+        total_area = math.sum(areas)
+        frac_area = math.sum(areas / total_area, '~side')
+        cum_area = math.cumulative_sum(frac_area, '~vector')
+        axis = math.min(math.where(which <= cum_area, math.range(self.shape['vector'].as_dual()), self.spatial_rank), '~vector')
+        axis_one_hot = math.scatter(math.zeros(samples.shape, dtype=bool), expand(axis, channel(index='vector')), True, treat_as_batch=samples.shape.without('vector'))
+        math.assert_close(1, math.sum(axis_one_hot, 'vector'))
+        samples = math.where(axis_one_hot, lo_or_up, samples)
+        return samples
 
     def corner_representation(self) -> 'Box':
         assert self.rotation_matrix is None, f"corner_representation does not support rotations"
@@ -199,7 +216,7 @@ class BaseBox(Geometry):  # not a Subwoofer
     def face_areas(self) -> Tensor:
         others_mask = math.range(self.shape['vector']) != math.range(dual(**self.shape['vector'].untyped_dict))
         result = math.exp(math.sum(math.log(self.size) * others_mask, 'vector'))
-        return result  # ~vector
+        return expand(result, dual(side='lower,upper'))  # ~vector
 
     @property
     def face_shape(self) -> Shape:
