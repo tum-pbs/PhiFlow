@@ -16,7 +16,7 @@ import plotly.io as pio
 
 from phi import math, field
 from phi.field import Field
-from phi.geom import Sphere, BaseBox, Point, Box
+from phi.geom import Sphere, BaseBox, Point, Box, SDF, SDFGrid
 from phi.geom._geom_ops import GeometryStack
 from phi.math import Tensor, spatial, channel, non_channel
 from phi.vis._dash.colormaps import COLORMAPS
@@ -414,8 +414,37 @@ class SurfaceMesh3D(Recipe):
             values = reshaped_numpy(data.values, [instance(data.mesh)])
             mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='cell')
         figure.add_trace(mesh, row=row, col=col)
-        # fig = go.Figure(go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3))
-        # fig.write_html("plotly_direct.html")
+
+
+class SDF3D(Recipe):
+
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return isinstance(data.geometry, SDF) and data.spatial_rank == 3
+
+    def plot(self,
+             data: Field,
+             figure: go.Figure,
+             subplot,
+             space: Box,
+             min_val: float,
+             max_val: float,
+             show_color_bar: bool,
+             color: Tensor,
+             alpha: Tensor,
+             err: Tensor):
+        # surf_mesh = mesh_from_sdf(data.geometry, remove_duplicates=True, backend=math.NUMPY)
+        # mesh_data = Field(surf_mesh, math.NAN, 0)
+        # SurfaceMesh3D().plot(mesh_data, figure, subplot, space, min_val, max_val, show_color_bar, color, alpha, err)
+        from sdf.mesh import generate  # using https://github.com/fogleman/sdf
+        mesh = np.stack(generate(data.geometry, workers=1, batch_size=1024*1024))
+        # --- remove duplicate vertices ---
+        vert, idx, inv, c = np.unique(mesh, axis=0, return_counts=True, return_index=True, return_inverse=True)
+        i, j, k = inv.reshape((-1, 3)).T
+        mesh = go.Mesh3d(x=vert[:, 0], y=vert[:, 1], z=vert[:, 2], i=i, j=j, k=k)
+        figure.add_trace(mesh)
+        # fig = go.Figure(go.Mesh3d(x=mesh[:, 0], y=mesh[:, 1], z=mesh[:, 2], i=i, j=i+1, k=i+2))
+        # fig.show()
+
 
 
 def _get_range(bounds: Box, index: int):
@@ -587,6 +616,7 @@ PLOTLY.recipes.extend([
     # --- 3D ---
     Heatmap3D(),
     SurfaceMesh3D(),
+    SDF3D(),
     Graph3D(),
     VectorCloud3D(),
     PointCloud3D(),
