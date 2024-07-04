@@ -28,7 +28,7 @@ class ConsolePlots(PlottingLibrary):
     def show(self, figure: List[str]):
         print(figure)
 
-    def save(self, figure: List[str], path: str):
+    def save(self, figure: List[str], path: str, transparent: bool):
         with open(path, 'w') as file:
             file.writelines(figure)
 
