@@ -70,6 +70,10 @@ class SDFGrid(Geometry):
         return spatial(self._sdf)
 
     @property
+    def dx(self):
+        return self._bounds.size / spatial(self._sdf)
+
+    @property
     def points(self):
         return UniformGrid(spatial(self._sdf), self._bounds).center
 
@@ -84,6 +88,12 @@ class SDFGrid(Geometry):
     @property
     def volume(self) -> Tensor:
         return self._volume
+
+    def __variable_attrs__(self):
+        return '_sdf', '_bounds', '_grad', '_center', '_volume', '_bounding_radius'
+
+    def __value_attrs__(self):
+        return '_sdf',
 
     @property
     def faces(self) -> 'Geometry':
