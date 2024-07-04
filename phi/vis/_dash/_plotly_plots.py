@@ -245,13 +245,12 @@ class PointCloud2D(Recipe):
             if hex_color is None:
                 hex_color = pio.templates[pio.templates.default].layout.colorway[0]
             alphas = reshaped_numpy(alpha, [non_channel(data)])
-            subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1] * 100
-            if isinstance(data.elements, Sphere):
+            if isinstance(data.geometry, Sphere):
                 hex_color = [hex_color] * non_channel(data).volume if isinstance(hex_color, str) else hex_color
                 rad = reshaped_numpy(data.geometry.bounding_radius(), [data.shape.non_channel])
                 for xi, yi, ri, ci, a in zip(x, y, rad, hex_color, alphas):
                     figure.add_shape(type="circle", xref="x", yref="y", x0=xi-ri, y0=yi-ri, x1=xi+ri, y1=yi+ri, fillcolor=ci, line_width=0)
-            elif isinstance(data.elements, BaseBox):
+            elif isinstance(data.geometry, BaseBox):
                 hex_color = [hex_color] * non_channel(data).volume if isinstance(hex_color, str) else hex_color
                 half_size = data.geometry.half_size
                 min_len = space.size.sum
@@ -270,6 +269,20 @@ class PointCloud2D(Recipe):
                     for c1i, c2i, c3i, c4i, ci, a in zip(c1, c2, c3, c4, hex_color, alphas):
                         path = f"M{c1i[0]},{c1i[1]} L{c2i[0]},{c2i[1]} L{c3i[0]},{c3i[1]} L{c4i[0]},{c4i[1]} Z"
                         figure.add_shape(type="path", xref="x", yref="y", path=path, fillcolor=ci, line_width=.5, line_color='#FFFFFF')
+            elif isinstance(data.geometry, SDFGrid):
+                sdf = data.geometry.values.numpy(dims)
+                x, y = data.geometry.points.numpy(('vector',) + dims)
+                x = x[:, 0]
+                y = y[0, :]
+                dx, dy = data.geometry.dx[dims].numpy()
+                sdf = np.where(sdf > (dx ** 2 + dy ** 2) ** .5, np.nan, sdf)
+                colorscale = [[0, 'blue'], [.5, 'white'], [1, 'rgba(0.,0.,0.,0.)']]
+                contour = go.Contour(
+                    x=x, y=y, z=sdf.T,
+                    contours=dict(start=-.001, end=.001, size=.002),
+                    colorscale=colorscale, showscale=False,
+                )
+                figure.add_trace(contour)
             else:
                 subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1] * 100 if size[1] is not None else None
                 if isinstance(data.elements, Point):
