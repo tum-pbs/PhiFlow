@@ -13,9 +13,9 @@ from ..math.magic import slicing_dict
 def _get_bounds(bounds: Union[Box, float, None], resolution: Shape):
     if bounds is None:
         return Box(math.const_vec(0, resolution), math.wrap(resolution, channel(vector=resolution.names)))
-    if isinstance(bounds, Box):
+    if isinstance(bounds, BaseBox):
         assert set(bounds.vector.item_names) == set(resolution.names), f"bounds dimensions {bounds.vector.item_names} must match resolution {resolution}"
-        return bounds
+        return bounds.corner_representation()
     if isinstance(bounds, (int, float)):
         return Box(math.const_vec(0, resolution), math.const_vec(bounds, resolution))
     raise ValueError(f"bounds must be a Box, float or None but got {type(bounds).__name__}")
