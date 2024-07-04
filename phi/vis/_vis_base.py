@@ -511,12 +511,10 @@ def to_field(obj) -> Field:
             assert instance(obj).rank == 1, "Bar charts must have only one instance dimension"
             vector = channel(vector=instance(obj).names)
             equal_spacing = math.range_tensor(instance(obj), vector)
-            lower = expand(-.5, vector)
-            upper = expand(equal_spacing.max + .5, vector)
-            return PointCloud(equal_spacing, values=obj, bounds=Box(lower, upper))
-            # positions = math.layout(instance(obj).item_names, instance(obj))
-            # positions = expand(positions, vector)
-            # return PointCloud(positions, values=obj)
+            return PointCloud(equal_spacing, values=obj)
+        else:
+            point = expand(vec(value=0.), instance(value=1))
+            return PointCloud(point, obj)
     raise ValueError(f"Cannot plot {obj}. Tensors, geometries and fields can be plotted.")
 
 
