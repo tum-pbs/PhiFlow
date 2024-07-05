@@ -22,5 +22,6 @@ from ._heightmap import Heightmap
 from ._sdf_grid import SDFGrid, sdf_from_geometry
 from ._sdf import SDF
 from ._geom_ops import union
+from ._convert import surface_mesh, as_sdf
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]
