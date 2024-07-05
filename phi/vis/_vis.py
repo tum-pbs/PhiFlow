@@ -393,14 +393,14 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
     for plot_idx in fig_shape.meshgrid():
         figure, axes = plots.create_figure(size, nrows, ncols, subplots, title_by_subplot, log_dims, plt_params)
         if animate:
-            def plot_frame(frame: int):
+            def plot_frame(figure, frame: int):
                 for pos, fields in positioning.items():
                     for i, f in enumerate(fields):
                         idx = indices[pos][i]
                         f = f[{animate.name: frame}]
                         plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx], err[idx])
                 plots.finalize(figure)
-            anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
+            anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat, interactive=True)
             if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
                 plots.close(figure)
             LAST_FIGURE[0] = anim

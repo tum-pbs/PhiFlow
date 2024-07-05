@@ -1,10 +1,13 @@
+import os
+import subprocess
+import tempfile
 import warnings
 from typing import Tuple, Any, Dict, List, Callable, Union
 
 import numpy
 import numpy as np
 import plotly.graph_objs
-from plotly.graph_objs import layout
+from phiml.math._sparse import CompactSparseTensor
 from scipy.sparse import csr_matrix, coo_matrix
 
 from phiml.math import reshaped_numpy, dual, instance
@@ -58,8 +61,62 @@ class PlotlyPlots(PlottingLibrary):
             fig.update_layout(height=size[1] * 70)  # 70 approximately matches matplotlib but it's not consistent
         return fig, {pos: (pos[0]+1, pos[1]+1) for pos in subplots.keys()}
 
-    def animate(self, fig, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
-        raise NotImplementedError()
+    def animate(self, fig, frame_count: int, plot_frame_function: Callable, interval: float, repeat: bool, interactive: bool):
+        figures = []
+        for frame in range(frame_count):
+            frame_fig = go.Figure(fig)
+            plot_frame_function(frame_fig, frame)
+            figures.append(frame_fig)
+        frames = [go.Frame(data=fig.data, layout=fig.layout, name=f'frame{i}') for i, fig in enumerate(figures)]
+        anim = go.Figure(data=figures[0].data, frames=frames)
+        anim._phi_size = fig._phi_size
+        if interactive:
+            anim.update_layout(
+                updatemenus=[{
+                    'buttons': [
+                        {
+                            'args': [None, {'frame': {'duration': 500, 'redraw': True}, 'fromcurrent': True}],
+                            'label': 'Play',
+                            'method': 'animate'
+                        },
+                        {
+                            'args': [[None], {'frame': {'duration': 0, 'redraw': True}, 'mode': 'immediate', 'transition': {'duration': 0}}],
+                            'label': 'Pause',
+                            'method': 'animate'
+                        }
+                    ],
+                    'direction': 'left',
+                    'pad': {'r': 10, 't': 87},
+                    'showactive': False,
+                    'type': 'buttons',
+                    'x': 0.1,
+                    'xanchor': 'right',
+                    'y': 0,
+                    'yanchor': 'top'
+                }],
+                sliders=[{
+                    'active': 0,
+                    'yanchor': 'top',
+                    'xanchor': 'left',
+                    'currentvalue': {
+                        'font': {'size': 20},
+                        'prefix': 'Frame:',
+                        'visible': True,
+                        'xanchor': 'right'
+                    },
+                    'transition': {'duration': interval, 'easing': 'cubic-in-out'},
+                    'pad': {'b': 10, 't': 50},
+                    'len': 0.9,
+                    'x': 0.1,
+                    'y': 0,
+                    'steps': [{
+                        'args': [[f'frame{i}'], {'frame': {'duration': interval, 'redraw': True}, 'mode': 'immediate', 'transition': {'duration': interval}}],
+                        'label': f'Frame {i}',
+                        'method': 'animate'
+                    } for i in range(frame_count)]
+                }]
+            )
+        return anim
 
     def finalize(self, figure):
         pass
@@ -74,12 +131,44 @@ class PlotlyPlots(PlottingLibrary):
         width, height = figure._phi_size
         figure.layout.update(margin=dict(l=0, r=0, b=0, t=0))
         scale = dpi/90.
+        width = None if width is None else width * dpi / scale
+        height = None if height is None else height * dpi / scale
         if path.endswith('.html'):
             plotly.io.write_html(figure, path, auto_play=True, default_width="100%", default_height="100%")
         elif path.endswith('.json'):
             raise NotImplementedError("Call Plotly functions directly to save JSON.")
+        elif path.endswith('.mp4'):
+            figure.update_layout(sliders=[], updatemenus=[])
+            config = {
+                'displayModeBar': False,  # Hides the modebar
+                'displaylogo': False,  # Hides the Plotly logo
+                'scrollZoom': False,  # Disables scroll-to-zoom
+                'showAxisDragHandles': False,  # Hides axis drag handles
+                'staticPlot': True,  # Makes the plot static (no interaction)
+            }
+            img_dir = tempfile.mkdtemp()
+            images = []
+            for i, frame in enumerate(figure.frames):
+                figure.update(data=frame.data, layout=frame.layout)
+                img_path = os.path.join(img_dir, f'{i:04d}.png')
+                print(f"Writing image to {img_path}... (width={width}, height={height}, scale={scale})")
+                figure.write_image(img_path, width=width, height=height, scale=scale)  # requires kaleido==0.1.0.post1, see https://community.plotly.com/t/static-image-export-hangs-using-kaleido/61519/3
+                images.append(img_path)
+                # image = PIL.Image.open(io.BytesIO(figure.to_image(format="png")))
+            frame_rate = 1 / .2
+            print("Writing video...")
+            command = [
+                'ffmpeg',
+                '-y',  # override
+                '-framerate', str(frame_rate),
+                '-i', os.path.join(img_dir, f'%04d.png'),  # Assuming image files are named like 001.png, 002.png, etc.
+                # '-c:v', 'libx264',
+                # '-pix_fmt', 'yuv420p',
+                path
+            ]
+            subprocess.run(command, check=True)
         else:
-            figure.write_image(path, width=width * dpi / scale, height=height * dpi / scale, scale=scale)
+            figure.write_image(path, width=width, height=height, scale=scale)
 
 
 class LinePlot(Recipe):

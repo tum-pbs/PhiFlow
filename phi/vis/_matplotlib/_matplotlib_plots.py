@@ -127,7 +127,7 @@ class MatplotlibPlots(PlottingLibrary):
             warnings.warn(f"tight_layout could not be applied: {err}")
         return figure, axes_by_pos
 
-    def animate(self, fig: plt.Figure, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
+    def animate(self, fig: plt.Figure, frame_count: int, plot_frame_function: Callable, interval: float, repeat: bool, interactive: bool):
         if 'ipykernel' in sys.modules:
             rc('animation', html='html5')
 
@@ -154,9 +154,9 @@ class MatplotlibPlots(PlottingLibrary):
                     axis.set_subplotspec(specs[axis])
                     # subplot.set_title(titles[subplot])
             # plt.tight_layout()
-            plot_frame_function(frame)
+            plot_frame_function(fig, frame)
 
-        return animation.FuncAnimation(fig, clear_and_plot, repeat=repeat, frames=frames, interval=interval)
+        return animation.FuncAnimation(fig, clear_and_plot, repeat=repeat, frames=frame_count, interval=interval)
 
     def finalize(self, figure):
         pass

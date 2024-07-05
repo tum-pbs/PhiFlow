@@ -362,7 +362,7 @@ class PlottingLibrary:
         """
         raise NotImplementedError
 
-    def animate(self, fig, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
+    def animate(self, fig, frame_count: int, plot_frame_function: Callable, interval: float, repeat: bool, interactive: bool):
         raise NotImplementedError
 
     def finalize(self, figure):
