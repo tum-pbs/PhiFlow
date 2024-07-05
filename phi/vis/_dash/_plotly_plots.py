@@ -2,6 +2,7 @@ import os
 import subprocess
 import tempfile
 import warnings
+import webbrowser
 from typing import Tuple, Any, Dict, List, Callable, Union
 
 import numpy
@@ -24,7 +25,7 @@ from phi.geom._geom_ops import GeometryStack
 from phi.math import Tensor, spatial, channel, non_channel
 from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve, down_sample_curve
-from phi.vis._vis_base import PlottingLibrary, Recipe
+from phi.vis._vis_base import PlottingLibrary, Recipe, is_jupyter
 
 
 class PlotlyPlots(PlottingLibrary):
@@ -125,7 +126,14 @@ class PlotlyPlots(PlottingLibrary):
         pass
 
     def show(self, figure: graph_objects.Figure):
-        figure.show()
+        if is_jupyter():
+            plotly.io.renderers.default = 'notebook'
+        else:
+            plotly.io.renderers.default = 'browser'
+        try:
+            figure.show()
+        except webbrowser.Error as err:
+            warnings.warn(f"{err}", RuntimeWarning)
 
     def save(self, figure: graph_objects.Figure, path: str, dpi: float, transparent: bool):
         width, height = figure._phi_size

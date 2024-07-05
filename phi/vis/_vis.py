@@ -10,7 +10,7 @@ from phiml.math._magic_ops import tree_map
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
 from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, common_index, to_field, \
-    get_default_limits, uniform_bound
+    get_default_limits, uniform_bound, is_jupyter
 from ._vis_base import title_label
 from .. import math
 from ..field import Scene, Field
@@ -401,7 +401,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
                         plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx], err[idx])
                 plots.finalize(figure)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat, interactive=True)
-            if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
+            if is_jupyter():
                 plots.close(figure)
             LAST_FIGURE[0] = anim
             if fig_shape.volume == 1:
@@ -568,7 +568,7 @@ def write_image(path: str, figure=None, dpi=120., close=False, transparent=True)
 def default_gui() -> Gui:
     if GUI_OVERRIDES:
         return GUI_OVERRIDES[-1]
-    if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
+    if is_jupyter():
         raise NotImplementedError("There is currently no GUI support for Python notebooks. Use `vis.plot()` to display plots or animations instead.")
     else:
         options = ['dash', 'console']
@@ -614,7 +614,7 @@ _LOADED_PLOTTING_LIBRARIES: List[PlottingLibrary] = []
 
 
 def default_plots() -> PlottingLibrary:
-    if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
+    if is_jupyter():
         options = ['matplotlib']
     else:
         options = ['matplotlib', 'plotly', 'ascii']

@@ -1,3 +1,4 @@
+import sys
 import threading
 import time
 from collections import namedtuple
@@ -587,3 +588,17 @@ def only_stored_elements(f: Field) -> Field:
 def uniform_bound(shape: Shape):
     sizes = [int(s.max) if isinstance(s, Tensor) else s for s in shape.sizes]
     return shape.with_sizes(sizes)
+
+
+def is_jupyter():
+    if 'google.colab' in sys.modules:
+        return True
+    if 'IPython' not in sys.modules:
+        return False
+    from IPython import get_ipython
+    ipy = get_ipython().__class__.__name__
+    return {
+        'NoneType': False,
+        'ZMQInteractiveShell': True,  # Jupyter notebook or qtconsole
+        'TerminalInteractiveShell': False  # Jupyter notebook or qtconsole
+    }.get(ipy, False)
