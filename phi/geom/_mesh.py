@@ -5,11 +5,11 @@ from typing import Dict, List, Sequence, Union, Any, Tuple, Optional
 import numpy as np
 from scipy.sparse import csr_matrix
 
-from phi.geom import Box
 from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims
 from phiml.math.extrapolation import as_extrapolation
 from phiml.math.magic import slicing_dict
 from ._geom import Geometry, Point
+from ._box import Box, BaseBox
 from ._graph import Graph
 from .. import math
 from ..math import Tensor, Shape, channel, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, stack, vec_length, tensor_like, \
@@ -23,7 +23,7 @@ class Mesh(Geometry):
     """
 
     def __init__(self,
-                 vertices: Graph,
+                 vertices: Union[Geometry, Tensor],
                  elements: Tensor,
                  element_rank: int,
                  boundaries: Dict[str, Dict[str, slice]],
@@ -37,13 +37,13 @@ class Mesh(Geometry):
         """
         Args:
             vertices: Vertex positions, shape (vertices:i, vector:c)
-                Vertex 0 must be at position 0.
-            elements: Sparse `Tensor` listing ordered vertex indices per cell. (cells, vertices).
+            elements: Sparse `Tensor` listing ordered vertex indices per cell. (cells, ~vertices).
                 The vertex count is equal to the number of elements per row.
             face_vertices: (cells, ~neighbors, face_vertices)
         """
         assert elements.dtype.kind == int, f"elements must be integer lists but got dtype {elements.dtype}"
-        assert isinstance(vertices, Graph), f"vertices must be a Graph"
+        if not isinstance(vertices, Geometry):
+            vertices = Point(vertices)
         self._vertices = vertices
         self._elements = elements
         self._element_rank = element_rank
@@ -54,15 +54,19 @@ class Mesh(Geometry):
         self._face_normals = face_normals
         self._face_areas = face_areas
         self._face_vertices = face_vertices
-        cell_deltas = pairwise_distances(self.center, format=self.cell_connectivity, default=None)
-        cell_distances = math.vec_length(cell_deltas)
-        neighbors_dim = dual(face_areas)
-        assert (cell_distances > 0).all, f"All cells must have distance > 0 but found 0 distance at {math.nonzero(cell_distances == 0)}"
-        face_distances = math.vec_length(self.face_centers[self.interior_faces] - self.center)
-        self._relative_face_distance = math.concat([face_distances / cell_distances, self.boundary_connectivity], neighbors_dim)
-        boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
-        assert (math.vec_length(boundary_deltas) > 0).all, f"All boundary faces must be separated from the cell centers but 0 distance at the following {channel(math.stored_indices(boundary_deltas)).item_names[0]}:\n{math.nonzero(math.vec_length(boundary_deltas) == 0):full}"
-        self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], neighbors_dim)
+        if center is not None and (face_areas is not None or face_centers is not None or face_normals is not None):
+            cell_deltas = pairwise_distances(self.center, format=self.cell_connectivity)
+            cell_distances = math.vec_length(cell_deltas)
+            neighbors_dim = dual(face_areas)
+            assert (cell_distances > 0).all, f"All cells must have distance > 0 but found 0 distance at {math.nonzero(cell_distances == 0)}"
+            face_distances = math.vec_length(self.face_centers[self.interior_faces] - self.center)
+            self._relative_face_distance = math.concat([face_distances / cell_distances, self.boundary_connectivity], neighbors_dim)
+            boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
+            assert (math.vec_length(boundary_deltas) > 0).all, f"All boundary faces must be separated from the cell centers but 0 distance at the following {channel(math.stored_indices(boundary_deltas)).item_names[0]}:\n{math.nonzero(math.vec_length(boundary_deltas) == 0):full}"
+            self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], neighbors_dim)
+        else:
+            self._relative_face_distance = None
+            self._neighbor_offsets = None
         if max_cell_walk is None:
             max_cell_walk = 2 if instance(elements).volume > 1 else 1
         self._max_cell_walk = max_cell_walk
@@ -99,7 +103,10 @@ class Mesh(Geometry):
 
     @property
     def face_shape(self) -> Shape:
-        return self.face_areas.shape
+        face_shape = instance(self._elements) & dual
+        if self._face_areas is not None:
+            assert set(self._face_areas.shape) == face_shape
+        return face_shape
 
     @property
     def boundary_elements(self) -> Dict[str, Dict[str, slice]]:
@@ -161,6 +168,8 @@ class Mesh(Geometry):
 
     @property
     def connectivity(self) -> Tensor:
+        if self._face_areas is None and self._face_normals is None and self._face_centers is None:
+            return math.sparse_tensor(None, None, self.face_shape)
         if is_sparse(self._face_areas):
             return tensor_like(self._face_areas, True)
         else:
@@ -290,6 +299,9 @@ class Mesh(Geometry):
         max_delta = math.max(abs(vert_pos - center), dual)
         return max_delta
 
+    def bounding_box(self) -> 'BaseBox':
+        return self.vertices.bounding_box()
+
     @property
     def bounds(self):
         return Box(math.min(self._vertices.center, instance), math.max(self._vertices.center, instance))
@@ -312,8 +324,9 @@ class Mesh(Geometry):
             item[cells] = slice(item[cells], item[cells] + 1)
         vertices = self._vertices[item]
         polygons = self._elements[item]
-        return Mesh(vertices, polygons, self._element_rank, self._boundaries, self._center[item], self._volume[item],
-                    self._face_centers[item], self._face_normals[item], self._face_areas[item], self._face_vertices[item])
+        s = math.slice
+        return Mesh(vertices, polygons, self._element_rank, self._boundaries, s(self._center, item), s(self._volume, item),
+                    s(self._face_centers, item), s(self._face_normals, item), s(self._face_areas, item), s(self._face_vertices, item))
 
 
 def load_su2(file_or_mesh: str, cell_dim=instance('cells'), face_format: str = 'csc') -> Mesh:
