@@ -472,29 +472,37 @@ class SurfaceMesh3D(Recipe):
         dims = space.vector.item_names
         row, col = subplot
         x, y, z = reshaped_numpy(data.mesh.vertices.center.vector[dims], ['vector', instance])
-        elements: csr_matrix = data.mesh.elements.numpy().tocsr()
-        indices = elements.indices
-        pointers = elements.indptr
-        vertex_count = pointers[1:] - pointers[:-1]
-        v1, v2, v3 = [], [], []
-        # --- add triangles ---
-        tris, = np.where(vertex_count == 3)
-        tri_pointers = pointers[:-1][tris]
-        v1.extend(indices[tri_pointers])
-        v2.extend(indices[tri_pointers+1])
-        v3.extend(indices[tri_pointers+2])
-        # --- add two tris for each quad ---
-        quads, = np.where(vertex_count == 4)
-        quad_pointers = pointers[:-1][quads]
-        v1.extend(indices[quad_pointers])
-        v2.extend(indices[quad_pointers+1])
-        v3.extend(indices[quad_pointers+2])
-        v1.extend(indices[quad_pointers+1])
-        v2.extend(indices[quad_pointers+2])
-        v3.extend(indices[quad_pointers+3])
-        # --- polygons with > 4 vertices ---
-        if np.any(vertex_count > 4):
-            warnings.warn("Only tris and quads are currently supported with Plotly mesh render", RuntimeWarning)
+        if isinstance(data.mesh.elements, CompactSparseTensor):
+            polygons = data.mesh.elements._indices
+            math.assert_close(1, data.mesh.elements._values)
+            if dual(polygons).size == 3:  # triangles
+                v1, v2, v3 = reshaped_numpy(polygons, [dual, instance])
+            else:
+                raise NotImplementedError
+        else:
+            elements: csr_matrix = data.mesh.elements.numpy().tocsr()
+            indices = elements.indices
+            pointers = elements.indptr
+            vertex_count = pointers[1:] - pointers[:-1]
+            v1, v2, v3 = [], [], []
+            # --- add triangles ---
+            tris, = np.where(vertex_count == 3)
+            tri_pointers = pointers[:-1][tris]
+            v1.extend(indices[tri_pointers])
+            v2.extend(indices[tri_pointers+1])
+            v3.extend(indices[tri_pointers+2])
+            # --- add two tris for each quad ---
+            quads, = np.where(vertex_count == 4)
+            quad_pointers = pointers[:-1][quads]
+            v1.extend(indices[quad_pointers])
+            v2.extend(indices[quad_pointers+1])
+            v3.extend(indices[quad_pointers+2])
+            v1.extend(indices[quad_pointers+1])
+            v2.extend(indices[quad_pointers+2])
+            v3.extend(indices[quad_pointers+3])
+            # --- polygons with > 4 vertices ---
+            if np.any(vertex_count > 4):
+                warnings.warn("Only tris and quads are currently supported with Plotly mesh render", RuntimeWarning)
         # --- plot mesh ---
         cbar = None if not channel(data) or not channel(data).item_names[0] else channel(data).item_names[0][0]
         if math.is_nan(data.values).all:
