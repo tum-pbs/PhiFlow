@@ -11,13 +11,13 @@ import plotly.graph_objs
 from phiml.math._sparse import CompactSparseTensor
 from scipy.sparse import csr_matrix, coo_matrix
 
-from phiml.math import reshaped_numpy, dual, instance
 from plotly import graph_objects, figure_factory
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
 import plotly.io as pio
 
+from phiml.math import reshaped_numpy, dual, instance, non_dual
 from phi import math, field
 from phi.field import Field
 from phi.geom import Sphere, BaseBox, Point, Box, SDF, SDFGrid
@@ -395,12 +395,64 @@ class PointCloud2D(Recipe):
         figure.update_layout(showlegend=False)
 
 
-class PointCloud3D(Recipe):
+class Object3D(Recipe):
+
+    def can_plot(self, data: Field, space: Box) -> bool:
+        if not data.is_point_cloud or data.spatial_rank != 3:
+            return False
+        if isinstance(data.geometry, Sphere):
+            v_count = self._sphere_vertex_count(data.geometry.radius, space)
+            face_count = (v_count + 1) * (v_count * 2) / 2  # half as many tris as vertices
+        elif isinstance(data.geometry, Box):
+            face_count = 12
+        else:
+            return False
+        face_count *= non_dual(data.geometry).without('vector').volume
+        return face_count < 10_000
+
+    def plot(self, data: Field, figure: go.Figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+        row, col = subplot
+        dims = data.geometry.vector.item_names
+        color = color.native()
+        count = instance(data.geometry).volume
+        if isinstance(data.geometry, Sphere):
+            vertex_count = self._sphere_vertex_count(data.geometry.radius, space)
+            cx, cy, cz = reshaped_numpy(data.points[dims], ['vector', instance, (), ()])
+            rad = reshaped_numpy(data.geometry.radius, [instance, (), ()])
+            d = np.pi / vertex_count
+            theta, phi = np.mgrid[0:np.pi+d:d, 0:2*np.pi:d]
+            # --- to cartesian ---
+            x = np.sin(theta) * np.cos(phi) * rad + cx
+            y = np.sin(theta) * np.sin(phi) * rad + cy
+            z = np.cos(theta) * rad + cz
+            for inst in range(count):
+                xyz = np.vstack([x[inst].ravel(), y[inst].ravel(), z[inst].ravel()])
+                figure.add_trace(go.Mesh3d(x=xyz[0], y=xyz[1], z=xyz[2], flatshading=False, alphahull=0), row=row, col=col)
+        elif isinstance(data.geometry, BaseBox):
+            cx, cy, cz = reshaped_numpy(data.geometry.corners, ['vector', instance, *['~' + d for d in dims]])
+            x = cx.flatten()
+            y = cy.flatten()
+            z = cz.flatten()
+            v1 = [0, 1, 4, 5, 4, 6, 5, 7, 0, 1, 2, 6]
+            v2 = [1, 3, 6, 6, 0, 0, 7, 3, 4, 4, 3, 3]
+            v3 = [2, 2, 5, 7, 6, 2, 1, 1, 1, 5, 6, 7]
+            v1 = (v1 + np.arange(count)[:, None] * 8).flatten()
+            v2 = (v2 + np.arange(count)[:, None] * 8).flatten()
+            v3 = (v3 + np.arange(count)[:, None] * 8).flatten()
+            figure.add_trace(go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, flatshading=True), row=row, col=col)
+
+    def _sphere_vertex_count(self, radius: Tensor, space: Box):
+        size_in_fig = radius.max / space.size.max
+        vertex_count = np.clip(int(size_in_fig ** .5 * 50), 4, 64)
+        return vertex_count
+
+
+class Scatter3D(Recipe):
 
     def can_plot(self, data: Field, space: Box) -> bool:
         return data.is_point_cloud and data.spatial_rank == 3
 
-    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self, data: Field, figure: go.Figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
         subplot = figure.get_subplot(row, col)
         dims = data.elements.vector.item_names
@@ -724,5 +776,6 @@ PLOTLY.recipes.extend([
     SDF3D(),
     Graph3D(),
     VectorCloud3D(),
-    PointCloud3D(),
+    Object3D(),
+    Scatter3D(),
 ])
