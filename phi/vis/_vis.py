@@ -10,14 +10,14 @@ from phiml.math._magic_ops import tree_map
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
 from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, common_index, to_field, \
-    get_default_limits, uniform_bound, is_jupyter
+    get_default_limits, uniform_bound, is_jupyter, requires_color_map
 from ._vis_base import title_label
 from .. import math
 from ..field import Scene, Field
 from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
 from phiml.math import Tensor, layout, batch, Shape, concat, vec, wrap, stack
-from phiml.math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape
+from phiml.math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape, channel
 from phiml.math._tensors import Layout
 
 
@@ -367,6 +367,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
         title_by_subplot = {pos: _title(title, i[0]) for pos, i in indices.items()}
     log_dims = parse_dim_order(log_dims) or ()
     color = layout_pytree_node(color, wrap_leaf=True)
+    color = layout_color(positioning, indices, color)
     alpha = layout_pytree_node(alpha, wrap_leaf=True)
     alpha = tree_map(lambda x: 1 if x is None else x, alpha)
     err = layout_pytree_node(err, wrap_leaf=True)
@@ -404,7 +405,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
                     for i, f in enumerate(fields):
                         idx = indices[pos][i]
                         f = f[{animate.name: frame}]
-                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx], err[idx])
+                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[pos][i], alpha[idx], err[idx])
                 plots.finalize(figure)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat, interactive=True)
             if is_jupyter():
@@ -417,18 +418,11 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
             for pos, fields in positioning.items():
                 for i, f in enumerate(fields):
                     idx = indices[pos][i]
-                    err_ = err[idx]
-                    while isinstance(err_, Layout) and not err_.shape and isinstance(err_.native(), Tensor):
-                        err_ = err_.native()[idx]
-                    color_ = color[idx]
-                    while isinstance(color_, Layout) and not color_.shape and isinstance(color_.native(), Tensor):
-                        color_ = color_.native()[idx]
-                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color_, alpha[idx], err_)
+                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[pos][i], alpha[idx], err[idx])
             plots.finalize(figure)
             LAST_FIGURE[0] = figure
             figures.append(figure)
     return stack([layout(f) for f in figures], fig_shape)
-
 
 
 def layout_pytree_node(data, wrap_leaf=False):
@@ -529,6 +523,27 @@ def _insert_value_dim(space: Box, pos: Tuple[int, int], subplots: dict, min_val,
         return space.vector[others]
     else:
         return space
+
+
+def layout_color(content: Dict[Tuple[int, int], List[Field]], indices: Dict[Tuple[int, int], List[dict]], color: Tensor):
+    result = {}
+    for pos, fields in content.items():
+        result_pos = result[pos] = []
+        counter = 0
+        for i, f in enumerate(fields):
+            idx = indices[pos][i]
+            if (color[idx] != None).all:  # user-specified color
+                result_pos.append(color[idx])
+            elif requires_color_map(f):
+                result_pos.append(wrap('cmap'))
+            else:
+                channels = channel(f).without('vector')
+                if channels:
+                    result_pos.append(counter + math.range_tensor(channels))
+                else:
+                    result_pos.append(wrap(counter))
+                counter += channels.volume
+    return result
 
 
 def overlay(*fields: Union[Field, Tensor, Geometry]) -> Tensor:

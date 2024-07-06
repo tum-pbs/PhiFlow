@@ -491,13 +491,12 @@ class StreamPlot2D(Recipe):
         x = x[:, 0]
         y = y[0, :]
         u, v = reshaped_numpy(data.values.vector[vector.item_names[0]], [vector, *data.shape.without('vector')])
-        if (color == None).all:
+        if color == 'cmap':
             col = reshaped_numpy(math.vec_length(data.values), [*data.shape.without('vector')]).T
+        elif color.shape:
+            col = [_plt_col(c) for c in color.numpy(data.shape.non_channel).reshape(-1)]
         else:
-            if color.shape:
-                col = [_plt_col(c) for c in color.numpy(data.shape.non_channel).reshape(-1)]
-            else:
-                col = _plt_col(color)
+            col = _plt_col(color)
         alphas = reshaped_numpy(alpha, [data.shape.without('vector')])
         a = float(alphas[0])
         prev_patches = set(subplot.patches)
@@ -611,17 +610,10 @@ class PointCloud2D(Recipe):
             return
         data = only_stored_elements(data)
         x, y = reshaped_numpy(data.points.vector[dims], [vector, non_channel(data)])
-        if (color == None).all:
-            if math.is_finite(data.values).any:
-                values = reshaped_numpy(data.values, [non_channel(data)])
-                mpl_colors = add_color_bar(axis, values, min_val, max_val)
-                single_color = False
-                # if np.any(values != values[0]):
-                # else:
-                #     mpl_colors = [_next_line_color(axis, 'lines' if connected else 'collections')] * non_channel(data).volume
-            else:
-                mpl_colors = [_next_line_color(axis, 'lines' if connected else 'collections')] * non_channel(data).volume
-                single_color = True
+        if color == 'cmap':
+            values = reshaped_numpy(data.values, [non_channel(data)])
+            mpl_colors = add_color_bar(axis, values, min_val, max_val)
+            single_color = False
         elif non_channel(data).only(color.shape) and color.dtype.kind == float:  # use color map
             values = reshaped_numpy(color, [non_channel(data)])
             mpl_colors = add_color_bar(axis, values, None, None)
@@ -689,14 +681,14 @@ class PointCloud2D(Recipe):
                 p1, p2 = edges.index
                 x1, y1 = reshaped_numpy(data.graph.center[p1], ['vector', instance])
                 x2, y2 = reshaped_numpy(data.graph.center[p2], ['vector', instance])
-                if (color == None).all:
+                if color == 'cmap':
                     edge_val = reshaped_numpy(edge_val, [instance])
                     edge_colors = add_color_bar(axis, edge_val, min_val, max_val)
                     if edge_val.min() == edge_val.max():
                         edge_colors = edge_colors[0]
                 else:
                     edge_colors = mpl_colors[0]
-                if np.array(edge_colors).ndim == 1:
+                if np.array(edge_colors).ndim <= 1:
                     axis.plot([x1, x2], [y1, y2], color=edge_colors, alpha=alphas[0])
                 else:
                     for i, (x1_, x2_, y1_, y2_, col) in enumerate(zip(x1, x2, y1, y2, edge_colors)):
@@ -806,6 +798,7 @@ class PointCloud3D(Recipe):
             elif isinstance(data.geometry, BaseBox):
                 a = alphas[0]
                 c = mpl_colors[0]
+                # ToDo support collections of boxes
                 cx, cy, cz = math.reshaped_numpy(data.geometry.corners, ['vector', *['~'+d for d in dims]])
                 plot_surface(subplot, cx[:, :, 1], cy[:, :, 1], cz[:, :, 1], alpha=a, color=c)
                 plot_surface(subplot, cx[:, :, 0], cy[:, :, 0], cz[:, :, 0], alpha=a, color=c)
@@ -866,7 +859,7 @@ def _plt_col(col):
 
 
 def matplotlib_colors(color: Tensor, dims: Shape, default=None) -> Union[list, None]:
-    if color.rank == 0 and color.native() is None:
+    if color.rank == 0 and color == 'cmap':
         if default is None:
             return None
         else:

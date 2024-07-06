@@ -67,13 +67,13 @@ class TestPlots(TestCase):
     def test_plot_multi_grid(self):
         self._test_plot(overlay(CenteredGrid(Noise(), x=10, y=10), CenteredGrid(Noise(), x=10, y=10, bounds=Box(x=(5, 15), y=(5, 15)))))
 
-    def test_plot_sphere(self):
+    def test_plot_circle(self):
         self._test_plot(Sphere(x=1, y=0, radius=.5))
 
     def test_plot_box(self):
         self._test_plot(Box(x=(1, 2), y=1))
 
-    def test_plot_spheres_2d(self):
+    def test_plot_circles(self):
         spheres = Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel(vector='x,y')), radius=.1)
         self._test_plot(spheres)
 

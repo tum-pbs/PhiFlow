@@ -17,7 +17,7 @@ from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
 import plotly.io as pio
 
-from phiml.math import reshaped_numpy, dual, instance, non_dual
+from phiml.math import reshaped_numpy, dual, instance, non_dual, merge_shapes
 from phi import math, field
 from phi.field import Field
 from phi.geom import Sphere, BaseBox, Point, Box, SDF, SDFGrid
@@ -338,9 +338,10 @@ class PointCloud2D(Recipe):
             raise NotImplementedError("Plotly does not yet support plotting point clouds with spatial dimensions")
         for idx in non_channel(data.points).meshgrid(names=True):
             x, y = reshaped_numpy(data.points[idx].vector[dims], [vector, non_channel(data)])
-            hex_color = color[idx].native()
-            if hex_color is None:
-                hex_color = pio.templates[pio.templates.default].layout.colorway[0]
+            if color[idx] == 'cmap':
+                hex_color = plotly_color(0)  # ToDo add color bar
+            else:
+                hex_color = plotly_color(color[idx].native())
             alphas = reshaped_numpy(alpha, [non_channel(data)])
             if isinstance(data.geometry, Sphere):
                 hex_color = [hex_color] * non_channel(data).volume if isinstance(hex_color, str) else hex_color
@@ -413,33 +414,39 @@ class Object3D(Recipe):
     def plot(self, data: Field, figure: go.Figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
         dims = data.geometry.vector.item_names
-        color = color.native()
-        count = instance(data.geometry).volume
-        if isinstance(data.geometry, Sphere):
-            vertex_count = self._sphere_vertex_count(data.geometry.radius, space)
-            cx, cy, cz = reshaped_numpy(data.points[dims], ['vector', instance, (), ()])
-            rad = reshaped_numpy(data.geometry.radius, [instance, (), ()])
-            d = np.pi / vertex_count
-            theta, phi = np.mgrid[0:np.pi+d:d, 0:2*np.pi:d]
-            # --- to cartesian ---
-            x = np.sin(theta) * np.cos(phi) * rad + cx
-            y = np.sin(theta) * np.sin(phi) * rad + cy
-            z = np.cos(theta) * rad + cz
-            for inst in range(count):
-                xyz = np.vstack([x[inst].ravel(), y[inst].ravel(), z[inst].ravel()])
-                figure.add_trace(go.Mesh3d(x=xyz[0], y=xyz[1], z=xyz[2], flatshading=False, alphahull=0), row=row, col=col)
-        elif isinstance(data.geometry, BaseBox):
-            cx, cy, cz = reshaped_numpy(data.geometry.corners, ['vector', instance, *['~' + d for d in dims]])
-            x = cx.flatten()
-            y = cy.flatten()
-            z = cz.flatten()
-            v1 = [0, 1, 4, 5, 4, 6, 5, 7, 0, 1, 2, 6]
-            v2 = [1, 3, 6, 6, 0, 0, 7, 3, 4, 4, 3, 3]
-            v3 = [2, 2, 5, 7, 6, 2, 1, 1, 1, 5, 6, 7]
-            v1 = (v1 + np.arange(count)[:, None] * 8).flatten()
-            v2 = (v2 + np.arange(count)[:, None] * 8).flatten()
-            v3 = (v3 + np.arange(count)[:, None] * 8).flatten()
-            figure.add_trace(go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, flatshading=True), row=row, col=col)
+        def plot_one_material(data, color, alpha: float):
+            if color == 'cmap':
+                color = plotly_color(0)  # ToDo cmap
+            else:
+                color = plotly_color(color)
+            alpha = float(alpha)
+            count = instance(data.geometry).volume
+            if isinstance(data.geometry, Sphere):
+                vertex_count = self._sphere_vertex_count(data.geometry.radius, space)
+                cx, cy, cz = reshaped_numpy(data.points[dims], ['vector', instance, (), ()])
+                rad = reshaped_numpy(data.geometry.radius, [instance, (), ()])
+                d = np.pi / vertex_count
+                theta, phi = np.mgrid[0:np.pi+d:d, 0:2*np.pi:d]
+                # --- to cartesian ---
+                x = np.sin(theta) * np.cos(phi) * rad + cx
+                y = np.sin(theta) * np.sin(phi) * rad + cy
+                z = np.cos(theta) * rad + cz
+                for inst in range(count):
+                    xyz = np.vstack([x[inst].ravel(), y[inst].ravel(), z[inst].ravel()])
+                    figure.add_trace(go.Mesh3d(x=xyz[0], y=xyz[1], z=xyz[2], flatshading=False, alphahull=0, color=color, opacity=alpha), row=row, col=col)
+            elif isinstance(data.geometry, BaseBox):
+                cx, cy, cz = reshaped_numpy(data.geometry.corners, ['vector', instance, *['~' + d for d in dims]])
+                x = cx.flatten()
+                y = cy.flatten()
+                z = cz.flatten()
+                v1 = [0, 1, 4, 5, 4, 6, 5, 7, 0, 1, 2, 6]
+                v2 = [1, 3, 6, 6, 0, 0, 7, 3, 4, 4, 3, 3]
+                v3 = [2, 2, 5, 7, 6, 2, 1, 1, 1, 5, 6, 7]
+                v1 = (v1 + np.arange(count)[:, None] * 8).flatten()
+                v2 = (v2 + np.arange(count)[:, None] * 8).flatten()
+                v3 = (v3 + np.arange(count)[:, None] * 8).flatten()
+                figure.add_trace(go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, flatshading=True, color=color, opacity=alpha), row=row, col=col)
+        math.map(plot_one_material, data, color, alpha, dims=merge_shapes(color, alpha), unwrap_scalars=True)
 
     def _sphere_vertex_count(self, radius: Tensor, space: Box):
         size_in_fig = radius.max / space.size.max
@@ -465,7 +472,10 @@ class Scatter3D(Recipe):
                 self.plot(d, figure, (row, col), space, min_val, max_val, show_color_bar, color)
         else:
             x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
-            color = color.native()
+            if color == 'cmap':
+                color = plotly_color(0)  # ToDo cmap
+            else:
+                color = plotly_color(color.native())
             domain_y = figure.layout[subplot.plotly_name].domain.y
             if isinstance(data.elements, Sphere):
                 symbol = 'circle'
@@ -589,18 +599,19 @@ class SDF3D(Recipe):
              color: Tensor,
              alpha: Tensor,
              err: Tensor):
-        # surf_mesh = mesh_from_sdf(data.geometry, remove_duplicates=True, backend=math.NUMPY)
-        # mesh_data = Field(surf_mesh, math.NAN, 0)
-        # SurfaceMesh3D().plot(mesh_data, figure, subplot, space, min_val, max_val, show_color_bar, color, alpha, err)
-        from sdf.mesh import generate  # using https://github.com/fogleman/sdf
-        mesh = np.stack(generate(data.geometry, workers=1, batch_size=1024*1024))
-        # --- remove duplicate vertices ---
-        vert, idx, inv, c = np.unique(mesh, axis=0, return_counts=True, return_index=True, return_inverse=True)
-        i, j, k = inv.reshape((-1, 3)).T
-        mesh = go.Mesh3d(x=vert[:, 0], y=vert[:, 1], z=vert[:, 2], i=i, j=j, k=k)
-        figure.add_trace(mesh)
-        # fig = go.Figure(go.Mesh3d(x=mesh[:, 0], y=mesh[:, 1], z=mesh[:, 2], i=i, j=i+1, k=i+2))
-        # fig.show()
+        def plot_single_material(data: Field, color, alpha: float):
+            color = plotly_color(color)
+            # surf_mesh = mesh_from_sdf(data.geometry, remove_duplicates=True, backend=math.NUMPY)
+            # mesh_data = Field(surf_mesh, math.NAN, 0)
+            # SurfaceMesh3D().plot(mesh_data, figure, subplot, space, min_val, max_val, show_color_bar, color, alpha, err)
+            from sdf.mesh import generate  # using https://github.com/fogleman/sdf
+            mesh = np.stack(generate(data.geometry, workers=1, batch_size=1024*1024))
+            # --- remove duplicate vertices ---
+            vert, idx, inv, c = np.unique(mesh, axis=0, return_counts=True, return_index=True, return_inverse=True)
+            i, j, k = inv.reshape((-1, 3)).T
+            mesh = go.Mesh3d(x=vert[:, 0], y=vert[:, 1], z=vert[:, 2], i=i, j=j, k=k, color=color, opacity=float(alpha))
+            figure.add_trace(mesh)
+        math.map(plot_single_material, data, color, alpha, dims=channel(data.geometry) - 'vector')
 
 
 
@@ -613,6 +624,20 @@ def _get_range(bounds: Box, index: int):
 def real_values(field: Field):
     return field.values if field.values.dtype.kind != complex else abs(field.values)
 
+
+def plotly_color(col: Union[int,]):
+    if isinstance(col, int):
+        return DEFAULT_PLOTLY_COLORS[col % len(DEFAULT_PLOTLY_COLORS)]
+    if isinstance(col, str) and (col.startswith('#') or col.startswith('rgb(') or col.startswith('rgba(')):
+        return col
+    elif isinstance(col, str):
+        return col  # color name, e.g. 'blue'
+    raise NotImplementedError
+    # if isinstance(col, (tuple, list)):
+    #     col = np.asarray(col)
+    #     if col.dtype.kind == 'i':
+    #         col = col / 255.
+    #     return col
 
 def get_div_map(zmin, zmax, equal_scale=False, colormap: str = None):
     """

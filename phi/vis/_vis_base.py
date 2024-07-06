@@ -503,11 +503,11 @@ def to_field(obj) -> Field:
         if point_cloud or arbitrary_lines_1d:
             if math.get_format(obj) != 'dense':
                 obj = math.stored_values(obj)
-            return PointCloud(obj)
+            return PointCloud(obj, math.NAN)
         elif spatial(obj):
             return CenteredGrid(obj, 0, bounds=Box(math.const_vec(-0.5, spatial(obj)), wrap(spatial(obj), channel('vector')) - 0.5))
         elif 'vector' in obj.shape:
-            return PointCloud(math.expand(obj, instance(points=1)), bounds=Cuboid(obj, half_size=math.const_vec(1e-3, obj.shape['vector'])).box())
+            return PointCloud(math.expand(obj, instance(points=1)), math.NAN)
         elif instance(obj) and not spatial(obj):
             assert instance(obj).rank == 1, "Bar charts must have only one instance dimension"
             vector = channel(vector=instance(obj).names)
@@ -534,11 +534,14 @@ def get_default_limits(f: Field, all_dims: Optional[Sequence[str]], log_dims: Tu
         return data_bounds(f) * value_limits
     # --- Determine element size ---
     f_dims = f.geometry.vector.item_names
-    if 'vector' not in channel(err) and f.spatial_rank <= 1:
+    value_axis = f.spatial_rank <= 1
+    if value_axis:
         f_dims += ('_',)
     is_log = wrap([dim in log_dims for dim in f_dims], channel(vector=f_dims))
     if math.equal(0, err):
         bounding_box = f.geometry.bounding_box()
+        if value_axis:
+            bounding_box *= Box(_=(math.finite_min(f.values), math.finite_max(f.values)))
         return _limits(bounding_box.center, bounding_box.half_size, is_log)
     half = f.geometry.bounding_half_extent()
     center = f.center
@@ -588,6 +591,12 @@ def only_stored_elements(f: Field) -> Field:
 def uniform_bound(shape: Shape):
     sizes = [int(s.max) if isinstance(s, Tensor) else s for s in shape.sizes]
     return shape.with_sizes(sizes)
+
+
+def requires_color_map(f: Field):
+    if f.spatial_rank <= 1:
+        return False
+    return math.is_finite(f.values).any
 
 
 def is_jupyter():
