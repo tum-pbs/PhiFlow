@@ -424,7 +424,6 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
             figures.append(figure)
     return stack([layout(f) for f in figures], fig_shape) if fig_shape else figures[0]
 
-
 def layout_pytree_node(data, wrap_leaf=False):
     # we could wrap instead of layout if all values have same shapes
     if isinstance(data, tuple):
