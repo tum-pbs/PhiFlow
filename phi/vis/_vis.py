@@ -4,7 +4,7 @@ import sys
 import warnings
 from contextlib import contextmanager
 from threading import Thread
-from typing import Tuple, List, Dict, Union, Sequence
+from typing import Tuple, List, Dict, Union, Sequence, Any
 
 from phiml.math._magic_ops import tree_map
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
@@ -70,16 +70,22 @@ def show(*model: Union[VisModel, Field, Tensor, Geometry, list, tuple, dict],
         else:
             gui.show(True)  # may be blocking call
     elif len(model) == 0:
-        plots = default_plots() if lib is None else get_plots(lib)
+        if lib is not None:
+            plots = get_plots(lib)
+        else:
+            if not LAST_FIGURE:
+                warnings.warn("No plot yet created with phi.vis; nothing to show.", RuntimeWarning)
+                return
+            plots = get_plots_by_figure(LAST_FIGURE[0])
         return plots.show(plots.current_figure)
     else:
-        plots = default_plots() if lib is None else get_plots(lib)
-        fig_tensor = plot(*model, lib=plots, **config)
-        if isinstance(fig_tensor, Tensor):
-            for fig in fig_tensor:
+        fig = plot(*model, lib=lib, **config)
+        plots = get_plots_by_figure(fig)
+        if isinstance(fig, Tensor):
+            for fig in fig:
                 plots.show(fig)
         else:
-            return plots.show(fig_tensor)
+            return plots.show(fig)
 
 
 def close(figure=None):
@@ -349,7 +355,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
     ncols = uniform_bound(col_dims).volume
     positioning, indices = layout_sub_figures(data, row_dims, col_dims, animate, overlay, 0, 0)
     # --- Process arguments ---
-    plots = default_plots() if lib is None else get_plots(lib)
+    plots = default_plots(positioning) if lib is None else get_plots(lib)
     plt_params = {} if plt_params is None else dict(**plt_params)
     size = (None, None) if size is None else size
     if title is None:
@@ -554,7 +560,8 @@ def write_image(path: str, figure=None, dpi=120., close=False, transparent=True)
     """
     figure = figure or LAST_FIGURE[0]
     if figure is None:
-        figure = default_plots().current_figure
+        warnings.warn("No plot yet created with phi.vis; nothing to save.", RuntimeWarning)
+        return
     assert figure is not None, "No figure to save."
     lib = get_plots_by_figure(figure)
     path = os.path.expanduser(path)
@@ -613,11 +620,16 @@ def force_use_gui(gui: Gui):
 _LOADED_PLOTTING_LIBRARIES: List[PlottingLibrary] = []
 
 
-def default_plots() -> PlottingLibrary:
+def default_plots(content: Dict[Tuple[int, int], List[Field]]) -> PlottingLibrary:
+    is_3d = False
+    for fields in content.values():
+        if any(f.spatial_rank == 3 for f in fields):
+            is_3d = True
+            break
     if is_jupyter():
-        options = ['matplotlib']
+        options = ['plotly', 'matplotlib'] if is_3d else ['matplotlib', 'plotly']
     else:
-        options = ['matplotlib', 'plotly', 'ascii']
+        options = ['plotly', 'matplotlib'] if is_3d else ['matplotlib', 'plotly', 'ascii']
     for option in options:
         try:
             return get_plots(option)
@@ -648,7 +660,9 @@ def get_plots(lib: Union[str, PlottingLibrary]) -> PlottingLibrary:
         raise NotImplementedError(f"No plotting library available with name {lib}")
 
 
-def get_plots_by_figure(figure):
+def get_plots_by_figure(figure: Union[Tensor, Any]):
+    if isinstance(figure, Tensor):
+        figure = next(iter(figure))
     for loaded_lib in _LOADED_PLOTTING_LIBRARIES:
         if loaded_lib.is_figure(figure):
             return loaded_lib
