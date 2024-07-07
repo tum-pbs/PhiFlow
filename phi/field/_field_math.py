@@ -115,16 +115,15 @@ def laplace(u: Field,
     laplace_ext = u.extrapolation.spatial_gradient().spatial_gradient()
     laplace_dims = u.shape.only(axes).names
 
-    if u.vector.exists:
+    if u.vector.exists and (u.is_staggered or order > 2):
         fields = [f for f in u.vector]
     else:
         fields = [u]
 
-
     result = []
     for f in fields:
         if order == 2:
-            result.append(math.laplace(f.values, dx=f.dx, padding=f.extrapolation, dims=axes, weights=weights))
+            result.append(math.laplace(f.values, dx=f.dx, padding=f.extrapolation, dims=axes, weights=weights))  # uses ghost cells
         else:
             result_components = [perform_finite_difference_operation(f.values, dim, 2, f.dx.vector[dim], f.extrapolation,
                                                                          laplace_ext, 'center', order, implicit,
@@ -137,7 +136,7 @@ def laplace(u: Field,
 
             result.append(sum(result_components))
 
-    if u.vector.exists:
+    if u.vector.exists and (u.is_staggered or order > 2):
         if u.is_staggered:
             result = math.stack(result, dual(vector=u.vector.item_names))
         else:
