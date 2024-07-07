@@ -115,7 +115,7 @@ def laplace(u: Field,
     laplace_ext = u.extrapolation.spatial_gradient().spatial_gradient()
     laplace_dims = u.shape.only(axes).names
 
-    if u.vector.exists and (u.is_staggered or order > 2):
+    if u.vector.exists and (u.is_centered or order > 2):
         fields = [f for f in u.vector]
     else:
         fields = [u]
@@ -136,7 +136,7 @@ def laplace(u: Field,
 
             result.append(sum(result_components))
 
-    if u.vector.exists and (u.is_staggered or order > 2):
+    if u.vector.exists and (u.is_centered or order > 2):
         if u.is_staggered:
             result = math.stack(result, dual(vector=u.vector.item_names))
         else:
