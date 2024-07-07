@@ -60,8 +60,7 @@ class FieldEmbedding(Extrapolation):
             padded = [self[i].pad_values(u, width, dim, upper_edge, bounds=bounds, already_padded=already_padded, **kwargs) for u, i in zip(unstacked, indices)]
             return stack(padded, value.shape.non_uniform_shape)
         if already_padded:
-            padded_res = spatial(**{dim: lo + up for dim, (lo, up) in already_padded.items()})
-            resolution = spatial(value) - padded_res
+            resolution = spatial(value).after_pad({dim: (-lo, -up) for dim, (lo, up) in already_padded.items()})
             value_grid = UniformGrid(resolution, bounds).padded(already_padded)
         else:
             value_grid = UniformGrid(spatial(value), bounds)
