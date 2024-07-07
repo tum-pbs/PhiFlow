@@ -278,14 +278,14 @@ class Mesh(Geometry):
         raise NotImplementedError
 
     def bounding_radius(self) -> Tensor:
-        center = self.connectivity * self.center
+        center = self._elements * self.center
         vert_pos = rename_dims(self._vertices.center, instance, dual)
         dist_to_vert = math.vec_length(vert_pos - center)
         max_dist = math.max(dist_to_vert, dual)
         return max_dist
 
     def bounding_half_extent(self) -> Tensor:
-        center = self.connectivity * self.center
+        center = self._elements * self.center
         vert_pos = rename_dims(self._vertices.center, instance, dual)
         max_delta = math.max(abs(vert_pos - center), dual)
         return max_delta
