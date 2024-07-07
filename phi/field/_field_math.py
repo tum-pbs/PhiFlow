@@ -229,7 +229,7 @@ def spatial_gradient(field: Field,
     if stack_dim is None:
         assert len(grad_dims) == 1, "`stack_dim` `None` is only possible with single `grad_dim`"
     else:
-        stack_dim = stack_dim._with_item_names((grad_dims,))
+        stack_dim = stack_dim.with_size(grad_dims)
 
     if order == 2:
         if at == 'center':
