@@ -661,10 +661,14 @@ class PointCloud2D(Recipe):
                 shapes = [plt.Rectangle((lxi, lyi), w2i * 2, h2i * 2, angle=ang*180/np.pi, linewidth=1, edgecolor='white', alpha=a, facecolor=ci) for lxi, lyi, w2i, h2i, ang, ci, a in zip(lower_x, lower_y, w2, h2, angles, mpl_colors, alphas)]
                 axis.add_collection(matplotlib.collections.PatchCollection(shapes, match_original=True))
             elif isinstance(data.geometry, Mesh):
-                xs, ys = reshaped_numpy(data.geometry.vertices.center[{instance: data.geometry.polygons}], ['vector', instance, spatial])
-                counts = reshaped_numpy(math.sum(data.geometry.polygons >= 0, spatial), [instance])
                 edgecolor = 'white' if single_color else None
-                shapes = [plt.Polygon(np.stack([x[:count], y[:count]], -1), closed=True, edgecolor=edgecolor, alpha=a, facecolor=ci) for x, y, count, ci, a in zip(xs, ys, counts, mpl_colors, alphas)]
+                csr = data.mesh.elements.numpy().tocsr()
+                xy = reshaped_numpy(data.geometry.vertices.center, [instance, 'vector'])
+                shapes = []
+                for i in range(instance(data).volume):
+                    vert_indices = csr.indices[csr.indptr[i]:csr.indptr[i+1]]
+                    xyi = xy[vert_indices]
+                    shapes.append(plt.Polygon(xyi, closed=True, edgecolor=edgecolor, alpha=alphas[i], facecolor=mpl_colors[i]))
                 axis.add_collection(matplotlib.collections.PatchCollection(shapes, match_original=True))
             elif isinstance(data.geometry, Graph):
                 xs, ys = reshaped_numpy(data.geometry.center, ['vector', non_channel])
