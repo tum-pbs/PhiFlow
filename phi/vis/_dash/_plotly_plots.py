@@ -146,7 +146,6 @@ class PlotlyPlots(PlottingLibrary):
         elif path.endswith('.json'):
             raise NotImplementedError("Call Plotly functions directly to save JSON.")
         elif path.endswith('.mp4'):
-            figure.update_layout(sliders=[], updatemenus=[])
             config = {
                 'displayModeBar': False,  # Hides the modebar
                 'displaylogo': False,  # Hides the Plotly logo
@@ -157,10 +156,12 @@ class PlotlyPlots(PlottingLibrary):
             img_dir = tempfile.mkdtemp()
             images = []
             for i, frame in enumerate(figure.frames):
-                figure.update(data=frame.data, layout=frame.layout)
+                layout = frame.layout
+                layout.update(sliders=[], updatemenus=[])
+                frame_fig = go.Figure(data=frame.data, layout=layout)
                 img_path = os.path.join(img_dir, f'{i:04d}.png')
                 print(f"Writing image to {img_path}... (width={width}, height={height}, scale={scale})")
-                figure.write_image(img_path, width=width, height=height, scale=scale)  # requires kaleido==0.1.0.post1, see https://community.plotly.com/t/static-image-export-hangs-using-kaleido/61519/3
+                frame_fig.write_image(img_path, width=width, height=height, scale=scale)  # requires kaleido==0.1.0.post1, see https://community.plotly.com/t/static-image-export-hangs-using-kaleido/61519/3
                 images.append(img_path)
                 # image = PIL.Image.open(io.BytesIO(figure.to_image(format="png")))
             frame_rate = 1 / .2
@@ -464,7 +465,7 @@ class Scatter3D(Recipe):
         subplot = figure.get_subplot(row, col)
         dims = data.elements.vector.item_names
         vector = data.elements.shape['vector']
-        size = figure._phi_size
+        size = (figure._phi_size[0] or 10, figure._phi_size[1] or 6)
         yrange = subplot.yaxis.range
         if data.points.shape.non_channel.rank > 1:
             data_list = field.unstack(data, data.points.shape.non_channel[0].name)
