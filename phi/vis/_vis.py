@@ -422,7 +422,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
             plots.finalize(figure)
             LAST_FIGURE[0] = figure
             figures.append(figure)
-    return stack([layout(f) for f in figures], fig_shape)
+    return stack([layout(f) for f in figures], fig_shape) if fig_shape else figures[0]
 
 
 def layout_pytree_node(data, wrap_leaf=False):
