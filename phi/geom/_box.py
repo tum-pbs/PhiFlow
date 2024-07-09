@@ -187,7 +187,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         """ Tests if the other box lies fully inside this box. """
         return np.all(other.lower >= self.lower) and np.all(other.upper <= self.upper)
 
-    def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
+    def scaled(self, factor: Union[float, Tensor]) -> 'BaseBox':
         return Cuboid(self.center, self.half_size * factor, size_variable=True)
 
     @property
@@ -377,10 +377,10 @@ class Box(BaseBox, metaclass=BoxType):
     def at(self, center: Tensor) -> 'BaseBox':
         return Cuboid(center, self.half_size, self.rotation_matrix)
 
-    def shifted(self, delta, **delta_by_dim):
+    def shifted(self, delta, **delta_by_dim) -> 'Box':
         return Box(self.lower + delta, self.upper + delta)
 
-    def rotated(self, angle) -> Geometry:
+    def rotated(self, angle) -> 'Cuboid':
         return self.center_representation().rotated(angle)
 
     def __mul__(self, other):
@@ -442,7 +442,7 @@ class Cuboid(BaseBox):
     def __repr__(self):
         return f"Cuboid(center={self._center}, half_size={self._half_size})"
 
-    def __getitem__(self, item):
+    def __getitem__(self, item) -> 'Cuboid':
         item = _keep_vector(slicing_dict(self, item))
         rotation = self._rotation_matrix[item] if self._rotation_matrix is not None else None
         return Cuboid(self._center[item], self._half_size[item], rotation, size_variable=self._size_variable)
@@ -504,23 +504,23 @@ class Cuboid(BaseBox):
     def is_size_variable(self):
         return self._size_variable
 
-    def at(self, center: Tensor) -> 'BaseBox':
+    def at(self, center: Tensor) -> 'Cuboid':
         return Cuboid(center, self.half_size, self.rotation_matrix, size_variable=self._size_variable)
 
-    def rotated(self, angle) -> Geometry:
+    def rotated(self, angle) -> 'Cuboid':
         if self._rotation_matrix is None:
             return Cuboid(self._center, self._half_size, angle, size_variable=self._size_variable)
         else:
             matrix = self._rotation_matrix @ (angle if dual(angle) else math.rotation_matrix(angle))
             return Cuboid(self._center, self._half_size, matrix, size_variable=self._size_variable)
 
-    def bounding_half_extent(self):
+    def bounding_half_extent(self) -> Tensor:
         if self._rotation_matrix is not None:
             to_face = self.face_normals[{'~side': 0}] * math.rename_dims(self._half_size, 'vector', dual)
             return math.sum(abs(to_face), '~vector')
         return self.half_size
 
-    def lies_inside(self, location):
+    def lies_inside(self, location) -> Tensor:
         location = self.global_to_local(location, scale=False, origin='center')  # scale can only be performed for finite sizes
         bool_inside = abs(location) <= self._half_size
         bool_inside = math.all(bool_inside, 'vector')
@@ -528,7 +528,7 @@ class Cuboid(BaseBox):
         return bool_inside
 
 
-def bounding_box(geometry):
+def bounding_box(geometry: Geometry):
     center = geometry.center
     extent = geometry.bounding_half_extent()
     return Box(lower=center - extent, upper=center + extent)
