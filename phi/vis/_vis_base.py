@@ -11,7 +11,7 @@ from phi.field import Field, Scene, PointCloud, CenteredGrid
 from phi.field._field_math import data_bounds
 from phi.geom import Box, Cuboid, Geometry, Point
 from phi.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel, expand, non_batch
-from phiml.math import vec
+from phiml.math import vec, concat
 
 Control = namedtuple('Control', [
     'name',
@@ -545,6 +545,10 @@ def get_default_limits(f: Field, all_dims: Optional[Sequence[str]], log_dims: Tu
         return _limits(bounding_box.center, bounding_box.half_size, is_log)
     half = f.geometry.bounding_half_extent()
     center = f.center
+    if '_' in f_dims and '_' not in center.vector.item_names:
+        center = concat([center, expand(f.values, channel(vector='_'))], 'vector')
+    if '_' in f_dims and '_' not in half.vector.item_names:
+        half = concat([half, expand(0, channel(vector='_'))], 'vector')
     if 'vector' not in channel(err):
         if 'vector' not in channel(center):
             err = expand(err, channel(vector='_'))
