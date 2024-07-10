@@ -2,6 +2,7 @@ from typing import Union, Tuple, Dict, Any, Callable
 
 from phiml import math
 from phiml.math import Shape, Tensor, spatial, channel, instance
+from phiml.math.magic import slicing_dict
 from . import UniformGrid
 from ._box import BaseBox
 from ._geom import Geometry
@@ -50,10 +51,11 @@ class SDF(Geometry):
         sdf_val: Tensor = self._sdf(location, *aux_args, **aux_kwargs)
         return sdf_val.native() if native_loc else sdf_val
 
-    @property
-    def values(self):
-        """Signed distance grid."""
-        return self._sdf
+    def __variable_attrs__(self):
+        return '_bounds', '_center', '_volume', '_bounding_radius'
+
+    def __value_attrs__(self):
+        return ()
 
     @property
     def bounds(self) -> BaseBox:
@@ -158,6 +160,12 @@ class SDF(Geometry):
         return SDF(self._sdf, bounds, self._center, volume, self._bounding_radius * factor)
 
     def __getitem__(self, item):
+        item = slicing_dict(self, item)
         if not item:
             return self
         raise NotImplementedError
+
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
+        from ._geom_ops import GeometryStack
+        return GeometryStack(math.layout(values, dim))
