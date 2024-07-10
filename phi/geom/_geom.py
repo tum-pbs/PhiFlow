@@ -815,15 +815,15 @@ def sample_function(f: Callable, elements: Geometry, at: str, extrapolation: Ext
         dims = elements.shape.get_size('vector')
         names_match = tuple(params.keys())[:dims] == elements.shape.get_item_names('vector')
         num_positional = 0
-        has_varargs = False
-        for n, p in params.items():
-            if p.default is p.empty:
+        varargs_only = False
+        for i, (n, p) in enumerate(params.items()):
+            if p.default is p.empty and p.kind == 1:
                 num_positional += 1
-            if p.kind == 2:  # _ParameterKind.VAR_POSITIONAL
-                has_varargs = True
+            if p.kind == 2 and i == 0:  # _ParameterKind.VAR_POSITIONAL
+                varargs_only = True
         assert num_positional <= dims, f"Cannot sample {f.__name__}({', '.join(tuple(params))}) on physical space {elements.shape.get_item_names('vector')}"
-        pass_varargs = has_varargs or names_match or num_positional > 1 or num_positional == dims
-        if num_positional > 1 and not has_varargs:
+        pass_varargs = varargs_only or names_match or num_positional > 1 or num_positional == dims
+        if num_positional > 1 and not varargs_only:
             assert names_match, f"Positional arguments of {f.__name__}({', '.join(tuple(params))}) should match physical space {elements.shape.get_item_names('vector')}"
     except ValueError as err:  # signature not available for all functions
         pass_varargs = False
