@@ -5,7 +5,7 @@ from phiml import math
 from phiml.math import Shape, Tensor, spatial, channel, non_spatial, expand, non_channel, instance, stack, batch
 from . import UniformGrid
 from ._geom import Geometry
-from ._box import Box
+from ._box import Box, BaseBox, Cuboid
 
 
 class SDFGrid(Geometry):
@@ -198,13 +198,15 @@ class SDFGrid(Geometry):
         return SDFGrid(self._sdf[item], self._bounds[item], self._approximate_outside, self._grad[item], self._center[item], self._volume[item], self._bounding_radius[item])
 
 
-def sdf_from_geometry(geometry: Geometry,
-                      bounds: Box,
-                      resolution: Shape = math.EMPTY_SHAPE,
-                      approximate_outside=True,
-                      rebuild: Optional[str] ='auto',
-                      valid_dist=None,
-                      **resolution_: int) -> SDFGrid:
+def sample_sdf(geometry: Geometry,
+               bounds: Box = None,
+               resolution: Shape = math.EMPTY_SHAPE,
+               approximate_outside=True,
+               rebuild: Optional[str] ='auto',
+               valid_dist=None,
+               rel_margin=.1,
+               abs_margin=0.,
+               **resolution_: int) -> SDFGrid:
     """
     Build a grid of signed distance values for a given `Geometry` object.
 
@@ -222,10 +224,14 @@ def sdf_from_geometry(geometry: Geometry,
         SDF grid as `Geometry`.
     """
     resolution = resolution & spatial(**resolution_)
+    if bounds is None:
+        bounds: BaseBox = geometry.bounding_box()
+        bounds = Cuboid(bounds.center, half_size=bounds.half_size * (1 + 2 * rel_margin) + 2 * abs_margin)
     points = UniformGrid(resolution, bounds).center
     sdf = geometry.approximate_signed_distance(points)
-    if instance(geometry):
-        center = math.mean(geometry.center, instance)
+    reduce = instance(geometry) & spatial(geometry)
+    if reduce:
+        center = math.mean(geometry.center, reduce)
         volume = None
         bounding_radius = None
         rebuild = 'from-surface' if rebuild == 'auto' else rebuild
