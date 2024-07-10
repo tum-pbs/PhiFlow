@@ -16,7 +16,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from phi import math
 from phi.field import StaggeredGrid, Field
-from phi.geom import Sphere, BaseBox, Point, Box, Mesh, Graph, SDFGrid
+from phi.geom import Sphere, BaseBox, Point, Box, Mesh, Graph, SDFGrid, SDF, UniformGrid
 from phi.geom._heightmap import Heightmap
 from phi.geom._geom_ops import GeometryStack
 from phi.geom._transform import _EmbeddedGeometry
@@ -609,7 +609,7 @@ class PointCloud2D(Recipe):
                 PointCloud2D._plot_points(axis, data[idx], dims, vector, color[idx], alpha[idx], err[idx], min_val, max_val, label)
             return
         data = only_stored_elements(data)
-        x, y = reshaped_numpy(data.points.vector[dims], [vector, non_channel(data)])
+        x, y = reshaped_numpy(data.points.vector[dims], ['vector', non_channel(data)])
         if color == 'cmap':
             values = reshaped_numpy(data.values, [non_channel(data)])
             mpl_colors = add_color_bar(axis, values, min_val, max_val)
@@ -648,7 +648,7 @@ class PointCloud2D(Recipe):
                     lower_x = x - w2
                     lower_y = y - h2
                 else:
-                    angles = reshaped_numpy(math.rotation_angles(data.geometry.rotation_matrix), ['vector', data.shape.non_channel])
+                    angles = reshaped_numpy(math.rotation_angles(data.geometry.rotation_matrix), [data.shape.non_channel])
                     lower_x, lower_y = reshaped_numpy(data.geometry.center - math.rotate_vector(data.geometry.half_size, data.geometry.rotation_matrix), ['vector', data.shape.non_channel])
                 shapes = [plt.Rectangle((lxi, lyi), w2i * 2, h2i * 2, angle=ang*180/np.pi, linewidth=1, edgecolor='white', alpha=a, facecolor=ci) for lxi, lyi, w2i, h2i, ang, ci, a in zip(lower_x, lower_y, w2, h2, angles, mpl_colors, alphas)]
                 axis.add_collection(matplotlib.collections.PatchCollection(shapes, match_original=True))
@@ -696,6 +696,15 @@ class PointCloud2D(Recipe):
             elif isinstance(data.geometry, SDFGrid):
                 d = data.geometry.values.numpy(dims)
                 x, y = data.geometry.points.numpy(('vector',) + dims)
+                x = x[:, 0]
+                y = y[0, :]
+                axis.contourf(x, y, d.T, levels=[float('-inf'), 0], colors=[mpl_colors[0]], alpha=alphas[0])
+            elif isinstance(data.geometry, SDF):
+                bounds = data.geometry.bounding_box()
+                grid = UniformGrid(spatial(**{d: 100 for d in dims}), bounds=bounds).center
+                sdf = data.geometry(grid)
+                d = sdf.numpy(dims)
+                x, y = grid.numpy(('vector',) + dims)
                 x = x[:, 0]
                 y = y[0, :]
                 axis.contourf(x, y, d.T, levels=[float('-inf'), 0], colors=[mpl_colors[0]], alpha=alphas[0])
