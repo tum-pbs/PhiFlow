@@ -68,7 +68,7 @@ class TestFieldMath(TestCase):
     def test_spatial_gradient(self):
         s = CenteredGrid(1, x=4, y=3) * (1, 2)
         grad = field.spatial_gradient(s, stack_dim=channel('spatial_gradient'))
-        self.assertEqual(('spatial', 'spatial', 'channel', 'channel'), grad.shape.types)
+        self.assertEqual(set(spatial(x=4, y=3) & channel(vector='x,y') & channel(spatial_gradient='x,y')), set(grad.shape))
 
     def test_spatial_gradient_batched(self):
         bounds = geom.stack([Box['x,y', 0:1, 0:1], Box['x,y', 0:10, 0:10]], batch('batch'))
