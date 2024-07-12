@@ -153,14 +153,14 @@ def make_incompressible(velocity: Field,
         wide_stencil = not velocity.is_staggered
     pressure = math.solve_linear(masked_laplace, div, solve, velocity.boundary, hard_bcs, active, wide_stencil=wide_stencil, order=order, implicit=None, upwind=None, correct_skew=correct_skew)
     # --- Subtract grad p ---
-    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, at=velocity.sampled_at, order=order, scheme='green-gauss')
+    grad_pressure = field.spatial_gradient(pressure, input_velocity.extrapolation, at=velocity.sampled_at, order=order)
     if hard_bcs is not None:
         grad_pressure *= hard_bcs
     velocity = (velocity - grad_pressure).with_extrapolation(input_velocity.extrapolation)
     return velocity, pressure
 
 
-@math.jit_compile_linear(auxiliary_args='hard_bcs,active,order,implicit', forget_traces=True)  # jit compilation is required for boundary conditions that add a constant offset solving Ax + b = y
+@math.jit_compile_linear(auxiliary_args='v_boundary,hard_bcs,active,wide_stencil,order,implicit,upwind,correct_skew', forget_traces=True)  # jit compilation is required for boundary conditions that add a constant offset solving Ax + b = y
 def masked_laplace(pressure: Field,
                    v_boundary: Extrapolation,
                    hard_bcs: Field,
