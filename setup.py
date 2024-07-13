@@ -40,7 +40,7 @@ setup(
     url='https://github.com/tum-pbs/PhiFlow',
     include_package_data=True,
     install_requires=[
-        'phiml @ git+https://github.com/tum-pbs/PhiML.git@develop',  # main math library
+        'phiml==1.7.0',
         'matplotlib>=3.5.0',  # also required by dash for color maps
         'packaging',
     ],
