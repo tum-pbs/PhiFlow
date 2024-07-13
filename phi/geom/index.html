@@ -6071,6 +6071,9 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
     def __value_attrs__(self):
         return &#39;_center&#39;, &#39;_radius&#39;
 
+    def __value_attrs__(self):
+        return &#39;_center&#39;, &#39;_radius&#39;
+
     def __getitem__(self, item):
         item = slicing_dict(self, item)
         return Sphere(self._center[_keep_vector(item)], self._radius[item], radius_variable=self._radius_variable)

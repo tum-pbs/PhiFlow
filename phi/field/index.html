@@ -325,7 +325,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f30edbe94c0></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fb2f95aa430></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -6532,7 +6532,7 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
             id = math.wrap(id)
             paths = wrap(math.map(lambda d, i: join(d, f&#34;sim_{i:06d}&#34;), directory, id))
         # test all exist
-        for path in math.flatten(paths, flatten_batch=True):
+        for path in math.flatten(wrap(paths), flatten_batch=True):
             if not isdir(path):
                 raise IOError(f&#34;There is no scene at &#39;{path}&#39;&#34;)
         return Scene(paths)
@@ -6558,11 +6558,8 @@ To list all scenes within a directory, use <code><a title="phi.field.Scene.list"
                 os.mkdir(path)
             return path
 
-        result = wrap(math.map(single_subpath, self._paths))
-        if result.rank == 0:
-            return result.native()
-        else:
-            return result
+        result = math.map(single_subpath, self._paths)
+        return result
 
     def _init_properties(self):
         if self._properties is not None:
