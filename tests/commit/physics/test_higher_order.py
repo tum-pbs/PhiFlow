@@ -1,17 +1,21 @@
 """ Streamline Profile
 Simulates a viscous fluid flowing through a horizontal pipe.
 """
-import math
 from unittest import TestCase
-from phi.jax.flow import *
 
-math.set_global_precision(64)
+from phiml import math
+from phiml.math import extrapolation, tensor, channel
+
+from phi.jax import JAX
+from phi.geom import Box
+from phi.physics import fluid, advect, diffuse
+from phi import field
+from phi.field import StaggeredGrid, CenteredGrid
 
 
 class Higher_Order_test(TestCase):
 
     def _test_higher_order(self, order, xynum, vis, dt, jit_compile, t_num, freq, boundary_vel, at):
-
 
         def fourth_ord_runge_kutta(velocity, pressure):
 
@@ -48,35 +52,27 @@ class Higher_Order_test(TestCase):
 
             return v_p1, p_p1
 
-
         if jit_compile:
             timestepper = math.jit_compile(fourth_ord_runge_kutta)
         else:
             timestepper = fourth_ord_runge_kutta
 
-
-        DOMAIN_V = dict(bounds=Box['x,y', 0:1, 0:1], x=xynum, y=xynum,
-                      extrapolation=extrapolation.combine_sides(
-                          x=extrapolation.ZERO,
-                          y=(extrapolation.ZERO, extrapolation.combine_by_direction(extrapolation.ZERO, extrapolation.ConstantExtrapolation(boundary_vel)))))
-
-        DOMAIN_P = dict(bounds=Box['x,y', 0:1, 0:1], x=xynum, y=xynum,
-                       extrapolation=extrapolation.ZERO_GRADIENT)
-
-        if at == 'face':
-            velocity = StaggeredGrid(tensor([0, 0], channel(vector='x, y')), **DOMAIN_V)
-        elif at == 'center':
-            velocity = CenteredGrid(tensor([0, 0], channel(vector='x, y')), **DOMAIN_V)
-        pressure = CenteredGrid(0, **DOMAIN_P)
-
-
-        for i in range(1, t_num+1):
-
-            if i % freq == 0:
-                print(f"timestep: {i} of {t_num}")
-                velocity, pressure = timestepper(velocity, pressure)
-
-        return velocity, pressure
+        with JAX:
+            with math.precision(64):
+                DOMAIN_V = dict(bounds=Box['x,y', 0:1, 0:1], x=xynum, y=xynum, extrapolation=extrapolation.combine_sides(
+                                  x=extrapolation.ZERO,
+                                  y=(extrapolation.ZERO, extrapolation.combine_by_direction(extrapolation.ZERO, extrapolation.ConstantExtrapolation(boundary_vel)))))
+                DOMAIN_P = dict(bounds=Box['x,y', 0:1, 0:1], x=xynum, y=xynum, extrapolation=extrapolation.ZERO_GRADIENT)
+                if at == 'face':
+                    velocity = StaggeredGrid(tensor([0, 0], channel(vector='x, y')), **DOMAIN_V)
+                elif at == 'center':
+                    velocity = CenteredGrid(tensor([0, 0], channel(vector='x, y')), **DOMAIN_V)
+                pressure = CenteredGrid(0, **DOMAIN_P)
+                for i in range(1, t_num+1):
+                    if i % freq == 0:
+                        print(f"timestep: {i} of {t_num}")
+                        velocity, pressure = timestepper(velocity, pressure)
+                return velocity, pressure
 
     def test_higher_order(self):
         self._test_higher_order(2, 31, 1/1000, 0.001, False, 2, 1, -1, 'face')
