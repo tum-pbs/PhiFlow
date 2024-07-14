@@ -325,7 +325,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f9a873aa430></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None, implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f7becb6c430></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -345,6 +345,8 @@ Supported: 2 explicit, 4 explicit, 6 implicit.</dd>
 <dt><strong><code>implicit</code></strong></dt>
 <dd>When a <code>Solve</code> object is passed, performs an implicit operation with the specified solver and tolerances.
 Otherwise, an explicit stencil is used.</dd>
+<dt><strong><code>implicitness</code></strong></dt>
+<dd>specifies the size of the implicit stencil in case an implicit treatment is used</dd>
 <dt><strong><code>upwind</code></strong></dt>
 <dd>For unstructured meshes only. Whether to use upwind interpolation.</dd>
 </dl>
@@ -713,7 +715,7 @@ For <code>phiml.math.magic.PhiTreeNode</code> objects, only value the sum over a
 </dl></div>
 </dd>
 <dt id="phi.field.laplace"><code class="name flex">
-<span>def <span class="ident">laplace</span></span>(<span>u: phi.field._field.Field, axes: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = &lt;function spatial&gt;, gradient: phi.field._field.Field = None, order=2, implicit: phiml.math._optimize.Solve = None, weights: Union[phiml.math._tensors.Tensor, phi.field._field.Field] = None, upwind: phi.field._field.Field = None, correct_skew=True) ‑> phi.field._field.Field</span>
+<span>def <span class="ident">laplace</span></span>(<span>u: phi.field._field.Field, axes: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = &lt;function spatial&gt;, gradient: phi.field._field.Field = None, order=2, implicit: phiml.math._optimize.Solve = None, implicitness: int = None, weights: Union[phiml.math._tensors.Tensor, phi.field._field.Field] = None, upwind: phi.field._field.Field = None, correct_skew=True) ‑> phi.field._field.Field</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Spatial Laplace operator for scalar grid.</p>
@@ -739,6 +741,8 @@ For FVM, the order is used when interpolating <code>v</code> and <code>prev_v</c
 <dt><strong><code>implicit</code></strong></dt>
 <dd>When a <code>Solve</code> object is passed, performs an implicit operation with the specified solver and tolerances.
 Otherwise, an explicit stencil is used.</dd>
+<dt><strong><code>implicitness</code></strong></dt>
+<dd>specifies the size of the implicit stencil in case an implicit treatment is used</dd>
 <dt><strong><code>upwind</code></strong></dt>
 <dd>FVM only. Whether to use upwind interpolation.</dd>
 <dt><strong><code>correct_skew</code></strong></dt>
@@ -1153,7 +1157,7 @@ The output of <code>f</code> must match <code>y</code>.</dd>
 </dl></div>
 </dd>
 <dt id="phi.field.spatial_gradient"><code class="name flex">
-<span>def <span class="ident">spatial_gradient</span></span>(<span>field: phi.field._field.Field, boundary: phiml.math.extrapolation.Extrapolation = None, at: str = 'center', dims: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = &lt;function spatial&gt;, stack_dim: Union[phiml.math._shape.Shape, str] = (vectorᶜ=None), order=2, implicit: phiml.math._optimize.Solve = None, scheme=None, upwind: phi.field._field.Field = None, gradient_extrapolation: phiml.math.extrapolation.Extrapolation = None)</span>
+<span>def <span class="ident">spatial_gradient</span></span>(<span>field: phi.field._field.Field, boundary: phiml.math.extrapolation.Extrapolation = None, at: str = 'center', dims: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = &lt;function spatial&gt;, stack_dim: Union[phiml.math._shape.Shape, str] = (vectorᶜ=None), order=2, implicit: phiml.math._optimize.Solve = None, implicitness: int = None, scheme=None, upwind: phi.field._field.Field = None, gradient_extrapolation: phiml.math.extrapolation.Extrapolation = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Finite difference spatial_gradient.</p>
@@ -1182,6 +1186,8 @@ Supported: 2 explicit, 4 explicit, 6 implicit.</dd>
 <dt><strong><code>implicit</code></strong></dt>
 <dd>When a <code>Solve</code> object is passed, performs an implicit operation with the specified solver and tolerances.
 Otherwise, an explicit stencil is used.</dd>
+<dt><strong><code>implicitness</code></strong></dt>
+<dd>specifies the size of the implicit stencil in case an implicit treatment is used</dd>
 <dt><strong><code>gradient_extrapolation</code></strong></dt>
 <dd>Alias for <code>boundary</code>.</dd>
 <dt><strong><code>scheme</code></strong></dt>
