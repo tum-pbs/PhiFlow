@@ -50,7 +50,7 @@ making it easy to build end-to-end differentiable functions involving both learn
         <tr>
             <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Rotating_Bar.html"><img src="docs/figures/examples/grids/Rotating_Bar.jpg"></a></td>
             <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Multi_Grid_Fluid.html"><img src="docs/figures/examples/grids/Multi_Grid_Fluid.jpg"></a></td>
-            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Higher_order_Kolmogorov.html"><img src="docs/figures/examples/grids/Higher_order_Kolmogorov.jpg"></a></td>
+            <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Higher_order_Kolmogorov.html"><img src="docs/figures/examples/grids/Higher_Order_Kolmogorov.jpg"></a></td>
             <td style="width: 25%;"><a href="https://tum-pbs.github.io/PhiFlow/examples/grids/Heat_Flow.html"><img src="docs/figures/examples/grids/Heat_Flow.png"></a></td>
         </tr>
         <tr>
