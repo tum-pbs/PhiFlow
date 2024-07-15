@@ -752,7 +752,7 @@ def data_bounds(loc: Union[Field, Tensor]) -> Box:
     return Box(min_vec, max_vec)
 
 
-def mean(field: Field) -> Tensor:
+def mean(field: Field, dim=lambda s: s.non_channel.non_batch) -> Tensor:
     """
     Computes the mean value by reducing all spatial / instance dimensions.
 
@@ -762,7 +762,10 @@ def mean(field: Field) -> Tensor:
     Returns:
         `phi.Tensor`
     """
-    return math.mean(field.values, field.shape.non_channel.non_batch)
+    result = math.mean(field.values, dim=dim)
+    if (instance(field.geometry) & spatial(field.geometry)) in result.shape:
+        return field.with_values(result)
+    return result
 
 
 def normalize(field: Field, norm: Field, epsilon=1e-5):
