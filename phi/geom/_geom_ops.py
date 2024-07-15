@@ -93,7 +93,7 @@ class GeometryStack(Geometry):
 
     def approximate_signed_distance(self, location: math.Tensor):
         dist = math.map(lambda g, l: g.approximate_signed_distance(l), self._geometries, location, dims=object)
-        return math.min(dist, instance(self._geometries))
+        return math.min(dist, instance)
 
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         signed_dist, delta, normals, offsets, face_idx = math.map(lambda g, l: g.approximate_closest_surface(l), self._geometries, location, dims=object)
@@ -208,11 +208,8 @@ def union(*geometries, dim=instance('union')) -> Geometry:
         values = {a: math.stack([getattr(g, a) for g in geometries], dim) for a in attrs}
         return copy_with(geometries[0], **values)
     else:
-        # ToDo group by type, union individual types along union_<type>, then stack the groups
-        base_geometries = ()
-        for geometry in geometries:
-            base_geometries += (geometry,)
-        return math.stack(base_geometries, dim)
+        geos = math.layout(geometries, dim)
+        return GeometryStack(geos)
 
 
 Geometry.__add__ = lambda g1, g2: union(g1, g2)
