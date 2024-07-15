@@ -1,6 +1,6 @@
 import numpy as np
 from phiml import math
-from phiml.math import wrap, instance, tensor, dual, batch
+from phiml.math import wrap, instance, tensor, dual, batch, DimFilter
 from phiml.math._sparse import CompactSparseTensor
 
 from ._geom import Geometry
@@ -10,7 +10,25 @@ from ._mesh import Mesh
 from ._graph import Graph
 
 
-def as_sdf(geo: Geometry, rel_margin=.1, abs_margin=0.) -> SDF:
+def as_sdf(geo: Geometry, rel_margin=.1, abs_margin=0., separate: DimFilter = None) -> SDF:
+    """
+    Represent existing geometry as a signed distance function.
+
+    Args:
+        geo: `Geometry` to represent as a signed distance function.
+            Must implement `Geometry.approximate_signed_distance()`.
+        rel_margin: Relative size to pad the domain on all sides around the bounds of `geo`.
+            For example, 0.1 will pad 10% of `geo`'s size in each axis on both sides.
+        abs_margin: World-space size to pad the domain on all sides around the bounds of `geo`.
+        separate: Dimensions along which to unstack `geo` and return individual SDFs.
+            Once created, SDFs cannot be unstacked.
+
+    Returns:
+
+    """
+    separate = geo.shape.only(separate)
+    if separate:
+        return math.map(as_sdf, geo, rel_margin, abs_margin, separate=None, dims=separate, unwrap_scalars=True)
     bounds: BaseBox = geo.bounding_box()
     bounds = Cuboid(bounds.center, half_size=bounds.half_size * (1 + 2 * rel_margin) + 2 * abs_margin)
     if isinstance(geo, SDF):
