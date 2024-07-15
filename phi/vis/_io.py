@@ -5,7 +5,7 @@ from typing import Optional
 
 from phi import math
 from phi.field import Scene
-from phiml.math import shape, wrap, channel, spatial, batch
+from phi.math import shape, wrap, channel, spatial, batch
 from phiml.backend import ML_LOGGER
 
 

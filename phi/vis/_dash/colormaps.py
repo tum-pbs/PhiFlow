@@ -4,8 +4,6 @@ import warnings
 
 import numpy as np
 
-from phiml.backend import ML_LOGGER
-
 ORANGE_WHITE_BLUE = [
     [0.      ,  22.00000005,   1.00000035,  76.0000011 ],
     [0.030334,  28.999875  ,   5.999997  , 114.9999    ],

@@ -3,8 +3,9 @@ from unittest import TestCase
 
 from phi import math
 from phi.geom import Box, union, Cuboid, embed
-from phiml.math import batch, channel
-from phiml.math.magic import Shaped, Sliceable, Shapable
+from phi.math import batch, channel
+from phi.math.magic import Shaped, Sliceable, Shapable
+from phiml.math import vec
 
 
 class TestBox(TestCase):
@@ -90,10 +91,6 @@ class TestBox(TestCase):
         bounds = math.stack([bounds1, bounds2], batch('batch'))
         self.assertIsInstance(bounds, Box)
 
-    def test_shape_type(self):
-        box = Box(x=1, y=2)
-        self.assertEqual(box.rotated(0.1).shape_type, 'rotB')
-
     def test_box_eq(self):
         self.assertNotEqual(Box(x=1, y=1), Box(x=1))
         self.assertEqual(Box(x=1, y=1), Box(x=1, y=1))
@@ -106,3 +103,29 @@ class TestBox(TestCase):
         box = Box(x=(1, 2), y=(2, None))
         self.assertEqual(box, Box['x,y', 1:2, 2:])
 
+    def test_rotated_half_extent(self):
+        box = Box(x=50, y=10)
+        math.assert_close([25, 5], box.bounding_half_extent())
+        math.assert_close([21.213203, 21.213203], box.rotated(math.PI / 4).bounding_half_extent())
+
+    def test_face_normals_2d(self):
+        n = Box(x=50, y=10).face_normals
+        math.assert_close(math.vec(x=0, y=-1), n[{'~side': 'lower', '~vector': 'y'}])
+        math.assert_close(math.vec(x=0, y=1), n[{'~side': 'upper', '~vector': 'y'}])
+        math.assert_close(math.vec(x=1, y=0), n[{'~side': 'upper', '~vector': 'x'}])
+        # --- rotated ---
+        n = Box(x=50, y=10).rotated(math.PI / 2).face_normals
+        math.assert_close(math.vec(x=1, y=0), n[{'~side': 'lower', '~vector': 'y'}], abs_tolerance=1e-5)
+        math.assert_close(math.vec(x=-1, y=0), n[{'~side': 'upper', '~vector': 'y'}], abs_tolerance=1e-5)
+        math.assert_close(math.vec(x=0, y=1), n[{'~side': 'upper', '~vector': 'x'}], abs_tolerance=1e-5)
+
+    def test_corners(self):
+        c = Box(x=50, y=10).corners
+        math.assert_close(vec(x=0, y=0), c[{'~x': 0, '~y': 0}])
+        math.assert_close(vec(x=0, y=10), c[{'~x': 0, '~y': 1}])
+        math.assert_close(vec(x=50, y=10), c[{'~x': 1, '~y': 1}])
+        # --- rotated ---
+        c = Cuboid(x=50, y=10).rotated(math.PI / 2).corners
+        math.assert_close(vec(x=5, y=-25), c[{'~x': 0, '~y': 0}])
+        math.assert_close(vec(x=-5, y=-25), c[{'~x': 0, '~y': 1}])
+        math.assert_close(vec(x=-5, y=25), c[{'~x': 1, '~y': 1}])

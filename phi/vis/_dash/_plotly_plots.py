@@ -3,15 +3,22 @@ from typing import Tuple, Any, Dict, List, Callable, Union
 
 import numpy
 import numpy as np
+import plotly.graph_objs
+from plotly.graph_objs import layout
+from scipy.sparse import csr_matrix, coo_matrix
+
+from phiml.math import reshaped_numpy, dual, instance
 from plotly import graph_objects, figure_factory
+import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
+import plotly.io as pio
 
 from phi import math, field
-from phi.field import SampledField, PointCloud, Grid, StaggeredGrid
+from phi.field import Field
 from phi.geom import Sphere, BaseBox, Point, Box
-from phi.geom._stack import GeometryStack
-from phiml.math import Tensor, spatial, channel, non_channel
+from phi.geom._geom_ops import GeometryStack
+from phi.math import Tensor, spatial, channel, non_channel
 from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve, down_sample_curve
 from phi.vis._vis_base import PlottingLibrary, Recipe
@@ -28,7 +35,8 @@ class PlotlyPlots(PlottingLibrary):
                       cols: int,
                       subplots: Dict[Tuple[int, int], Box],
                       titles: Dict[Tuple[int, int], str],
-                      log_dims: Tuple[str, ...]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+                      log_dims: Tuple[str, ...],
+                      plt_params: Dict[str, Any]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         titles = [titles.get((r, c), None) for r in range(rows) for c in range(cols)]
         specs = [[{'type': 'xy' if subplots.get((row, col), Box()).spatial_rank < 3 else 'surface'} for col in range(cols)] for row in range(rows)]
         fig = self.current_figure = make_subplots(rows=rows, cols=cols, subplot_titles=titles, specs=specs)
@@ -44,6 +52,7 @@ class PlotlyPlots(PlottingLibrary):
                 subplot.yaxis.update(title=bounds.vector.item_names[1], range=_get_range(bounds, 1))
                 subplot.zaxis.update(title=bounds.vector.item_names[2], range=_get_range(bounds, 2))
         fig._phi_size = size
+        fig.update_layout(width=size[0] * 70, height=size[1] * 70)  # 70 approximately matches matplotlib but it's not consistent
         return fig, {pos: (pos[0]+1, pos[1]+1) for pos in subplots.keys()}
 
     def animate(self, fig, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
@@ -62,15 +71,20 @@ class PlotlyPlots(PlottingLibrary):
         width, height = figure._phi_size
         figure.layout.update(margin=dict(l=0, r=0, b=0, t=0))
         scale = dpi/90.
-        figure.write_image(path, width=width * dpi / scale, height=height * dpi / scale, scale=scale)
+        if path.endswith('.html'):
+            plotly.io.write_html(figure, path, auto_play=True, default_width="100%", default_height="100%")
+        elif path.endswith('.json'):
+            raise NotImplementedError("Call Plotly functions directly to save JSON.")
+        else:
+            figure.write_image(path, width=width * dpi / scale, height=height * dpi / scale, scale=scale)
 
 
 class LinePlot(Recipe):
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
-        return data.spatial_rank == 1 and data.is_grid
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return spatial(data).rank == 1 and data.is_grid
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
         subplot = figure.get_subplot(row, col)
         x = data.points.vector[0].numpy().flatten()
@@ -91,10 +105,10 @@ class LinePlot(Recipe):
 
 class Heatmap2D(Recipe):
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
+    def can_plot(self, data: Field, space: Box) -> bool:
         return data.spatial_rank == 2 and data.is_grid and 'vector' not in data.shape
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
         dims = spatial(data)
         values = real_values(data).numpy(dims.reversed)
@@ -109,15 +123,14 @@ class Heatmap2D(Recipe):
 
 class VectorField2D(Recipe):
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
+    def can_plot(self, data: Field, space: Box) -> bool:
         return data.spatial_rank == 2 and data.is_grid
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
-        if data.is_staggered:
-            data = data.at_centers()
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+        data = data.at_centers()
         row, col = subplot
-        dims = data.bounds.vector.item_names
-        vector = data.bounds.shape['vector']
+        dims = data.elements.vector.item_names
+        vector = data.elements.shape['vector']
         extra_channels = data.shape.channel.without('vector')
         x, y = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
         u, v = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.without(vector)])
@@ -138,13 +151,13 @@ class VectorField2D(Recipe):
 
 class Heatmap3D(Recipe):
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
+    def can_plot(self, data: Field, space: Box) -> bool:
         return data.spatial_rank == 3 and data.is_grid and data.shape.channel.volume == 1
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
-        dims = data.bounds.vector.item_names
-        vector = data.bounds.shape['vector']
+        dims = data.elements.vector.item_names
+        vector = data.elements.shape['vector']
         values = real_values(data).numpy(dims)
         x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, *data.points.shape.spatial])
         min_val, max_val = numpy.nanmin(values), numpy.nanmax(values)
@@ -159,15 +172,25 @@ class Heatmap3D(Recipe):
         figure.update_layout(uirevision=True)
 
 
-class VectorField3D(Recipe):
+class VectorCloud3D(Recipe):
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
-        return data.is_grid and data.spatial_rank == 3
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return data.spatial_rank == 3 and 'vector' in data.shape
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self,
+             data: Field,
+             figure,
+             subplot,
+             space: Box,
+             min_val: float,
+             max_val: float,
+             show_color_bar: bool,
+             color: Tensor,
+             alpha: Tensor,
+             err: Tensor):
         row, col = subplot
-        dims = data.bounds.vector.item_names
-        vector = data.bounds.shape['vector']
+        dims = data.elements.vector.item_names
+        vector = data.elements.shape['vector']
         extra_channels = data.shape.channel.without('vector')
         if data.is_staggered:
             data = data.at_centers()
@@ -181,12 +204,12 @@ class VectorField3D(Recipe):
 
 class VectorCloud2D(Recipe):
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
+    def can_plot(self, data: Field, space: Box) -> bool:
         return data.is_point_cloud and data.spatial_rank == 2 and 'vector' in channel(data)
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
-        vector = data.bounds.shape['vector']
+        vector = data.elements.shape['vector']
         x, y = math.reshaped_numpy(data.points, [vector, data.shape.without('vector')])
         u, v = math.reshaped_numpy(data.values, [vector, data.shape.without('vector')])
         quiver = figure_factory.create_quiver(x, y, u, v, scale=1.0).data[0]  # 7 points per arrow
@@ -197,54 +220,76 @@ class VectorCloud2D(Recipe):
 
 class PointCloud2D(Recipe):
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
+    def can_plot(self, data: Field, space: Box) -> bool:
         return data.is_point_cloud and data.spatial_rank == 2
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         if isinstance(data.elements, GeometryStack):
             for idx in data.elements.geometries.shape[0].meshgrid():
                 self.plot(data[idx], figure, subplot, space, min_val, max_val, show_color_bar, color[idx], alpha, err)
             return
         row, col = subplot
         subplot = figure.get_subplot(row, col)
-        dims = data.bounds.vector.item_names
-        vector = data.bounds.shape['vector']
+        dims = data.elements.vector.item_names
+        vector = data.elements.shape['vector']
         size = figure._phi_size
         yrange = subplot.yaxis.range
         if spatial(data):
             raise NotImplementedError("Plotly does not yet support plotting point clouds with spatial dimensions")
         for idx in non_channel(data.points).meshgrid(names=True):
-            x, y = math.reshaped_numpy(data[idx].points.vector[dims], [vector, data.shape.non_channel])
+            x, y = reshaped_numpy(data.points[idx].vector[dims], [vector, non_channel(data)])
             hex_color = color[idx].native()
+            if hex_color is None:
+                hex_color = pio.templates[pio.templates.default].layout.colorway[0]
+            alphas = reshaped_numpy(alpha, [non_channel(data)])
             subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1] * 100
             if isinstance(data.elements, Sphere):
-                symbol = 'circle'
-                marker_size = data.elements.bounding_radius().numpy() * 1.9
+                hex_color = [hex_color] * non_channel(data).volume if isinstance(hex_color, str) else hex_color
+                rad = reshaped_numpy(data.geometry.bounding_radius(), [data.shape.non_channel])
+                for xi, yi, ri, ci, a in zip(x, y, rad, hex_color, alphas):
+                    figure.add_shape(type="circle", xref="x", yref="y", x0=xi-ri, y0=yi-ri, x1=xi+ri, y1=yi+ri, fillcolor=ci, line_width=0)
             elif isinstance(data.elements, BaseBox):
-                symbol = 'square'
-                marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 2
-            elif isinstance(data.elements, Point):
-                symbol = 'x'
-                marker_size = 12 / (subplot_height / (yrange[1] - yrange[0]))
+                hex_color = [hex_color] * non_channel(data).volume if isinstance(hex_color, str) else hex_color
+                half_size = data.geometry.half_size
+                min_len = space.size.sum
+                half_size = math.where(math.is_finite(half_size), half_size, min_len)
+                w2, h2 = reshaped_numpy(half_size, ['vector', data.shape.non_channel])
+                if data.geometry.rotation_matrix is None:
+                    lower_x = x - w2
+                    lower_y = y - h2
+                    upper_x = x + w2
+                    upper_y = y + h2
+                    for lxi, lyi, uxi, uyi, ci, a in zip(lower_x, lower_y, upper_x, upper_y, hex_color, alphas):
+                        figure.add_shape(type="rect", xref="x", yref="y", x0=lxi, y0=lyi, x1=uxi, y1=uyi, fillcolor=ci, line_width=.5, line_color='#FFFFFF')
+                else:
+                    corners = data.geometry.corners
+                    c4, c1, c3, c2 = reshaped_numpy(corners, [corners.shape.only(['~'+d for d in dims], reorder=True), non_channel(data), 'vector'])
+                    for c1i, c2i, c3i, c4i, ci, a in zip(c1, c2, c3, c4, hex_color, alphas):
+                        path = f"M{c1i[0]},{c1i[1]} L{c2i[0]},{c2i[1]} L{c3i[0]},{c3i[1]} L{c4i[0]},{c4i[1]} Z"
+                        figure.add_shape(type="path", xref="x", yref="y", path=path, fillcolor=ci, line_width=.5, line_color='#FFFFFF')
             else:
-                symbol = 'asterisk'
-                marker_size = data.elements.bounding_radius().numpy()
-            marker_size *= subplot_height / (yrange[1] - yrange[0])
-            marker = graph_objects.scatter.Marker(size=marker_size, color=hex_color, sizemode='diameter', symbol=symbol)
-            figure.add_scatter(mode='markers', x=x, y=y, marker=marker, row=row, col=col)
+                if isinstance(data.elements, Point):
+                    symbol = None
+                    marker_size = 12 / (subplot_height / (yrange[1] - yrange[0]))
+                else:
+                    symbol = 'asterisk'
+                    marker_size = data.elements.bounding_radius().numpy()
+                marker_size *= subplot_height / (yrange[1] - yrange[0])
+                marker = graph_objects.scatter.Marker(size=marker_size, color=hex_color, sizemode='diameter', symbol=symbol)
+                figure.add_scatter(mode='markers', x=x, y=y, marker=marker, row=row, col=col)
         figure.update_layout(showlegend=False)
 
 
 class PointCloud3D(Recipe):
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
+    def can_plot(self, data: Field, space: Box) -> bool:
         return data.is_point_cloud and data.spatial_rank == 3
 
-    def plot(self, data: SampledField, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
         subplot = figure.get_subplot(row, col)
-        dims = data.bounds.vector.item_names
-        vector = data.bounds.shape['vector']
+        dims = data.elements.vector.item_names
+        vector = data.elements.shape['vector']
         size = figure._phi_size
         yrange = subplot.yaxis.range
         if data.points.shape.non_channel.rank > 1:
@@ -262,7 +307,7 @@ class PointCloud3D(Recipe):
                 symbol = 'square'
                 marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 1
             elif isinstance(data.elements, Point):
-                symbol = 'x'
+                symbol = None
                 marker_size = 4 / (size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5)
             else:
                 symbol = 'asterisk'
@@ -273,13 +318,95 @@ class PointCloud3D(Recipe):
         figure.update_layout(showlegend=False)
 
 
+class Graph3D(Recipe):
+
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return data.is_graph and data.spatial_rank == 3
+
+    def plot(self,
+             data: Field,
+             figure: plotly.graph_objs.Figure,
+             subplot,
+             space: Box,
+             min_val: float,
+             max_val: float,
+             show_color_bar: bool,
+             color: Tensor,
+             alpha: Tensor,
+             err: Tensor):
+        dims = space.vector.item_names
+        row, col = subplot
+        xyz = reshaped_numpy(data.graph.center.vector[dims], ['vector', instance])
+        connectivity: coo_matrix = data.graph.connectivity.numpy().tocoo()
+        x1, y1, z1 = xyz[:, connectivity.col]
+        x2, y2, z2 = xyz[:, connectivity.row]
+        x = np.stack([x1, x2, np.nan + x1], -1).flatten()
+        y = np.stack([y1, y2, np.nan + y1], -1).flatten()
+        z = np.stack([z1, z2, np.nan + z1], -1).flatten()
+        figure.add_scatter3d(x=x, y=y, z=z, mode='lines', row=row, col=col)
+
+
+class SurfaceMesh3D(Recipe):
+
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return data.is_mesh and data.spatial_rank == 3 and data.mesh.element_rank == 2 and not channel(data)
+
+    def plot(self,
+             data: Field,
+             figure: plotly.graph_objs.Figure,
+             subplot,
+             space: Box,
+             min_val: float,
+             max_val: float,
+             show_color_bar: bool,
+             color: Tensor,
+             alpha: Tensor,
+             err: Tensor):
+        dims = space.vector.item_names
+        row, col = subplot
+        x, y, z = reshaped_numpy(data.mesh.vertices.center.vector[dims], ['vector', instance])
+        elements: csr_matrix = data.mesh.elements.numpy().tocsr()
+        indices = elements.indices
+        pointers = elements.indptr
+        vertex_count = pointers[1:] - pointers[:-1]
+        v1, v2, v3 = [], [], []
+        # --- add triangles ---
+        tris, = np.where(vertex_count == 3)
+        tri_pointers = pointers[:-1][tris]
+        v1.extend(indices[tri_pointers])
+        v2.extend(indices[tri_pointers+1])
+        v3.extend(indices[tri_pointers+2])
+        # --- add two tris for each quad ---
+        quads, = np.where(vertex_count == 4)
+        quad_pointers = pointers[:-1][quads]
+        v1.extend(indices[quad_pointers])
+        v2.extend(indices[quad_pointers+1])
+        v3.extend(indices[quad_pointers+2])
+        v1.extend(indices[quad_pointers+1])
+        v2.extend(indices[quad_pointers+2])
+        v3.extend(indices[quad_pointers+3])
+        # --- polygons with > 4 vertices ---
+        if np.any(vertex_count > 4):
+            warnings.warn("Only tris and quads are currently supported with Plotly mesh render", RuntimeWarning)
+        # --- plot mesh ---
+        cbar = None if not channel(data) or not channel(data).item_names[0] else channel(data).item_names[0][0]
+        if math.is_nan(data.values).all:
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3)
+        else:
+            values = reshaped_numpy(data.values, [instance(data.mesh)])
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='cell')
+        figure.add_trace(mesh, row=row, col=col)
+        # fig = go.Figure(go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3))
+        # fig.write_html("plotly_direct.html")
+
+
 def _get_range(bounds: Box, index: int):
     lower = bounds.lower.vector[index].numpy()
     upper = bounds.upper.vector[index].numpy()
     return lower, upper
 
 
-def real_values(field: SampledField):
+def real_values(field: Field):
     return field.values if field.values.dtype.kind != complex else abs(field.values)
 
 
@@ -433,12 +560,16 @@ def join_curves(curves: List[np.ndarray]) -> np.ndarray:
 
 PLOTLY = PlotlyPlots()
 PLOTLY.recipes.extend([
-            LinePlot(),
-            Heatmap2D(),
-            VectorField2D(),
-            VectorField3D(),
-            VectorCloud2D(),
-            Heatmap3D(),
-            PointCloud2D(),
-            PointCloud3D(),
-        ])
+    LinePlot(),
+    # --- 2D ---
+    Heatmap2D(),
+    VectorField2D(),
+    VectorCloud2D(),
+    PointCloud2D(),
+    # --- 3D ---
+    Heatmap3D(),
+    SurfaceMesh3D(),
+    Graph3D(),
+    VectorCloud3D(),
+    PointCloud3D(),
+])

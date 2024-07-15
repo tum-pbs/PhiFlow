@@ -38,7 +38,7 @@ Boxes come in multiple variants:
 
 * [`Box`](phi/geom/#phi.geom.Box) stores the lower and upper corner of the box.
 * `Cuboid` stores the center position and half-size.
-* [`GridCell`](phi/geom/#phi.geom.GridCell) is similar to `Cuboid` but its spatial dimensions are guaranteed to span a regular grid
+* [`UniformGrid`](phi/geom/#phi.geom.UniformGrid) is similar to `Cuboid` but its spatial dimensions are guaranteed to span a regular grid
 
 [`Points`](phi/geom/#phi.geom.Point) have zero volume and are only characterized by their location.
 

@@ -10,7 +10,7 @@ def move_obstacle(obs: Obstacle):
         new_geometry = Box(x=(-6, 0), y=(10, 16))
     else:
         new_geometry = obs.geometry.shifted([1. * DT, 0])
-    return obs.copied_with(geometry=new_geometry)
+    return math.copy_with(obs, geometry=new_geometry)
 
 
 obstacle = Obstacle(Box(x=(5, 11), y=(10, 16)), velocity=[1., 0], angular_velocity=tensor(0,))

@@ -3,13 +3,14 @@ import time
 from collections import namedtuple
 from math import log10
 from threading import Lock
-from typing import Tuple, Any, Optional, Dict, Callable, Union
+from typing import Tuple, Any, Optional, Dict, Callable, Union, Sequence
 
 from phi import field, math
-from phi.field import SampledField, Scene, PointCloud, CenteredGrid
+from phi.field import Field, Scene, PointCloud, CenteredGrid
 from phi.field._field_math import data_bounds
 from phi.geom import Box, Cuboid, Geometry, Point
-from phiml.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel, expand, non_batch
+from phi.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel, expand, non_batch
+from phiml.math import vec
 
 Control = namedtuple('Control', [
     'name',
@@ -117,7 +118,7 @@ class VisModel:
     def field_names(self) -> tuple:
         raise NotImplementedError(self)
 
-    def get_field(self, name: str, dim_selection: dict) -> SampledField:
+    def get_field(self, name: str, dim_selection: dict) -> Field:
         """
         Returns the current value of a field.
         The name must be part of `VisModel.field_names`.
@@ -130,13 +131,13 @@ class VisModel:
             dim_selection: Slices the field according to `selection`. `dict` mapping dimension names to `int` or `slice`.
 
         Returns:
-            `SampledField`
+            `Field`
         """
         raise NotImplementedError(self)
 
     def get_field_shape(self, name: str) -> Shape:
         value = self.get_field(name, {})
-        if isinstance(value, (Tensor, SampledField)):
+        if isinstance(value, (Tensor, Field)):
             return value.shape
         else:
             return EMPTY_SHAPE
@@ -342,7 +343,8 @@ class PlottingLibrary:
                       cols: int,
                       spaces: Dict[Tuple[int, int], Box],
                       titles: Dict[Tuple[int, int], str],
-                      log_dims: Tuple[str, ...]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+                      log_dims: Tuple[str, ...],
+                      plt_params: Dict[str, Any]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         """
         Args:
             size: Figure size in inches.
@@ -352,6 +354,7 @@ class PlottingLibrary:
                 To indicate automatic limit, the box will have a lower or upper limit of -inf or inf, respectively.
             titles: Subplot titles.
             log_dims: Dimensions along which axes should be log-scaled
+            plt_params: Additional library-specific parameters for plotting.
 
         Returns:
             figure: Native figure object
@@ -384,11 +387,11 @@ class PlottingLibrary:
 
 class Recipe:
 
-    def can_plot(self, data: SampledField, space: Box) -> bool:
+    def can_plot(self, data: Field, space: Box) -> bool:
         raise NotImplementedError
 
     def plot(self,
-             data: SampledField,
+             data: Field,
              figure,
              subplot,
              space: Box,
@@ -465,17 +468,17 @@ def title_label(idx: dict):
 
 
 def common_index(*indices: dict, exclude=()):
-    return {k: v for k, v in indices[0].items() if k not in exclude and all([i[k] == v for i in indices])}
+    return {k: v for k, v in indices[0].items() if k not in exclude and all([k in i and i[k] == v for i in indices])}
 
 
-def select_channel(value: Union[SampledField, Tensor, tuple, list], channel: Union[str, None]):
+def select_channel(value: Union[Field, Tensor, tuple, list], channel: Union[str, None]):
     if isinstance(value, (tuple, list)):
         return [select_channel(v, channel) for v in value]
     if channel is None:
         return value
     elif channel == 'abs':
         if value.vector.exists:
-            return field.vec_abs(value) if isinstance(value, SampledField) else math.vec_length(value)
+            return field.vec_abs(value) if isinstance(value, Field) else math.vec_length(value)
         else:
             return value
     else:  # x, y, z
@@ -488,15 +491,17 @@ def select_channel(value: Union[SampledField, Tensor, tuple, list], channel: Uni
             return value
 
 
-def to_field(obj):
-    if isinstance(obj, SampledField):
+def to_field(obj) -> Field:
+    if isinstance(obj, Field):
         return obj
     if isinstance(obj, Geometry):
-        return PointCloud(obj)
+        return PointCloud(obj, math.NAN)
     if isinstance(obj, Tensor):
         arbitrary_lines_1d = spatial(obj).rank == 1 and 'vector' in obj.shape
         point_cloud = instance(obj) and 'vector' in obj.shape
         if point_cloud or arbitrary_lines_1d:
+            if math.get_format(obj) != 'dense':
+                obj = math.stored_values(obj)
             return PointCloud(obj)
         elif spatial(obj):
             return CenteredGrid(obj, 0, bounds=Box(math.const_vec(-0.5, spatial(obj)), wrap(spatial(obj), channel('vector')) - 0.5))
@@ -515,29 +520,69 @@ def to_field(obj):
     raise ValueError(f"Cannot plot {obj}. Tensors, geometries and fields can be plotted.")
 
 
-def get_default_limits(f: SampledField) -> Box:
-    if f._bounds is not None:
-        return f.bounds
-    # --- Determine element size ---
-    if (f.elements.bounding_half_extent() > 0).any:
-        size = 2 * f.elements.bounding_half_extent()
-    elif isinstance(f, PointCloud) and f.spatial_rank == 1:
+def get_default_limits(f: Field, all_dims: Optional[Sequence[str]], log_dims: Tuple[str], err: Tensor) -> Box:
+    if f.is_point_cloud and f.spatial_rank == 1:  # 1D: bar chart
         bounds = f.bounds
         count = non_batch(f).non_dual.non_channel.volume
         return Box(bounds.lower - bounds.size / count / 2, bounds.upper + bounds.size / count / 2)
-    # elif instance(f) and f.spatial_rank == 1:
-    #     lower = expand(-.5, vector)
-    #     upper = expand(equal_spacing.max + .5, vector)
-    #     size =
-    else:
-        size = expand(0, f.elements.shape['vector'])
-    if (size == 0).all:
-        size = math.const_vec(.1, f.elements.shape['vector'])
-    bounds = data_bounds(f.elements.center).largest(channel)
-    extended_bounds = Cuboid(bounds.center, bounds.half_size + size * 0.6)
-    extended_bounds = Box(math.min(extended_bounds.lower, size.shape.without('vector')), math.max(extended_bounds.upper, size.shape.without('vector')))
-    if isinstance(f.elements, Point):
-        lower = math.where(extended_bounds.lower * bounds.lower < 0, bounds.lower * .9, extended_bounds.lower)
-        upper = math.where(extended_bounds.upper * bounds.upper < 0, bounds.lower * .9, extended_bounds.upper)
-        extended_bounds = Box(lower, upper)
+    if f.spatial_rank == 1 and spatial(f).rank == 1 and all_dims and len(all_dims) > 1:  # Embedded 1D line
+        if all_dims:
+            remaining = [d for d in all_dims if d not in f.geometry.vector.item_names]
+            value_dim = remaining[0]
+        else:
+            value_dim = '_'
+        value_limits = _limits(vec(**{value_dim: f.values}), vec(**{value_dim: err}), value_dim in log_dims)
+        return data_bounds(f) * value_limits
+    # --- Determine element size ---
+    half = f.geometry.bounding_half_extent()
+    center = f.center
+    if (err == None).all:
+        err = wrap(0)
+    if 'vector' not in channel(err):
+        if 'vector' not in channel(center):
+            err = expand(err, channel(vector='_'))
+            center = expand(center, channel(vector='_'))
+            half = expand(half, channel(vector='_'))
+        else:
+            err = expand(err, channel(center))
+    # if 'vector' in channel(err) and 'vector' not in channel(half):
+    #     half = expand(half, channel(vector='_'))
+    elif 'vector' in channel(err) and 'vector' in half.shape and '_' not in half.shape['vector'].item_names:  # add missing dimensions to half and err
+        half = vec(**half.vector, _=0)
+        center = vec(**center.vector, _=f.values)
+        err = vec(**{dim: err.vector[dim] if dim in err.vector.item_names else 0 for dim in half.vector.item_names + ('_',)})
+    half = math.maximum(half, err)
+    is_log = wrap([dim in log_dims for dim in half.vector.item_names], half.shape['vector'])
+    limits = _limits(center, half, is_log)
+    return limits
+
+
+def _limits(center: Tensor, half: Tensor, is_log: Union[bool, Tensor]):
+    half = math.where(half == 0, .1, half)
+    min_vec = math.finite_min(center - half, dim=center.shape.non_batch.non_channel)
+    max_vec = math.finite_max(center + half, dim=center.shape.non_batch.non_channel)
+    center_min = math.finite_min(center, dim=center.shape.non_batch.non_channel)
+    min_vec_log = center_min * (center_min / max_vec) ** .1
+    min_vec_log = math.finite_min(min_vec_log, channel(min_vec_log).without('vector'))
+    bounds = Box(min_vec, max_vec).largest(channel)
+    ext_bounds_lin = Cuboid(bounds.center, bounds.half_size * 1.1)
+    ext_bounds_log = Box(math.where(bounds.lower > 0, bounds.lower * 0.95, min_vec_log), bounds.upper * 1.05)
+    extended_bounds = Box(math.where(is_log, ext_bounds_log.lower, ext_bounds_lin.lower), math.where(is_log, ext_bounds_log.upper, ext_bounds_lin.upper))
+    extended_bounds = Box(math.min(extended_bounds.lower, half.shape.without('vector')), math.max(extended_bounds.upper, half.shape.without('vector')))
     return extended_bounds
+
+
+def only_stored_elements(f: Field) -> Field:
+    if not math.is_sparse(f.points):
+        return f
+    elements = f.sampled_elements.at(f.points._values)
+    if math.is_sparse(f.values):
+        values = f.values._values
+    else:
+        values = f.values[f.points._indices]
+    return Field(elements, values, math.extrapolation.NONE)
+
+
+def uniform_bound(shape: Shape):
+    sizes = [int(s.max) if isinstance(s, Tensor) else s for s in shape.sizes]
+    return shape.with_sizes(sizes)

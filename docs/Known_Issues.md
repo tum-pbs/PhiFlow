@@ -31,7 +31,7 @@ This is because Jax requires all parameters including network weights to be decl
 
 
 ### Do no compute gradients (PyTorch)
-Do not call `math.functional_gradient` within a jit-compiled function.
+Do not call `math.gradient` within a jit-compiled function.
 PyTorch cannot trace backward passes.
 
 

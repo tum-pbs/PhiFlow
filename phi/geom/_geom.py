@@ -1,10 +1,14 @@
+import copy
+import warnings
 from numbers import Number
-from typing import Union
+from typing import Union, Dict, Any, Tuple
+
+from phiml.math import instance
 
 from phi import math
-from phiml.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape
-from phiml.math._magic_ops import variable_attributes, expand
-from phiml.math.magic import BoundDim, slicing_dict
+from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape, Extrapolation
+from phiml.math._magic_ops import variable_attributes, expand, stack, find_differences
+from phi.math.magic import BoundDim, slicing_dict
 
 
 class Geometry:
@@ -19,6 +23,9 @@ class Geometry:
     All geometry objects support batching.
     Thereby any parameter defining the geometry can be varied along arbitrary batch dims.
     All batch dimensions are listed in Geometry.shape.
+
+    Property getters (`@property`, such as `shape`), save for getters, must not depend on any variables marked as *variable* via `__variable_attrs__()` as these may be `None` during tracing.
+    Equality checks must also take this into account.
     """
 
     @property
@@ -26,7 +33,7 @@ class Geometry:
         """
         Center location in single channel dimension.
         """
-        raise NotImplementedError(self)
+        raise NotImplementedError(self.__class__)
 
     @property
     def shape(self) -> Shape:
@@ -38,28 +45,135 @@ class Geometry:
         * Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space
         * Batch dimensions indicate non-interacting versions of this geometry for parallelization only.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self.__class__)
 
     @property
     def volume(self) -> Tensor:
         """
-        Volume of the geometry as `phiml.math.Tensor`.
-        The result retains all batch dimensions while instance dimensions are summed over.
+        `phi.math.Tensor` representing the volume of each element.
+        The result retains batch, spatial and instance dimensions.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self.__class__)
 
     @property
-    def shape_type(self) -> Tensor:
+    def faces(self) -> 'Geometry':
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def face_centers(self) -> Tensor:
         """
-        Returns the type (or types) of this geometry as a string `Tensor`
-        Boxes return `'B'`, spheres return `'S'`, points return `'P'`.
-        Returns `'?'` for unknown types, e.g. a union over multiple types.
-        Custom types can return their own identifiers.
+        Center of face connecting a pair of cells. Shape `(elements, ~, vector)`.
+        Here, `~` represents arbitrary internal dual dimensions, such as `~staggered_direction` or `~elements`.
+        Returns 0-vectors for unconnected cells.
+        """
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def face_areas(self) -> Tensor:
+        """
+        Area of face connecting a pair of cells. Shape `(elements, ~)`.
+        Returns 0 for unconnected cells.
+        """
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def face_normals(self) -> Tensor:
+        """
+        Normal vectors of cell faces, including boundary faces. Shape `(elements, ~, vector)`.
+        For meshes, The vectors point out of the primal cells and into the dual cells.
+
+        Instance/spatial dimensions along which the normal does not vary may not be included in the result tensor's shape.
+        """
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def boundary_elements(self) -> Dict[Any, Dict[str, slice]]:
+        """
+        Slices on the primal dimensions to mark boundary elements.
+        Grids and meshes have no boundary elements and return `{}`.
+        Dynamic graphs can define boundary elements for obstacles and walls.
 
         Returns:
-            String `Tensor`
+            Map from `(name, is_upper)` to slicing `dict`.
         """
-        raise NotImplementedError()
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def boundary_faces(self) -> Dict[Any, Dict[str, slice]]:
+        """
+        Slices on the dual dimensions to mark boundary faces.
+
+        Regular grids use the keys (dim, is_upper) to identify boundaries.
+        Unstructured meshes use string identifiers for the boundaries.
+        Dynamic graphs return slices along the dual dimensions.
+
+        Returns:
+            Map from `(name, is_upper)` to slicing `dict`.
+        """
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def face_shape(self) -> Shape:
+        """
+        Returns:
+            Full Shape to identify each face of this `Geometry`, including instance/spatial dimensions for the elements and dual dimensions listing the faces per element.
+            If this `Geometry` has no faces, returns an empty `Shape`.
+        """
+        raise NotImplementedError(self.__class__)
+
+    @property
+    def corners(self) -> Tensor:
+        """
+        Returns:
+            Corner locations as `phiml.math.Tensor`.
+            Corners belonging to one object or cell are listed along dual dimensions.
+            If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.
+        """
+        raise NotImplementedError(self.__class__)
+
+    def integrate_surface(self, face_values: Tensor, divide_volume=False) -> Tensor:
+        """
+        Multiplies `values´ by the corresponding face area, computes the sum over all faces and divides by the cell volume.
+        ∑ values * A.
+
+        Args:
+            face_values: Values sampled at the face centers.
+            divide_volume: Whether to divide by the cell `volume´
+
+        Returns:
+            `Tensor` of values sampled at the centroids.
+        """
+        result = math.sum(face_values * self.face_areas, self.face_shape.dual)
+        return result / self.volume if divide_volume else result
+
+    def integrate_flux(self, flux: Tensor, divide_volume=False) -> Tensor:
+        assert 'vector' in flux.shape, f"flux must have a 'vector' dimension but got {flux.shape}"
+        result = math.sum(flux.vector @ (self.face_normals * self.face_areas).vector, self.face_shape.dual)
+        return result / self.volume if divide_volume else result
+
+    # def resample_to_faces(self, values: Tensor, boundary: Extrapolation, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def resample_to_centers(self, values: Tensor, boundary: Extrapolation, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def centered_gradient_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def staggered_gradient_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def divergence_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def laplace_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def centered_curl_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
+    #
+    # def staggered_curl_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
+    #     raise NotImplementedError(self.__class__)
 
     def unstack(self, dimension: str) -> tuple:
         """
@@ -72,6 +186,7 @@ class Geometry:
         Returns:
             geometries: tuple of length equal to `geometry.shape.get_size(dimension)`
         """
+        warnings.warn(f"Geometry.unstack() is deprecated. Use math.unstack(geometry) instead.", DeprecationWarning)
         return math.unstack(self, dimension)
 
     @property
@@ -94,7 +209,24 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def approximate_signed_distance(self, location: Union[Tensor, tuple]) -> Tensor:
+    def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        """
+        Find the closest surface face of this geometry given a point that can be outside or inside the geometry.
+
+        Args:
+            location: `Tensor` with a single channel dimension called vector. Can have arbitrary other dimensions.
+
+        Returns:
+            signed_distance: Scalar signed distance from `location`  to the closest point on the surface.
+                Positive values indicate the point lies outside the geometry, negative values indicate the point lies inside the geometry.
+            delta: Vector-valued distance vector from `location` to the closest point on the surface.
+            normal: Closest surface normal vector.
+            offset: Min distance of a surface-tangential plane from 0 as a scalar.
+            face_index: (Optional) An index vector pointing at the closest face.
+        """
+        raise NotImplementedError(self.__class__)
+
+    def approximate_signed_distance(self, location: Tensor) -> Tensor:
         """
         Computes the approximate distance from location to the surface of the geometry.
         Locations outside return positive values, inside negative values and zero exactly at the boundary.
@@ -107,12 +239,10 @@ class Geometry:
         This also holds for negative distances.
 
         Args:
-          location: float tensor of shape (batch_size, ..., rank)
-          location: Tensor:
+            location: `Tensor` with one channel dim `vector` matching the geometry's `vector` dim.
 
         Returns:
-          float tensor of shape (*location.shape[:-1], 1).
-
+            Float `Tensor`
         """
         raise NotImplementedError(self.__class__)
 
@@ -155,12 +285,13 @@ class Geometry:
         Args:
             positions: Tensor holding positions to shift
             outward: Flag for indicating inward (False) or outward (True) shift
-            shift_amount: Minimum distance between positions and box boundaries after shifting
+            shift_amount: Minimum distance between positions and surface after shifting.
 
         Returns:
-            Tensor holding shifted positions
+            Tensor holding shifted positions.
         """
-        raise NotImplementedError(self.__class__)
+        from ._geom_ops import expel
+        return expel(self, positions, min_separation=shift_amount, invert=not outward)
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         """
@@ -196,12 +327,8 @@ class Geometry:
         Let the bounding half-extent have value `e` in dimension `d` (`extent[...,d] = e`).
         Then, no point of the geometry lies further away from its center point than `e` along `d` (in both axis directions).
 
-        :return: float vector
-
-        Args:
-
-        Returns:
-
+        When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+        If these dims are not present, all parts are assumed to have the same bounds.
         """
         raise NotImplementedError(self.__class__)
 
@@ -213,8 +340,12 @@ class Geometry:
         Returns:
             `Box` or `Cuboid` that fully contains this `Geometry`.
         """
-        from ._box import Cuboid
-        return Cuboid(self.center, half_size=self.bounding_half_extent())
+        center = self.center
+        half = self.bounding_half_extent()
+        min_vec = math.min(center - half, dim=center.shape.non_batch.non_channel)
+        max_vec = math.max(center + half, dim=center.shape.non_batch.non_channel)
+        from ._box import Box
+        return Box(min_vec, max_vec)
 
     def shifted(self, delta: Tensor) -> 'Geometry':
         """
@@ -247,10 +378,12 @@ class Geometry:
         Returns:
             `Geometry`.
         """
-        raise NotImplementedError
+        raise NotImplementedError(self.__class__)
 
     def __matmul__(self, other):
-        return self.at(other)
+        if isinstance(other, (Tensor, float, int)):
+            return self.at(other)
+        return NotImplemented
 
     def rotated(self, angle: Union[float, Tensor]) -> 'Geometry':
         """
@@ -258,7 +391,11 @@ class Geometry:
         The geometry is rotated about its center point.
 
         Args:
-          angle: scalar (2d) or vector (3D+) representing delta angle
+            angle: Delta rotation.
+                Either
+
+                * Angle(s): scalar angle in 2d or euler angles along `vector` in 3D or higher.
+                * Matrix: d⨯d rotation matrix
 
         Returns:
             Rotated `Geometry`
@@ -279,7 +416,7 @@ class Geometry:
         raise NotImplementedError(self.__class__)
 
     def __invert__(self):
-        return _InvertedGeometry(self)
+        return InvertedGeometry(self)
 
     def __eq__(self, other):
         """
@@ -290,18 +427,12 @@ class Geometry:
         See Also:
             `shallow_equals()`
         """
-        if self is other:
-            return True
-        if not isinstance(other, type(self)):
-            return False
-        if self.shape != other.shape:
-            return False
-        c1 = {a: getattr(self, a) for a in variable_attributes(self)}
-        c2 = {a: getattr(other, a) for a in variable_attributes(self)}
-        for c in c1.keys():
-            if c1[c] is not c2[c] and math.any(c1[c] != c2[c]):
-                return False
-        return True
+        def tensor_equality(a, b):
+            if a is None or b is None:
+                return True  # stored mode, tensors unavailable
+            return math.close(a, b, rel_tolerance=1e-5, equal_nan=True)
+        differences = find_differences(self, other, attr_type=variable_attributes, tensor_equality=tensor_equality)
+        return not differences
 
     def shallow_equals(self, other):
         """
@@ -311,25 +442,15 @@ class Geometry:
 
         The `shallow_equals()` check does not compare all tensor elements but merely checks whether the same tensors are referenced.
         """
-        if self is other:
-            return True
-        if not isinstance(other, type(self)):
-            return False
-        if self.shape != other.shape:
-            return False
-        c1 = {a: getattr(self, a) for a in variable_attributes(self)}
-        c2 = {a: getattr(other, a) for a in variable_attributes(self)}
-        for c in c1.keys():
-            if c1[c] is not c2[c]:
-                return False
-        return True
+        differences = find_differences(self, other, compare_tensors_by_id=True)
+        return not differences
 
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
         if all(type(v) == type(values[0]) for v in values):
             return NotImplemented  # let attributes be stacked
         else:
-            from ._stack import GeometryStack
+            from ._geom_ops import GeometryStack
             return GeometryStack(math.layout(values, dim))
 
     def __flatten__(self, flat_dim: Shape, flatten_batch: bool, **kwargs) -> 'Geometry':
@@ -342,7 +463,7 @@ class Geometry:
         return not self == other
 
     def __hash__(self):
-        raise NotImplementedError(self.__class__)
+        return id(self.__class__) + hash(self.shape)
 
     def __repr__(self):
         return f"{self.__class__.__name__}{self.shape}"
@@ -358,7 +479,7 @@ class Geometry:
         return BoundDim(self, name)
 
 
-class _InvertedGeometry(Geometry):
+class InvertedGeometry(Geometry):
 
     def __init__(self, geometry):
         self.geometry = geometry
@@ -367,18 +488,14 @@ class _InvertedGeometry(Geometry):
     def volume(self) -> Tensor:
         return math.wrap(math.INF)
 
-    @property
-    def shape_type(self) -> Tensor:
-        raise NotImplementedError
-
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
 
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
-        return _InvertedGeometry(self.geometry.scaled(factor))
+        return InvertedGeometry(self.geometry.scaled(factor))
 
     def __getitem__(self, item: dict):
-        return _InvertedGeometry(self.geometry[item])
+        return InvertedGeometry(self.geometry[item])
 
     @property
     def center(self):
@@ -397,9 +514,6 @@ class _InvertedGeometry(Geometry):
     def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Union[Tensor, Number] = 0.5) -> Tensor:
         return 1 - self.geometry.approximate_fraction_inside(other_geometry, 1 - balance)
 
-    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
-        return self.geometry.push(positions, outward=not outward, shift_amount=shift_amount)
-
     def bounding_radius(self) -> Tensor:
         raise NotImplementedError()
 
@@ -407,19 +521,32 @@ class _InvertedGeometry(Geometry):
         raise NotImplementedError()
 
     def at(self, center: Tensor) -> 'Geometry':
-        return _InvertedGeometry(self.geometry.at(center))
+        return InvertedGeometry(self.geometry.at(center))
 
     def rotated(self, angle) -> Geometry:
-        return _InvertedGeometry(self.geometry.rotated(angle))
+        return InvertedGeometry(self.geometry.rotated(angle))
 
     def unstack(self, dimension):
-        return [_InvertedGeometry(g) for g in self.geometry.unstack(dimension)]
+        return [InvertedGeometry(g) for g in math.unstack(self.geometry, dimension)]
 
     def __eq__(self, other):
-        return isinstance(other, _InvertedGeometry) and self.geometry == other.geometry
+        return isinstance(other, InvertedGeometry) and self.geometry == other.geometry
 
     def __hash__(self):
         return -hash(self.geometry)
+
+    @property
+    def normal(self) -> Tensor:
+        return -self.geometry.normal
+
+    def __repr__(self):
+        return f"~{self.geometry}"
+
+    def __variable_attrs__(self):
+        return self.geometry.__variable_attrs__
+
+    def __value_attrs__(self):
+        return self.geometry.__value_attrs__
 
 
 def invert(geometry: Geometry):
@@ -436,13 +563,6 @@ def invert(geometry: Geometry):
 
 
 class _NoGeometry(Geometry):
-
-    @property
-    def shape_type(self) -> Tensor:
-        raise NotImplementedError
-
-    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
-        return positions
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
@@ -495,6 +615,16 @@ class _NoGeometry(Geometry):
     def __hash__(self):
         return 1
 
+    @property
+    def normal(self) -> Tensor:
+        raise GeometryException("Empty geometry does not have normals")
+
+    def surface(self, include_boundaries: Union[bool, Dict[str, Any]]) -> 'Geometry':
+        raise GeometryException("Empty geometry does not have a surface")
+
+    def interior(self) -> 'Geometry':
+        raise GeometryException("Empty geometry does not have an interior")
+
 
 NO_GEOMETRY = _NoGeometry()
 
@@ -509,6 +639,22 @@ class Point(Geometry):
         assert 'vector' in location.shape, "location must have a vector dimension"
         assert location.shape.get_item_names('vector') is not None, "Vector dimension needs to list spatial dimension as item names."
         self._location = location
+        self._shape = self._location.shape
+
+    def __variable_attrs__(self):
+        return '_location',
+
+    def __value_attrs__(self):
+        return '_location',
+
+    def __with_attrs__(self, **updates):
+        if '_location' in updates:
+            result = Point.__new__(Point)
+            result._location = updates['_location']
+            result._shape = result._location.shape if result._location is not None else self._shape
+            return result
+        else:
+            return self
 
     @property
     def center(self) -> Tensor:
@@ -516,10 +662,14 @@ class Point(Geometry):
 
     @property
     def shape(self) -> Shape:
-        return self._location.shape
+        return self._shape
+
+    @property
+    def faces(self) -> 'Geometry':
+        return self
 
     def unstack(self, dimension: str) -> tuple:
-        return tuple(Point(loc) for loc in self._location.unstack(dimension))
+        return tuple(Point(loc) for loc in math.unstack(self._location, dimension))
 
     def lies_inside(self, location: Tensor) -> Tensor:
         return expand(math.wrap(False), shape(location).without('vector'))
@@ -527,14 +677,11 @@ class Point(Geometry):
     def approximate_signed_distance(self, location: Union[Tensor, tuple]) -> Tensor:
         return math.vec_abs(location - self._location)
 
-    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
-        return positions
-
     def bounding_radius(self) -> Tensor:
         return math.zeros()
 
     def bounding_half_extent(self) -> Tensor:
-        return math.zeros()
+        return expand(0, self._shape)
 
     def at(self, center: Tensor) -> 'Geometry':
         return Point(center)
@@ -542,19 +689,9 @@ class Point(Geometry):
     def rotated(self, angle) -> 'Geometry':
         return self
 
-    def __hash__(self):
-        return hash(self._location)
-
-    def __variable_attrs__(self):
-        return '_location',
-
     @property
     def volume(self) -> Tensor:
         return math.wrap(0)
-
-    @property
-    def shape_type(self) -> Tensor:
-        return math.tensor('P')
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
@@ -562,8 +699,46 @@ class Point(Geometry):
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         return self
 
+    @property
+    def face_centers(self) -> Tensor:
+        return self._location
+
+    @property
+    def face_areas(self) -> Tensor:
+        return expand(0, self.face_shape)
+
+    @property
+    def face_normals(self) -> Tensor:
+        raise AssertionError(f"Points have no normals")
+
+    @property
+    def boundary_elements(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+        return {}
+
+    @property
+    def boundary_faces(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+        return {}
+
+    @property
+    def face_shape(self) -> Shape:
+        return self.shape
+
+    @property
+    def corners(self):
+        return self._location
+
     def __getitem__(self, item):
         return Point(self._location[_keep_vector(slicing_dict(self, item))])
+
+
+class GeometryException(BaseException):
+    """
+    Raised when an operation is fundamentally not possible for a `Geometry`.
+    Possible causes:
+
+    * Trying to get the interior of a non-surface `Geometry`
+    * Trying to get the surface of a point-like `Geometry`
+    """
 
 
 def assert_same_rank(rank1, rank2, error_message):
@@ -596,3 +771,38 @@ def _keep_vector(dim_selection: dict) -> dict:
     if isinstance(item['vector'], int) or (isinstance(item['vector'], str) and ',' not in item['vector']):
         item['vector'] = (item['vector'],)
     return item
+
+
+def rotate(geometry: Geometry, rot: Union[float, Tensor], pivot: Tensor = None) -> Geometry:
+    """
+    Rotate a `Geometry` about an axis given by `rot` and `pivot`.
+
+    Args:
+        geometry: `Geometry` to rotate
+        rot: Rotation, either as Euler angles or rotation matrix.
+        pivot: Any point lying on the rotation axis.
+            If `None`, rotates about the center point(s).
+
+    Returns:
+        Rotated `Geometry`
+    """
+    if pivot is None:
+        return geometry.rotated(rot)
+    center = pivot + math.rotate_vector(geometry.center - pivot, rot)
+    return geometry.rotated(rot).at(center)
+
+
+def slice_off_constant_faces(obj, boundary_slices: Dict[Any, Dict[str, slice]], boundary: Extrapolation):
+    """
+    Removes slices of `obj` where the boundary conditions fully determine the values.
+
+    Args:
+        obj: Sliceable object of full
+        boundary_slices: Boundary slices.
+        boundary: `phiml.math.Extrapolation` implementing `determines_boundary_values()`.
+
+    Returns:
+
+    """
+    determined_slices = [s for k, s in boundary_slices.items() if boundary.determines_boundary_values(k)]
+    return math.slice_off(obj, *determined_slices)

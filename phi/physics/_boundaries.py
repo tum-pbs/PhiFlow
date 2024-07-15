@@ -4,7 +4,7 @@ from typing import Union
 
 from phi import math, field
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Field, mask
-from phi.geom import Box, GridCell, Sphere, union, assert_same_rank
+from phi.geom import Box, UniformGrid, Sphere, union, assert_same_rank
 from phi.geom import Geometry
 from phiml.math import Tensor, channel, instance
 from phiml.math.extrapolation import ZERO, ONE, PERIODIC, BOUNDARY
@@ -116,12 +116,12 @@ class Domain:
         return self.bounds.size / self.resolution
 
     @property
-    def cells(self) -> GridCell:
+    def cells(self) -> UniformGrid:
         """
         Returns the geometry of all cells as a `Box` object.
         The box will have spatial dimensions matching the resolution of the Domain, i.e. `domain.cells.shape == domain.resolution`.
         """
-        return GridCell(self.resolution, self.bounds)
+        return UniformGrid(self.resolution, self.bounds)
 
     def center_points(self) -> math.Tensor:
         """

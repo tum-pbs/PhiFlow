@@ -1,9 +1,10 @@
-from typing import Union
+from typing import Union, Dict, Tuple
 
 from phi import math
-from ._geom import Geometry, _keep_vector
-from phiml.math import wrap, Tensor, expand
-from phiml.math.magic import slicing_dict
+from phiml.math import Shape, dual, PI, non_channel, instance
+from ._geom import Geometry, _keep_vector, NO_GEOMETRY
+from ..math import wrap, Tensor, expand
+from ..math.magic import slicing_dict
 
 
 class Sphere(Geometry):
@@ -15,6 +16,8 @@ class Sphere(Geometry):
     def __init__(self,
                  center: Tensor = None,
                  radius: Union[float, Tensor] = None,
+                 volume: Union[float, Tensor] = None,
+                 radius_variable=True,
                  **center_: Union[float, Tensor]):
         """
         Args:
@@ -24,14 +27,18 @@ class Sphere(Geometry):
             **center_: Specifies center when the `center` argument is not given. Center position by dimension, e.g. `x=0.5, y=0.2`.
         """
         if center is not None:
-            assert isinstance(center, Tensor), "center must be a Tensor"
+            assert isinstance(center, Tensor), f"center must be a Tensor but got {type(center).__name__}"
             assert 'vector' in center.shape, f"Sphere center must have a 'vector' dimension."
             assert center.shape.get_item_names('vector') is not None, f"Vector dimension must list spatial dimensions as item names. Use the syntax Sphere(x=x, y=y) to assign names."
             self._center = center
         else:
             self._center = wrap(tuple(center_.values()), math.channel(vector=tuple(center_.keys())))
-        assert radius is not None, "radius must be specified."
-        self._radius = wrap(radius)
+        if radius is None:
+            assert volume is not None, f"Either radius or volume must be specified but got neither."
+            self._radius = Sphere.radius_from_volume(wrap(volume), self._center.vector.size)
+        else:
+            self._radius = wrap(radius)
+        self._radius_variable = radius_variable
         assert 'vector' not in self._radius.shape, f"Sphere radius must not vary along vector but got {radius}"
 
     @property
@@ -50,20 +57,31 @@ class Sphere(Geometry):
 
     @property
     def volume(self) -> math.Tensor:
-        if self.spatial_rank == 1:
-            return 2 * self._radius
-        elif self.spatial_rank == 2:
-            return math.PI * self._radius ** 2
-        elif self.spatial_rank == 3:
-            return 4 / 3 * math.PI * self._radius ** 3
+        return Sphere.volume_from_radius(self._radius, self.spatial_rank)
+
+    @staticmethod
+    def volume_from_radius(radius: Union[float, Tensor], spatial_rank: int):
+        if spatial_rank == 1:
+            return 2 * radius
+        elif spatial_rank == 2:
+            return PI * radius ** 2
+        elif spatial_rank == 3:
+            return 4/3 * PI * radius ** 3
         else:
-            raise NotImplementedError()
+            raise NotImplementedError(f"spatial_rank>3 not supported, got {spatial_rank}")
             # n = self.spatial_rank
             # return math.pi ** (n // 2) / math.faculty(math.ceil(n / 2)) * self._radius ** n
 
-    @property
-    def shape_type(self) -> Tensor:
-        return math.tensor('S')
+    @staticmethod
+    def radius_from_volume(volume: Union[float, Tensor], spatial_rank: int):
+        if spatial_rank == 1:
+            return volume / 2
+        elif spatial_rank == 2:
+            return math.sqrt(volume / PI)
+        elif spatial_rank == 3:
+            return (.75 / PI * volume) ** (1/3)
+        else:
+            raise NotImplementedError(f"spatial_rank>3 not supported, got {spatial_rank}")
 
     def lies_inside(self, location):
         distance_squared = math.sum((location - self.center) ** 2, dim='vector')
@@ -81,10 +99,25 @@ class Sphere(Geometry):
           float tensor of shape (*location.shape[:-1], 1).
 
         """
-        distance_squared = math.vec_squared(location - self.center)
-        distance_squared = math.maximum(distance_squared, self.radius * 1e-2)  # Prevent infinite spatial_gradient at sphere center
-        distance = math.sqrt(distance_squared)
+        distance = math.vec_length(location - self._center, eps=1e-3)
         return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions
+
+    def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        self_center = self.center
+        self_radius = self.radius
+        center_delta = location - self_center
+        center_dist = math.vec_length(center_delta)
+        sgn_dist = center_dist - self_radius
+        if instance(self):
+            self_center, self_radius, sgn_dist, center_delta, center_dist = math.at_min((self.center, self.radius, sgn_dist, center_delta, center_dist), key=abs(sgn_dist), dim=instance)
+        normal = math.safe_div(center_delta, center_dist)
+        default_normal = wrap([1] + [0] * (self.spatial_rank-1), self.shape['vector'])
+        normal = math.where(center_dist == 0, default_normal, normal)
+        surface_pos = self_center + self_radius * normal
+        delta = surface_pos - location
+        face_index = expand(0, non_channel(location))
+        offset = normal.vector @ surface_pos.vector
+        return sgn_dist, delta, normal, offset, face_index
 
     def sample_uniform(self, *shape: math.Shape):
         raise NotImplementedError('Not yet implemented')  # ToDo
@@ -96,15 +129,21 @@ class Sphere(Geometry):
         return expand(self.radius, self._center.shape.only('vector'))
 
     def at(self, center: Tensor) -> 'Geometry':
-        return Sphere(center, self._radius)
+        return Sphere(center, self._radius, radius_variable=self._radius_variable)
 
     def rotated(self, angle):
         return self
 
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
-        return Sphere(self.center, self.radius * factor)
+        return Sphere(self.center, self.radius * factor, radius_variable=self._radius_variable)
 
     def __variable_attrs__(self):
+        return ('_center', '_radius') if self._radius_variable else ('_center',)
+
+    def __value_attrs__(self):
+        return '_center',
+
+    def __value_attrs__(self):
         return '_center', '_radius'
 
     def __value_attrs__(self):
@@ -112,10 +151,36 @@ class Sphere(Geometry):
 
     def __getitem__(self, item):
         item = slicing_dict(self, item)
-        return Sphere(self._center[_keep_vector(item)], self._radius[item])
+        return Sphere(self._center[_keep_vector(item)], self._radius[item], radius_variable=self._radius_variable)
 
-    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
-        raise NotImplementedError()
+    @property
+    def faces(self) -> 'Geometry':
+        raise NotImplementedError(f"Sphere.faces not implemented.")
 
-    def __hash__(self):
-        return hash(self._center) + hash(self._radius)
+    @property
+    def face_centers(self) -> Tensor:
+        return math.zeros(self.shape & dual(shell=0))
+
+    @property
+    def face_areas(self) -> Tensor:
+        return math.zeros(self.face_shape)
+
+    @property
+    def face_normals(self) -> Tensor:
+        return math.zeros(self.shape & dual(shell=0))
+
+    @property
+    def boundary_elements(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+        return {}
+
+    @property
+    def boundary_faces(self) -> Dict[str, Tuple[Dict[str, slice], Dict[str, slice]]]:
+        return {}
+
+    @property
+    def face_shape(self) -> Shape:
+        return self.shape.without('vector') & dual(shell=0)
+
+    @property
+    def corners(self) -> Tensor:
+        return math.zeros(self.shape & dual(corners=0))

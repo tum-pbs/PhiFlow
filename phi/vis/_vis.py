@@ -4,23 +4,24 @@ import sys
 import warnings
 from contextlib import contextmanager
 from threading import Thread
-from typing import Tuple, List, Dict, Union
+from typing import Tuple, List, Dict, Union, Sequence
 
+from phiml.math._magic_ops import tree_map
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
-from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, common_index, to_field, get_default_limits
+from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, common_index, to_field, \
+    get_default_limits, uniform_bound
 from ._vis_base import title_label
 from .. import math
-from ..field import SampledField, Scene, Field, PointCloud
+from ..field import Scene, Field
 from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
-from phiml.math import Tensor, layout, batch, Shape, vec, stack, concat, unstack
-from phiml.math import wrap
-from phiml.math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape, non_batch
+from phiml.math import Tensor, layout, batch, Shape, concat, vec, wrap, stack
+from phiml.math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape
 from phiml.math._tensors import Layout
 
 
-def show(*model: Union[VisModel, SampledField, tuple, list, Tensor, Geometry],
+def show(*model: Union[VisModel, Field, Tensor, Geometry, list, tuple, dict],
          play=True,
          gui: Union[Gui, str] = None,
          lib: Union[Gui, str] = None,
@@ -34,7 +35,7 @@ def show(*model: Union[VisModel, SampledField, tuple, list, Tensor, Geometry],
     See Also:
         `view()`.
 
-    If `model` is plottable, e.g. a `SampledField` or `Tensor`, a figure is created and shown.
+    If `model` is plottable, e.g. a `Field` or `Tensor`, a figure is created and shown.
     If `model` is a figure, it is simply shown.
 
     See Also:
@@ -105,7 +106,7 @@ close_ = close
 RECORDINGS = {}
 
 
-def record(*fields: Union[str, SampledField]) -> Viewer:
+def record(*fields: Union[str, Field]) -> Viewer:
     user_namespace = get_user_namespace(1)
     variables = _default_field_variables(user_namespace, fields)
     viewer = create_viewer(user_namespace, variables, "record", "", scene=None, asynchronous=False, controls=(),
@@ -115,7 +116,7 @@ def record(*fields: Union[str, SampledField]) -> Viewer:
     return viewer
 
 
-def view(*fields: Union[str, SampledField],
+def view(*fields: Union[str, Field],
          play: bool = True,
          gui=None,
          name: str = None,
@@ -195,7 +196,7 @@ def _default_field_variables(user_namespace: UserNamespace, fields: tuple):
     if len(fields) == 0:  # view all Fields
         user_variables = user_namespace.list_variables(only_public=True, only_current_scope=True)
         for name, val in user_variables.items():
-            if isinstance(val, SampledField):
+            if isinstance(val, Field):
                 names.append(name)
                 values.append(val)
     else:  # find variable names
@@ -271,7 +272,7 @@ def get_current_figure():
     return LAST_FIGURE[0]
 
 
-def plot(*fields: Union[SampledField, Tensor, Geometry, list, tuple, dict],
+def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
          lib: Union[str, PlottingLibrary] = None,
          row_dims: DimFilter = None,
          col_dims: DimFilter = batch,
@@ -286,7 +287,8 @@ def plot(*fields: Union[SampledField, Tensor, Geometry, list, tuple, dict],
          alpha: Union[float, Tensor, list, tuple] = 1.,
          err: Union[Tensor, tuple, list, float] = 0.,
          frame_time=100,
-         repeat=True):
+         repeat=True,
+         plt_params: Dict = None):
     """
     Creates one or multiple figures and sub-figures and plots the given fields.
 
@@ -336,13 +338,19 @@ def plot(*fields: Union[SampledField, Tensor, Geometry, list, tuple, dict],
 
         In case of an animation, a displayable animation object will be returned instead of a `Tensor`.
     """
-    positioning = {}
-    indices: Dict[Tuple[int, int], List[dict]] = {}
-    nrows, ncols, fig_shape, reduced_shape = layout_sub_figures(layout(fields, batch('args')), row_dims, col_dims, animate, overlay, 0, 0, positioning, indices, {})
-    animate = fig_shape.only(animate)
-    fig_shape = fig_shape.without(animate)
-    plots = default_plots() if lib is None else get_plots(lib)
+    data = layout([layout_pytree_node(f) for f in fields], batch('args'))
+    overlay = data.shape.only(overlay)
+    animate = data.shape.only(animate).without(overlay)
+    row_dims: Shape = data.shape.only(row_dims).without(animate).without(overlay)
+    col_dims = data.shape.only(col_dims).without(row_dims).without(animate).without(overlay)
+    fig_shape = batch(data).without(row_dims).without(col_dims).without(animate).without(overlay)
+    reduced_shape = row_dims & col_dims & animate & overlay
+    nrows = uniform_bound(row_dims).volume
+    ncols = uniform_bound(col_dims).volume
+    positioning, indices = layout_sub_figures(data, row_dims, col_dims, animate, overlay, 0, 0)
     # --- Process arguments ---
+    plots = default_plots() if lib is None else get_plots(lib)
+    plt_params = {} if plt_params is None else dict(**plt_params)
     if title is None:
         title_by_subplot = {pos: title_label(common_index(*i, exclude=reduced_shape.singleton)) for pos, i in indices.items()}
     elif isinstance(title, Tensor) and ('rows' in title.shape or 'cols' in title.shape):
@@ -353,6 +361,7 @@ def plot(*fields: Union[SampledField, Tensor, Geometry, list, tuple, dict],
     log_dims = parse_dim_order(log_dims) or ()
     color = layout_pytree_node(color, wrap_leaf=True)
     alpha = layout_pytree_node(alpha, wrap_leaf=True)
+    alpha = tree_map(lambda x: 1 if x is None else x, alpha)
     err = layout_pytree_node(err, wrap_leaf=True)
     if same_scale is True:
         same_scale = '_'
@@ -362,21 +371,26 @@ def plot(*fields: Union[SampledField, Tensor, Geometry, list, tuple, dict],
     if '_' in same_scale:
         if any([f.values.dtype.kind == complex for l in positioning.values() for f in l]):
             min_val = 0
-            max_val = max([float(abs(f.values).finite_max) for l in positioning.values() for f in l])
+            max_val = max([float(abs(f.values).finite_max) for l in positioning.values() for f in l] or [0])
         else:
-            min_val = min([float(f.values.finite_min) for l in positioning.values() for f in l])
-            max_val = max([float(f.values.finite_max) for l in positioning.values() for f in l])
+            min_val = min([float(f.values.finite_min) for l in positioning.values() for f in l] or [0])
+            max_val = max([float(f.values.finite_max) for l in positioning.values() for f in l] or [0])
+            if min_val != min_val:  # NaN
+                min_val = None
+            if max_val != max_val:  # NaN
+                max_val = None
     else:
         min_val = max_val = None
     # --- Layout ---
-    subplots = {pos: _space(*fields, ignore_dims=animate) for pos, fields in positioning.items()}
+    subplots = {pos: _space(*fields, ignore_dims=animate, log_dims=log_dims, errs=[err[i] for i in indices[pos]]) for pos, fields in positioning.items()}
     subplots = {pos: _insert_value_dim(space, pos, subplots, min_val, max_val) for pos, space in subplots.items()}
     if same_scale:
         shared_lim: Box = share_axes(*subplots.values(), axes=same_scale)
         subplots = {pos: replace_bounds(lim, shared_lim) for pos, lim in subplots.items()}
     # --- animate or plot ---
-    if fig_shape.volume == 1:
-        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title_by_subplot, log_dims)
+    figures = []
+    for plot_idx in fig_shape.meshgrid():
+        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title_by_subplot, log_dims, plt_params)
         if animate:
             def plot_frame(frame: int):
                 for pos, fields in positioning.items():
@@ -389,8 +403,10 @@ def plot(*fields: Union[SampledField, Tensor, Geometry, list, tuple, dict],
             if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
                 plots.close(figure)
             LAST_FIGURE[0] = anim
-            return anim
-        else:
+            if fig_shape.volume == 1:
+                return anim
+            figures.append(anim)
+        else:  # non-animated plot
             for pos, fields in positioning.items():
                 for i, f in enumerate(fields):
                     idx = indices[pos][i]
@@ -403,90 +419,88 @@ def plot(*fields: Union[SampledField, Tensor, Geometry, list, tuple, dict],
                     plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color_, alpha[idx], err_)
             plots.finalize(figure)
             LAST_FIGURE[0] = figure
-            return layout(figure)
-    else:
-        raise NotImplementedError(f"Figure batches not yet supported. Use rows and cols to reduce all batch dimensions. Not reduced. {fig_shape}")
+            figures.append(figure)
+    return stack([layout(f) for f in figures], fig_shape)
+
 
 
 def layout_pytree_node(data, wrap_leaf=False):
+    # we could wrap instead of layout if all values have same shapes
     if isinstance(data, tuple):
-        return layout(data, batch('tuple'))
+        return layout(tuple([layout_pytree_node(i) for i in data]), batch('tuple'))
     elif isinstance(data, list):
-        return layout(data, batch('list'))
+        return layout([layout_pytree_node(i) for i in data], batch('list'))
     elif isinstance(data, dict):
-        return layout(data, batch('dict'))
+        return layout({k: layout_pytree_node(v) for k, v in data.items()}, batch('dict'))
     return wrap(data) if wrap_leaf else data
 
 
-def layout_sub_figures(data: Union[Tensor, SampledField],
-                       row_dims: DimFilter,
-                       col_dims: DimFilter,
-                       animate: DimFilter,  # do not reduce these dims, has priority
-                       overlay: DimFilter,
+def layout_sub_figures(data: Union[Tensor, Field],
+                       row_dims: Shape,
+                       col_dims: Shape,
+                       animate: Shape,  # do not reduce these dims, has priority
+                       overlay: Shape,
                        offset_row: int,
                        offset_col: int,
-                       positioning: Dict[Tuple[int, int], List],
-                       indices: Dict[Tuple[int, int], List[dict]],
-                       base_index: Dict[str, Union[int, str]]) -> Tuple[int, int, Shape, Shape]:  # rows, cols
-    if data is None:
-        raise ValueError(f"Cannot layout figure for '{data}'")
-    data = layout_pytree_node(data, wrap_leaf=False)
+                       positioning: Dict[Tuple[int, int], List] = None,
+                       indices: Dict[Tuple[int, int], List[dict]] = None,
+                       base_index: Dict[str, Union[int, str]] = None) -> Tuple[Dict[Tuple[int, int], List[Field]], Dict[Tuple[int, int], List[dict]]]:
+    if positioning is None:
+        assert indices is None and base_index is None
+        positioning = {}
+        indices = {}
+        base_index = {}
+    # --- if data is a group of elements, lay them out recursively ---
     if isinstance(data, Tensor) and data.dtype.kind == object:  # layout
-        rows, cols = 0, 0
-        non_reduced = math.EMPTY_SHAPE
-        dim0 = reduced = data.shape[0]
+        if not data.shape:  # nothing to plot
+            return positioning, indices
+        dim0 = data.shape[0]
         if dim0.only(overlay):
             for overlay_index in dim0.only(overlay).meshgrid(names=True):  # overlay these fields
-                e_rows, e_cols, d_non_reduced, d_reduced = layout_sub_figures(data[overlay_index], row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, {**base_index, **overlay_index})
-                rows = max(rows, e_rows)
-                cols = max(cols, e_cols)
-                non_reduced &= d_non_reduced
-                reduced = merge_shapes(reduced, d_reduced, allow_varying_sizes=True)
+                # ToDo expand constants along rows/cols
+                layout_sub_figures(data[overlay_index], row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, {**base_index, **overlay_index})
         elif dim0.only(animate):
-            data = math.stack(data, dim0)
-            return layout_sub_figures(data, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, base_index)
+            data = math.stack(data.native(), dim0)
+            layout_sub_figures(data, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, base_index)
         else:
-            elements = unstack(data, dim0)
+            elements = math.unstack(data, dim0.name)
+            offset = 0
             for item_name, e in zip(dim0.get_item_names(dim0.name) or range(dim0.size), elements):
                 index = dict(base_index, **{dim0.name: item_name})
                 if dim0.only(row_dims):
-                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row + rows, offset_col, positioning, indices, index)
-                    rows += e_rows
-                    cols = max(cols, e_cols)
+                    layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row + offset, offset_col, positioning, indices, index)
+                    offset += shape(e).only(row_dims).volume
                 elif dim0.only(col_dims):
-                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row, offset_col + cols, positioning, indices, index)
-                    cols += e_cols
-                    rows = max(rows, e_rows)
+                    layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row, offset_col + offset, positioning, indices, index)
+                    offset += shape(e).only(col_dims).volume
                 else:
-                    e_rows, e_cols, e_non_reduced, e_reduced = layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, index)
-                    cols = max(cols, e_cols)
-                    rows = max(rows, e_rows)
-                non_reduced &= e_non_reduced
-                reduced = merge_shapes(reduced, e_reduced, allow_varying_sizes=True)
-        return rows, cols, non_reduced, reduced
-    else:
+                    layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, index)
+    else:   # --- data must be a plottable object ---
         data = to_field(data)
         overlay = data.shape.only(overlay)
         animate = data.shape.only(animate).without(overlay)
         row_shape = data.shape.only(row_dims).without(animate).without(overlay)
         col_shape = data.shape.only(col_dims).without(row_dims).without(animate).without(overlay)
-        non_reduced: Shape = batch(data).without(row_dims).without(col_dims) & animate
+        row_shape &= row_dims.after_gather(base_index)
+        col_shape &= col_dims.after_gather(base_index)
         for ri, r in enumerate(row_shape.meshgrid(names=True)):
             for ci, c in enumerate(col_shape.meshgrid(names=True)):
                 for o in overlay.meshgrid(names=True):
                     sub_data = data[r][c][o]
                     positioning.setdefault((offset_row + ri, offset_col + ci), []).append(sub_data)
                     indices.setdefault((offset_row + ri, offset_col + ci), []).append(dict(base_index, **r, **c, **o))
-        return row_shape.volume, col_shape.volume, non_reduced, EMPTY_SHAPE
+    return positioning, indices
 
 
-def _space(*values: Field or Tensor, ignore_dims: Shape) -> Box:
+def _space(*values: Field or Tensor, ignore_dims: Shape, log_dims: Tuple[str], errs: Sequence[Tensor]) -> Box:
     all_dims = []
-    for f in values:
-        for dim in f.bounds.vector.item_names:
+    for f, e in zip(values, errs):
+        for dim in get_default_limits(f, None, log_dims, e).vector.item_names:
             if dim not in all_dims and dim not in ignore_dims:
                 all_dims.append(dim)
-    all_bounds = [embed(get_default_limits(f).without(ignore_dims.names).largest(shape), all_dims) for f in values]
+    if '_' in all_dims and len(all_dims) > 2:
+        all_dims.remove('_')
+    all_bounds = [embed(get_default_limits(f, all_dims, log_dims, e).without(ignore_dims.names).largest(shape), all_dims) for f, e in zip(values, errs)]
     bounds: Box = math.stack(all_bounds, batch('_fields'))
     lower = math.finite_min(bounds.lower, bounds.shape.without('vector'), default=-math.INF)
     upper = math.finite_max(bounds.upper, bounds.shape.without('vector'), default=math.INF)
@@ -503,11 +517,14 @@ def _insert_value_dim(space: Box, pos: Tuple[int, int], subplots: dict, min_val,
             if r == row and axis in dims and len(dims) == 2 and dims.index(axis) == 1:
                 return concat([new_axis, space], 'vector')  # values along X
         return concat([space, new_axis], 'vector')  # values along Y (standard)
+    elif space.vector.size > 2 and '_' in space.vector.item_names:
+        others = [d for d in space.vector.item_names if d != '_']
+        return space.vector[others]
     else:
         return space
 
 
-def overlay(*fields: Union[SampledField, Tensor]) -> Tensor:
+def overlay(*fields: Union[Field, Tensor, Geometry]) -> Tensor:
     """
     Specify that multiple fields should be drawn on top of one another in the same figure.
     The fields will be plotted in the order they are given, i.e. the last field on top.
@@ -515,7 +532,7 @@ def overlay(*fields: Union[SampledField, Tensor]) -> Tensor:
     >>> plot(vis.overlay(heatmap, points, velocity))
 
     Args:
-        *fields: `SampledField` or `Tensor` instances
+        *fields: `Field` or `Tensor` instances
 
     Returns:
         Plottable object
@@ -539,6 +556,8 @@ def write_image(path: str, figure=None, dpi=120., close=False):
     assert figure is not None, "No figure to save."
     lib = get_plots_by_figure(figure)
     path = os.path.expanduser(path)
+    directory = os.path.abspath(os.path.dirname(path))
+    os.path.isdir(directory) or os.makedirs(directory)
     lib.save(figure, path, dpi)
     if close:
         close_(figure=figure)
@@ -555,9 +574,7 @@ def default_gui() -> Gui:
         try:
             return get_gui(option)
         except ImportError as import_error:
-            warnings.warn(f"{option} user interface is unavailable because of missing dependency: {import_error}.", RuntimeWarning)
-        except BaseException as exc:
-            warnings.warn(f"{option} user interface failed with error {exc}", RuntimeWarning)
+            warnings.warn(f"{option} user interface is unavailable because of missing dependency: {import_error}.", ImportWarning)
     raise RuntimeError("No user interface available.")
 
 

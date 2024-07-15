@@ -36,7 +36,7 @@ The most important sampled fields are
 Important properties:
 
 * `.values: Tensor` data that is used in sampling
-* `.elements: Geometry` sample points as finite volumes
+* `.geometry: Geometry` sample points as finite volumes
 * `.points: Tensor` center points of `elements`
 * `.extrapolation: Extrapolation` determines how values outside the region covered by `values` are determined.
 
@@ -49,7 +49,7 @@ They model `F(x)` as a function instead of from data.
 [`CenteredGrid`](phi/field/#phi.field.CenteredGrid) stores values in a regular grid structure.
 The grid values are stored in a `Tensor` whose spatial dimensions match the resolution of the grid.
 The `bounds` property stores the physical size of the grid from which the cell size is derived.
-`CenteredGrid.elements` is a `GridCell` matching the grid resolution.
+`CenteredGrid.geometry` is a `UniformGrid` matching the grid resolution.
 
 [`StaggeredGrid`](phi/field/#phi.field.StaggeredGrid)
 stores vector fields in staggered form.
@@ -73,14 +73,14 @@ This is useful for sampling the velocity of rotating objects.
 Given `val: Field` and `representation: SampledField` with different values structures or different sampling points, 
 they can be made compatible using [`at()`](phi/field/#phi.field.Field.at) or `@`.
 ```python
-val.at(representation, keep_extrapolation=False)  # resamples val at the elements of representation
+val.at(representation, keep_boundary=False)  # resamples val at the elements of representation
 val @ representation  # same as above
 ```
 These functions return a `Field` of the same type as `representation`.
 If they are already sampled at the same elements, the above operations simply return `val`.
 Φ<sub>Flow</sub> may choose optimized code paths for specific combinations, such as two grids with equal sample point spacing `dx`.
 
-When resampling staggered grids with `keep_extrapolation=True`, the sample points of the resampled field may be different from `representation`.
+When resampling staggered grids with `keep_boundary=True`, the sample points of the resampled field may be different from `representation`.
 This is because the sample points and value tensor shape of staggered grids depends on the extrapolation type.
 
 Additionally, there are two functions for sampling field values at given locations.

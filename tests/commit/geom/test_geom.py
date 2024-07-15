@@ -1,8 +1,8 @@
 from unittest import TestCase
 
 from phi import math, geom
-from phiml.math import stack, vec, instance, expand, rename_dims, unpack_dim, pack_dims, spatial, flatten, batch, channel
-from phi.geom import Box, Sphere
+from phi.math import stack, vec, instance, expand, rename_dims, unpack_dim, pack_dims, spatial, flatten, batch, channel
+from phi.geom import Box, Sphere, BaseBox
 
 
 class TestGeom(TestCase):
@@ -26,6 +26,15 @@ class TestGeom(TestCase):
         distance = math.wrap([corner_distance, 0, corner_distance, corner_distance, 0], math.instance('points'))
         math.assert_close(cylinder.approximate_signed_distance(loc), distance)
 
+    def test_infinite_cylinder_slicing(self):
+        cylinder = geom.infinite_cylinder(x=.5, y=.5, radius=.5, inf_dim=math.spatial('z'))
+        xy = cylinder['x,y']
+        self.assertIsInstance(xy, Sphere)
+        math.assert_close((.5, .5), xy.center)
+        xz = cylinder['x,z']
+        self.assertIsInstance(xz, BaseBox)
+        math.assert_close((.5, 0), xz.center)
+
     def test_point_reshaping(self):
         s = stack([geom.Point(vec(x=0, y=0))] * 50, instance('points'))
         s = expand(s, batch(b=100))
@@ -36,3 +45,12 @@ class TestGeom(TestCase):
         self.assertEqual(set(batch(bat=100) & instance(particles=50) & channel(vector='x,y')), set(s.shape))
         s = flatten(s)
         self.assertEqual(set(batch(bat=100) & instance(flat=50) & channel(vector='x,y')), set(s.shape))
+
+    def test_union(self):
+        u = geom.union(Box(x=1, y=1), Sphere(x=0, y=0, radius=1))
+        print(u)
+        math.assert_close(vec(x=0, y=0), u.center)
+        self.assertEqual(2, u.spatial_rank)
+        self.assertEqual(channel(vector='x,y'), u.shape['vector'])
+        math.assert_close(1 + 3.1415927, u.volume)
+        math.assert_close(True, u.lies_inside(vec(x=0, y=0)))

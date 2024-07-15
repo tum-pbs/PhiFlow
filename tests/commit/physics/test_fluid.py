@@ -1,3 +1,4 @@
+from typing import Callable
 from unittest import TestCase
 
 import phi
@@ -15,7 +16,7 @@ BACKENDS = phi.detect_backends()
 
 class FluidTest(TestCase):
 
-    def _test_make_incompressible(self, grid_type: type, extrapolation: math.Extrapolation, **batch_dims):
+    def _test_make_incompressible(self, grid_type: Callable, extrapolation: math.Extrapolation, **batch_dims):
         result = None
         for i, backend in enumerate(BACKENDS):
             with backend:

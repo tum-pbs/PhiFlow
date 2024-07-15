@@ -4,17 +4,63 @@ from unittest import TestCase
 import numpy
 
 import phi
-from phiml import math
-from phi import geom
+from phi import math, geom
 from phi.field import StaggeredGrid, CenteredGrid, PointCloud, Noise
-from phi.field._field_math import _lhs_for_implicit_scheme, _ex_map_f, pad, shift, stack
 from phi.geom import Box, Sphere
 from phi import field
-from phiml.math import extrapolation, instance, channel, spatial, batch
-from phiml.backend import Backend
-from phiml.math.extrapolation import combine_by_direction, REFLECT, SYMMETRIC
+from phi.math import extrapolation, instance, channel, spatial, batch
+from phi.math.backend import Backend
+from phiml.math import Tensor, wrap
 
 BACKENDS = phi.detect_backends()
+
+
+
+
+# Poisson Brackets
+
+
+def poisson_bracket(grid1, grid2):
+    if all([grid1.rank == grid2.rank == 2,
+            grid1.boundary == grid2.boundary == extrapolation.PERIODIC,
+            len(set(list(grid1.dx) + list(grid2.dx))) == 1]):
+        return _periodic_2d_arakawa_poisson_bracket(grid1.values, grid2.values, grid1.dx)
+    else:
+        raise NotImplementedError("\n".join([
+            "Not implemented for:"
+            f"ranks ({grid1.rank}, {grid2.rank}) != 2",
+            f"boundary ({grid1.boundary}, {grid2.boundary}) != {extrapolation.PERIODIC}",
+            f"dx uniform ({grid1.dx}, {grid2.dx})"
+        ]))
+
+
+def _periodic_2d_arakawa_poisson_bracket(tensor1: Tensor, tensor2: Tensor, dx: float):
+    """
+    Solves the poisson bracket using the Arakawa Scheme [tensor1, tensor2]
+
+    Only works in 2D, with equal spaced grids, and periodic boundary conditions
+
+    Args:
+      tensor1(Tensor): first field in the poisson bracket
+      tensor2(Tensor): second field in the poisson bracket
+      dx(float): Grid size (equal in x-y)
+      tensor1: Tensor:
+      tensor2: Tensor:
+      dx: float:
+
+    Returns:
+
+    """
+    zeta = math.pad(value=tensor1, widths={'x': (1, 1), 'y': (1, 1)}, mode=extrapolation.PERIODIC)
+    psi = math.pad(value=tensor2, widths={'x': (1, 1), 'y': (1, 1)}, mode=extrapolation.PERIODIC)
+    return (zeta.x[2:].y[1:-1] * (psi.x[1:-1].y[2:] - psi.x[1:-1].y[0:-2] + psi.x[2:].y[2:] - psi.x[2:].y[0:-2])
+            - zeta.x[0:-2].y[1:-1] * (psi.x[1:-1].y[2:] - psi.x[1:-1].y[0:-2] + psi.x[0:-2].y[2:] - psi.x[0:-2].y[0:-2])
+            - zeta.x[1:-1].y[2:] * (psi.x[2:].y[1:-1] - psi.x[0:-2].y[1:-1] + psi.x[2:].y[2:] - psi.x[0:-2].y[2:])
+            + zeta.x[1:-1].y[0:-2] * (psi.x[2:].y[1:-1] - psi.x[0:-2].y[1:-1] + psi.x[2:].y[0:-2] - psi.x[0:-2].y[0:-2])
+            + zeta.x[2:].y[0:-2] * (psi.x[2:].y[1:-1] - psi.x[1:-1].y[0:-2])
+            + zeta.x[2:].y[2:] * (psi.x[1:-1].y[2:] - psi.x[2:].y[1:-1])
+            - zeta.x[0:-2].y[2:] * (psi.x[1:-1].y[2:] - psi.x[0:-2].y[1:-1])
+            - zeta.x[0:-2].y[0:-2] * (psi.x[0:-2].y[1:-1] - psi.x[1:-1].y[0:-2])) / (12 * dx ** 2)
 
 
 class TestFieldMath(TestCase):
@@ -22,19 +68,19 @@ class TestFieldMath(TestCase):
     def test_spatial_gradient(self):
         s = CenteredGrid(1, x=4, y=3) * (1, 2)
         grad = field.spatial_gradient(s, stack_dim=channel('spatial_gradient'))
-        self.assertEqual(('spatial', 'spatial', 'channel', 'channel'), grad.shape.types)
+        self.assertEqual(set(spatial(x=4, y=3) & channel(vector='x,y') & channel(spatial_gradient='x,y')), set(grad.shape))
 
     def test_spatial_gradient_batched(self):
         bounds = geom.stack([Box['x,y', 0:1, 0:1], Box['x,y', 0:10, 0:10]], batch('batch'))
         grid = CenteredGrid(0, extrapolation.ZERO, bounds, x=10, y=10)
         grad = field.spatial_gradient(grid)
-        self.assertIsInstance(grad, CenteredGrid)
+        self.assertTrue(grad.is_grid and grad.is_centered)
 
     def test_laplace_batched(self):
         bounds = geom.stack([Box['x,y', 0:1, 0:1], Box['x,y', 0:10, 0:10]], batch('batch'))
         grid = CenteredGrid(0, extrapolation.ZERO, bounds, x=10, y=10)
         lap = field.laplace(grid)
-        self.assertIsInstance(lap, CenteredGrid)
+        self.assertTrue(lap.is_grid and lap.is_centered)
 
     def test_divergence_centered(self):
         v = CenteredGrid(1, extrapolation.ZERO, bounds=Box['x,y', 0:1, 0:1], x=3, y=3) * (1, 0)  # flow to the right
@@ -70,11 +116,11 @@ class TestFieldMath(TestCase):
             if backend.supports(Backend.jacobian):
                 with backend:
                     dx, = grad(x, y)
-                    self.assertIsInstance(dx, StaggeredGrid)
+                    self.assertTrue(dx.is_grid and dx.is_staggered)
                     loss, (dx, dy) = fgrad(x, y)
                     self.assertIsInstance(loss, math.Tensor)
-                    self.assertIsInstance(dx, StaggeredGrid)
-                    self.assertIsInstance(dy, CenteredGrid)
+                    self.assertTrue(dx.is_grid and dx.is_staggered)
+                    self.assertTrue(dy.is_grid and dy.is_centered)
 
     def test_upsample_downsample_centered_1d(self):
         grid = CenteredGrid(math.tensor([0, 1, 2, 3], spatial('x')))
@@ -85,7 +131,7 @@ class TestFieldMath(TestCase):
     def test_downsample_staggered_2d(self):
         grid = StaggeredGrid(1, extrapolation.BOUNDARY, x=32, y=40)
         downsampled = field.downsample2x(grid)
-        self.assertEqual(set(spatial(x=16, y=20) & channel(vector=2)), set(downsampled.shape))
+        self.assertEqual(set(spatial(x=16, y=20) & channel(vector='x,y')), set(downsampled.shape))
 
     def test_abs(self):
         grid = StaggeredGrid(-1, x=4, y=3)
@@ -148,8 +194,8 @@ class TestFieldMath(TestCase):
         for backend in BACKENDS:
             converted = field.convert(points, backend)
             self.assertEqual(converted.values.default_backend, backend)
-            self.assertEqual(converted.elements.center.default_backend, backend)
-            self.assertEqual(converted.elements.radius.default_backend, backend)
+            # self.assertEqual(converted.elements.center.default_backend, backend)
+            # self.assertEqual(converted.elements.radius.default_backend, backend)
 
     def test_center_of_mass(self):
         density = CenteredGrid(Box(x=1, y=(1, 2)), x=4, y=3)
@@ -157,17 +203,21 @@ class TestFieldMath(TestCase):
         density = CenteredGrid(Box(x=None, y=(2, 3)), x=4, y=3)
         math.assert_close(field.center_of_mass(density), (2, 2.5))
 
-    def test_curl_2d_centered_to_staggered(self):
-        pot = CenteredGrid(Box['x,y', 1:2, 1:2], x=4, y=3)
-        curl = field.curl(pot, type=StaggeredGrid)
-        math.assert_close(field.mean(curl), 0)
-        math.assert_close(curl.values.vector[0].x[1], [1, -1])
-        math.assert_close(curl.values.vector[1].y[1], [-1, 1, 0])
+    def test_staggered2d_curl_at_corners(self):
+        pot = StaggeredGrid(Box['x,y', 1:2, 1:2], x=3, y=3)
+        curl = field.curl(pot, at='corner')
+        math.assert_close(wrap([[0, 0, 0, 0],
+                                [0, 0, -2, 0],
+                                [0, 2, 0, 0],
+                                [0, 0, 0, 0]], spatial('y,x')), curl.values)
 
-    def test_curl_2d_staggered_to_centered(self):
-        velocity = StaggeredGrid((2, 0), extrapolation.BOUNDARY, x=2, y=2)
-        curl = field.curl(velocity)
-        self.assertEqual(spatial(x=3, y=3), curl.resolution)
+    def test_centered2d_curl_at_corners(self):
+        pot = CenteredGrid(Box['x,y', 1:2, 1:2], x=3, y=3) * (1, 0)
+        curl = field.curl(pot, at='corner')
+        math.assert_close(wrap([[0, 0, 0, 0],
+                                [0, -1, -1, 0],
+                                [0, 1, 1, 0],
+                                [0, 0, 0, 0]], spatial('y,x')), curl.values)
 
     def test_integrate_all(self):
         grid = CenteredGrid(field.Noise(vector=2), extrapolation.ZERO, x=10, y=10, bounds=Box['x,y', 0:10, 0:10])

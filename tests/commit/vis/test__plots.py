@@ -3,7 +3,7 @@ from unittest import TestCase
 import plotly
 
 from phi import geom, field, math
-from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise, resample
+from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise, resample, Field
 from phi.geom import Sphere, Box
 from phiml.math import extrapolation, wrap, instance, channel, batch, spatial, vec, stack
 from phi.vis import show, overlay, plot, close
@@ -170,6 +170,17 @@ class TestPlots(TestCase):
             pass
         try:
             self._test_plot(vec(x=y, y=x), err=vec(x=abs(y) * .5, y=0), color=1, alpha=.9)
+        except NotImplementedError:
+            pass
+
+    def test_plot_graph(self):
+        points = wrap([(0, 0), (1.2, 0), (2, 0), (2, 1), (.8, 1), (0, 1)], instance('points'), channel(vector='x,y'))
+        dense_edges = math.vec_length(math.pairwise_distances(points, 1.5))
+        dense_graph = geom.Graph(points, dense_edges, {})
+        sparse_edges = math.vec_length(math.pairwise_distances(points, 1.5, format='csr'))
+        sparse_graph = geom.Graph(points, sparse_edges, {})
+        try:
+            self._test_plot(dense_graph, sparse_graph, Field(sparse_graph, lambda x: math.vec_length(x), 0))
         except NotImplementedError:
             pass
 

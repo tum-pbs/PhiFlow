@@ -11,7 +11,7 @@ from typing import Tuple, Union
 import numpy as np
 
 from phi import math, __version__ as phi_version
-from ._field import SampledField
+from ._field import Field
 from ._field_io import read, write
 from phiml.math import Shape, batch, stack, unpack_dim, wrap
 from phiml.math.magic import BoundDim
@@ -202,17 +202,17 @@ class Scene:
             return directory
         if isinstance(directory, (tuple, list)):
             directory = math.wrap(directory, batch('scenes'))
-        directory = math.map(lambda d: expanduser(d), math.wrap(directory))
+        directory = math.wrap(math.map(lambda d: expanduser(d), directory))
         if isinstance(id, int) and id < 0:
             assert directory.shape.volume == 1
             scenes = Scene.list(directory.native())
             assert len(scenes) >= -id, f"Failed to get scene {id} at {directory}. {len(scenes)} scenes available in that directory."
             return scenes[id]
         if id is None:
-            paths = directory
+            paths = wrap(directory)
         else:
             id = math.wrap(id)
-            paths = math.map(lambda d, i: join(d, f"sim_{i:06d}"), directory, id)
+            paths = wrap(math.map(lambda d, i: join(d, f"sim_{i:06d}"), directory, id))
         # test all exist
         for path in math.flatten(wrap(paths), flatten_batch=True):
             if not isdir(path):
@@ -369,9 +369,9 @@ class Scene:
         for name, field in data.items():
             self.write_field(field, name, frame)
 
-    def write_field(self, field: SampledField, name: str, frame: int):
+    def write_field(self, field: Field, name: str, frame: int):
         """
-        Write a `SampledField` to a file.
+        Write a `Field` to a file.
         The filenames are created from the provided names and the frame index in accordance with the
         scene format specification at https://tum-pbs.github.io/PhiFlow/Scene_Format_Specification.html .
 
@@ -380,15 +380,15 @@ class Scene:
             name: Base file name.
             frame: Frame number as `int`, typically time step index.
         """
-        if not isinstance(field, SampledField):
-            raise ValueError(f"Only SampledField instances can be saved but got {field}")
+        if not isinstance(field, Field):
+            raise ValueError(f"Only Field instances can be saved but got {field}")
         name = _slugify_filename(name)
-        files = math.map(lambda dir_: _filename(dir_, name, frame), self._paths)
+        files = wrap(math.map(lambda dir_: _filename(dir_, name, frame), self._paths))
         write(field, files)
 
-    def read_field(self, name: str, frame: int, convert_to_backend=True) -> SampledField:
+    def read_field(self, name: str, frame: int, convert_to_backend=True) -> Field:
         """
-        Reads a single `SampledField` from files contained in this `Scene` (batch).
+        Reads a single `Field` from files contained in this `Scene` (batch).
 
         Args:
             name: Base file name.
@@ -396,7 +396,7 @@ class Scene:
             convert_to_backend: Whether to convert the read data to the data format of the default backend, e.g. TensorFlow tensors.
 
         Returns:
-            `SampledField`
+            `Field`
         """
         name = _slugify_filename(name)
         files = math.map(lambda dir_: _filename(dir_, name, frame), self._paths)

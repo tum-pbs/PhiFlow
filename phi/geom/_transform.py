@@ -1,107 +1,15 @@
 from numbers import Number
-from typing import Tuple, Union
+from typing import Tuple, Union, Dict, Any
+
+from phiml.math import spatial, channel, stack, expand, INF
 
 from phi import math
-from phiml.math import Tensor, Shape
-from . import BaseBox, Box
+from phi.math import Tensor, Shape
+from phiml.math.magic import slicing_dict
+from . import BaseBox, Box, Cuboid
 from ._geom import Geometry
 from ._sphere import Sphere
 from phiml.math._shape import parse_dim_order
-
-
-class RotatedGeometry(Geometry):
-
-    def __init__(self, geometry: Geometry, angle: Union[float, math.Tensor]):
-        assert not isinstance(geometry, RotatedGeometry)
-        self._geometry = geometry
-        self._angle = math.wrap(angle)
-
-    @property
-    def shape(self):
-        return self._geometry.shape
-
-    def __variable_attrs__(self):
-        return '_geometry', '_angle'
-
-    @property
-    def geometry(self):
-        return self._geometry
-
-    @property
-    def angle(self):
-        return self._angle
-
-    @property
-    def center(self):
-        return self.geometry.center
-
-    @property
-    def volume(self) -> Tensor:
-        return self._geometry.volume
-
-    @property
-    def shape_type(self) -> Tensor:
-        return math.map(lambda s: f"rot{s}", self._geometry.shape_type)
-
-    def global_to_child(self, location):
-        """ Inverse transform. """
-        delta = location - self.center
-        rotated = math.rotate_vector(delta, self._angle)
-        return rotated + self.center
-
-    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0):
-        rotated = self.global_to_child(positions)
-        shifted_positions = self.geometry.push(rotated, outward=outward, shift_amount=shift_amount)
-        return positions + math.rotate_vector(shifted_positions - rotated, self._angle)
-
-    def lies_inside(self, location):
-        return self.geometry.lies_inside(self.global_to_child(location))
-
-    def approximate_signed_distance(self, location):
-        return self.geometry.approximate_signed_distance(self.global_to_child(location))
-
-    def bounding_radius(self):
-        return self.geometry.bounding_radius()
-
-    def bounding_half_extent(self):
-        bounding_sphere = Sphere(self.center, self.bounding_radius())
-        return bounding_sphere.bounding_half_extent()
-
-    @property
-    def rank(self):
-        return self.geometry.spatial_rank
-
-    def at(self, center: Tensor) -> 'Geometry':
-        return RotatedGeometry(self._geometry.at(center), self._angle)
-
-    def rotated(self, angle) -> Geometry:
-        return RotatedGeometry(self._geometry, self._angle + angle)
-
-    def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
-        return RotatedGeometry(self._geometry.scaled(factor), self._angle)
-
-    def unstack(self, dimension: str) -> tuple:
-        return tuple([RotatedGeometry(g, self._angle) for g in self._geometry.unstack(dimension)])
-
-    def sample_uniform(self, *shape: math.Shape) -> Tensor:
-        loc = self._geometry.sample_uniform(*shape)
-        return math.rotate_vector(loc, self._angle)
-
-    def __hash__(self):
-        return hash(self._angle) + hash(self._geometry)
-
-    def __repr__(self):
-        return f"rot({self._geometry}, angle={self._angle})"
-
-
-def rotate(geometry: Geometry, angle: Union[Number, Tensor]) -> Geometry:
-    """ Package-internal rotation function. Users should use Geometry.rotated() instead. """
-    assert isinstance(geometry, Geometry)
-    if isinstance(geometry, RotatedGeometry):
-        total_rotation = geometry.angle + angle  # ToDo concatenate rotations
-        return RotatedGeometry(geometry.geometry, total_rotation)
-    else:
-        return RotatedGeometry(geometry, angle)
 
 
 class _EmbeddedGeometry(Geometry):
@@ -116,9 +24,8 @@ class _EmbeddedGeometry(Geometry):
 
     @property
     def center(self) -> Tensor:
-        raise NotImplementedError()
-        # c = self.geometry.center.vector.unstack()
-        # return math.stack()
+        g_cen = dict(**self.geometry.bounding_half_extent().vector)
+        return stack({dim: g_cen.get(dim, 0) for dim in self.vector.item_names}, channel('vector'))
 
     @property
     def shape(self) -> Shape:
@@ -127,10 +34,6 @@ class _EmbeddedGeometry(Geometry):
     @property
     def volume(self) -> Tensor:
         raise NotImplementedError()
-
-    @property
-    def shape_type(self) -> Tensor:
-        return math.wrap('?')
 
     def unstack(self, dimension: str) -> tuple:
         raise NotImplementedError()
@@ -143,14 +46,30 @@ class _EmbeddedGeometry(Geometry):
         projected_loc = location.vector[item_names]
         return projected_loc
 
+    def __getitem__(self, item):
+        item = slicing_dict(self, item)
+        if 'vector' in item:
+            axes = channel(vector=self.axes).after_gather(item).item_names[0]
+            if all(a in self.geometry.vector.item_names for a in axes):
+                return self.geometry[item]
+            item['vector'] = [a for a in axes if a in self.geometry.vector.item_names]
+        else:
+            axes = self.axes
+        projected = self.geometry[item]
+        if projected.spatial_rank == 0:
+            return Box(**{a: None for a in axes})
+        assert not isinstance(projected, BaseBox), f"_EmbeddedGeometry reduced to a Box but should already have been a box. Was {self.geometry}"
+        if isinstance(projected, Sphere) and projected.spatial_rank:  # 1D spheres are just boxes
+            box1d = Cuboid(projected.center, expand(projected.radius, projected.center.shape['vector']))
+            emb = _EmbeddedGeometry(box1d, axes)
+            return Cuboid(emb.center, emb.bounding_half_extent())
+        return _EmbeddedGeometry(projected, axes)
+
     def lies_inside(self, location: Tensor) -> Tensor:
         return self.geometry.lies_inside(self._down_project(location))
 
     def approximate_signed_distance(self, location: Tensor) -> Tensor:
         return self.geometry.approximate_signed_distance(self._down_project(location))
-
-    def push(self, positions: Tensor, outward: bool = True, shift_amount: float = 0) -> Tensor:
-        raise NotImplementedError()
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError()
@@ -159,7 +78,8 @@ class _EmbeddedGeometry(Geometry):
         raise NotImplementedError()
 
     def bounding_half_extent(self) -> Tensor:
-        raise NotImplementedError()
+        g_ext = dict(**self.geometry.bounding_half_extent().vector)
+        return stack({dim: g_ext.get(dim, INF) for dim in self.vector.item_names}, channel('vector'))
 
     def shifted(self, delta: Tensor) -> 'Geometry':
         raise NotImplementedError()
@@ -175,6 +95,14 @@ class _EmbeddedGeometry(Geometry):
 
     def __hash__(self):
         return hash(self.geometry) + hash(self.axes)
+
+    @property
+    def boundary_elements(self) -> Dict[Any, Dict[str, slice]]:
+        return self.geometry.boundary_elements
+
+    @property
+    def boundary_faces(self) -> Dict[Any, Dict[str, slice]]:
+        return self.geometry.boundary_faces
 
 
 def embed(geometry: Geometry, projected_dims: Union[math.Shape, str, tuple, list, None]) -> Geometry:
