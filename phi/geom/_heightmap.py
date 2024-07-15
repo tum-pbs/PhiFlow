@@ -84,7 +84,7 @@ class Heightmap(Geometry):
 
     @property
     def shape(self) -> Shape:
-        return self._height.shape & channel(self._bounds)
+        return (self._height.shape - 1) & channel(self._bounds)
 
     @property
     def resolution(self):
