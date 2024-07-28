@@ -68,7 +68,7 @@ class Mesh(Geometry):
         self._max_cell_walk = max_cell_walk
 
     def __variable_attrs__(self):
-        return '_vertices', '_elements', '_vertex_count', '_center', '_volume', '_face_centers', '_face_normals', '_face_areas', '_face_vertices', '_relative_face_distance', '_neighbor_offsets'
+        return '_vertices', '_elements', '_center', '_volume', '_face_centers', '_face_normals', '_face_areas', '_face_vertices', '_relative_face_distance', '_neighbor_offsets'
 
     def __value_attrs__(self):
         return '_vertices',
