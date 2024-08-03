@@ -402,7 +402,8 @@ def load_gmsh(file: str, boundary_names: Sequence[str] = None, cell_dim=instance
 
 def mesh_from_numpy(points: Union[list, np.ndarray],
                     polygons: list,
-                    boundaries: Dict[str, List[Sequence]],
+                    boundaries: str | Dict[str, List[Sequence]] | None = None,
+                    build_faces=True,
                     cell_dim: Shape = instance('cells'),
                     face_format: str = 'csc') -> Mesh:
     """
@@ -415,6 +416,7 @@ def mesh_from_numpy(points: Union[list, np.ndarray],
             E.g. `[(0, 1, 2)]` denotes a single triangle connecting points 0, 1, and 2.
         boundaries: An unstructured mesh can have multiple boundaries, each defined by a name `str` and a list of faces, defined by their vertices.
             The `boundaries` `dict` maps boundary names to a list of edges (point pairs) in 2D and faces (3 or more points) in 3D (not yet supported).
+        build_faces: Whether to extract face information from the given vertex, polygon and boundary information.
         cell_dim: Dimension along which to list the cells. This should be an instance dimension.
         face_format: Storage format for cell connectivity, must be one of `csc`, `coo`, `csr`, `dense`.
 
@@ -434,12 +436,13 @@ def mesh_from_numpy(points: Union[list, np.ndarray],
     xyz = tuple('xyz'[:points.shape[-1]])
     vertices = wrap(points, instance('vertices'), channel(vector=xyz))
     polygons = wrap(elements_np, cell_dim, spatial('vertex_index'))
-    return mesh(vertices, polygons, boundaries, face_format=face_format)
+    return mesh(vertices, polygons, boundaries, build_faces=build_faces, face_format=face_format)
 
 
 def mesh(vertices: Tensor,
          polygons: Tensor,
-         boundaries: Union[str, Dict[str, List[Sequence]]],
+         boundaries: str | Dict[str, List[Sequence]] | None = None,
+         build_faces=True,
          face_format: str = 'csc'):
     """
     Create a mesh from vertex positions and vertex lists.
@@ -452,6 +455,7 @@ def mesh(vertices: Tensor,
             For multiple boundaries, pass a `dict` mapping group names `str` to lists of faces, defined by their vertices.
             The last entry can be `None` to group all boundary faces not explicitly listed before.
             The `boundaries` `dict` maps boundary names to a list of edges (point pairs) in 2D and faces (3 or more points) in 3D (not yet supported).
+        build_faces: Whether to extract face information from the given vertex, polygon and boundary information.
         face_format: Storage format for cell connectivity, must be one of `csc`, `coo`, `csr`, `dense`.
 
     Returns:
@@ -459,37 +463,38 @@ def mesh(vertices: Tensor,
     """
     assert 'vector' in channel(vertices), f"vertices must have a channel dimension called 'vector' but got {shape(vertices)}"
     assert instance(vertices), f"vertices must have an instance dimension listing all vertices of the mesh but got {shape(vertices)}"
+    if build_faces:
+        assert boundaries is not None, f"When build_faces=True, boundaries must be specified."
     if spatial(polygons):  # all elements have same number of vertices
-        vertex_count = spatial(polygons).size
-        indices: Tensor = math.flatten(polygons)
-        pointers = math.range(indices.shape['flat'] + 1, step=vertex_count)
-        values = expand(1, instance(indices))
-        from phiml.math._sparse import CompressedSparseMatrix
-        polygons = CompressedSparseMatrix(indices, pointers, values, instance(vertices).as_dual(), instance(polygons), True)
+        from phiml.math._sparse import CompactSparseTensor
+        indices: Tensor = rename_dims(polygons, spatial, instance(vertices).as_dual())
+        values = expand(1, non_batch(indices))
+        polygons = CompactSparseTensor(indices, values, instance(vertices).as_dual(), instance(polygons))
     assert instance(vertices).as_dual() in polygons.shape, f"elements must have the instance dim of vertices {instance(vertices)} but got {shape(polygons)}"
     if vertices.vector.size == 2:
         element_rank = 2
-        centers, normals, areas, boundary_slices, vertex_connectivity, face_vertices = build_faces_2d(vertices, polygons, boundaries, face_format)
     elif vertices.vector.size == 3:
         min_vertices = math.min(math.sum(polygons, instance(vertices).as_dual()))
-        if min_vertices <= 4:  # assume tri or quad mesh
-            element_rank = 2
-            centers, normals, areas, boundary_slices, vertex_connectivity, face_vertices = build_faces_2d(vertices, polygons, boundaries, face_format)
-        else:
-            element_rank = 3
-            raise NotImplementedError("Building 3D meshes not yet implemented. You may build them manually.")
+        element_rank = 2 if min_vertices <= 4 else 3  # assume tri or quad mesh
     else:
-        raise NotImplementedError(f"dim={vertices.vector.size} not supported")
-    # --- Compute centers, volume ---
+        raise ValueError(vertices.vector.size)
     vertex_count = math.sum(polygons, instance(vertices).as_dual())
     approx_center = (polygons @ vertices) / vertex_count
-    normals_out = normals.vector * (centers - approx_center).vector > 0
-    normals = math.where(normals_out, normals, -normals)
-    vol_contributions = centers.vector * normals.vector * areas / vertices.vector.size
-    volume = math.sum(vol_contributions, dual)
-    cell_centers = math.sum(centers * areas, dual) / math.sum(areas, dual)
-    vertices = Graph(vertices, vertex_connectivity, {})
-    return Mesh(vertices, polygons, element_rank, boundary_slices, cell_centers, volume, centers, normals, areas, face_vertices)
+    # --- build faces ---
+    if build_faces:
+        if element_rank == 2:
+            centers, normals, areas, boundary_slices, vertex_connectivity, face_vertices = build_faces_2d(vertices, polygons, boundaries, face_format)
+        else:
+            raise NotImplementedError("Building faces currently only supported for 2D elements. Set build_faces=False to construct mesh")
+        normals_out = normals.vector * (centers - approx_center).vector > 0
+        normals = math.where(normals_out, normals, -normals)
+        vol_contributions = centers.vector * normals.vector * areas / vertices.vector.size
+        volume = math.sum(vol_contributions, dual)
+        cell_centers = math.sum(centers * areas, dual) / math.sum(areas, dual)
+        vertices = Graph(vertices, vertex_connectivity, {})
+        return Mesh(vertices, polygons, element_rank, boundary_slices, cell_centers, volume, centers, normals, areas, face_vertices)
+    else:
+        return Mesh(vertices, polygons, element_rank, {}, approx_center, None, None, None, None, None)
 
 
 def build_faces_2d(vertices: Tensor,
