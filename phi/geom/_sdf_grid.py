@@ -205,8 +205,8 @@ class SDFGrid(Geometry):
 def sample_sdf(geometry: Geometry,
                bounds: Box = None,
                resolution: Shape = math.EMPTY_SHAPE,
-               approximate_outside=True,
-               rebuild: Optional[str] ='auto',
+               approximate_outside=False,
+               rebuild: Optional[str] = None,
                valid_dist=None,
                rel_margin=.1,
                abs_margin=0.,
@@ -221,8 +221,8 @@ def sample_sdf(geometry: Geometry,
         **resolution_: Grid resolution as `kwargs`, e.g. `x=64, y=32`.
         approximate_outside: Whether queries outside the SDF grid should return approximate values. This requires additional computations.
         rebuild: If `'from-surface'`, SDF values are calculated from a narrow strip above the enclosed surface. This is more accurate but requires additional steps.
-            If `None`, SDF values are queried from `geometry`.
-            The default `'auto'` rebuilds when geometry quierying is expected to be in accurate.
+            If `None` (default), SDF values are queried from `geometry`.
+            `'auto'` rebuilds when geometry querying is expected to be in accurate.
 
     Returns:
         SDF grid as `Geometry`.
