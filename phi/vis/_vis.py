@@ -294,7 +294,8 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
          err: Union[Tensor, tuple, list, float] = 0.,
          frame_time=100,
          repeat=True,
-         plt_params: Dict = None):
+         plt_params: Dict = None,
+         max_subfigures=20):
     """
     Creates one or multiple figures and sub-figures and plots the given fields.
 
@@ -353,6 +354,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
     reduced_shape = row_dims & col_dims & animate & overlay
     nrows = uniform_bound(row_dims).volume
     ncols = uniform_bound(col_dims).volume
+    assert nrows * ncols < max_subfigures, f"Too many subfigures ({nrows * ncols}) for max_subfigures={max_subfigures}. If you want to plot this many subfigures, increase the limit."
     positioning, indices = layout_sub_figures(data, row_dims, col_dims, animate, overlay, 0, 0)
     # --- Process arguments ---
     plots = default_plots(positioning) if lib is None else get_plots(lib)
