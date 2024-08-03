@@ -13,7 +13,7 @@ class SDF(Geometry):
     Function-based signed distance field.
     Negative values lie inside the geometry, the 0-level represents the surface.
     """
-    def __init__(self, sdf: Callable, out_shape=None, bounds: BaseBox = None, center: Tensor = None, volume: Tensor = None, bounding_radius: Tensor = None):
+    def __init__(self, sdf: Callable, out_shape=None, bounds: BaseBox = None, center: Tensor = None, volume: Tensor = None, bounding_radius: Tensor = None, sdf_and_grad: Callable = None):
         """
         Args:
             sdf: SDF function. First argument is a `phiml.math.Tensor` with a `vector` channel dim.
@@ -30,7 +30,10 @@ class SDF(Geometry):
             assert 'vector' in dims, f"If out_shape is not specified, either bounds, center or bounding_radius must be given."
             self._out_shape = sdf(math.zeros(dims['vector'])).shape
         self._bounds = bounds
-        self._grad = math.gradient(sdf, wrt=0, get_output=True)
+        if sdf_and_grad is not None:
+            self._grad = sdf_and_grad
+        else:
+            self._grad = math.gradient(sdf, wrt=0, get_output=True)
         if center is not None:
             self._center = center
         else:
@@ -121,13 +124,27 @@ class SDF(Geometry):
         sdf = self._sdf(location)
         return sdf <= 0
 
-    def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
-        sgn_dist, neg_direction = self._grad(location)
-        delta = sgn_dist * -neg_direction
-        _, normal = self._grad(location + delta)
+    def approximate_closest_surface(self, location: Tensor, refine_iter=0) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        sgn_dist, outward = self._grad(location)
+        closest = location - sgn_dist * outward
+        if not refine_iter:
+            _, normal = self._grad(closest)
+        else:
+            for i in range(refine_iter):
+                sgn_dist, outward = self._grad(closest)
+                closest -= sgn_dist * outward
+            normal = outward
         offset = None
         face_index = None
-        return sgn_dist, delta, normal, offset, face_index
+        return sgn_dist, closest - location, normal, offset, face_index
+
+    def sdf_and_gradient(self, location: Tensor, refine_iter=0) -> Tuple[Tensor, Tensor]:
+        if not refine_iter:
+            sgn_dist, outward = self._grad(location)
+        else:
+            sgn_dist, delta, *_ = self.approximate_closest_surface(location)
+            outward = math.vec_normalize(math.sign(-sgn_dist) * delta)
+        return sgn_dist, outward
 
     def approximate_signed_distance(self, location: Tensor) -> Tensor:
         return self._sdf(location)

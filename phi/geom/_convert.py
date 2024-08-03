@@ -7,7 +7,7 @@ from ._functions import plane_sgn_dist
 from ._geom import Geometry
 from ._box import Cuboid, BaseBox
 from ._sdf import SDF, numpy_sdf
-from ._mesh import Mesh
+from ._mesh import Mesh, extrinsic_normals
 from ._graph import Graph
 
 
@@ -35,7 +35,8 @@ def as_sdf(geo: Geometry, rel_margin=.1, abs_margin=0., separate: DimFilter = No
     if isinstance(geo, SDF):
         return SDF(geo._sdf, geo._out_shape, bounds, geo._center, geo._volume, geo._bounding_radius)
     elif isinstance(geo, Mesh) and geo.spatial_rank == 3 and geo.element_rank == 2:  # 3D surface mesh
-        if method in ['auto', 'pysdf']:
+        method = 'pysdf' if method == 'auto' else method
+        if method == 'pysdf':
             from pysdf import SDF as PySDF  # https://github.com/sxyu/sdf    https://github.com/sxyu/sdf/blob/master/src/sdf.cpp
             np_verts = geo.vertices.center.numpy('vertices,vector')
             np_tris = geo.elements._indices.numpy('cells,~vertices')
@@ -43,17 +44,22 @@ def as_sdf(geo: Geometry, rel_margin=.1, abs_margin=0., separate: DimFilter = No
             np_sdf_c = lambda x: np.clip(np_sdf(x), -float(bounds.size.min) / 2, float(bounds.size.max))
             return numpy_sdf(np_sdf_c, bounds, geo.bounding_box().center)
         elif method == 'closest-face':
-            corners = geo.vertices.center[geo.elements._indices]
-            assert dual(corners).size == 3, f"signed distance currently only supports triangles"
-            c1, c2, c3 = unstack(corners, dual)
-            v1, v2 = c2 - c1, c3 - c1
-            normals = math.vec_normalize(math.cross_product(v1, v2))
+            normals = extrinsic_normals(geo)
+            face_size = math.sqrt(geo.volume) * 4
             def sdf_closest_face(location):
                 closest_elem = math.find_closest(geo.center, location)
                 center = geo.center[closest_elem]
                 normal = normals[closest_elem]
                 return plane_sgn_dist(center, normal, location)
-            return SDF(sdf_closest_face, math.EMPTY_SHAPE, bounds, geo.bounding_box().center)
+            def sdf_and_grad(location):  # for close distances < face_size use normal vector, for far distances use distance from center
+                closest_elem = math.find_closest(geo.center, location)
+                center = geo.center[closest_elem]
+                normal = normals[closest_elem]
+                size = face_size[closest_elem]
+                sgn_dist = plane_sgn_dist(center, normal, location)
+                outward = math.where(abs(sgn_dist) < size, normal, math.vec_normalize(location - center))
+                return sgn_dist, outward
+            return SDF(sdf_closest_face, math.EMPTY_SHAPE, bounds, geo.bounding_box().center, sdf_and_grad=sdf_and_grad)
         elif method == 'mesh-to-sdf':
             from mesh_to_sdf import mesh_to_sdf
             from trimesh import Trimesh
