@@ -45,3 +45,18 @@ def y_intersect_2d(slope_y, per_x, x, y):
     b = y - m * x
     dist_from_xy = sqrt(x ** 2 * (1 + m**2))
     return b, dist_from_xy
+
+
+def plane_sgn_dist(plane_offset: Tensor, plane_normal: Tensor, point: Tensor):
+    """
+    Args:
+        plane_offset: Either any point on the plane or the plane's signed distance from origin.
+        plane_normal: Normal vector of plane.
+        point: Query point.
+
+    Returns:
+        Signed distance from plane to point.
+    """
+    if 'vector' in plane_offset.shape:
+        plane_offset = plane_offset.vector @ plane_normal.vector
+    return plane_normal.vector @ point.vector - plane_offset
