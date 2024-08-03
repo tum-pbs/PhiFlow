@@ -385,6 +385,21 @@ class Field:
         from ._resample import resample
         return resample(self, representation, keep_boundary, **kwargs)
 
+    def sample(self, where: Union[Geometry, 'Field', Tensor], at: str = 'center', **kwargs) -> 'Tensor':
+        """
+        Sample the values of this `Field` at the given location or geometry.
+
+        Args:
+            where: Location `Tensor` or `Geometry` or
+            at: `'center'` or `'face'`.
+            **kwargs: Sampling arguments.
+
+        Returns:
+            `Tensor`
+        """
+        from ._resample import sample
+        return sample(self, where, at, **kwargs)
+
     def closest_values(self, points: Tensor):
         """
         Sample the closest grid point values of this field at the world-space locations (in physical units) given by `points`.
