@@ -169,3 +169,12 @@ class SDF(Geometry):
     def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
         from ._geom_ops import GeometryStack
         return GeometryStack(math.layout(values, dim))
+
+
+def numpy_sdf(sdf: Callable, bounds: BaseBox, center: Tensor = None) -> SDF:
+    def native_sdf_function(pos: Tensor) -> Tensor:
+        nat_pos = math.reshaped_native(pos, [..., 'vector'])
+        nat_sdf = pos.default_backend.numpy_call(sdf, nat_pos.shape[:1], math.DType(float, 32), nat_pos)
+        with pos.default_backend:
+            return math.reshaped_tensor(nat_sdf, [pos.shape - 'vector'])
+    return SDF(native_sdf_function, math.EMPTY_SHAPE, bounds, center)
