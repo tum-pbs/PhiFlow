@@ -18,7 +18,7 @@ from plotly.tools import DEFAULT_PLOTLY_COLORS
 import plotly.io as pio
 
 from phiml.math import reshaped_numpy, dual, instance, non_dual, merge_shapes
-from phi import math, field
+from phi import math, field, geom
 from phi.field import Field
 from phi.geom import Sphere, BaseBox, Point, Box, SDF, SDFGrid
 from phi.geom._geom_ops import GeometryStack
@@ -55,6 +55,7 @@ class PlotlyPlots(PlottingLibrary):
                 subplot.xaxis.update(title=bounds.vector.item_names[0], range=_get_range(bounds, 0))
                 subplot.yaxis.update(title=bounds.vector.item_names[1], range=_get_range(bounds, 1))
                 subplot.zaxis.update(title=bounds.vector.item_names[2], range=_get_range(bounds, 2))
+                subplot.aspectmode = 'data'
         fig._phi_size = size
         if size[0] is not None:
             fig.update_layout(width=size[0] * 70)
@@ -446,7 +447,7 @@ class Object3D(Recipe):
                 v1 = (v1 + np.arange(count)[:, None] * 8).flatten()
                 v2 = (v2 + np.arange(count)[:, None] * 8).flatten()
                 v3 = (v3 + np.arange(count)[:, None] * 8).flatten()
-                figure.add_trace(go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, flatshading=True, color=color, opacity=alpha), row=row, col=col)
+                figure.add_trace(go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, flatshading=False, color=color, opacity=alpha), row=row, col=col)
         math.map(plot_one_material, data, color, alpha, dims=merge_shapes(color, alpha), unwrap_scalars=True)
 
     def _sphere_vertex_count(self, radius: Tensor, space: Box):
@@ -478,18 +479,18 @@ class Scatter3D(Recipe):
             else:
                 color = plotly_color(color.native())
             domain_y = figure.layout[subplot.plotly_name].domain.y
-            if isinstance(data.elements, Sphere):
+            if isinstance(data.geometry, Sphere):
                 symbol = 'circle'
                 marker_size = data.elements.bounding_radius().numpy() * 2
-            elif isinstance(data.elements, BaseBox):
+            elif isinstance(data.geometry, BaseBox):
                 symbol = 'square'
                 marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 1
-            elif isinstance(data.elements, Point):
+            elif isinstance(data.geometry, Point):
                 symbol = None
                 marker_size = 4 / (size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5)
             else:
                 symbol = 'asterisk'
-                marker_size = data.elements.bounding_radius().numpy()
+                marker_size = data.geometry.bounding_radius().numpy()
             marker_size *= size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5
             marker = graph_objects.scatter3d.Marker(size=marker_size, color=color, sizemode='diameter', symbol=symbol)
             figure.add_scatter3d(mode='markers', x=x, y=y, z=z, marker=marker, row=row, col=col)
@@ -577,17 +578,17 @@ class SurfaceMesh3D(Recipe):
         # --- plot mesh ---
         cbar = None if not channel(data) or not channel(data).item_names[0] else channel(data).item_names[0][0]
         if math.is_nan(data.values).all:
-            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3)
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, flatshading=False, opacity=float(alpha))
         else:
             values = reshaped_numpy(data.values, [instance(data.mesh)])
-            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='cell')
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='cell', flatshading=True, opacity=float(alpha))
         figure.add_trace(mesh, row=row, col=col)
 
 
 class SDF3D(Recipe):
 
     def can_plot(self, data: Field, space: Box) -> bool:
-        return isinstance(data.geometry, SDF) and data.spatial_rank == 3
+        return isinstance(data.geometry, (SDF, SDFGrid)) and data.spatial_rank == 3
 
     def plot(self,
              data: Field,
@@ -602,16 +603,10 @@ class SDF3D(Recipe):
              err: Tensor):
         def plot_single_material(data: Field, color, alpha: float):
             color = plotly_color(color)
-            # surf_mesh = mesh_from_sdf(data.geometry, remove_duplicates=True, backend=math.NUMPY)
-            # mesh_data = Field(surf_mesh, math.NAN, 0)
-            # SurfaceMesh3D().plot(mesh_data, figure, subplot, space, min_val, max_val, show_color_bar, color, alpha, err)
-            from sdf.mesh import generate  # using https://github.com/fogleman/sdf
-            mesh = np.stack(generate(data.geometry, workers=1, batch_size=1024*1024))
-            # --- remove duplicate vertices ---
-            vert, idx, inv, c = np.unique(mesh, axis=0, return_counts=True, return_index=True, return_inverse=True)
-            i, j, k = inv.reshape((-1, 3)).T
-            mesh = go.Mesh3d(x=vert[:, 0], y=vert[:, 1], z=vert[:, 2], i=i, j=j, k=k, color=color, opacity=float(alpha))
-            figure.add_trace(mesh)
+            with math.NUMPY:
+                surf_mesh = geom.surface_mesh(data.geometry, remove_duplicates=True)
+            mesh_data = Field(surf_mesh, math.NAN, 0)
+            SurfaceMesh3D().plot(mesh_data, figure, subplot, space, min_val, max_val, show_color_bar, color, alpha, err)
         math.map(plot_single_material, data, color, alpha, dims=channel(data.geometry) - 'vector')
 
 
