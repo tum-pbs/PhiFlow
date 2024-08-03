@@ -5,10 +5,11 @@ from typing import Dict, List, Sequence, Union, Any, Tuple, Optional
 import numpy as np
 from scipy.sparse import csr_matrix
 
-from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims
+from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims, unstack
 from phiml.math.extrapolation import as_extrapolation
 from phiml.math.magic import slicing_dict
-from ._geom import Geometry, Point
+from ._functions import plane_sgn_dist
+from ._geom import Geometry, Point, scale
 from ._box import Box, BaseBox
 from ._graph import Graph
 from .. import math
@@ -244,6 +245,24 @@ class Mesh(Geometry):
         return ~(leaves_mesh & is_outside)
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]) -> Tensor:
+        if self.element_rank == 2 and self.spatial_rank == 3:
+            warnings.warn("Use geom.as_sdf(mesh, method='closest-face') for improved performance", RuntimeWarning)
+            closest_elem = math.find_closest(self._center, location)
+            center = self._center[closest_elem]
+            vertices = self._elements[closest_elem]
+            assert dual(vertices._indices).size == 3, f"signed distance currently only supports triangles"
+            corners = self._vertices.center[vertices._indices]
+            c1, c2, c3 = unstack(corners, dual)
+            v1, v2 = c2 - c1, c3 - c1
+            normal = math.vec_normalize(math.cross_product(v1, v2))
+            return plane_sgn_dist(center, normal, location)
+            # closest_vertex = math.find_closest(self._vertices.center, location, index_dim=None)
+            # faces = self._elements[{dual: closest_vertex}]   # sparse (elements, locations)
+            # # ToDo write this first for constant number of elements per vertex, then use sparse
+            # tri_vert_ids = self._elements._indices[{instance: faces._indices}]  # ToDo this loses the sparse structure from faces -> Matrix-matrix outer product?
+            # A, B, C = self._vertices.center[tri_vert_ids].vertices.dual
+        if self._center is None:
+            raise NotImplementedError("Mesh.approximate_signed_distance only available when faces are built.")
         idx = math.find_closest(self._center, location)
         for i in range(self._max_cell_walk):
             idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)

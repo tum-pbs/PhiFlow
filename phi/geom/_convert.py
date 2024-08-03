@@ -1,16 +1,17 @@
 import numpy as np
 from phiml import math
-from phiml.math import wrap, instance, tensor, dual, batch, DimFilter
+from phiml.math import wrap, instance, tensor, dual, batch, DimFilter, unstack
 from phiml.math._sparse import CompactSparseTensor
+from ._functions import plane_sgn_dist
 
 from ._geom import Geometry
 from ._box import Cuboid, BaseBox
-from ._sdf import SDF
+from ._sdf import SDF, numpy_sdf
 from ._mesh import Mesh
 from ._graph import Graph
 
 
-def as_sdf(geo: Geometry, rel_margin=.1, abs_margin=0., separate: DimFilter = None) -> SDF:
+def as_sdf(geo: Geometry, rel_margin=.1, abs_margin=0., separate: DimFilter = None, method='auto') -> SDF:
     """
     Represent existing geometry as a signed distance function.
 
@@ -33,6 +34,37 @@ def as_sdf(geo: Geometry, rel_margin=.1, abs_margin=0., separate: DimFilter = No
     bounds = Cuboid(bounds.center, half_size=bounds.half_size * (1 + 2 * rel_margin) + 2 * abs_margin)
     if isinstance(geo, SDF):
         return SDF(geo._sdf, geo._out_shape, bounds, geo._center, geo._volume, geo._bounding_radius)
+    elif isinstance(geo, Mesh) and geo.spatial_rank == 3 and geo.element_rank == 2:  # 3D surface mesh
+        if method in ['auto', 'pysdf']:
+            from pysdf import SDF as PySDF  # https://github.com/sxyu/sdf    https://github.com/sxyu/sdf/blob/master/src/sdf.cpp
+            np_verts = geo.vertices.center.numpy('vertices,vector')
+            np_tris = geo.elements._indices.numpy('cells,~vertices')
+            np_sdf = PySDF(np_verts, np_tris)  # (num_vertices, 3) and (num_faces, 3)
+            np_sdf_c = lambda x: np.clip(np_sdf(x), -float(bounds.size.min) / 2, float(bounds.size.max))
+            return numpy_sdf(np_sdf_c, bounds, geo.bounding_box().center)
+        elif method == 'closest-face':
+            corners = geo.vertices.center[geo.elements._indices]
+            assert dual(corners).size == 3, f"signed distance currently only supports triangles"
+            c1, c2, c3 = unstack(corners, dual)
+            v1, v2 = c2 - c1, c3 - c1
+            normals = math.vec_normalize(math.cross_product(v1, v2))
+            def sdf_closest_face(location):
+                closest_elem = math.find_closest(geo.center, location)
+                center = geo.center[closest_elem]
+                normal = normals[closest_elem]
+                return plane_sgn_dist(center, normal, location)
+            return SDF(sdf_closest_face, math.EMPTY_SHAPE, bounds, geo.bounding_box().center)
+        elif method == 'mesh-to-sdf':
+            from mesh_to_sdf import mesh_to_sdf
+            from trimesh import Trimesh
+            np_verts = geo.vertices.center.numpy('vertices,vector')
+            np_tris = geo.elements._indices.numpy('cells,~vertices')
+            trimesh = Trimesh(np_verts, np_tris)
+            def np_sdf(points):
+                return mesh_to_sdf(trimesh, points, surface_point_method='scan', sign_method='normal')
+            return numpy_sdf(np_sdf, bounds, geo.bounding_box().center)
+        else:
+            raise ValueError(f"Method '{method}' not implemented for Mesh SDF")
     return SDF(geo.approximate_signed_distance, geo.shape.non_instance.without('vector'), bounds, geo.center, geo.volume, geo.bounding_radius())
 
 
@@ -64,7 +96,10 @@ def surface_mesh(geo: Geometry, rel_dx: float = None, abs_dx: float = None, remo
             location = wrap(xyz, instance('points'), sdf.shape['vector'])
             sdf_val = sdf._sdf(location)
             return sdf_val.numpy()
-        mesh = np.stack(generate(np_sdf, float(dx), bounds=(lo, up), workers=1, batch_size=1024*1024))
+        mesh = generate(np_sdf, float(dx), bounds=(lo, up), workers=1, batch_size=1024*1024)
+        if not mesh:
+            raise ValueError(f"No surface found from SDF in between {lo} and {up}")
+        mesh = np.stack(mesh)
         if remove_duplicates:
             vert, idx, inv, c = np.unique(mesh, axis=0, return_counts=True, return_index=True, return_inverse=True)
             vert = tensor(vert, instance('vertex'), sdf.shape['vector'])
