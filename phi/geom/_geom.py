@@ -780,16 +780,33 @@ def rotate(geometry: Geometry, rot: Union[float, Tensor], pivot: Tensor = None) 
     Args:
         geometry: `Geometry` to rotate
         rot: Rotation, either as Euler angles or rotation matrix.
-        pivot: Any point lying on the rotation axis.
-            If `None`, rotates about the center point(s).
+        pivot: Any point lying on the rotation axis. Defaults to the bounding box center.
 
     Returns:
         Rotated `Geometry`
     """
     if pivot is None:
-        return geometry.rotated(rot)
+        pivot = geometry.bounding_box().center
     center = pivot + math.rotate_vector(geometry.center - pivot, rot)
     return geometry.rotated(rot).at(center)
+
+
+def scale(geometry: Geometry, scale: float | Tensor, pivot: Tensor = None) -> Geometry:
+    """
+    Scale a `Geometry` about a pivot point.
+
+    Args:
+        geometry: `Geometry` to scale.
+        scale: Scaling factor.
+        pivot: Point that stays fixed under the scaling operation. Defaults to the bounding box center.
+
+    Returns:
+        Rotated `Geometry`
+    """
+    if pivot is None:
+        pivot = geometry.bounding_box().center
+    center = pivot + scale * (geometry.center - pivot)
+    return geometry.scaled(scale).at(center)
 
 
 def slice_off_constant_faces(obj, boundary_slices: Dict[Any, Dict[str, slice]], boundary: Extrapolation):

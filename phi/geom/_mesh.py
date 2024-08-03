@@ -312,8 +312,13 @@ class Mesh(Geometry):
     def rotated(self, angle: Union[float, Tensor]) -> 'Geometry':
         raise NotImplementedError
 
-    def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
-        raise NotImplementedError
+    def scaled(self, factor: float | Tensor) -> 'Geometry':
+        pivot = self.bounds.center
+        vertices = scale(self._vertices, factor, pivot)
+        center = scale(Point(self._center), factor, pivot).center
+        volume = self._volume * factor if self._volume is not None else None
+        face_areas = None
+        return Mesh(vertices, self._elements, self._element_rank, self._boundaries, center, volume, self._face_centers, self._face_normals, face_areas, self._face_vertices, self._max_cell_walk)
 
     def __getitem__(self, item):
         item: dict = slicing_dict(self, item)
