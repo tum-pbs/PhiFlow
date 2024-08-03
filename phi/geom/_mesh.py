@@ -750,3 +750,10 @@ def build_quadrilaterals(vert_pos, resolution: Shape, obstacles: Dict[str, Geome
         vert_pos = math.where(has_cell, shifted_verts, vert_pos)
     vert_pos = bounds.push(vert_pos, outward=False)
     return vert_pos, polygons, boundaries
+
+
+def extrinsic_normals(mesh: Mesh):
+    corners = mesh.vertices.center[mesh.elements._indices]
+    assert dual(corners).size == 3, f"signed distance currently only supports triangles"
+    A, B, C = unstack(corners, dual)
+    return math.vec_normalize(math.cross_product(B-A, C-A))
