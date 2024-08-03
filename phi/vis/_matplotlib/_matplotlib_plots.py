@@ -40,6 +40,7 @@ class MatplotlibPlots(PlottingLibrary):
                       titles: Dict[Tuple[int, int], str],
                       log_dims: Tuple[str, ...],
                       plt_params: Dict[str, Any]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+        size = (size[0] or 12, size[1] or 5)
         figure, axes = plt.subplots(rows, cols, figsize=size)
         self.current_figure = figure
         axes = np.reshape(axes, (rows, cols))
