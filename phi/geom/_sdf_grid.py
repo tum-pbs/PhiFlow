@@ -12,7 +12,7 @@ class SDFGrid(Geometry):
     """
     Grid-based signed distance field.
     """
-    def __init__(self, sdf: Tensor, bounds: Box, approximate_outside=True, gradient: Tensor = None, center: Tensor = None, volume: Tensor = None, bounding_radius: Tensor = None):
+    def __init__(self, sdf: Tensor, bounds: BaseBox, approximate_outside=True, gradient: Tensor = None, center: Tensor = None, volume: Tensor = None, bounding_radius: Tensor = None):
         """
         Args:
             sdf: Signed distance values. `Tensor` with spatial dimensions corresponding to the physical space.
@@ -56,6 +56,10 @@ class SDFGrid(Geometry):
     def values(self):
         """Signed distance grid."""
         return self._sdf
+
+    def with_values(self, values: Tensor):
+        values = expand(values, spatial(self._sdf) - spatial(values))
+        return SDFGrid(values, self._bounds, self._approximate_outside, self._grad, self._center, self._volume, self._bounding_radius)
 
     @property
     def bounds(self):
