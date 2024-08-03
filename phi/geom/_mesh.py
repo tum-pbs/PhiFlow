@@ -6,6 +6,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 
 from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims, unstack
+from phiml.math._sparse import CompactSparseTensor
 from phiml.math.extrapolation import as_extrapolation
 from phiml.math.magic import slicing_dict
 from ._functions import plane_sgn_dist
@@ -335,7 +336,7 @@ class Mesh(Geometry):
         pivot = self.bounds.center
         vertices = scale(self._vertices, factor, pivot)
         center = scale(Point(self._center), factor, pivot).center
-        volume = self._volume * factor if self._volume is not None else None
+        volume = self._volume * factor**self._element_rank if self._volume is not None else None
         face_areas = None
         return Mesh(vertices, self._elements, self._element_rank, self._boundaries, center, volume, self._face_centers, self._face_normals, face_areas, self._face_vertices, self._max_cell_walk)
 
@@ -485,7 +486,6 @@ def mesh(vertices: Tensor,
     if build_faces:
         assert boundaries is not None, f"When build_faces=True, boundaries must be specified."
     if spatial(polygons):  # all elements have same number of vertices
-        from phiml.math._sparse import CompactSparseTensor
         indices: Tensor = rename_dims(polygons, spatial, instance(vertices).as_dual())
         values = expand(1, non_batch(indices))
         polygons = CompactSparseTensor(indices, values, instance(vertices).as_dual(), instance(polygons))
@@ -513,7 +513,13 @@ def mesh(vertices: Tensor,
         vertices = Graph(vertices, vertex_connectivity, {})
         return Mesh(vertices, polygons, element_rank, boundary_slices, cell_centers, volume, centers, normals, areas, face_vertices)
     else:
-        return Mesh(vertices, polygons, element_rank, {}, approx_center, None, None, None, None, None)
+        volume = None
+        if isinstance(polygons, CompactSparseTensor) and element_rank == 2:
+            A, B, C, *_ = unstack(vertices[polygons._indices], dual)
+            cross_area = math.vec_length(math.cross_product(B - A, C - A))
+            fac = {3: 0.5, 4: 1}[dual(polygons._indices).size]  # tri, quad, ...
+            volume = fac * cross_area
+        return Mesh(vertices, polygons, element_rank, {}, approx_center, volume, None, None, None, None)
 
 
 def build_faces_2d(vertices: Tensor,
