@@ -5,7 +5,7 @@ from typing import Dict, List, Sequence, Union, Any, Tuple, Optional
 import numpy as np
 from scipy.sparse import csr_matrix
 
-from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims, unstack
+from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims, unstack, tensor
 from phiml.math._sparse import CompactSparseTensor
 from phiml.math.extrapolation import as_extrapolation
 from phiml.math.magic import slicing_dict
@@ -774,3 +774,22 @@ def extrinsic_normals(mesh: Mesh):
     assert dual(corners).size == 3, f"signed distance currently only supports triangles"
     A, B, C = unstack(corners, dual)
     return math.vec_normalize(math.cross_product(B-A, C-A))
+
+
+def save_tri_mesh(file: str, mesh: Mesh):
+    v = math.reshaped_numpy(mesh.vertices.center, [instance, 'vector'])
+    if isinstance(mesh._elements, CompactSparseTensor):
+        f = math.reshaped_numpy(mesh._elements._indices, [instance, dual])
+    else:
+        raise NotImplementedError
+    np.savez(file, vertices=v, faces=f, f_dim=instance(mesh).name, vertex_dim=instance(mesh.vertices).name, vector=mesh.vector.item_names)
+
+
+def load_tri_mesh(file: str, convert=False) -> Mesh:
+    data = np.load(file)
+    f_dim = instance(str(data['f_dim']))
+    vertex_dim = instance(str(data['vertex_dim']))
+    vector = channel(vector=[str(d) for d in data['vector']])
+    faces = tensor(data['faces'], f_dim, vertex_dim.as_spatial(), convert=convert)
+    vertices = tensor(data['vertices'], vertex_dim, vector, convert=convert)
+    return mesh(vertices, faces, build_faces=False)
