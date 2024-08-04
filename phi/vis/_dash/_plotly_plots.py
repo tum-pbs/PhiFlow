@@ -579,9 +579,18 @@ class SurfaceMesh3D(Recipe):
         cbar = None if not channel(data) or not channel(data).item_names[0] else channel(data).item_names[0][0]
         if math.is_nan(data.values).all:
             mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, flatshading=False, opacity=float(alpha))
-        else:
+        elif data.sampled_at == 'center':
             values = reshaped_numpy(data.values, [instance(data.mesh)])
             mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='cell', flatshading=True, opacity=float(alpha))
+        elif data.sampled_at == 'vertex':
+            values = reshaped_numpy(data.values, [instance(data.mesh.vertices)])
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='vertex', flatshading=True, opacity=float(alpha))
+        elif data.sampled_at == '~vertex':
+            values = reshaped_numpy(data.values, [dual(data.mesh.elements)])
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='vertex', flatshading=True, opacity=float(alpha))
+        else:
+            warnings.warn(f"No recipe for mesh sampled at {data.sampled_at}")
+            return
         figure.add_trace(mesh, row=row, col=col)
 
 
