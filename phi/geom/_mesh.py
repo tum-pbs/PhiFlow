@@ -111,6 +111,23 @@ class Mesh(Geometry):
         return face_shape
 
     @property
+    def sets(self):
+        return {'center': non_batch(self)-'vector', 'vertex': instance(self._vertices), '~vertex': dual(self._elements)}
+
+    def get_points(self, set_key: str) -> Tensor:
+        if set_key == 'vertex':
+            return self.vertices.center
+        elif set_key == '~vertex':
+            return si2d(self.vertices.center)
+        else:
+            return Geometry.get_points(self, set_key)
+
+    def get_boundary(self, set_key: str) -> Dict[str, Dict[str, slice]]:
+        if set_key in ['vertex', '~vertex']:
+            return {}
+        return Geometry.get_boundary(self, set_key)
+
+    @property
     def boundary_elements(self) -> Dict[str, Dict[str, slice]]:
         return {}
 

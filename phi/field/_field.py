@@ -36,7 +36,7 @@ class Field:
     def __init__(self,
                  geometry: Union[Geometry, Tensor],
                  values: Union[Tensor, Number, bool, Callable, FieldInitializer, Geometry, 'Field'],
-                 boundary: Union[Number, Extrapolation, 'Field', dict],
+                 boundary: Union[Number, Extrapolation, 'Field', dict] = 0,
                  **sampling_kwargs):
         """
         Args:
@@ -52,7 +52,8 @@ class Field:
         else:
             from ._resample import sample
             values = sample(values, geometry, 'center', self._boundary, **sampling_kwargs)
-        if non_batch(geometry).non_channel not in values.shape:
+        matching_sets = [s for s, s_shape in geometry.sets.items() if s_shape in values.shape]
+        if not matching_sets:
             values = expand(wrap(values), non_batch(geometry).non_channel)
         self._values: Tensor = values
         math.merge_shapes(values, non_batch(self.sampled_elements).non_channel)  # shape check
@@ -125,16 +126,9 @@ class Field:
     @property
     def center(self) -> Tensor:
         """ Returns the center points of the `elements` of this `Field`. """
-        # { ~vector, x }      for staggered grid
-        # { ~cells }          for unstructured mesh
-        # { particles }       for graph
-        # { ~particles }      for graph edges
-        if self.is_centered:
-            return slice_off_constant_faces(self._geometry.center, self._geometry.boundary_elements, self.extrapolation)
-        elif self.is_staggered:
-            return slice_off_constant_faces(self._geometry.face_centers, self._geometry.boundary_faces, self.extrapolation)
-        else:
-            raise NotImplementedError
+        all_points = self._geometry.get_points(self.sampled_at)
+        boundary = self._geometry.get_boundary(self.sampled_at)
+        return slice_off_constant_faces(all_points, boundary, self.extrapolation)
 
     @property
     def points(self):
@@ -207,7 +201,8 @@ class Field:
         """
         if self.is_staggered and self.is_grid:
             return batch(self._geometry) & self.resolution & non_dual(self._values).without(self.resolution) & self._geometry.shape['vector']
-        return self._geometry.shape.without('vector') & self._values
+        set_shape = self._geometry.sets[self.sampled_at]
+        return batch(self._geometry) & (channel(self._geometry) - 'vector') & set_shape & self._values
 
     @property
     def resolution(self):
@@ -370,7 +365,8 @@ class Field:
 
     @property
     def sampled_at(self):
-        return 'face' if self.is_staggered else 'center'
+        matching_sets = [s for s, s_shape in self._geometry.sets.items() if s_shape in self._values.shape]
+        return matching_sets[0]
 
     def at(self, representation: Union['Field', Geometry], keep_boundary=False, **kwargs) -> 'Field':
         """

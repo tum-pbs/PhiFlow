@@ -3,7 +3,7 @@ import warnings
 from numbers import Number
 from typing import Union, Dict, Any, Tuple, Callable
 
-from phiml.math import instance
+from phiml.math import instance, non_batch
 
 from phi import math
 from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape, Extrapolation
@@ -87,19 +87,19 @@ class Geometry:
         raise NotImplementedError(self.__class__)
 
     @property
-    def boundary_elements(self) -> Dict[Any, Dict[str, slice]]:
+    def boundary_elements(self) -> Dict[str, Dict[str, slice]]:
         """
         Slices on the primal dimensions to mark boundary elements.
         Grids and meshes have no boundary elements and return `{}`.
         Dynamic graphs can define boundary elements for obstacles and walls.
 
         Returns:
-            Map from `(name, is_upper)` to slicing `dict`.
+            Map from `name` to slicing `dict`.
         """
         raise NotImplementedError(self.__class__)
 
     @property
-    def boundary_faces(self) -> Dict[Any, Dict[str, slice]]:
+    def boundary_faces(self) -> Dict[str, Dict[str, slice]]:
         """
         Slices on the dual dimensions to mark boundary faces.
 
@@ -108,7 +108,7 @@ class Geometry:
         Dynamic graphs return slices along the dual dimensions.
 
         Returns:
-            Map from `(name, is_upper)` to slicing `dict`.
+            Map from `name` to slicing `dict`.
         """
         raise NotImplementedError(self.__class__)
 
@@ -120,6 +120,29 @@ class Geometry:
             If this `Geometry` has no faces, returns an empty `Shape`.
         """
         raise NotImplementedError(self.__class__)
+
+    @property
+    def sets(self):
+        if self.face_shape and self.face_shape != self.shape and self.face_shape.volume > 0:
+            return {'center': non_batch(self)-'vector', 'face': self.face_shape.non_batch}
+        else:
+            return {'center': non_batch(self)-'vector'}
+
+    def get_points(self, set_key: str) -> Tensor:
+        if set_key == 'center':
+            return self.center
+        elif set_key == 'face':
+            return self.face_centers
+        else:
+            raise ValueError(f"Unknown set: '{set_key}'")
+
+    def get_boundary(self, set_key: str) -> Dict[str, Dict[str, slice]]:
+        if set_key == 'center':
+            return self.boundary_elements
+        elif set_key == 'face':
+            return self.boundary_faces
+        else:
+            raise ValueError(f"Unknown set: '{set_key}'")
 
     @property
     def corners(self) -> Tensor:

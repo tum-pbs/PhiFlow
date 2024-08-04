@@ -125,7 +125,7 @@ class SDFGrid(Geometry):
 
     @property
     def face_shape(self) -> Shape:
-        raise NotImplementedError(f"SDF does not support boundaries")
+        return math.EMPTY_SHAPE
 
     @property
     def corners(self) -> Tensor:
