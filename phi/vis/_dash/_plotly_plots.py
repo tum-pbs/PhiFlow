@@ -294,14 +294,19 @@ class VectorCloud3D(Recipe):
         dims = data.elements.vector.item_names
         vector = data.elements.shape['vector']
         extra_channels = data.shape.channel.without('vector')
+        if color == 'cmap':
+            colorscale = 'Blues'
+        else:
+            hex_color = plotly_color(color.native())
+            colorscale = [[0, hex_color], [1, hex_color]]
         if data.is_staggered:
             data = data.at_centers()
         x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
         u, v, w = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.non_channel])
         figure.add_cone(x=x.flatten(), y=y.flatten(), z=z.flatten(), u=u.flatten(), v=v.flatten(), w=w.flatten(),
-                        colorscale='Blues',
-                        sizemode="absolute", sizeref=1,
-                        row=row, col=col)
+                        colorscale=colorscale,
+                        sizemode='raw', anchor='tail',
+                        row=row, col=col, opacity=float(alpha))
 
 
 class VectorCloud2D(Recipe):
