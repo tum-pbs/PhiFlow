@@ -21,55 +21,29 @@ from phiml.math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_sha
 from phiml.math._tensors import Layout
 
 
-def show(*model: Union[VisModel, Field, Tensor, Geometry, list, tuple, dict],
-         play=True,
-         gui: Union[Gui, str] = None,
-         lib: Union[Gui, str] = None,
-         keep_alive=True,
-         **config):
+def show(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
+         lib: Union[str, PlottingLibrary] = None,
+         row_dims: DimFilter = None,
+         col_dims: DimFilter = batch,
+         animate: DimFilter = None,
+         overlay: DimFilter = 'overlay',
+         title: Union[str, Tensor, list, tuple] = None,
+         size=None,  # (12, 5),
+         same_scale: Union[bool, Shape, tuple, list, str] = True,
+         log_dims: Union[str, tuple, list, Shape] = '',
+         show_color_bar=True,
+         color: Union[str, int, Tensor, list, tuple] = None,
+         alpha: Union[float, Tensor, list, tuple] = 1.,
+         err: Union[Tensor, tuple, list, float] = 0.,
+         frame_time=100,
+         repeat=True,
+         plt_params: Dict = None,
+         max_subfigures=20):
     """
-    If `model` is a user interface model, launches the registered user interface.
-    This will typically be the Dash web interface or the console interface if dash is not available.
-    This method prepares the `model` before showing it. No more fields should be added to the vis after this method is invoked.
-
-    See Also:
-        `view()`.
-
-    If `model` is plottable, e.g. a `Field` or `Tensor`, a figure is created and shown.
-    If `model` is a figure, it is simply shown.
-
-    See Also:
-        `plot()`.
-
-    This method may block until the GUI or plot window is closed.
-
-    Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
-
     Args:
-      model: (Optional) `VisModel`, the application or plottable object to display.
-        If unspecified, shows the most recently plotted figure.
-      play: If true, invokes `App.play()`. The default value is False unless "autorun" is passed as a command line argument.
-      gui: Deprecated. Use `lib` instead. (optional) class of GUI to use
-      lib: Gui class or plotting library as `str`, e.g. `'matplotlib'` or `'plotly'`
-      keep_alive: Whether the GUI keeps the vis alive. If `False`, the program will exit when the main script is finished.
-      **config: additional GUI configuration parameters.
-        For a full list of parameters, see the respective GUI documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
+        See `plot()`.
     """
-    lib = lib if lib is not None else gui
-    if len(model) == 1 and isinstance(model[0], VisModel):
-        model[0].prepare()
-        # --- Setup Gui ---
-        gui = default_gui() if lib is None else get_gui(lib)
-        gui.configure(config)
-        gui.setup(model[0])
-        if play:  # this needs to be done even if model cannot progress right now
-            gui.auto_play()
-        if gui.asynchronous:
-            display_thread = Thread(target=lambda: gui.show(True), name="AsyncGui", daemon=not keep_alive)
-            display_thread.start()
-        else:
-            gui.show(True)  # may be blocking call
-    elif len(model) == 0:
+    if not fields:  # only show, no plot
         if lib is not None:
             plots = get_plots(lib)
         else:
@@ -79,7 +53,9 @@ def show(*model: Union[VisModel, Field, Tensor, Geometry, list, tuple, dict],
             plots = get_plots_by_figure(LAST_FIGURE[0])
         return plots.show(plots.current_figure)
     else:
-        fig = plot(*model, lib=lib, **config)
+        kwargs = locals()
+        del kwargs['fields']
+        fig = plot(*fields, **kwargs)
         plots = get_plots_by_figure(fig)
         if isinstance(fig, Tensor):
             for fig in fig:
