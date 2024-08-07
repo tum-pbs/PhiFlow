@@ -67,6 +67,7 @@ class PlotlyPlots(PlottingLibrary):
         figures = []
         for frame in range(frame_count):
             frame_fig = go.Figure(fig)
+            frame_fig._phi_size = fig._phi_size
             plot_frame_function(frame_fig, frame)
             figures.append(frame_fig)
         frames = [go.Frame(data=fig.data, layout=fig.layout, name=f'frame{i}') for i, fig in enumerate(figures)]
