@@ -3,9 +3,9 @@ from numbers import Number
 from typing import Dict, List, Sequence, Union, Any, Tuple, Optional
 
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, coo_matrix
 
-from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims, unstack, tensor
+from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims, unstack, tensor, si2d
 from phiml.math._sparse import CompactSparseTensor
 from phiml.math.extrapolation import as_extrapolation
 from phiml.math.magic import slicing_dict
@@ -81,7 +81,7 @@ class Mesh(Geometry):
 
     @property
     def shape(self) -> Shape:
-        return shape(self._elements).non_dual & channel(self._vertices)
+        return shape(self._elements).non_dual & channel(self._vertices) & batch(self._vertices)
 
     @property
     def cell_count(self):
@@ -237,8 +237,33 @@ class Mesh(Geometry):
         return Point(self.face_centers)
 
     @property
-    def vertices(self) -> Graph:
+    def vertices(self) -> Geometry:
         return self._vertices
+
+    @property
+    def vertex_connectivity(self) -> Tensor:
+        if isinstance(self._vertices, Graph):
+            return self._vertices.connectivity
+        coo = math.to_format(self._elements, 'coo').numpy()
+        connected_points = coo.T @ coo
+        assert np.all(connected_points.sum(axis=1) > 0), f"some vertices have no element connection at all"
+        connected_points.data = np.ones_like(connected_points.data)
+        return wrap(connected_points, instance(self._vertices), dual(self._elements))
+
+    def filter_unused_vertices(self) -> 'Mesh':
+        coo = math.to_format(self._elements, 'coo').numpy()
+        has_element = np.asarray(coo.sum(0) > 0)[0]
+        new_index = np.cumsum(has_element) - 1
+        has_element = wrap(has_element, instance(self._vertices))
+        vertices = self._vertices[has_element]
+        if isinstance(self._elements, CompactSparseTensor):
+            new_index = wrap(new_index, dual(self._elements))
+            indices = new_index[{dual: self._elements._indices}]
+            elements = CompactSparseTensor(indices, self._elements._values, self._elements._compressed_dims.with_size(instance(vertices).volume), self._elements._indices_constant, self._elements._matrix_rank)
+        else:
+            filtered_coo = coo_matrix((coo.data, (coo.row, new_index)), shape=(instance(self._elements).volume, instance(vertices).volume))  # ToDo keep sparse format
+            elements = wrap(filtered_coo, self._elements.shape.without_sizes())
+        return Mesh(vertices, elements, self._element_rank, self._boundaries, self._center, self._volume, self._face_centers, self._face_normals, self._face_areas, None,  self._max_cell_walk)
 
     @property
     def elements(self):
@@ -343,8 +368,30 @@ class Mesh(Geometry):
     def bounds(self):
         return Box(math.min(self._vertices.center, instance), math.max(self._vertices.center, instance))
 
-    def at(self, center: Tensor) -> 'Geometry':
-        raise NotImplementedError
+    def at(self, center: Tensor) -> 'Mesh':
+        if instance(self._elements) in center.shape:
+            raise NotImplementedError("Setting Mesh positions only supported for vertices, not elements")
+        if dual(self._elements) in center.shape:
+            delta = rename_dims(center, dual, instance(self._vertices))
+        if instance(self._vertices) in center.shape:
+            vertices = self._vertices.at(center)
+            return mesh(vertices, self._elements, self._boundaries, build_faces=self._face_areas is not None)
+        else:
+            shift = center - self.bounds.center
+            return self.shifted(shift)
+
+    def shifted(self, delta: Tensor) -> 'Mesh':
+        if instance(self._elements) in delta.shape:
+            raise NotImplementedError("Shifting Mesh positions only supported for vertices, not elements")
+        if dual(self._elements) in delta.shape:
+            delta = rename_dims(delta, dual, instance(self._vertices))
+        if instance(self._vertices) in delta.shape:
+            vertices = self._vertices.shifted(delta)
+            return mesh(vertices, self._elements, self._boundaries, build_faces=self._face_areas is not None)
+        else:  # shift everything
+            vertices = self._vertices.shifted(delta)
+            center = self._center + delta
+            return Mesh(vertices, self._elements, self._element_rank, self._boundaries, center, self._volume, self._face_centers, self._face_normals, self._face_areas, self._face_vertices, self._max_cell_walk)
 
     def rotated(self, angle: Union[float, Tensor]) -> 'Geometry':
         raise NotImplementedError
@@ -476,7 +523,7 @@ def mesh_from_numpy(points: Union[list, np.ndarray],
     return mesh(vertices, polygons, boundaries, build_faces=build_faces, face_format=face_format)
 
 
-def mesh(vertices: Tensor,
+def mesh(vertices: Geometry | Tensor,
          polygons: Tensor,
          boundaries: str | Dict[str, List[Sequence]] | None = None,
          build_faces=True,
@@ -500,6 +547,8 @@ def mesh(vertices: Tensor,
     """
     assert 'vector' in channel(vertices), f"vertices must have a channel dimension called 'vector' but got {shape(vertices)}"
     assert instance(vertices), f"vertices must have an instance dimension listing all vertices of the mesh but got {shape(vertices)}"
+    if not isinstance(vertices, Geometry):
+        vertices = Point(vertices)
     if build_faces:
         assert boundaries is not None, f"When build_faces=True, boundaries must be specified."
     if spatial(polygons):  # all elements have same number of vertices
@@ -515,7 +564,7 @@ def mesh(vertices: Tensor,
     else:
         raise ValueError(vertices.vector.size)
     vertex_count = math.sum(polygons, instance(vertices).as_dual())
-    approx_center = (polygons @ vertices) / vertex_count
+    approx_center = (polygons @ vertices.center) / vertex_count
     # --- build faces ---
     if build_faces:
         if element_rank == 2:
@@ -532,7 +581,7 @@ def mesh(vertices: Tensor,
     else:
         volume = None
         if isinstance(polygons, CompactSparseTensor) and element_rank == 2:
-            A, B, C, *_ = unstack(vertices[polygons._indices], dual)
+            A, B, C, *_ = unstack(vertices.center[polygons._indices], dual)
             cross_area = math.vec_length(math.cross_product(B - A, C - A))
             fac = {3: 0.5, 4: 1}[dual(polygons._indices).size]  # tri, quad, ...
             volume = fac * cross_area
