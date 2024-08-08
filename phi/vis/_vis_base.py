@@ -496,7 +496,7 @@ def to_field(obj) -> Field:
     if isinstance(obj, Field):
         return obj
     if isinstance(obj, Geometry):
-        return PointCloud(obj, math.NAN)
+        return Field(obj, math.NAN, math.NAN)
     if isinstance(obj, Tensor):
         arbitrary_lines_1d = spatial(obj).rank == 1 and 'vector' in obj.shape
         point_cloud = instance(obj) and 'vector' in obj.shape
