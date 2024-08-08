@@ -18,7 +18,9 @@ class Graph(Geometry):
                  nodes: Union[Geometry, Tensor],
                  edges: Tensor,
                  boundary: Dict[str, Dict[str, slice]],
-                 deltas=None, distances=None, bounding_distance: Union[bool, Tensor, float, None] = False):
+                 deltas: Optional[Tensor] = None,
+                 distances: Optional[Tensor] = None,
+                 bounding_distance: Tensor | float | None = None):
         """
         Create a graph where `nodes` are connected by `edges`.
 
@@ -30,15 +32,14 @@ class Graph(Geometry):
             distances: (Optional) Pre-computed distance matrix.
             bounding_distance: (Optional) Pre-computed distance bounds. No distance is larger than this value. If `True`, will be computed now, if `False`, will not be computed.
         """
-        if isinstance(nodes, Tensor):
-            assert 'vector' in channel(nodes) and channel(nodes).get_item_names('vector') is not None, f"nodes must have a 'vector' dim listing the physical dimensions but got {shape(nodes)}"
+        assert isinstance(nodes, Geometry), f"nodes must be a Geometry  but got {nodes}"
         node_dims = non_batch(nodes).non_channel
         assert node_dims in edges.shape and edges.shape.dual.rank == node_dims.rank, f"edges must contain all node dims {node_dims} as primal and dual but got {edges.shape}"
         self._nodes: Geometry = nodes if isinstance(nodes, Geometry) else Point(nodes)
         self._edges = edges
         self._boundary = boundary
-        self._deltas = math.pairwise_distances(self._nodes.center, format=edges) if deltas is None else deltas
-        self._distances = math.vec_length(self._deltas) if distances is None else distances
+        self._deltas = deltas
+        self._distances = distances
         self._connectivity = math.tensor_like(edges, 1) if math.is_sparse(edges) else (edges != 0) & ~math.is_nan(edges)
         if isinstance(bounding_distance, bool):
             self._bounding_distance = math.max(self._distances) if bounding_distance else None
@@ -64,7 +65,7 @@ class Graph(Geometry):
         return self._nodes
 
     def as_points(self):
-        return Graph(self._nodes.center, self._edges, self._boundary, self._deltas, self._distances, self._bounding_distance)
+        return Graph(Point(self._nodes.center), self._edges, self._boundary, self._deltas, self._distances, self._bounding_distance)
 
     @property
     def deltas(self):
@@ -146,7 +147,7 @@ class Graph(Geometry):
         # return Graph(self.nodes.at(center), self._edges, self._boundary, bounding_distance=self._bounding_distance is not None)
 
     def shifted(self, delta: Tensor) -> 'Geometry':
-        if non_batch(delta).non_channel.only(self._nodes.shape):  # shift varies between
+        if non_batch(delta).non_channel.only(self._nodes.shape) and self._deltas is not None:  # shift varies between elements
             raise NotImplementedError("Shifting the node positions of a Graph is not supported as it would invalidate distances.")
         return Graph(self.nodes.shifted(delta), self._edges, self._boundary, deltas=self._deltas, distances=self._distances, bounding_distance=self._bounding_distance is not None)
 
@@ -168,4 +169,22 @@ class Graph(Geometry):
                 edge_sel[dim] = edge_sel[dual_dim] = sel
             elif dim in batch(self):
                 edge_sel[dim] = sel
-        return Graph(self._nodes[item], self._edges[edge_sel], self._boundary)
+        deltas = self._deltas[edge_sel] if self._deltas is not None else None
+        distances = self._distances[edge_sel] if self._distances is not None else None
+        bounding_distance = self._bounding_distance[item] if self._bounding_distance is not None else None
+        return Graph(self._nodes[item], self._edges[edge_sel], self._boundary, deltas, distances, bounding_distance)
+
+
+def graph(nodes: Union[Geometry, Tensor],
+          edges: Tensor,
+          boundary: Dict[str, Dict[str, slice]] = None,
+          build_distances=True,
+          build_bounding_distance=False) -> Graph:
+    if isinstance(nodes, Tensor):
+        assert 'vector' in channel(nodes) and channel(nodes).get_item_names('vector') is not None, f"nodes must have a 'vector' dim listing the physical dimensions but got {shape(nodes)}"
+        nodes = Point(nodes)
+    boundary = {} if boundary is None else boundary
+    deltas = math.pairwise_distances(nodes.center, format=edges) if build_distances else None
+    distances = math.vec_length(deltas) if build_distances else None
+    bound = math.max(distances) if build_bounding_distance else None
+    return Graph(nodes, edges, boundary, deltas, distances, bound)
