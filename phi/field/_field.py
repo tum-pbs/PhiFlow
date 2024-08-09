@@ -698,16 +698,9 @@ class Field:
     def __eq__(self, other):
         if not isinstance(other, Field):
             return False
-        # Check everything but __variable_attrs__ (values): elements type, extrapolation, add_overlapping
-        if type(self._geometry) is not type(other._geometry):
+        if self._geometry != other._geometry:
             return False
         if self._boundary != other.boundary:
-            return False
-        if self._values is None:
-            return other._values is None
-        if other._values is None:
-            return False
-        if self._values.shape == other._values.shape:
             return False
         return math.always_close(self._values, other._values)
 
