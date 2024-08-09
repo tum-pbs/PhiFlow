@@ -36,6 +36,7 @@ class Mesh(Geometry):
                  face_areas: Optional[Tensor],
                  face_vertices: Optional[Tensor],
                  vertex_connectivity: Optional[Tensor] = None,
+                 element_connectivity: Optional[Tensor] = None,
                  max_cell_walk: int = None):
         """
         Args:
@@ -63,6 +64,8 @@ class Mesh(Geometry):
         else:
             assert vertex_connectivity is None or (isinstance(vertex_connectivity, Tensor) and instance(self._vertices) in vertex_connectivity.shape), f"Illegal vertex connectivity: {vertex_connectivity}"
             self._vertex_connectivity = vertex_connectivity
+        assert element_connectivity is None or isinstance(element_connectivity, Tensor), f"element_connectivity must be a Tensor"
+        self._element_connectivity = element_connectivity
         if face_areas is not None or face_centers is not None or face_normals is not None:
             cell_deltas = pairwise_distances(self.center, format=self.cell_connectivity)
             cell_distances = math.vec_length(cell_deltas)
@@ -252,6 +255,10 @@ class Mesh(Geometry):
         return self._vertex_connectivity
 
     @property
+    def element_connectivity(self) -> Tensor:
+        return self._element_connectivity
+
+    @property
     def vertex_graph(self, build_distances=True) -> Graph:
         if isinstance(self._vertices, Graph):
             return self._vertices
@@ -403,7 +410,7 @@ class Mesh(Geometry):
         else:  # shift everything
             vertices = self._vertices.shifted(delta)
             center = self._center + delta
-            return Mesh(vertices, self._elements, self._element_rank, self._boundaries, center, self._volume, self._face_centers, self._face_normals, self._face_areas, self._face_vertices, self._vertex_connectivity, self._max_cell_walk)
+            return Mesh(vertices, self._elements, self._element_rank, self._boundaries, center, self._volume, self._face_centers, self._face_normals, self._face_areas, self._face_vertices, self._vertex_connectivity, self._element_connectivity, self._max_cell_walk)
 
     def rotated(self, angle: Union[float, Tensor]) -> 'Geometry':
         raise NotImplementedError
@@ -414,7 +421,7 @@ class Mesh(Geometry):
         center = scale(Point(self._center), factor, pivot).center
         volume = self._volume * factor**self._element_rank if self._volume is not None else None
         face_areas = None
-        return Mesh(vertices, self._elements, self._element_rank, self._boundaries, center, volume, self._face_centers, self._face_normals, face_areas, self._face_vertices, self._max_cell_walk)
+        return Mesh(vertices, self._elements, self._element_rank, self._boundaries, center, volume, self._face_centers, self._face_normals, face_areas, self._face_vertices, self._vertex_connectivity, self._element_connectivity, self._max_cell_walk)
 
     def __getitem__(self, item):
         item: dict = slicing_dict(self, item)
@@ -426,9 +433,9 @@ class Mesh(Geometry):
         vertices = self._vertices[item]
         polygons = self._elements[item]
         s = math.slice
-        return Mesh(vertices, polygons, self._element_rank, self._boundaries, s(self._center, item), s(self._volume, item),
+        return Mesh(vertices, polygons, self._element_rank, self._boundaries, self._center[item], self._volume[item],
                     s(self._face_centers, item), s(self._face_normals, item), s(self._face_areas, item), s(self._face_vertices, item),
-                    s(self._vertex_connectivity, item), self._max_cell_walk)
+                    s(self._vertex_connectivity, item), None, self._max_cell_walk)
 
 
 def load_su2(file_or_mesh: str, cell_dim=instance('cells'), face_format: str = 'csc') -> Mesh:
@@ -543,6 +550,7 @@ def mesh(vertices: Geometry | Tensor,
          boundaries: str | Dict[str, List[Sequence]] | None = None,
          build_faces=True,
          build_vertex_connectivity=True,
+         build_element_connectivity=True,
          face_format: str = 'csc'):
     """
     Create a mesh from vertex positions and vertex lists.
@@ -593,22 +601,29 @@ def mesh(vertices: Geometry | Tensor,
         vol_contributions = centers.vector * normals.vector * areas / vertices.vector.size
         volume = math.sum(vol_contributions, dual)
         cell_centers = math.sum(centers * areas, dual) / math.sum(areas, dual)
-        return Mesh(vertices, elements, element_rank, boundary_slices, cell_centers, volume, centers, normals, areas, face_vertices, vertex_connectivity)
+        return Mesh(vertices, elements, element_rank, boundary_slices, cell_centers, volume, centers, normals, areas, face_vertices, vertex_connectivity, None)
     else:
         vertex_connectivity = None
         if build_vertex_connectivity:
             coo = math.to_format(elements, 'coo').numpy()
             connected_points = coo.T @ coo
-            assert np.all(connected_points.sum(axis=1) > 0), f"some vertices have no element connection at all"
+            if not np.all(connected_points.sum(axis=1) > 0):
+                warnings.warn("some vertices have no element connection at all", RuntimeWarning)
             connected_points.data = np.ones_like(connected_points.data)
             vertex_connectivity = wrap(connected_points, instance(vertices), dual(elements))
+        element_connectivity = None
+        if build_element_connectivity:
+            coo = math.to_format(elements, 'coo').numpy()
+            connected_elements = coo @ coo.T
+            connected_elements.data = np.ones_like(connected_elements.data)
+            element_connectivity = wrap(connected_elements, instance(elements), instance(elements).as_dual())
         volume = None
         if isinstance(elements, CompactSparseTensor) and element_rank == 2:
             A, B, C, *_ = unstack(vertices.center[elements._indices], dual)
             cross_area = math.vec_length(math.cross_product(B - A, C - A))
             fac = {3: 0.5, 4: 1}[dual(elements._indices).size]  # tri, quad, ...
             volume = fac * cross_area
-        return Mesh(vertices, elements, element_rank, {}, approx_center, volume, None, None, None, None, vertex_connectivity)
+        return Mesh(vertices, elements, element_rank, {}, approx_center, volume, None, None, None, None, vertex_connectivity, element_connectivity)
 
 
 def build_faces_2d(vertices: Tensor,
