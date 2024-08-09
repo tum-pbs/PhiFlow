@@ -325,7 +325,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None, implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7faceaffd700></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None, implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f00851ad550></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -2171,16 +2171,9 @@ This is the case with rotating rigid bodies, for example.</p></div>
     def __eq__(self, other):
         if not isinstance(other, Field):
             return False
-        # Check everything but __variable_attrs__ (values): elements type, extrapolation, add_overlapping
-        if type(self._geometry) is not type(other._geometry):
+        if self._geometry != other._geometry:
             return False
         if self._boundary != other.boundary:
-            return False
-        if self._values is None:
-            return other._values is None
-        if other._values is None:
-            return False
-        if self._values.shape == other._values.shape:
             return False
         return math.always_close(self._values, other._values)
 
@@ -3750,16 +3743,9 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     def __eq__(self, other):
         if not isinstance(other, Field):
             return False
-        # Check everything but __variable_attrs__ (values): elements type, extrapolation, add_overlapping
-        if type(self._geometry) is not type(other._geometry):
+        if self._geometry != other._geometry:
             return False
         if self._boundary != other.boundary:
-            return False
-        if self._values is None:
-            return other._values is None
-        if other._values is None:
-            return False
-        if self._values.shape == other._values.shape:
             return False
         return math.always_close(self._values, other._values)
 
@@ -5328,16 +5314,9 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     def __eq__(self, other):
         if not isinstance(other, Field):
             return False
-        # Check everything but __variable_attrs__ (values): elements type, extrapolation, add_overlapping
-        if type(self._geometry) is not type(other._geometry):
+        if self._geometry != other._geometry:
             return False
         if self._boundary != other.boundary:
-            return False
-        if self._values is None:
-            return other._values is None
-        if other._values is None:
-            return False
-        if self._values.shape == other._values.shape:
             return False
         return math.always_close(self._values, other._values)
 
