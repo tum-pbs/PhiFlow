@@ -1,6 +1,6 @@
 from typing import Sequence, Union
 
-from phiml.math import Tensor, channel, Shape, vec_normalize, vec, sqrt
+from phiml.math import Tensor, channel, Shape, vec_normalize, vec, sqrt, maximum, clip, vec_squared, vec_length, where, stack, dual, argmin
 from phiml.math._shape import parse_dim_order
 
 # No dependence on Geometry
@@ -60,3 +60,56 @@ def plane_sgn_dist(plane_offset: Tensor, plane_normal: Tensor, point: Tensor):
     if 'vector' in plane_offset.shape:
         plane_offset = plane_offset.vector @ plane_normal.vector
     return plane_normal.vector @ point.vector - plane_offset
+
+
+def closest_on_triangle(A: Tensor, B: Tensor, C: Tensor, query: Tensor, exact_edges=True) -> Tensor:
+    """
+    Computes the point inside the triangle spanned by `A,B,C` closest to `query`.
+
+    Args:
+        A: One corner of the triangle(s).
+        B: Second corner of the triangle(s).
+        C: Third corner of the triangle(s).
+        query: Query point.
+        exact_edges: If `True` computes the exact closest point when the projection of `query` lies outside the triangle.
+            If `False`, approximates the closest point in a faster way but may give inaccurate results.
+            Points that project inside the triangle are always accurate.
+
+    Returns:
+        `Tensor`
+    """
+    v0 = B - A
+    v1 = C - A
+    v2 = query - A
+    dot00 = v0.vector @ v0.vector
+    dot01 = v0.vector @ v1.vector
+    dot02 = v0.vector @ v2.vector
+    dot11 = v1.vector @ v1.vector
+    dot12 = v1.vector @ v2.vector
+    denom = dot00 * dot11 - dot01 * dot01  # assume != 0, i.e. triangle is not degenerate (area > 0)
+    u = (dot11 * dot02 - dot01 * dot12) / denom
+    v = (dot00 * dot12 - dot01 * dot02) / denom
+    if exact_edges:
+        closest_if_inside = A + u * v0 + v * v1
+        is_outside = (u < 0) | (v < 0) | (u + v > 1)
+        p1 = stack([A, B, C], dual('_tri_points'))
+        p2 = stack([B, C, A], dual('_tri_points'))
+        closest_on_edges = closest_on_line(p1, p2, query)
+        dist = vec_length(query - closest_on_edges)
+        closest_on_edge = closest_on_edges[argmin(dist, '~_tri_points')]
+        return where(is_outside, closest_on_edge, closest_if_inside)
+    else:
+        u = clip(u)
+        v = clip(v)
+        outside = maximum(0, u + v - 1)
+        u -= .5 * outside
+        v -= .5 * outside
+        return A + u * v0 + v * v1
+
+
+def closest_on_line(A, B, query):
+    v = B - A
+    u = query - A
+    t = u.vector @ v.vector / vec_squared(v)
+    t = clip(t, 0, 1)
+    return A + t * v
