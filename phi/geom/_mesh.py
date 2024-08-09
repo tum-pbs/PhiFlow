@@ -31,6 +31,7 @@ class Mesh(Geometry):
                  boundaries: Dict[str, Dict[str, slice]],
                  center: Tensor,
                  volume: Tensor,
+                 normals: Tensor,
                  face_centers: Optional[Tensor],
                  face_normals: Optional[Tensor],
                  face_areas: Optional[Tensor],
@@ -59,6 +60,8 @@ class Mesh(Geometry):
         self._face_normals = face_normals
         self._face_areas = face_areas
         self._face_vertices = face_vertices
+        assert isinstance(normals, Tensor) and instance(center) in normals
+        self._normals = normals
         if vertex_connectivity is None and isinstance(vertices, Graph):
             self._vertex_connectivity = vertices.connectivity
         else:
@@ -300,6 +303,10 @@ class Mesh(Geometry):
     def element_rank(self):
         return self._element_rank
 
+    @property
+    def normals(self) -> Tensor:
+        return self._normals
+
     def lies_inside(self, location: Tensor) -> Tensor:
         idx = math.find_closest(self._center, location)
         for i in range(self._max_cell_walk):
@@ -433,7 +440,7 @@ class Mesh(Geometry):
         vertices = self._vertices[item]
         polygons = self._elements[item]
         s = math.slice
-        return Mesh(vertices, polygons, self._element_rank, self._boundaries, self._center[item], self._volume[item],
+        return Mesh(vertices, polygons, self._element_rank, self._boundaries, self._center[item], self._volume[item], s(self._normals, item),
                     s(self._face_centers, item), s(self._face_normals, item), s(self._face_areas, item), s(self._face_vertices, item),
                     s(self._vertex_connectivity, item), None, self._max_cell_walk)
 
@@ -509,6 +516,8 @@ def mesh_from_numpy(points: Union[list, np.ndarray],
                     boundaries: str | Dict[str, List[Sequence]] | None = None,
                     build_faces=True,
                     build_vertex_connectivity=True,
+                    build_normals = True,
+                    normals=None,
                     cell_dim: Shape = instance('cells'),
                     face_format: str = 'csc') -> Mesh:
     """
@@ -534,7 +543,7 @@ def mesh_from_numpy(points: Union[list, np.ndarray],
     try:
         elements_np = np.stack(polygons).astype(np.int32)
     except ValueError:
-        vertex_count = wrap([len(e) for e in polygons], cell_dim)
+        vertex_count = math.to_int32(wrap([len(e) for e in polygons], cell_dim))
         max_len = vertex_count.max
         elements_np = np.zeros((len(polygons), max_len), dtype=np.int32) - 1
         for i, element in enumerate(polygons):
@@ -542,7 +551,9 @@ def mesh_from_numpy(points: Union[list, np.ndarray],
     xyz = tuple('xyz'[:points.shape[-1]])
     vertices = wrap(points, instance('vertices'), channel(vector=xyz))
     polygons = wrap(elements_np, cell_dim, spatial('vertex_index'))
-    return mesh(vertices, polygons, boundaries, build_faces=build_faces, build_vertex_connectivity=build_vertex_connectivity, face_format=face_format)
+    if normals is not None:
+        normals = wrap(normals, cell_dim, channel(vector=xyz))
+    return mesh(vertices, polygons, boundaries, build_faces=build_faces, build_vertex_connectivity=build_vertex_connectivity, build_normals=build_normals, face_format=face_format, normals=normals)
 
 
 def mesh(vertices: Geometry | Tensor,
@@ -551,6 +562,8 @@ def mesh(vertices: Geometry | Tensor,
          build_faces=True,
          build_vertex_connectivity=True,
          build_element_connectivity=True,
+         build_normals=True,
+         normals=None,
          face_format: str = 'csc'):
     """
     Create a mesh from vertex positions and vertex lists.
@@ -623,7 +636,9 @@ def mesh(vertices: Geometry | Tensor,
             cross_area = math.vec_length(math.cross_product(B - A, C - A))
             fac = {3: 0.5, 4: 1}[dual(elements._indices).size]  # tri, quad, ...
             volume = fac * cross_area
-        return Mesh(vertices, elements, element_rank, {}, approx_center, volume, None, None, None, None, vertex_connectivity, element_connectivity)
+        if normals is None and build_normals:
+            normals = extrinsic_normals(vertices.center, elements)
+        return Mesh(vertices, elements, element_rank, {}, approx_center, volume, normals, None, None, None, None, vertex_connectivity, element_connectivity)
 
 
 def build_faces_2d(vertices: Tensor,
@@ -856,16 +871,23 @@ def build_quadrilaterals(vert_pos, resolution: Shape, obstacles: Dict[str, Geome
     return vert_pos, polygons, boundaries
 
 
-def extrinsic_normals(mesh: Mesh):
-    corners = mesh.vertices.center[mesh.elements._indices]
+def tri_points(mesh: Mesh):
+    corners = mesh.vertices.center[mesh._elements._indices]
+    assert dual(corners).size == 3, f"signed distance currently only supports triangles"
+    return unstack(corners, dual)
+
+
+def extrinsic_normals(vertices: Tensor, elements: Tensor):
+    corners = vertices[elements._indices]
     assert dual(corners).size == 3, f"signed distance currently only supports triangles"
     A, B, C = unstack(corners, dual)
     return math.vec_normalize(math.cross_product(B-A, C-A))
 
 
-def vertex_normals(mesh: Mesh, face_normals: Tensor = None):
+def vertex_normals(mesh: Mesh):
+    face_normals = mesh._normals
     if face_normals is None:
-        face_normals = extrinsic_normals(mesh)
+        face_normals = extrinsic_normals(mesh.vertices.center, mesh.elements)
     v_normals = math.mean(mesh.elements * face_normals, instance)  # (~vertices,vector)
     return math.vec_normalize(v_normals)
 
@@ -896,6 +918,7 @@ def save_tri_mesh(file: str, mesh: Mesh):
         f = math.reshaped_numpy(mesh._elements._indices, [instance, dual])
     else:
         raise NotImplementedError
+    print(f"Saving triangle mesh with {v.shape[0]} vertices and {f.shape[0]} faces to {file}")
     np.savez(file, vertices=v, faces=f, f_dim=instance(mesh).name, vertex_dim=instance(mesh.vertices).name, vector=mesh.vector.item_names)
 
 
@@ -907,3 +930,17 @@ def load_tri_mesh(file: str, convert=False) -> Mesh:
     faces = tensor(data['faces'], f_dim, vertex_dim.as_spatial(), convert=convert)
     vertices = tensor(data['vertices'], vertex_dim, vector, convert=convert)
     return mesh(vertices, faces, build_faces=False, build_vertex_connectivity=True)
+
+
+def decimate_tri_mesh(mesh: Mesh, factor=.1, target_max=1000,):
+    if instance(mesh).volume == 0:
+        return mesh
+    import pyfqmr
+    mesh_simplifier = pyfqmr.Simplify()
+    vertices = math.reshaped_numpy(mesh.vertices.center, [instance, 'vector'])
+    faces = math.reshaped_numpy(mesh.elements._indices, [instance, dual])
+    target_count = min(target_max, int(round(instance(mesh).volume * factor)))
+    mesh_simplifier.setMesh(vertices, faces)
+    mesh_simplifier.simplify_mesh(target_count=target_count, aggressiveness=7, preserve_border=False)
+    vertices, faces, normals = mesh_simplifier.getMesh()
+    return mesh_from_numpy(vertices, faces, normals=normals, build_faces=False, build_vertex_connectivity=mesh._vertex_connectivity is not None, cell_dim=instance(mesh))

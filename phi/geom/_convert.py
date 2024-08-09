@@ -44,17 +44,16 @@ def as_sdf(geo: Geometry, rel_margin=.1, abs_margin=0., separate: DimFilter = No
             np_sdf_c = lambda x: np.clip(np_sdf(x), -float(bounds.size.min) / 2, float(bounds.size.max))
             return numpy_sdf(np_sdf_c, bounds, geo.bounding_box().center)
         elif method == 'closest-face':
-            normals = extrinsic_normals(geo)
-            face_size = math.sqrt(geo.volume) * 4
             def sdf_closest_face(location):
                 closest_elem = math.find_closest(geo.center, location)
                 center = geo.center[closest_elem]
-                normal = normals[closest_elem]
+                normal = geo.normals[closest_elem]
                 return plane_sgn_dist(center, normal, location)
             def sdf_and_grad(location):  # for close distances < face_size use normal vector, for far distances use distance from center
                 closest_elem = math.find_closest(geo.center, location)
                 center = geo.center[closest_elem]
-                normal = normals[closest_elem]
+                normal = geo.normals[closest_elem]
+                face_size = math.sqrt(geo.volume) * 4
                 size = face_size[closest_elem]
                 sgn_dist = plane_sgn_dist(center, normal, location)
                 outward = math.where(abs(sgn_dist) < size, normal, math.vec_normalize(location - center))
