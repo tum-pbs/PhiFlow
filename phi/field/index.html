@@ -325,7 +325,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None, implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f00851ad550></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None, implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f71bf3b3550></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -1680,7 +1680,7 @@ This is the case with rotating rigid bodies, for example.</p></div>
         &#34;&#34;&#34;
         if self.is_staggered and self.is_grid:
             return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
-        return self._geometry.shape.non_channel &amp; self._values
+        return self._geometry.shape.without(&#39;vector&#39;) &amp; self._values
 
     @property
     def resolution(self):
@@ -2734,7 +2734,7 @@ def shape(self) -&gt; Shape:
     &#34;&#34;&#34;
     if self.is_staggered and self.is_grid:
         return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
-    return self._geometry.shape.non_channel &amp; self._values</code></pre>
+    return self._geometry.shape.without(&#39;vector&#39;) &amp; self._values</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.spatial_rank"><code class="name">prop <span class="ident">spatial_rank</span> : int</code></dt>
@@ -3252,7 +3252,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         &#34;&#34;&#34;
         if self.is_staggered and self.is_grid:
             return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
-        return self._geometry.shape.non_channel &amp; self._values
+        return self._geometry.shape.without(&#39;vector&#39;) &amp; self._values
 
     @property
     def resolution(self):
@@ -4306,7 +4306,7 @@ def shape(self) -&gt; Shape:
     &#34;&#34;&#34;
     if self.is_staggered and self.is_grid:
         return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
-    return self._geometry.shape.non_channel &amp; self._values</code></pre>
+    return self._geometry.shape.without(&#39;vector&#39;) &amp; self._values</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.spatial_rank"><code class="name">prop <span class="ident">spatial_rank</span> : int</code></dt>
@@ -4823,7 +4823,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         &#34;&#34;&#34;
         if self.is_staggered and self.is_grid:
             return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
-        return self._geometry.shape.non_channel &amp; self._values
+        return self._geometry.shape.without(&#39;vector&#39;) &amp; self._values
 
     @property
     def resolution(self):
@@ -5877,7 +5877,7 @@ def shape(self) -&gt; Shape:
     &#34;&#34;&#34;
     if self.is_staggered and self.is_grid:
         return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
-    return self._geometry.shape.non_channel &amp; self._values</code></pre>
+    return self._geometry.shape.without(&#39;vector&#39;) &amp; self._values</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.spatial_rank"><code class="name">prop <span class="ident">spatial_rank</span> : int</code></dt>
