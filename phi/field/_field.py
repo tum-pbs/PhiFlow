@@ -207,7 +207,7 @@ class Field:
         """
         if self.is_staggered and self.is_grid:
             return batch(self._geometry) & self.resolution & non_dual(self._values).without(self.resolution) & self._geometry.shape['vector']
-        return self._geometry.shape.non_channel & self._values
+        return self._geometry.shape.without('vector') & self._values
 
     @property
     def resolution(self):
