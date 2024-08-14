@@ -36,8 +36,9 @@ class Mesh(Geometry):
                  face_normals: Optional[Tensor],
                  face_areas: Optional[Tensor],
                  face_vertices: Optional[Tensor],
-                 vertex_connectivity: Optional[Tensor] = None,
-                 element_connectivity: Optional[Tensor] = None,
+                 vertex_normals: Optional[Tensor],
+                 vertex_connectivity: Optional[Tensor],
+                 element_connectivity: Optional[Tensor],
                  max_cell_walk: int = None):
         """
         Args:
@@ -67,6 +68,8 @@ class Mesh(Geometry):
         else:
             assert vertex_connectivity is None or (isinstance(vertex_connectivity, Tensor) and instance(self._vertices) in vertex_connectivity.shape), f"Illegal vertex connectivity: {vertex_connectivity}"
             self._vertex_connectivity = vertex_connectivity
+        assert dual(vertex_normals).rank == 1 and instance(vertex_normals).rank == 0
+        self._vertex_normals = vertex_normals
         assert element_connectivity is None or isinstance(element_connectivity, Tensor), f"element_connectivity must be a Tensor"
         self._element_connectivity = element_connectivity
         if face_areas is not None or face_centers is not None or face_normals is not None:
@@ -273,7 +276,9 @@ class Mesh(Geometry):
         new_index = np.cumsum(has_element) - 1
         new_index_t = wrap(new_index, dual(self._elements))
         has_element = wrap(has_element, instance(self._vertices))
+        has_element_d = si2d(has_element)
         vertices = self._vertices[has_element]
+        v_normals = self._vertex_normals[has_element_d]
         vertex_connectivity = None
         if self._vertex_connectivity is not None:
             vertex_connectivity = math.stored_indices(self._vertex_connectivity).index.as_batch()
@@ -285,7 +290,7 @@ class Mesh(Geometry):
         else:
             filtered_coo = coo_matrix((coo.data, (coo.row, new_index)), shape=(instance(self._elements).volume, instance(vertices).volume))  # ToDo keep sparse format
             elements = wrap(filtered_coo, self._elements.shape.without_sizes())
-        return Mesh(vertices, elements, self._element_rank, self._boundaries, self._center, self._volume, self._normals, self._face_centers, self._face_normals, self._face_areas, None, vertex_connectivity, self._element_connectivity, self._max_cell_walk)
+        return Mesh(vertices, elements, self._element_rank, self._boundaries, self._center, self._volume, self._normals, self._face_centers, self._face_normals, self._face_areas, None, v_normals, vertex_connectivity, self._element_connectivity, self._max_cell_walk)
 
     @property
     def elements(self):
@@ -306,6 +311,14 @@ class Mesh(Geometry):
     @property
     def normals(self) -> Tensor:
         return self._normals
+
+    @property
+    def vertex_normals(self) -> Tensor:
+        return self._vertex_normals  # dual dim
+
+    @property
+    def vertex_positions(self) -> Tensor:
+        return si2d(self._vertices.center)  # dual dim
 
     def lies_inside(self, location: Tensor) -> Tensor:
         idx = math.find_closest(self._center, location)
@@ -417,7 +430,7 @@ class Mesh(Geometry):
         else:  # shift everything
             vertices = self._vertices.shifted(delta)
             center = self._center + delta
-            return Mesh(vertices, self._elements, self._element_rank, self._boundaries, center, self._volume, self._face_centers, self._face_normals, self._face_areas, self._face_vertices, self._vertex_connectivity, self._element_connectivity, self._max_cell_walk)
+            return Mesh(vertices, self._elements, self._element_rank, self._boundaries, center, self._volume, self._normals, self._face_centers, self._face_normals, self._face_areas, self._face_vertices, self._vertex_normals, self._vertex_connectivity, self._element_connectivity, self._max_cell_walk)
 
     def rotated(self, angle: Union[float, Tensor]) -> 'Geometry':
         raise NotImplementedError
@@ -428,21 +441,21 @@ class Mesh(Geometry):
         center = scale(Point(self._center), factor, pivot).center
         volume = self._volume * factor**self._element_rank if self._volume is not None else None
         face_areas = None
-        return Mesh(vertices, self._elements, self._element_rank, self._boundaries, center, volume, self._face_centers, self._face_normals, face_areas, self._face_vertices, self._vertex_connectivity, self._element_connectivity, self._max_cell_walk)
+        return Mesh(vertices, self._elements, self._element_rank, self._boundaries, center, volume, self._normals, self._face_centers, self._face_normals, face_areas, self._face_vertices, self._vertex_normals, self._vertex_connectivity, self._element_connectivity, self._max_cell_walk)
 
     def __getitem__(self, item):
         item: dict = slicing_dict(self, item)
         assert not spatial(self._elements).only(tuple(item)), f"Cannot slice vertex lists ('{spatial(self._elements)}') but got slicing dict {item}"
         assert not instance(self._vertices).only(tuple(item)), f"Slicing by vertex indices ('{instance(self._vertices)}') not supported but got slicing dict {item}"
         cells = instance(self.shape).name
-        if cells in item and isinstance(item['cells'], int):
+        if cells in item and isinstance(item[cells], int):
             item[cells] = slice(item[cells], item[cells] + 1)
         vertices = self._vertices[item]
         polygons = self._elements[item]
         s = math.slice
         return Mesh(vertices, polygons, self._element_rank, self._boundaries, self._center[item], self._volume[item], s(self._normals, item),
                     s(self._face_centers, item), s(self._face_normals, item), s(self._face_areas, item), s(self._face_vertices, item),
-                    s(self._vertex_connectivity, item), None, self._max_cell_walk)
+                    s(self._vertex_normals, item), s(self._vertex_connectivity, item), None, self._max_cell_walk)
 
 
 def load_su2(file_or_mesh: str, cell_dim=instance('cells'), face_format: str = 'csc') -> Mesh:
@@ -614,7 +627,7 @@ def mesh(vertices: Geometry | Tensor,
         vol_contributions = centers.vector * normals.vector * areas / vertices.vector.size
         volume = math.sum(vol_contributions, dual)
         cell_centers = math.sum(centers * areas, dual) / math.sum(areas, dual)
-        return Mesh(vertices, elements, element_rank, boundary_slices, cell_centers, volume, centers, normals, areas, face_vertices, vertex_connectivity, None)
+        return Mesh(vertices, elements, element_rank, boundary_slices, cell_centers, volume, centers, normals, areas, face_vertices, None, vertex_connectivity, None)
     else:
         vertex_connectivity = None
         if build_vertex_connectivity:
@@ -638,7 +651,10 @@ def mesh(vertices: Geometry | Tensor,
             volume = fac * cross_area
         if normals is None and build_normals:
             normals = extrinsic_normals(vertices.center, elements)
-        return Mesh(vertices, elements, element_rank, {}, approx_center, volume, normals, None, None, None, None, vertex_connectivity, element_connectivity)
+        v_normals = None
+        if build_normals:
+            v_normals = vertex_normals(elements, normals)
+        return Mesh(vertices, elements, element_rank, {}, approx_center, volume, normals, None, None, None, None, v_normals, vertex_connectivity, element_connectivity)
 
 
 def build_faces_2d(vertices: Tensor,
@@ -884,20 +900,13 @@ def extrinsic_normals(vertices: Tensor, elements: Tensor):
     return math.vec_normalize(math.cross_product(B-A, C-A))
 
 
-def vertex_normals(mesh: Mesh):
-    face_normals = mesh._normals
-    if face_normals is None:
-        face_normals = extrinsic_normals(mesh.vertices.center, mesh.elements)
-    v_normals = math.mean(mesh.elements * face_normals, instance)  # (~vertices,vector)
+def vertex_normals(elements: Tensor, face_normals: Tensor):
+    v_normals = math.mean(elements * face_normals, instance)  # (~vertices,vector)
     return math.vec_normalize(v_normals)
 
 
-def face_curvature(mesh: Mesh, normals: Tensor = None):
-    if isinstance(normals, Tensor) and ('vertex' in instance(normals) or '~normals' in dual(normals)):
-        v_normals = normals
-    else:
-        v_normals = vertex_normals(mesh, normals)
-    v_normals = mesh.elements * si2d(v_normals)
+def face_curvature(mesh: Mesh):
+    v_normals = mesh.elements * si2d(mesh.v_normals)
     # v_offsets = mesh.elements * si2d(mesh.vertices.center) - mesh.center
 
     corners = mesh.vertices.center[mesh.elements._indices]
@@ -929,7 +938,7 @@ def load_tri_mesh(file: str, convert=False) -> Mesh:
     vector = channel(vector=[str(d) for d in data['vector']])
     faces = tensor(data['faces'], f_dim, vertex_dim.as_spatial(), convert=convert)
     vertices = tensor(data['vertices'], vertex_dim, vector, convert=convert)
-    return mesh(vertices, faces, build_faces=False, build_vertex_connectivity=True)
+    return mesh(vertices, faces, build_faces=False, build_vertex_connectivity=True, build_normals=True)
 
 
 def decimate_tri_mesh(mesh: Mesh, factor=.1, target_max=1000,):
