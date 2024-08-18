@@ -1,14 +1,12 @@
 import numpy as np
-from phiml import math
-from phiml.math import wrap, instance, tensor, dual, batch, DimFilter, unstack
-from phiml.math._sparse import CompactSparseTensor
-from ._functions import plane_sgn_dist
 
-from ._geom import Geometry
+from phiml import math
+from phiml.math import wrap, instance, tensor, batch, DimFilter
 from ._box import Cuboid, BaseBox
+from ._functions import plane_sgn_dist
+from ._geom import Geometry
+from ._mesh import Mesh, mesh_from_numpy
 from ._sdf import SDF, numpy_sdf
-from ._mesh import Mesh, extrinsic_normals
-from ._graph import Graph
 
 
 def as_sdf(geo: Geometry, rel_margin=.1, abs_margin=0., separate: DimFilter = None, method='auto') -> SDF:
@@ -107,14 +105,11 @@ def surface_mesh(geo: Geometry, rel_dx: float = None, abs_dx: float = None, remo
         mesh = np.stack(mesh)
         if remove_duplicates:
             vert, idx, inv, c = np.unique(mesh, axis=0, return_counts=True, return_index=True, return_inverse=True)
-            vert = tensor(vert, instance('vertex'), sdf.shape['vector'])
             tris_np = inv.reshape((-1, 3))
         else:
-            vert = mesh
             raise NotImplementedError  # this is actually the simpler case
-            tris_np = np.arange(vert.shape[0]).reshape((-1, 3))
-        tris = wrap(tris_np, instance('face'), dual('vertex'))
-        tris = CompactSparseTensor(tris, wrap(1), vert.shape['vertex'].as_dual(), True)
-        # vert_graph = Graph(vert, None, {})
-        return Mesh(vert, tris, 2, {}, None, None, None, None, None, None)
+            # vert = mesh
+            # tris_np = np.arange(vert.shape[0]).reshape((-1, 3))
+        with math.NUMPY:
+            return mesh_from_numpy(vert, tris_np, element_rank=2, build_faces=False, build_vertex_connectivity=False, build_normals=False)
     return math.map(generate_mesh, geo, rel_dx, abs_dx, dims=batch)
