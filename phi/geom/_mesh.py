@@ -31,7 +31,7 @@ class Mesh(Geometry):
                  boundaries: Dict[str, Dict[str, slice]],
                  center: Tensor,
                  volume: Tensor,
-                 normals: Tensor,
+                 normals: Optional[Tensor],
                  face_centers: Optional[Tensor],
                  face_normals: Optional[Tensor],
                  face_areas: Optional[Tensor],
@@ -61,14 +61,14 @@ class Mesh(Geometry):
         self._face_normals = face_normals
         self._face_areas = face_areas
         self._face_vertices = face_vertices
-        assert isinstance(normals, Tensor) and instance(center) in normals
+        assert normals is None or (isinstance(normals, Tensor) and instance(center) in normals)
         self._normals = normals
         if vertex_connectivity is None and isinstance(vertices, Graph):
             self._vertex_connectivity = vertices.connectivity
         else:
             assert vertex_connectivity is None or (isinstance(vertex_connectivity, Tensor) and instance(self._vertices) in vertex_connectivity.shape), f"Illegal vertex connectivity: {vertex_connectivity}"
             self._vertex_connectivity = vertex_connectivity
-        assert dual(vertex_normals).rank == 1 and instance(vertex_normals).rank == 0
+        assert vertex_normals is None or (dual(vertex_normals).rank == 1 and instance(vertex_normals).rank == 0)
         self._vertex_normals = vertex_normals
         assert element_connectivity is None or isinstance(element_connectivity, Tensor), f"element_connectivity must be a Tensor"
         self._element_connectivity = element_connectivity
@@ -527,6 +527,7 @@ def load_gmsh(file: str, boundary_names: Sequence[str] = None, cell_dim=instance
 def mesh_from_numpy(points: Union[list, np.ndarray],
                     polygons: list,
                     boundaries: str | Dict[str, List[Sequence]] | None = None,
+                    element_rank: int = None,
                     build_faces=True,
                     build_vertex_connectivity=True,
                     build_normals = True,
@@ -566,12 +567,13 @@ def mesh_from_numpy(points: Union[list, np.ndarray],
     polygons = wrap(elements_np, cell_dim, spatial('vertex_index'))
     if normals is not None:
         normals = wrap(normals, cell_dim, channel(vector=xyz))
-    return mesh(vertices, polygons, boundaries, build_faces=build_faces, build_vertex_connectivity=build_vertex_connectivity, build_normals=build_normals, face_format=face_format, normals=normals)
+    return mesh(vertices, polygons, boundaries, element_rank=element_rank, build_faces=build_faces, build_vertex_connectivity=build_vertex_connectivity, build_normals=build_normals, face_format=face_format, normals=normals)
 
 
 def mesh(vertices: Geometry | Tensor,
          elements: Tensor,
          boundaries: str | Dict[str, List[Sequence]] | None = None,
+         element_rank: int = None,
          build_faces=True,
          build_vertex_connectivity=True,
          build_element_connectivity=True,
@@ -607,13 +609,14 @@ def mesh(vertices: Geometry | Tensor,
         values = expand(1, non_batch(indices))
         elements = CompactSparseTensor(indices, values, instance(vertices).as_dual(), instance(elements))
     assert instance(vertices).as_dual() in elements.shape, f"elements must have the instance dim of vertices {instance(vertices)} but got {shape(elements)}"
-    if vertices.vector.size == 2:
-        element_rank = 2
-    elif vertices.vector.size == 3:
-        min_vertices = math.min(math.sum(elements, instance(vertices).as_dual()))
-        element_rank = 2 if min_vertices <= 4 else 3  # assume tri or quad mesh
-    else:
-        raise ValueError(vertices.vector.size)
+    if element_rank is None:
+        if vertices.vector.size == 2:
+            element_rank = 2
+        elif vertices.vector.size == 3:
+            min_vertices = math.min(math.sum(elements, instance(vertices).as_dual()))
+            element_rank = 2 if min_vertices <= 4 else 3  # assume tri or quad mesh
+        else:
+            raise ValueError(vertices.vector.size)
     vertex_count = math.sum(elements, instance(vertices).as_dual())
     approx_center = (elements @ vertices.center) / vertex_count
     # --- build faces ---
