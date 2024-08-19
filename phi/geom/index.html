@@ -6045,7 +6045,16 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
         return sgn_dist, delta, normal, offset, face_index
 
     def sample_uniform(self, *shape: math.Shape):
-        raise NotImplementedError(&#39;Not yet implemented&#39;)  # ToDo
+        # --- Choose a distance from the center of the sphere, equally weighted by mass ---
+        uniform = math.random_uniform(self.shape.non_singleton.without(&#39;vector&#39;), *shape)
+        if self.spatial_rank == 1:
+            r = self.radius * uniform
+        else:
+            r = self.radius * (uniform ** (1 / self.spatial_rank))
+        # --- Uniformly sample a unit vector for direction over the surface of the sphere (Muller 1959, Marsaglia 1972) ---
+        unit_vector = math.random_normal(self.shape.non_singleton.without(&#39;vector&#39;), *shape, self.shape[&#39;vector&#39;])
+        unit_vector /= math.vec_length(unit_vector, vec_dim=&#39;vector&#39;)
+        return self.center + r * unit_vector
 
     def bounding_radius(self):
         return self.radius
