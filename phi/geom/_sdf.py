@@ -24,7 +24,7 @@ class SDF(Geometry):
         """
         self._sdf = sdf
         if out_shape is not None:
-            self._out_shape = out_shape
+            self._out_shape = out_shape or math.EMPTY_SHAPE
         else:
             dims = channel([bounds, center, bounding_radius])
             assert 'vector' in dims, f"If out_shape is not specified, either bounds, center or bounding_radius must be given."
@@ -114,7 +114,7 @@ class SDF(Geometry):
 
     @property
     def face_shape(self) -> Shape:
-        raise NotImplementedError(f"SDF does not support boundaries")
+        return math.EMPTY_SHAPE
 
     @property
     def corners(self) -> Tensor:
