@@ -585,7 +585,10 @@ def invert(geometry: Geometry):
     return ~geometry
 
 
-class _NoGeometry(Geometry):
+class NoGeometry(Geometry):
+
+    def __init__(self, vector: Shape):
+        self._shape = vector
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
@@ -598,7 +601,7 @@ class _NoGeometry(Geometry):
 
     @property
     def shape(self):
-        return EMPTY_SHAPE
+        return self._shape
 
     @property
     def volume(self) -> Tensor:
@@ -633,7 +636,7 @@ class _NoGeometry(Geometry):
         raise AssertionError('empty geometry cannot be unstacked')
 
     def __eq__(self, other):
-        return isinstance(other, _NoGeometry)
+        return isinstance(other, NoGeometry)
 
     def __hash__(self):
         return 1
@@ -647,9 +650,6 @@ class _NoGeometry(Geometry):
 
     def interior(self) -> 'Geometry':
         raise GeometryException("Empty geometry does not have an interior")
-
-
-NO_GEOMETRY = _NoGeometry()
 
 
 class Point(Geometry):

@@ -1,10 +1,10 @@
 import numpy as np
 
 from phiml import math
-from phiml.math import wrap, instance, tensor, batch, DimFilter
+from phiml.math import wrap, instance, batch, DimFilter
 from ._box import Cuboid, BaseBox
 from ._functions import plane_sgn_dist
-from ._geom import Geometry
+from ._geom import Geometry, NoGeometry
 from ._mesh import Mesh, mesh_from_numpy
 from ._sdf import SDF, numpy_sdf
 
@@ -101,7 +101,7 @@ def surface_mesh(geo: Geometry, rel_dx: float = None, abs_dx: float = None, remo
             return sdf_val.numpy()
         mesh = generate(np_sdf, float(dx), bounds=(lo, up), workers=1, batch_size=1024*1024)
         if not mesh:
-            raise ValueError(f"No surface found from SDF in between {lo} and {up}")
+            return NoGeometry(geo.shape['vector'])
         mesh = np.stack(mesh)
         if remove_duplicates:
             vert, idx, inv, c = np.unique(mesh, axis=0, return_counts=True, return_index=True, return_inverse=True)

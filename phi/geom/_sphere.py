@@ -2,7 +2,7 @@ from typing import Union, Dict, Tuple
 
 from phi import math
 from phiml.math import Shape, dual, PI, non_channel, instance
-from ._geom import Geometry, _keep_vector, NO_GEOMETRY
+from ._geom import Geometry, _keep_vector
 from ..math import wrap, Tensor, expand
 from ..math.magic import slicing_dict
 

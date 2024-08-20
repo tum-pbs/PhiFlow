@@ -10,7 +10,7 @@ from phiml.math._tensors import object_dims
 from phiml.math.magic import PhiTreeNode
 
 from ._box import bounding_box, Box
-from ._geom import Geometry, NO_GEOMETRY, rotate
+from ._geom import Geometry, NoGeometry, rotate
 from ._geom import InvertedGeometry
 from ..math import Tensor, instance
 from ..math.magic import slicing_dict
@@ -200,7 +200,8 @@ def union(*geometries, dim=instance('union')) -> Geometry:
     if len(geometries) == 1 and isinstance(geometries[0], (tuple, list)):
         geometries = geometries[0]
     if len(geometries) == 0:
-        return NO_GEOMETRY
+        warnings.warn("Empty union cannot in fer dimensionality. Return 0-dimensional object.")
+        return NoGeometry(math.channel(vector=0))
     elif len(geometries) == 1:
         return geometries[0]
     elif all(type(g) == type(geometries[0]) and isinstance(g, PhiTreeNode) for g in geometries):
