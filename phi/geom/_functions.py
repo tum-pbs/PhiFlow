@@ -51,7 +51,7 @@ def plane_sgn_dist(plane_offset: Tensor, plane_normal: Tensor, point: Tensor):
     """
     Args:
         plane_offset: Either any point on the plane or the plane's signed distance from origin.
-        plane_normal: Normal vector of plane.
+        plane_normal: Normal vector of plane. This vector is assumed to be normalized.
         point: Query point.
 
     Returns:
