@@ -10,7 +10,7 @@ from phiml.math._sparse import CompactSparseTensor
 from phiml.math.extrapolation import as_extrapolation
 from phiml.math.magic import slicing_dict
 from ._functions import plane_sgn_dist
-from ._geom import Geometry, Point, scale
+from ._geom import Geometry, Point, scale, NoGeometry
 from ._box import Box, BaseBox
 from ._graph import Graph, graph
 from .. import math
@@ -945,6 +945,8 @@ def load_tri_mesh(file: str, convert=False) -> Mesh:
 
 
 def decimate_tri_mesh(mesh: Mesh, factor=.1, target_max=1000,):
+    if isinstance(mesh, NoGeometry):
+        return mesh
     if instance(mesh).volume == 0:
         return mesh
     import pyfqmr
