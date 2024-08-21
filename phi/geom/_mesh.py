@@ -909,7 +909,7 @@ def vertex_normals(elements: Tensor, face_normals: Tensor):
 
 
 def face_curvature(mesh: Mesh):
-    v_normals = mesh.elements * si2d(mesh.v_normals)
+    v_normals = mesh.elements * si2d(mesh.vertex_normals)
     # v_offsets = mesh.elements * si2d(mesh.vertices.center) - mesh.center
 
     corners = mesh.vertices.center[mesh.elements._indices]
