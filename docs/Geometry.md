@@ -51,6 +51,8 @@ Rotation: `geometry.rotate(angle)`
 
 Union: `union(geometries)`
 
+Intersection: `intersection(geometries)`
+
 Geometries can be inverted using the `~` operator, i.e. the results of 
 `lies_inside`, `approximate_signed_distance` and `approximate_fraction_inside` return the inverse values.
 
