@@ -88,7 +88,7 @@ def surface_mesh(geo: Geometry, rel_dx: float = None, abs_dx: float = None, remo
         raise NotImplementedError("Only 3D SDF currently supported")
     if rel_dx is None and abs_dx is None:
         rel_dx = 0.01
-    from sdf.mesh import generate  # https://github.com/fogleman/sdf  pip install git+https://github.com/fogleman/sdf.git
+    from ._marching_cubes import generate
     def generate_mesh(geo: Geometry, rel_dx, abs_dx):
         rel_dx = None if rel_dx is None else rel_dx * geo.bounding_radius().max
         dx = math.minimum(rel_dx, abs_dx, allow_none=True)
