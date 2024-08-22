@@ -154,7 +154,8 @@ class UniformGrid(BaseBox):
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
         from ._geom_ops import GeometryStack
-        return GeometryStack(math.layout(values, dim))
+        set_op = kwargs.get('set_op')
+        return GeometryStack(math.layout(values, dim), set_op)
 
     def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'UniformGrid':
         resolution = math.rename_dims(self._resolution, dims, new_dims).spatial
