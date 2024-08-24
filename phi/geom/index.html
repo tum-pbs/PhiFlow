@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
-<meta name="generator" content="pdoc3 0.11.0">
+<meta name="generator" content="pdoc3 0.11.1">
 <title>phi.geom API documentation</title>
 <meta name="description" content="Differentiable geometry package …">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
@@ -110,7 +110,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 </code></pre></div>
 </dd>
 <dt id="phi.geom.embed"><code class="name flex">
-<span>def <span class="ident">embed</span></span>(<span>geometry: phi.geom._geom.Geometry, projected_dims: Union[phiml.math._shape.Shape, str, tuple, list, None]) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">embed</span></span>(<span>geometry: phi.geom._geom.Geometry, projected_dims: Union[phiml.math._shape.Shape, str, tuple, list, ForwardRef(None)]) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Adds fake spatial dimensions to a geometry.
@@ -148,6 +148,22 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></p></div>
+</dd>
+<dt id="phi.geom.intersection"><code class="name flex">
+<span>def <span class="ident">intersection</span></span>(<span>*geometries, dim=(intersectionⁱ=None)) ‑> phi.geom._geom.Geometry</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Intersection of the given geometries.
+A point lies inside the union if it lies within all of the geometries.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>*geometries</code></strong></dt>
+<dd>arbitrary geometries with same spatial dims. Arbitrary batch dims are allowed.</dd>
+<dt><strong><code>dim</code></strong></dt>
+<dd>Intersection dimension. This must be an instance dimension.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>intersection <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></p></div>
 </dd>
 <dt id="phi.geom.invert"><code class="name flex">
 <span>def <span class="ident">invert</span></span>(<span>geometry: phi.geom._geom.Geometry)</span>
@@ -201,7 +217,7 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
 <p><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code></p></div>
 </dd>
 <dt id="phi.geom.mesh"><code class="name flex">
-<span>def <span class="ident">mesh</span></span>(<span>vertices: phiml.math._tensors.Tensor, polygons: phiml.math._tensors.Tensor, boundaries: Union[str, Dict[str, List[Sequence[+T_co]]]], face_format: str = 'csc')</span>
+<span>def <span class="ident">mesh</span></span>(<span>vertices: phiml.math._tensors.Tensor, polygons: phiml.math._tensors.Tensor, boundaries: Union[str, Dict[str, List[Sequence]]], face_format: str = 'csc')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a mesh from vertex positions and vertex lists.</p>
@@ -224,7 +240,7 @@ The <code>boundaries</code> <code>dict</code> maps boundary names to a list of e
 <p><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code></p></div>
 </dd>
 <dt id="phi.geom.mesh_from_numpy"><code class="name flex">
-<span>def <span class="ident">mesh_from_numpy</span></span>(<span>points: Union[list, numpy.ndarray], polygons: list, boundaries: Dict[str, List[Sequence[+T_co]]], cell_dim: phiml.math._shape.Shape = (cellsⁱ=None), face_format: str = 'csc') ‑> phi.geom._mesh.Mesh</span>
+<span>def <span class="ident">mesh_from_numpy</span></span>(<span>points: Union[list, numpy.ndarray], polygons: list, boundaries: Dict[str, List[Sequence]], cell_dim: phiml.math._shape.Shape = (cellsⁱ=None), face_format: str = 'csc') ‑> phi.geom._mesh.Mesh</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Construct an unstructured mesh from vertices.</p>
@@ -1026,7 +1042,7 @@ Returns:</p></div>
 </dd>
 <dt id="phi.geom.Box"><code class="flex name class">
 <span>class <span class="ident">Box</span></span>
-<span>(</span><span>lower: phiml.math._tensors.Tensor = None, upper: phiml.math._tensors.Tensor = None, **size: Union[float, phiml.math._tensors.Tensor, tuple, list, None])</span>
+<span>(</span><span>lower: phiml.math._tensors.Tensor = None, upper: phiml.math._tensors.Tensor = None, **size: Union[float, phiml.math._tensors.Tensor, tuple, list, ForwardRef(None)])</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Simple cuboid defined by location of lower and upper corner in physical space.</p>
@@ -1134,6 +1150,12 @@ Returns:</p></div>
         if not dim:
             return self
         return Box(math.min(self._lower, dim), math.max(self._upper, dim))
+
+    def smallest(self, dim: DimFilter) -&gt; &#39;Box&#39;:
+        dim = self.shape.without(&#39;vector&#39;).only(dim)
+        if not dim:
+            return self
+        return Box(math.max(self._lower, dim), math.min(self._upper, dim))
 
     def __variable_attrs__(self):
         return &#39;_lower&#39;, &#39;_upper&#39;
@@ -1396,6 +1418,12 @@ Either</p>
 <dt><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
 <dd>shifted geometry</dd>
 </dl></div>
+</dd>
+<dt id="phi.geom.Box.smallest"><code class="name flex">
+<span>def <span class="ident">smallest</span></span>(<span>self, dim: Union[str, tuple, list, set, ForwardRef('Shape'), Callable]) ‑> phi.geom._box.Box</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.without"><code class="name flex">
 <span>def <span class="ident">without</span></span>(<span>self, dims: Tuple[str, ...])</span>
@@ -2181,7 +2209,8 @@ Equality checks must also take this into account.</p></div>
             return NotImplemented  # let attributes be stacked
         else:
             from ._geom_ops import GeometryStack
-            return GeometryStack(math.layout(values, dim))
+            set_op = kwargs.get(&#39;set_op&#39;)
+            return GeometryStack(math.layout(values, dim), set_op)
 
     def __flatten__(self, flat_dim: Shape, flatten_batch: bool, **kwargs) -&gt; &#39;Geometry&#39;:
         dims = self.shape.without(&#39;vector&#39;)
@@ -2748,7 +2777,7 @@ Possible causes:</p>
 </dd>
 <dt id="phi.geom.Graph"><code class="flex name class">
 <span>class <span class="ident">Graph</span></span>
-<span>(</span><span>nodes: Union[phiml.math._tensors.Tensor, phi.geom._geom.Geometry], edges: phiml.math._tensors.Tensor, boundary: Dict[str, Dict[str, slice]], deltas=None, distances=None, bounding_distance: Union[bool, phiml.math._tensors.Tensor, float, None] = False)</span>
+<span>(</span><span>nodes: Union[phiml.math._tensors.Tensor, phi.geom._geom.Geometry], edges: phiml.math._tensors.Tensor, boundary: Dict[str, Dict[str, slice]], deltas=None, distances=None, bounding_distance: Union[bool, phiml.math._tensors.Tensor, float, ForwardRef(None)] = False)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A graph consists of multiple geometry nodes and corresponding edge information.</p>
@@ -6595,7 +6624,8 @@ Returns:</p></div>
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -&gt; &#39;Geometry&#39;:
         from ._geom_ops import GeometryStack
-        return GeometryStack(math.layout(values, dim))
+        set_op = kwargs.get(&#39;set_op&#39;)
+        return GeometryStack(math.layout(values, dim), set_op)
 
     def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -&gt; &#39;UniformGrid&#39;:
         resolution = math.rename_dims(self._resolution, dims, new_dims).spatial
@@ -7073,6 +7103,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.concat" href="#phi.geom.concat">concat</a></code></li>
 <li><code><a title="phi.geom.embed" href="#phi.geom.embed">embed</a></code></li>
 <li><code><a title="phi.geom.infinite_cylinder" href="#phi.geom.infinite_cylinder">infinite_cylinder</a></code></li>
+<li><code><a title="phi.geom.intersection" href="#phi.geom.intersection">intersection</a></code></li>
 <li><code><a title="phi.geom.invert" href="#phi.geom.invert">invert</a></code></li>
 <li><code><a title="phi.geom.load_gmsh" href="#phi.geom.load_gmsh">load_gmsh</a></code></li>
 <li><code><a title="phi.geom.load_su2" href="#phi.geom.load_su2">load_su2</a></code></li>
@@ -7139,6 +7170,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Box.shape" href="#phi.geom.Box.shape">shape</a></code></li>
 <li><code><a title="phi.geom.Box.shifted" href="#phi.geom.Box.shifted">shifted</a></code></li>
 <li><code><a title="phi.geom.Box.size" href="#phi.geom.Box.size">size</a></code></li>
+<li><code><a title="phi.geom.Box.smallest" href="#phi.geom.Box.smallest">smallest</a></code></li>
 <li><code><a title="phi.geom.Box.upper" href="#phi.geom.Box.upper">upper</a></code></li>
 <li><code><a title="phi.geom.Box.without" href="#phi.geom.Box.without">without</a></code></li>
 </ul>
@@ -7431,7 +7463,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.0</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.1</a>.</p>
 </footer>
 </body>
 </html>
