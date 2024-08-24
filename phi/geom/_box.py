@@ -317,6 +317,12 @@ class Box(BaseBox, metaclass=BoxType):
             return self
         return Box(math.min(self._lower, dim), math.max(self._upper, dim))
 
+    def smallest(self, dim: DimFilter) -> 'Box':
+        dim = self.shape.without('vector').only(dim)
+        if not dim:
+            return self
+        return Box(math.max(self._lower, dim), math.min(self._upper, dim))
+
     def __variable_attrs__(self):
         return '_lower', '_upper'
 

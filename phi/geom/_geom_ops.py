@@ -38,6 +38,14 @@ class GeometryStack(Geometry):
         self._set_op = set_op
 
     @property
+    def is_union(self):
+        return self._set_op == 'union'
+
+    @property
+    def is_intersection(self):
+        return self._set_op == 'intersection'
+
+    @property
     def geometries(self):
         return self._geometries
     
@@ -63,12 +71,11 @@ class GeometryStack(Geometry):
             raise NotImplementedError()
 
     def _bounding_box(self):
-        if self._set_op == 'intersection':
-            raise NotImplementedError
         boxes = math.map(bounding_box, self._geometries, dims=object)
-        lower = math.min(boxes.lower, instance)
-        upper = math.max(boxes.upper, instance)
-        return Box(lower, upper)
+        if self._set_op == 'union':
+            return boxes.largest(instance)
+        if self._set_op == 'intersection':
+            return boxes.smallest(instance)
 
     @property
     def center(self) -> Tensor:
@@ -121,10 +128,11 @@ class GeometryStack(Geometry):
         return math.any(inside, instance(self._geometries))
 
     def approximate_signed_distance(self, location: math.Tensor):
-        if self._set_op == 'intersection':
-            raise NotImplementedError
         dist = math.map(lambda g, l: g.approximate_signed_distance(l), self._geometries, location, dims=object)
-        return math.min(dist, instance(self._geometries))
+        if self._set_op == 'union':
+            return math.min(dist, instance(self._geometries))
+        if self._set_op == 'intersection':
+            return math.max(dist, instance(self._geometries))
 
     def approximate_fraction_inside(self, other_geometry: Geometry, balance: Tensor | Number = 0.5) -> Tensor:
         if self._set_op == 'intersection':
@@ -212,12 +220,15 @@ class GeometryStack(Geometry):
     @property
     def boundary_elements(self) -> Dict[Any, Dict[str, slice]]:
         if self._set_op == 'intersection':
-            raise NotImplementedError
+            for g in self._geometries:
+                if g.boundary_elements:
+                    raise NotImplementedError
+            return {}
         result = {}
         for idx in object_dims(self._geometries).meshgrid(names=True):
             elements = self._geometries[idx].boundary_elements
             for key, b_slice in elements.items():
-                b_slice = {**idx ** b_slice}
+                b_slice = {**idx **b_slice}
                 if key in result:
                     raise NotImplementedError(f"boundary slices {result} are not compatible with {b_slice}")
                 else:
