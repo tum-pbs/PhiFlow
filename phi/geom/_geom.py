@@ -119,7 +119,7 @@ class Geometry:
             Full Shape to identify each face of this `Geometry`, including instance/spatial dimensions for the elements and dual dimensions listing the faces per element.
             If this `Geometry` has no faces, returns an empty `Shape`.
         """
-        raise NotImplementedError(self.__class__)
+        return None
 
     @property
     def sets(self):

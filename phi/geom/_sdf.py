@@ -77,6 +77,10 @@ class SDF(Geometry):
         return UniformGrid(spatial(self._sdf), self._bounds).center
 
     @property
+    def grid(self):
+        return UniformGrid(spatial(self._sdf), self._bounds)
+
+    @property
     def center(self) -> Tensor:
         return self._center
 

@@ -265,10 +265,11 @@ class Mesh(Geometry):
         return self._element_connectivity
 
     @property
-    def vertex_graph(self, build_distances=True) -> Graph:
+    def vertex_graph(self) -> Graph:
         if isinstance(self._vertices, Graph):
             return self._vertices
-        return graph(self._vertices, self._vertex_connectivity, build_distances=build_distances)
+        assert self._vertex_connectivity is not None, f"vertex_graph not available because vertex_connectivity has not been computed"
+        return graph(self._vertices, self._vertex_connectivity)
 
     def filter_unused_vertices(self) -> 'Mesh':
         coo = math.to_format(self._elements, 'coo').numpy()
@@ -944,7 +945,7 @@ def load_tri_mesh(file: str, convert=False) -> Mesh:
     return mesh(vertices, faces, build_faces=False, build_vertex_connectivity=True, build_normals=True)
 
 
-def decimate_tri_mesh(mesh: Mesh, factor=.1, target_max=1000,):
+def decimate_tri_mesh(mesh: Mesh, factor=.1, target_max=10_000,):
     if isinstance(mesh, NoGeometry):
         return mesh
     if instance(mesh).volume == 0:

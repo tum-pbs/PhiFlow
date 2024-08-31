@@ -137,7 +137,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         # is_inside = math.all(sgn_surf_delta < 0, 'vector')
         # abs_surf_delta = abs(sgn_surf_delta)
         max_sgn_dist = math.max(sgn_surf_delta, 'vector')
-        normal_axis = max_sgn_dist == sgn_surf_delta
+        normal_axis = max_sgn_dist == sgn_surf_delta  # ToDo only one if inside
         normal = math.vec_normalize(normal_axis * math.sign(loc_to_center))
         surf_to_center = math.where(normal_axis, math.sign(loc_to_center) * self.half_size, loc_to_center)
         closest_to_center = math.clip(surf_to_center, -self.half_size, self.half_size)

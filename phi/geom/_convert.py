@@ -1,7 +1,7 @@
 import numpy as np
 
 from phiml import math
-from phiml.math import wrap, instance, batch, DimFilter
+from phiml.math import wrap, instance, batch, DimFilter, Tensor
 from ._box import Cuboid, BaseBox
 from ._functions import plane_sgn_dist
 from ._geom import Geometry, NoGeometry
@@ -68,10 +68,13 @@ def as_sdf(geo: Geometry, rel_margin=.1, abs_margin=0., separate: DimFilter = No
             return numpy_sdf(np_sdf, bounds, geo.bounding_box().center)
         else:
             raise ValueError(f"Method '{method}' not implemented for Mesh SDF")
-    return SDF(geo.approximate_signed_distance, geo.shape.non_instance.without('vector'), bounds, geo.center, geo.volume, geo.bounding_radius())
+    def sdf_and_grad(x: Tensor):
+        sgn_dist, delta, *_ = geo.approximate_closest_surface(x)
+        return sgn_dist, math.vec_normalize(-delta)
+    return SDF(geo.approximate_signed_distance, geo.shape.non_instance.without('vector'), bounds, geo.center, geo.volume, geo.bounding_radius(), sdf_and_grad)
 
 
-def surface_mesh(geo: Geometry, rel_dx: float = None, abs_dx: float = None, remove_duplicates=True) -> Mesh:
+def surface_mesh(geo: Geometry, rel_dx: float = None, abs_dx: float = None, remove_duplicates=True, build_vertex_connectivity=False, build_normals=False) -> Mesh:
     """
     Create a surface `Mesh` from a Geometry.
 
@@ -111,5 +114,5 @@ def surface_mesh(geo: Geometry, rel_dx: float = None, abs_dx: float = None, remo
             # vert = mesh
             # tris_np = np.arange(vert.shape[0]).reshape((-1, 3))
         with math.NUMPY:
-            return mesh_from_numpy(vert, tris_np, element_rank=2, build_faces=False, build_vertex_connectivity=False, build_normals=False)
+            return mesh_from_numpy(vert, tris_np, element_rank=2, build_faces=False, build_vertex_connectivity=build_vertex_connectivity, build_normals=build_normals)
     return math.map(generate_mesh, geo, rel_dx, abs_dx, dims=batch)

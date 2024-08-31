@@ -203,7 +203,7 @@ class SDFGrid(Geometry):
 
 
 def sample_sdf(geometry: Geometry,
-               bounds: Box = None,
+               bounds: BaseBox = None,
                resolution: Shape = math.EMPTY_SHAPE,
                approximate_outside=False,
                rebuild: Optional[str] = None,
