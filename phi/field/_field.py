@@ -54,7 +54,7 @@ class Field:
             values = sample(values, geometry, 'center', self._boundary, **sampling_kwargs)
         matching_sets = [s for s, s_shape in geometry.sets.items() if s_shape in values.shape]
         if not matching_sets:
-            values = expand(wrap(values), non_batch(geometry).non_channel)
+            values = expand(wrap(values), non_batch(geometry) - 'vector')
         self._values: Tensor = values
         math.merge_shapes(values, non_batch(self.sampled_elements).non_channel)  # shape check
 
