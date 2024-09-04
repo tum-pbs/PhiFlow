@@ -412,7 +412,7 @@ class Object3D(Recipe):
         if isinstance(data.geometry, Sphere):
             v_count = self._sphere_vertex_count(data.geometry.radius, space)
             face_count = (v_count + 1) * (v_count * 2) / 2  # half as many tris as vertices
-        elif isinstance(data.geometry, Box):
+        elif isinstance(data.geometry, BaseBox):
             face_count = 12
         else:
             return False
