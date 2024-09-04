@@ -3,6 +3,7 @@ import subprocess
 import tempfile
 import warnings
 import webbrowser
+from numbers import Number
 from typing import Tuple, Any, Dict, List, Callable, Union
 
 import numpy
@@ -474,41 +475,42 @@ class Scatter3D(Recipe):
         vector = data.elements.shape['vector']
         size = (figure._phi_size[0] or 10, figure._phi_size[1] or 6)
         yrange = subplot.yaxis.range
-        if color == 'cmap':
-            color = plotly_color(0)  # ToDo cmap
-        else:
-            color = plotly_color(color.native())
-        if spatial(data.geometry):
-            assert spatial(data.geometry).rank == 1
-            xyz = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel.non_spatial, spatial])
-            xyz_padded = [[i.tolist() + [None] for i in c] for c in xyz]
-            x, y, z = [sum(c, []) for c in xyz_padded]
-            mode = 'markers+lines' if data.shape.non_channel.volume <= 100 else 'lines'
-            figure.add_scatter3d(mode=mode, x=x, y=y, z=z, row=row, col=col, line=dict(color=color, width=2), opacity=float(alpha))
-            return
-        # if data.points.shape.non_channel.rank > 1:
-        #     data_list = field.unstack(data, data.points.shape.non_channel[0].name)
-        #     for d in data_list:
-        #         self.plot(d, figure, (row, col), space, min_val, max_val, show_color_bar, color, alpha, err)
-        #     return
-        domain_y = figure.layout[subplot.plotly_name].domain.y
-        x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
-        if isinstance(data.geometry, Sphere):
-            symbol = 'circle'
-            marker_size = data.elements.bounding_radius().numpy() * 2
-        elif isinstance(data.geometry, BaseBox):
-            symbol = 'square'
-            marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 1
-        elif isinstance(data.geometry, Point):
-            symbol = None
-            marker_size = 4 / (size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5)
-        else:
-            symbol = 'asterisk'
-            marker_size = data.geometry.bounding_radius().numpy()
-        marker_size *= size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5
-        marker = graph_objects.scatter3d.Marker(size=marker_size, color=color, sizemode='diameter', symbol=symbol)
-        figure.add_scatter3d(mode='markers', x=x, y=y, z=z, marker=marker, row=row, col=col)
-        figure.update_layout(showlegend=False)
+        for idx in (channel(data.geometry) - 'vector').meshgrid():
+            if color == 'cmap':
+                color_i = plotly_color(0)  # ToDo cmap
+            else:
+                color_i = plotly_color(color[idx].native())
+            if spatial(data.geometry):
+                assert spatial(data.geometry).rank == 1
+                xyz = math.reshaped_numpy(data[idx].points.vector[dims], [vector, data.shape.non_channel.non_spatial, spatial])
+                xyz_padded = [[i.tolist() + [None] for i in c] for c in xyz]
+                x, y, z = [sum(c, []) for c in xyz_padded]
+                mode = 'markers+lines' if data.shape.non_channel.volume <= 100 else 'lines'
+                figure.add_scatter3d(mode=mode, x=x, y=y, z=z, row=row, col=col, line=dict(color=color_i, width=2), opacity=float(alpha))
+                return
+            # if data.points.shape.non_channel.rank > 1:
+            #     data_list = field.unstack(data, data.points.shape.non_channel[0].name)
+            #     for d in data_list:
+            #         self.plot(d, figure, (row, col), space, min_val, max_val, show_color_bar, color_i, alpha, err)
+            #     return
+            domain_y = figure.layout[subplot.plotly_name].domain.y
+            x, y, z = math.reshaped_numpy(data[idx].points.vector[dims], [vector, data.shape.non_channel])
+            if isinstance(data.geometry, Sphere):
+                symbol = 'circle'
+                marker_size = data.geometry[idx].bounding_radius().numpy() * 2
+            elif isinstance(data.geometry, BaseBox):
+                symbol = 'square'
+                marker_size = math.mean(data.geometry[idx].bounding_half_extent(), 'vector').numpy() * 1
+            elif isinstance(data.geometry, Point):
+                symbol = None
+                marker_size = 4 / (size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5)
+            else:
+                symbol = 'asterisk'
+                marker_size = data.geometry[idx].bounding_radius().numpy()
+            marker_size *= size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5
+            marker = graph_objects.scatter3d.Marker(size=marker_size, color=color_i, sizemode='diameter', symbol=symbol)
+            figure.add_scatter3d(mode='markers', x=x, y=y, z=z, marker=marker, row=row, col=col)
+            figure.update_layout(showlegend=False)
 
 
 class Graph3D(Recipe):
@@ -644,14 +646,16 @@ def real_values(field: Field):
     return field.values if field.values.dtype.kind != complex else abs(field.values)
 
 
-def plotly_color(col: Union[int,]):
+def plotly_color(col: Union[int,str]):
     if isinstance(col, int):
         return DEFAULT_PLOTLY_COLORS[col % len(DEFAULT_PLOTLY_COLORS)]
     if isinstance(col, str) and (col.startswith('#') or col.startswith('rgb(') or col.startswith('rgba(')):
         return col
     elif isinstance(col, str):
         return col  # color name, e.g. 'blue'
-    raise NotImplementedError
+    elif isinstance(col, Number) and int(col) == col:
+        return DEFAULT_PLOTLY_COLORS[int(col) % len(DEFAULT_PLOTLY_COLORS)]
+    raise NotImplementedError(type(col), col)
     # if isinstance(col, (tuple, list)):
     #     col = np.asarray(col)
     #     if col.dtype.kind == 'i':
