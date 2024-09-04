@@ -85,11 +85,11 @@ class BaseBox(Geometry):  # not a Subwoofer
         pos = local_position * (self.half_size if origin == 'center' else self.size) if scale else local_position
         return math.rotate_vector(pos, self.rotation_matrix) + origin_loc
 
-    def lies_inside(self, location):
+    def lies_inside(self, location: Tensor):
         assert self.rotation_matrix is None, f"Please override lies_inside() for rotated boxes"
         bool_inside = (location >= self.lower) & (location <= self.upper)
         bool_inside = math.all(bool_inside, 'vector')
-        bool_inside = math.any(bool_inside, self.shape.instance)  # union for instance dimensions
+        bool_inside = math.any(bool_inside, self.shape.instance - instance(location))  # union for instance dimensions
         return bool_inside
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]):
@@ -520,11 +520,11 @@ class Cuboid(BaseBox):
             return math.sum(abs(to_face), '~vector')
         return self.half_size
 
-    def lies_inside(self, location) -> Tensor:
+    def lies_inside(self, location: Tensor) -> Tensor:
         location = self.global_to_local(location, scale=False, origin='center')  # scale can only be performed for finite sizes
         bool_inside = abs(location) <= self._half_size
         bool_inside = math.all(bool_inside, 'vector')
-        bool_inside = math.any(bool_inside, self.shape.instance)  # union for instance dimensions
+        bool_inside = math.any(bool_inside, self.shape.instance - instance(location))  # union for instance dimensions
         return bool_inside
 
 
