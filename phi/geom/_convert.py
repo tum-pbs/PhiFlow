@@ -9,13 +9,14 @@ from ._mesh import Mesh, mesh_from_numpy
 from ._sdf import SDF, numpy_sdf
 
 
-def as_sdf(geo: Geometry, rel_margin=.1, abs_margin=0., separate: DimFilter = None, method='auto') -> SDF:
+def as_sdf(geo: Geometry, bounds=None, rel_margin=None, abs_margin=0., separate: DimFilter = None, method='auto') -> SDF:
     """
     Represent existing geometry as a signed distance function.
 
     Args:
         geo: `Geometry` to represent as a signed distance function.
             Must implement `Geometry.approximate_signed_distance()`.
+        bounds: Bounds of the SDF. If `None` will be determined from bounds of `geo` and `rel_margin`/`abs_margin`.
         rel_margin: Relative size to pad the domain on all sides around the bounds of `geo`.
             For example, 0.1 will pad 10% of `geo`'s size in each axis on both sides.
         abs_margin: World-space size to pad the domain on all sides around the bounds of `geo`.
@@ -27,13 +28,16 @@ def as_sdf(geo: Geometry, rel_margin=.1, abs_margin=0., separate: DimFilter = No
     """
     separate = geo.shape.only(separate)
     if separate:
-        return math.map(as_sdf, geo, rel_margin, abs_margin, separate=None, dims=separate, unwrap_scalars=True)
-    bounds: BaseBox = geo.bounding_box()
+        return math.map(as_sdf, geo, bounds, rel_margin, abs_margin, separate=None, dims=separate, unwrap_scalars=True)
+    if bounds is None:
+        bounds: BaseBox = geo.bounding_box()
+        rel_margin = .1 if rel_margin is None else rel_margin
+    rel_margin = 0 if rel_margin is None else rel_margin
     bounds = Cuboid(bounds.center, half_size=bounds.half_size * (1 + 2 * rel_margin) + 2 * abs_margin)
     if isinstance(geo, SDF):
         return SDF(geo._sdf, geo._out_shape, bounds, geo._center, geo._volume, geo._bounding_radius)
     elif isinstance(geo, Mesh) and geo.spatial_rank == 3 and geo.element_rank == 2:  # 3D surface mesh
-        method = 'pysdf' if method == 'auto' else method
+        method = 'closest-face' if method == 'auto' else method
         if method == 'pysdf':
             from pysdf import SDF as PySDF  # https://github.com/sxyu/sdf    https://github.com/sxyu/sdf/blob/master/src/sdf.cpp
             np_verts = geo.vertices.center.numpy('vertices,vector')
