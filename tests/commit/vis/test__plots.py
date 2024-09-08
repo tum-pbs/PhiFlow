@@ -5,7 +5,7 @@ import plotly
 from phi import geom, field, math
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise, resample, Field
 from phi.geom import Sphere, Box
-from phiml.math import extrapolation, wrap, instance, channel, batch, spatial, vec, stack
+from phiml.math import extrapolation, wrap, instance, channel, batch, spatial, vec, stack, Tensor
 from phi.vis import show, overlay, plot, close
 import matplotlib.pyplot as plt
 
@@ -14,12 +14,13 @@ class TestPlots(TestCase):
 
     def _test_plot(self, *plottable, show_=True, **kwargs):
         fig = plot(*plottable, lib='matplotlib', **kwargs)
-        self.assertIsInstance(fig.native(), plt.Figure)
+        fig = fig.native() if isinstance(fig, Tensor) else fig
+        self.assertIsInstance(fig, plt.Figure)
         fig = plot(*plottable, lib='plotly', **kwargs)
-        self.assertIsInstance(fig.native(), plotly.graph_objs.Figure)
+        self.assertIsInstance(fig, plotly.graph_objs.Figure)
         if show_:
-            show(gui='matplotlib')
-            show(gui='plotly')
+            show(lib='matplotlib')
+            show(lib='plotly')
 
     def test_bar_chart(self):
         dim = instance(planets='Sun,Earth,Mars')
