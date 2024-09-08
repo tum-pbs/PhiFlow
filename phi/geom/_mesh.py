@@ -623,7 +623,7 @@ def mesh(vertices: Geometry | Tensor,
     # --- build faces ---
     if build_faces:
         if element_rank == 2:
-            centers, normals, areas, boundary_slices, vertex_connectivity, face_vertices = build_faces_2d(vertices, elements, boundaries, face_format)
+            centers, normals, areas, boundary_slices, vertex_connectivity, face_vertices = build_faces_2d(vertices.center, elements, boundaries, face_format)
         else:
             raise NotImplementedError("Building faces currently only supported for 2D elements. Set build_faces=False to construct mesh")
         normals_out = normals.vector * (centers - approx_center).vector > 0
@@ -631,7 +631,7 @@ def mesh(vertices: Geometry | Tensor,
         vol_contributions = centers.vector * normals.vector * areas / vertices.vector.size
         volume = math.sum(vol_contributions, dual)
         cell_centers = math.sum(centers * areas, dual) / math.sum(areas, dual)
-        return Mesh(vertices, elements, element_rank, boundary_slices, cell_centers, volume, centers, normals, areas, face_vertices, None, vertex_connectivity, None)
+        return Mesh(vertices, elements, element_rank, boundary_slices, cell_centers, volume, None, centers, normals, areas, face_vertices, None, vertex_connectivity, None)
     else:
         vertex_connectivity = None
         if build_vertex_connectivity:
@@ -671,7 +671,7 @@ def build_faces_2d(vertices: Tensor,
     points1 = []
     points2 = []
     from phiml.math._sparse import native_matrix
-    polygon_csr: csr_matrix = native_matrix(polygons, math.NUMPY)
+    polygon_csr: csr_matrix = native_matrix(math.to_format(polygons, 'csr'), math.NUMPY)
     # --- Find neighbor cells ---
     for poly_idx in range(instance(polygons).size):
         vert_indices = polygon_csr.indices[polygon_csr.indptr[poly_idx]:polygon_csr.indptr[poly_idx+1]]
