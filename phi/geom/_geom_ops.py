@@ -1,6 +1,6 @@
 from numbers import Number
 import warnings
-from typing import Union, Dict, Any, Optional, Tuple
+from typing import Union, Dict, Any, Optional, Tuple, Sequence
 
 from phi import math
 from phiml import math
@@ -252,7 +252,8 @@ class GeometryStack(Geometry):
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         raise NotImplementedError
 
-def _stack_geometries(geometries: Tuple[Geometry], set_op: str, dim=None) -> Geometry:
+
+def _stack_geometries(geometries: Sequence[Geometry], set_op: str, dim=None) -> Geometry:
     assert set_op in ['union', 'intersection'], f"Set operation must be 'union' or 'intersection' but got {set_op}"
     if dim is None:
         dim = instance(set_op)
@@ -271,7 +272,7 @@ def _stack_geometries(geometries: Tuple[Geometry], set_op: str, dim=None) -> Geo
         return copy_with(geometries[0], **values)
     else:
         geos = math.layout(geometries, dim)
-        return GeometryStack(geos)
+        return GeometryStack(geos, set_op=set_op)
 
 
 def union(*geometries, dim=instance('union')) -> Geometry:
@@ -288,7 +289,8 @@ def union(*geometries, dim=instance('union')) -> Geometry:
     """
     return _stack_geometries(geometries, 'union', dim)
 
-def intersection(*geometries, dim=instance('intersection')) -> Geometry:
+
+def intersection(*geometries: Geometry, dim=instance('intersection')) -> Geometry:
     """
     Intersection of the given geometries.
     A point lies inside the union if it lies within all of the geometries.
