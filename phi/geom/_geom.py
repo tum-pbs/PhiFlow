@@ -474,7 +474,8 @@ class Geometry:
             return NotImplemented  # let attributes be stacked
         else:
             from ._geom_ops import GeometryStack
-            return GeometryStack(math.layout(values, dim))
+            set_op = kwargs.get('set_op')
+            return GeometryStack(math.layout(values, dim), set_op)
 
     def __flatten__(self, flat_dim: Shape, flatten_batch: bool, **kwargs) -> 'Geometry':
         dims = self.shape.without('vector')

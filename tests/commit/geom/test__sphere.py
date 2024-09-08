@@ -69,3 +69,12 @@ class TestSphere(TestCase):
         corners = s.corners
         self.assertIn('vector', corners.shape)
         self.assertEqual(0, corners.shape.volume)
+
+    def test_sample_uniform(self):
+        for s in [Sphere(x=1, radius=.5), Sphere(x=1, y=0, radius=.5), Sphere(x=1, y=0, z=0, radius=.5)]:
+            u = s.sample_uniform(instance(points=200))
+            assert 'vector' in u.shape
+            math.assert_close(True, (u['x'] >= 0.5) & (u['x'] <= 1.5))
+            if u.vector.size > 1:
+                math.assert_close(True, (u['y'] >= -0.5) & (u['y'] <= 0.5))
+

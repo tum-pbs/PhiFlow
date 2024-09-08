@@ -40,7 +40,7 @@ setup(
     url='https://github.com/tum-pbs/PhiFlow',
     include_package_data=True,
     install_requires=[
-        'phiml>=1.7.1',
+        'phiml>=1.8.0',
         'matplotlib>=3.5.0',  # also required by dash for color maps
         'packaging',
     ],
@@ -51,11 +51,8 @@ setup(
         'Topic :: Software Development :: Build Tools',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
-        'Programming Language :: Python :: 3.7',
-        'Programming Language :: Python :: 3.8',
-        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
     ],
 )

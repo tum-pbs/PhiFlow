@@ -37,6 +37,11 @@ from phiml.math import (
     shape, spatial, channel, batch, instance, dual,
     non_spatial, non_channel, non_batch, non_instance, non_dual,  # Shape functions (magic)
     unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, flatten, cast,  # Magic Ops
+    b2i, c2b, c2d, i2b, s2b, si2d, d2i, map_s2b, map_i2b, map_c2b, map_d2c,  # dim type conversions
+    sign, round, ceil, floor, sqrt, exp, erf, log, log2, log10, sigmoid, soft_plus,
+    sin, cos, tan, sinh, cosh, tanh, arcsin, arccos, arctan, arcsinh, arccosh, arctanh, log_gamma, factorial, incomplete_gamma,
+    rotate, cross, dot, normalize,  # vector math
+    safe_div, length, is_finite, is_nan, is_inf,  # Basic functions
     jit_compile, jit_compile_linear, minimize, gradient as functional_gradient, gradient, solve_linear, solve_nonlinear, iterate, identity,  # jacobian, hessian, custom_gradient # Functional magic
 )
 from .geom import union
