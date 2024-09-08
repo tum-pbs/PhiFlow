@@ -45,7 +45,7 @@ class Mesh(Geometry):
             vertices: Vertex positions, shape (vertices:i, vector:c)
             elements: Sparse `Tensor` listing ordered vertex indices per cell. (cells, ~vertices).
                 The vertex count is equal to the number of elements per row.
-            face_vertices: (cells, ~neighbors, face_vertices)
+            face_vertices: (cells, ~cells, face_vertices)
         """
         assert elements.dtype.kind == int, f"elements must be integer lists but got dtype {elements.dtype}"
         assert isinstance(center, Tensor), f"center must be a Tensor"
@@ -60,6 +60,8 @@ class Mesh(Geometry):
         self._face_centers = face_centers
         self._face_normals = face_normals
         self._face_areas = face_areas
+        if self._face_areas is not None:
+            assert set(face_areas.shape.names) == set((instance(elements) & dual).names), f"face_areas must have matching primal and dual dims matching elements {instance(elements)} but got {face_areas.shape}"
         self._face_vertices = face_vertices
         assert normals is None or (isinstance(normals, Tensor) and instance(center) in normals)
         self._normals = normals
@@ -121,10 +123,7 @@ class Mesh(Geometry):
 
     @property
     def face_shape(self) -> Shape:
-        face_shape = instance(self._elements) & dual
-        if self._face_areas is not None:
-            assert set(self._face_areas.shape) == face_shape
-        return face_shape
+        return instance(self._elements) & dual
 
     @property
     def sets(self):
@@ -696,6 +695,7 @@ def build_faces_2d(vertices: Tensor,
     b_points2 = []
     boundary_idx = instance(polygons).size
     boundary_slices = {}
+    nb_dim = instance(polygons).as_dual().name
     if not isinstance(boundaries, dict):
         boundaries = {boundaries: None}
     for boundary_name, pair_list in boundaries.items():
@@ -724,13 +724,13 @@ def build_faces_2d(vertices: Tensor,
                 b_poly2.append(boundary_idx)
                 boundary_idx += 1
             poly_by_face.clear()
-        boundary_slices[boundary_name] = {'~neighbors': slice(boundary_start_idx, boundary_idx)}
+        boundary_slices[boundary_name] = {nb_dim: slice(boundary_start_idx, boundary_idx)}
     assert not poly_by_face, f"{len(poly_by_face)} edges are not marked and do not have a neighbor cell: {tuple(poly_by_face)}"
     neighbor_count = boundary_idx
     # --- wrap results as Φ-Flow tensors ---
     poly_pairs = np.asarray([poly1 + poly2 + b_poly1, poly2 + poly1 + b_poly2]).T  # include transpose of inner faces
     face_dim = instance('faces')
-    indices = wrap(poly_pairs, face_dim, channel(vector=[instance(polygons).name, '~neighbors']))
+    indices = wrap(poly_pairs, face_dim, channel(vector=[instance(polygons).name, nb_dim]))
     point_idx1 = wrap(points1 + points2 + b_points1, face_dim)
     point_idx2 = wrap(points2 + points1 + b_points2, face_dim)
     loc_points1 = vertices[{instance: point_idx1}]
@@ -746,7 +746,7 @@ def build_faces_2d(vertices: Tensor,
         warnings.warn("Normals not yet supported for embedded 3D meshes. Using placeholder values.", RuntimeWarning, stacklevel=3)
         normal = math.random_normal(instance(delta), channel(vertices))  # ToDo
     # --- Faces ---
-    dual_poly_dim = dual(neighbors=neighbor_count)
+    dual_poly_dim = dual(**{nb_dim: neighbor_count})
     area = sparse_tensor(indices, area, instance(polygons) & dual_poly_dim, format='coo' if face_format == 'dense' else face_format, indices_constant=True)
     normal = tensor_like(area, normal, value_order='original')
     center = tensor_like(area, center, value_order='original')
@@ -754,8 +754,8 @@ def build_faces_2d(vertices: Tensor,
     face_normals = to_format(normal, face_format)
     face_areas = to_format(area, face_format)
     # --- vertex-vertex connectivity ---
-    vert_pairs = stack([wrap(points1 + points2 + b_points1 + b_points2, instance('edges')), wrap(points2 + points1 + b_points2 + b_points1, instance('edges'))], channel(idx=[non_channel(vertices).name, '~neighbors']))
-    vertex_connectivity = sparse_tensor(vert_pairs, expand(True, instance(vert_pairs)), non_channel(vertices) & dual(neighbors=non_channel(vertices).size), can_contain_double_entries=False, indices_sorted=False, indices_constant=True)
+    vert_pairs = stack([wrap(points1 + points2 + b_points1 + b_points2, instance('edges')), wrap(points2 + points1 + b_points2 + b_points1, instance('edges'))], channel(idx=[non_channel(vertices).name, nb_dim]))
+    vertex_connectivity = sparse_tensor(vert_pairs, expand(True, instance(vert_pairs)), non_channel(vertices) & dual(**{nb_dim: non_channel(vertices).size}), can_contain_double_entries=False, indices_sorted=False, indices_constant=True)
     # --- vertex-face connectivity ---
     vertex_pairs = stack([point_idx1, point_idx2], channel('face_vertices'))
     face_vertices = tensor_like(area, vertex_pairs, value_order='original')
