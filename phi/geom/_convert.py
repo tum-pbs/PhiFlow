@@ -1,12 +1,14 @@
 import numpy as np
 
 from phiml import math
-from phiml.math import wrap, instance, batch, DimFilter, Tensor
+from phiml.math import wrap, instance, batch, DimFilter, Tensor, spatial
 from ._box import Cuboid, BaseBox
+from ._sphere import Sphere
 from ._functions import plane_sgn_dist
 from ._geom import Geometry, NoGeometry
 from ._mesh import Mesh, mesh_from_numpy
 from ._sdf import SDF, numpy_sdf
+from ._sdf_grid import sample_sdf, SDFGrid
 
 
 def as_sdf(geo: Geometry, bounds=None, rel_margin=None, abs_margin=0., separate: DimFilter = None, method='auto') -> SDF:
@@ -78,7 +80,12 @@ def as_sdf(geo: Geometry, bounds=None, rel_margin=None, abs_margin=0., separate:
     return SDF(geo.approximate_signed_distance, geo.shape.non_instance.without('vector'), bounds, geo.center, geo.volume, geo.bounding_radius(), sdf_and_grad)
 
 
-def surface_mesh(geo: Geometry, rel_dx: float = None, abs_dx: float = None, remove_duplicates=True, build_vertex_connectivity=False, build_normals=False) -> Mesh:
+def surface_mesh(geo: Geometry,
+                 rel_dx: float = None,
+                 abs_dx: float = None,
+                 method='auto',
+                 build_vertex_connectivity=False,
+                 build_normals=False) -> Mesh:
     """
     Create a surface `Mesh` from a Geometry.
 
@@ -86,37 +93,41 @@ def surface_mesh(geo: Geometry, rel_dx: float = None, abs_dx: float = None, remo
         geo: `Geometry` to convert. Must implement `approximate_signed_distance`.
         rel_dx: Relative mesh resolution as fraction of bounding box size.
         abs_dx: Absolute mesh resolution. If both `rel_dx` and `abs_dx` are provided, the lower value is used.
-        remove_duplicates: If `False`, mesh may contain duplicate vertices, increasing the stored size.
+        method: 'auto' to select based on the type of `geo`. 'lewiner' or 'lorensen' for marching cubes.
 
     Returns:
-        `Mesh`
+        `Mesh` if there is any geometry
     """
     if geo.spatial_rank != 3:
         raise NotImplementedError("Only 3D SDF currently supported")
-    if rel_dx is None and abs_dx is None:
-        rel_dx = 0.01
-    from ._marching_cubes import generate
-    def generate_mesh(geo: Geometry, rel_dx, abs_dx):
-        rel_dx = None if rel_dx is None else rel_dx * geo.bounding_radius().max
+    if isinstance(geo, NoGeometry):
+        return mesh_from_numpy([], [], build_faces=False, element_rank=2, build_normals=False)
+    if method == 'auto' and isinstance(geo, BaseBox):
+        vertices = geo.corners  # ToDo simpler solution
+    elif method == 'auto' and isinstance(geo, Sphere):
+        pass  # ToDo analytic solution
+    if isinstance(geo, SDFGrid):
+        assert rel_dx is None and abs_dx is None, f"When creating a surface mesh from an SDF grid, rel_dx and abs_dx are determined from the grid and must be specified as None"
+        sdf_grid = geo
+    else:
+        if rel_dx is None and abs_dx is None:
+            rel_dx = 0.005
+        rel_dx = None if rel_dx is None else rel_dx * geo.bounding_radius() * 2
         dx = math.minimum(rel_dx, abs_dx, allow_none=True)
-        sdf = as_sdf(geo, rel_margin=0, abs_margin=dx)
-        lo = sdf.bounds.lower.numpy()
-        up = sdf.bounds.upper.numpy()
-        def np_sdf(xyz):
-            location = wrap(xyz, instance('points'), sdf.shape['vector'])
-            sdf_val = sdf._sdf(location)
-            return sdf_val.numpy()
-        mesh = generate(np_sdf, float(dx), bounds=(lo, up), workers=1, batch_size=1024*1024)
-        if not mesh:
-            return NoGeometry(geo.shape['vector'])
-        mesh = np.stack(mesh)
-        if remove_duplicates:
-            vert, idx, inv, c = np.unique(mesh, axis=0, return_counts=True, return_index=True, return_inverse=True)
-            tris_np = inv.reshape((-1, 3))
+        if isinstance(geo, SDF):
+            sdf = geo
         else:
-            raise NotImplementedError  # this is actually the simpler case
-            # vert = mesh
-            # tris_np = np.arange(vert.shape[0]).reshape((-1, 3))
+            sdf = as_sdf(geo, rel_margin=0, abs_margin=dx)
+        resolution = math.to_int32(math.round(sdf.bounds.size / dx))
+        resolution = spatial(**resolution.vector)
+        sdf_grid = sample_sdf(sdf, sdf.bounds, resolution)
+    from skimage.measure import marching_cubes
+    method = 'lewiner' if method == 'auto' else method
+    def generate_mesh(sdf_grid: SDFGrid) -> Mesh:
+        dx = sdf_grid.dx.numpy()
+        sdf_numpy = sdf_grid.values.numpy(sdf_grid.dx.vector.item_names)
+        vertices, faces, v_normals, _ = marching_cubes(sdf_numpy, level=0.0, spacing=dx, allow_degenerate=False, method=method)
+        vertices += sdf_grid.bounds.lower.numpy() + .5 * dx
         with math.NUMPY:
-            return mesh_from_numpy(vert, tris_np, element_rank=2, build_faces=False, build_vertex_connectivity=build_vertex_connectivity, build_normals=build_normals)
-    return math.map(generate_mesh, geo, rel_dx, abs_dx, dims=batch)
+            return mesh_from_numpy(vertices, faces, element_rank=2, build_faces=False, build_vertex_connectivity=build_vertex_connectivity, build_normals=build_normals)
+    return math.map(generate_mesh, sdf_grid, dims=batch)

@@ -648,10 +648,13 @@ def mesh(vertices: Geometry | Tensor,
             element_connectivity = wrap(connected_elements, instance(elements), instance(elements).as_dual())
         volume = None
         if isinstance(elements, CompactSparseTensor) and element_rank == 2:
-            A, B, C, *_ = unstack(vertices.center[elements._indices], dual)
-            cross_area = math.vec_length(math.cross_product(B - A, C - A))
-            fac = {3: 0.5, 4: 1}[dual(elements._indices).size]  # tri, quad, ...
-            volume = fac * cross_area
+            if instance(vertices).volume > 0:
+                A, B, C, *_ = unstack(vertices.center[elements._indices], dual)
+                cross_area = math.vec_length(math.cross_product(B - A, C - A))
+                fac = {3: 0.5, 4: 1}[dual(elements._indices).size]  # tri, quad, ...
+                volume = fac * cross_area
+            else:
+                volume = math.zeros(instance(vertices))
         if normals is None and build_normals:
             normals = extrinsic_normals(vertices.center, elements)
         v_normals = None

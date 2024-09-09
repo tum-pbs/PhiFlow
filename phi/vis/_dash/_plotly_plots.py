@@ -629,7 +629,7 @@ class SDF3D(Recipe):
         def plot_single_material(data: Field, color, alpha: float):
             color = plotly_color(color)
             with math.NUMPY:
-                surf_mesh = geom.surface_mesh(data.geometry, remove_duplicates=True)
+                surf_mesh = geom.surface_mesh(data.geometry)
             mesh_data = Field(surf_mesh, math.NAN, 0)
             SurfaceMesh3D().plot(mesh_data, figure, subplot, space, min_val, max_val, show_color_bar, color, alpha, err)
         math.map(plot_single_material, data, color, alpha, dims=channel(data.geometry) - 'vector')
