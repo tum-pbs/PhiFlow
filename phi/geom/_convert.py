@@ -1,12 +1,12 @@
 import numpy as np
 
 from phiml import math
-from phiml.math import wrap, instance, batch, DimFilter, Tensor, spatial
+from phiml.math import wrap, instance, batch, DimFilter, Tensor, spatial, pack_dims, dual, stack
 from ._box import Cuboid, BaseBox
 from ._sphere import Sphere
 from ._functions import plane_sgn_dist
 from ._geom import Geometry, NoGeometry
-from ._mesh import Mesh, mesh_from_numpy
+from ._mesh import Mesh, mesh_from_numpy, mesh
 from ._sdf import SDF, numpy_sdf
 from ._sdf_grid import sample_sdf, SDFGrid
 
@@ -103,7 +103,17 @@ def surface_mesh(geo: Geometry,
     if isinstance(geo, NoGeometry):
         return mesh_from_numpy([], [], build_faces=False, element_rank=2, build_normals=False)
     if method == 'auto' and isinstance(geo, BaseBox):
-        vertices = geo.corners  # ToDo simpler solution
+        assert rel_dx is None and abs_dx is None, f"When method='auto', boxes will always use their corners as vertices. rel_dx and abs_dx must be left unspecified."
+        vertices = pack_dims(geo.corners, dual, instance('vertices'))
+        corner_count = vertices.vertices.size
+        vertices = pack_dims(vertices, instance(geo) + instance('vertices'), instance('vertices'))
+        v1 = [0, 1, 4, 5, 4, 6, 5, 7, 0, 1, 2, 6]
+        v2 = [1, 3, 6, 6, 0, 0, 7, 3, 4, 4, 3, 3]
+        v3 = [2, 2, 5, 7, 6, 2, 1, 1, 1, 5, 6, 7]
+        instance_offset = math.range_tensor(instance(geo)) * corner_count
+        faces = wrap([v1, v2, v3], spatial('vertices'), instance('faces')) + instance_offset
+        faces = pack_dims(faces, instance, instance('faces'))
+        return mesh(vertices, faces, element_rank=2, build_faces=False, build_vertex_connectivity=build_vertex_connectivity, build_normals=build_normals)
     elif method == 'auto' and isinstance(geo, Sphere):
         pass  # ToDo analytic solution
     if isinstance(geo, SDFGrid):
@@ -129,5 +139,5 @@ def surface_mesh(geo: Geometry,
         vertices, faces, v_normals, _ = marching_cubes(sdf_numpy, level=0.0, spacing=dx, allow_degenerate=False, method=method)
         vertices += sdf_grid.bounds.lower.numpy() + .5 * dx
         with math.NUMPY:
-            return mesh_from_numpy(vertices, faces, element_rank=2, build_faces=False, build_vertex_connectivity=build_vertex_connectivity, build_normals=build_normals)
+            return mesh_from_numpy(vertices, faces, element_rank=2, build_faces=False, build_vertex_connectivity=build_vertex_connectivity, build_normals=build_normals, cell_dim=instance('faces'))
     return math.map(generate_mesh, sdf_grid, dims=batch)
