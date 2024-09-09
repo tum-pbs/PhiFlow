@@ -22,7 +22,7 @@ from .physics import fluid, advect, diffuse
 
 # Classes
 from phiml.math import Shape, Tensor, DType, Solve
-from .geom import Geometry, Sphere, Box, Cuboid, UniformGrid, Mesh, Graph
+from .geom import Geometry, Point, Sphere, Box, Cuboid, UniformGrid, Mesh, Graph
 from .field import Field, Grid, CenteredGrid, StaggeredGrid, mask, Noise, PointCloud, Scene, resample, GeometryMask, SoftGeometryMask, HardGeometryMask
 from .vis import Viewer
 from .physics.fluid import Obstacle
@@ -40,7 +40,7 @@ from phiml.math import (
     b2i, c2b, c2d, i2b, s2b, si2d, d2i, map_s2b, map_i2b, map_c2b, map_d2c,  # dim type conversions
     sign, round, ceil, floor, sqrt, exp, erf, log, log2, log10, sigmoid, soft_plus,
     sin, cos, tan, sinh, cosh, tanh, arcsin, arccos, arctan, arcsinh, arccosh, arctanh, log_gamma, factorial, incomplete_gamma,
-    rotate_vector as rotate, cross_product as cross, dot, vec_normalize as normalize,  # vector math
+    rotate_vector as rotate, cross_product as cross, dot, vec_normalize as normalize, length, maximum, minimum, clip,  # vector math
     safe_div, length, is_finite, is_nan, is_inf,  # Basic functions
     jit_compile, jit_compile_linear, minimize, gradient as functional_gradient, gradient, solve_linear, solve_nonlinear, iterate, identity,  # jacobian, hessian, custom_gradient # Functional magic
 )
