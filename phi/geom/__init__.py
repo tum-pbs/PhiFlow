@@ -23,5 +23,6 @@ from ._sdf_grid import SDFGrid, sample_sdf
 from ._sdf import SDF, numpy_sdf
 from ._geom_ops import union, intersection
 from ._convert import surface_mesh, as_sdf
+from ._geom_functions import line_trace
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]

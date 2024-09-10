@@ -103,7 +103,7 @@ def surface_mesh(geo: Geometry,
     if isinstance(geo, NoGeometry):
         return mesh_from_numpy([], [], build_faces=False, element_rank=2, build_normals=False)
     if method == 'auto' and isinstance(geo, BaseBox):
-        assert rel_dx is None and abs_dx is None, f"When method='auto', boxes will always use their corners as vertices. rel_dx and abs_dx must be left unspecified."
+        assert rel_dx is None and abs_dx is None, f"When method='auto', boxes will always use their corners as vertices. Leave rel_dx,abs_dx unspecified or pass 'lewiner' or 'lorensen' as method"
         vertices = pack_dims(geo.corners, dual, instance('vertices'))
         corner_count = vertices.vertices.size
         vertices = pack_dims(vertices, instance(geo) + instance('vertices'), instance('vertices'))

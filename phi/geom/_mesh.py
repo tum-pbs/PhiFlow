@@ -202,8 +202,10 @@ class Mesh(Geometry):
 
     @property
     def connectivity(self) -> Tensor:
+        if self._element_connectivity is not None:
+            return self._element_connectivity
         if self._face_areas is None and self._face_normals is None and self._face_centers is None:
-            return math.sparse_tensor(None, None, self.face_shape)
+            return None
         if is_sparse(self._face_areas):
             return tensor_like(self._face_areas, True)
         else:
@@ -328,21 +330,10 @@ class Mesh(Geometry):
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]) -> Tensor:
         if self.element_rank == 2 and self.spatial_rank == 3:
-            warnings.warn("Use geom.as_sdf(mesh, method='closest-face') for improved performance", RuntimeWarning)
             closest_elem = math.find_closest(self._center, location)
             center = self._center[closest_elem]
-            vertices = self._elements[closest_elem]
-            assert dual(vertices._indices).size == 3, f"signed distance currently only supports triangles"
-            corners = self._vertices.center[vertices._indices]
-            c1, c2, c3 = unstack(corners, dual)
-            v1, v2 = c2 - c1, c3 - c1
-            normal = math.vec_normalize(math.cross_product(v1, v2))
+            normal = self._normals[closest_elem]
             return plane_sgn_dist(center, normal, location)
-            # closest_vertex = math.find_closest(self._vertices.center, location, index_dim=None)
-            # faces = self._elements[{dual: closest_vertex}]   # sparse (elements, locations)
-            # # ToDo write this first for constant number of elements per vertex, then use sparse
-            # tri_vert_ids = self._elements._indices[{instance: faces._indices}]  # ToDo this loses the sparse structure from faces -> Matrix-matrix outer product?
-            # A, B, C = self._vertices.center[tri_vert_ids].vertices.dual
         if self._center is None:
             raise NotImplementedError("Mesh.approximate_signed_distance only available when faces are built.")
         idx = math.find_closest(self._center, location)
@@ -351,6 +342,16 @@ class Mesh(Geometry):
         return math.max(distances, dual)
 
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        if self.element_rank == 2 and self.spatial_rank == 3:
+            closest_elem = math.find_closest(self._center, location)
+            center = self._center[closest_elem]
+            normal = self._normals[closest_elem]
+            face_size = math.sqrt(self._volume) * 4
+            size = face_size[closest_elem]
+            sgn_dist = plane_sgn_dist(center, normal, location)
+            delta = center - location  # this is not accurate...
+            outward = math.where(abs(sgn_dist) < size, normal, math.normalize(delta))
+            return sgn_dist, delta, outward, None, closest_elem
         # idx = math.find_closest(self._center, location)
         # for i in range(self._max_cell_walk):
         #     idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)

@@ -333,12 +333,8 @@ class Geometry:
         Returns the radius of a Sphere object that fully encloses this geometry.
         The sphere is centered at the center of this geometry.
 
-        :return: radius of type float
-
-        Args:
-
-        Returns:
-
+        If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+        If these dims are not present on the result, all parts are assumed to have the same bounds.
         """
         raise NotImplementedError(self.__class__)
 
@@ -350,8 +346,8 @@ class Geometry:
         Let the bounding half-extent have value `e` in dimension `d` (`extent[...,d] = e`).
         Then, no point of the geometry lies further away from its center point than `e` along `d` (in both axis directions).
 
-        When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
-        If these dims are not present, all parts are assumed to have the same bounds.
+        If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+        If these dims are not present on the result, all parts are assumed to have the same bounds.
         """
         raise NotImplementedError(self.__class__)
 
