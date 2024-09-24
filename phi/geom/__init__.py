@@ -14,7 +14,7 @@ from ._functions import normal_from_slope
 from ._geom import Geometry, GeometryException, Point, assert_same_rank, invert, rotate, sample_function
 from ._box import Box, BaseBox, Cuboid
 from ._sphere import Sphere
-from ._grid import UniformGrid
+from ._grid import UniformGrid, enclosing_grid
 from ._graph import Graph, graph
 from ._mesh import Mesh, mesh, load_su2, load_gmsh, mesh_from_numpy, build_mesh
 from ._transform import embed, infinite_cylinder

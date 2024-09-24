@@ -6,7 +6,7 @@ from ._box import BaseBox, Box, Cuboid
 from ._geom import Geometry, GeometryException
 from .. import math
 from ..math import Shape, Tensor, Extrapolation, stack, vec
-from phiml.math._shape import shape_stack, dual, spatial, EMPTY_SHAPE, channel
+from phiml.math._shape import shape_stack, dual, spatial, EMPTY_SHAPE, channel, batch, shape
 from ..math.magic import slicing_dict
 
 
@@ -236,3 +236,14 @@ class UniformGrid(BaseBox):
 
     def bounding_half_extent(self) -> Tensor:
         return self.half_size
+
+
+def enclosing_grid(*geometries: Geometry, voxel_count: int, rel_margin=0., abs_margin=0.) -> UniformGrid:
+    bounds = stack([g.bounding_box() for g in geometries], batch('_geometries'))
+    bounds = bounds.largest(shape).scaled(1+rel_margin)
+    bounds = Box(bounds.lower - abs_margin, bounds.upper + abs_margin)
+    voxel_vol = bounds.volume / voxel_count
+    voxel_size = voxel_vol ** (1/bounds.spatial_rank)
+    resolution = math.to_int32(math.round(bounds.size / voxel_size))
+    resolution = spatial(**resolution.vector)
+    return UniformGrid(resolution, bounds)
