@@ -85,6 +85,18 @@ class BaseBox(Geometry):  # not a Subwoofer
         pos = local_position * (self.half_size if origin == 'center' else self.size) if scale else local_position
         return math.rotate_vector(pos, self.rotation_matrix) + origin_loc
 
+    def largest(self, dim: DimFilter) -> 'BaseBox':
+        dim = self.shape.without('vector').only(dim)
+        if not dim:
+            return self
+        return Box(math.min(self.lower, dim), math.max(self.upper, dim))
+
+    def smallest(self, dim: DimFilter) -> 'BaseBox':
+        dim = self.shape.without('vector').only(dim)
+        if not dim:
+            return self
+        return Box(math.max(self.lower, dim), math.min(self.upper, dim))
+
     def lies_inside(self, location: Tensor):
         assert self.rotation_matrix is None, f"Please override lies_inside() for rotated boxes"
         bool_inside = (location >= self.lower) & (location <= self.upper)
@@ -327,18 +339,6 @@ class Box(BaseBox, metaclass=BoxType):
             if dim in remaining:
                 remaining.remove(dim)
         return self.vector[remaining]
-
-    def largest(self, dim: DimFilter) -> 'Box':
-        dim = self.shape.without('vector').only(dim)
-        if not dim:
-            return self
-        return Box(math.min(self._lower, dim), math.max(self._upper, dim))
-
-    def smallest(self, dim: DimFilter) -> 'Box':
-        dim = self.shape.without('vector').only(dim)
-        if not dim:
-            return self
-        return Box(math.max(self._lower, dim), math.min(self._upper, dim))
 
     def __variable_attrs__(self):
         return '_lower', '_upper'
