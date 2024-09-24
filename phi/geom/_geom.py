@@ -847,6 +847,7 @@ def slice_off_constant_faces(obj, boundary_slices: Dict[Any, Dict[str, slice]], 
 
 def sample_function(f: Callable, elements: Geometry, at: str, extrapolation: Extrapolation) -> Tensor:
     from phiml.math._functional import get_function_parameters
+    pass_geometry = False
     try:
         params = get_function_parameters(f)
         dims = elements.shape.get_size('vector')
@@ -862,12 +863,16 @@ def sample_function(f: Callable, elements: Geometry, at: str, extrapolation: Ext
         pass_varargs = varargs_only or names_match or num_positional > 1 or num_positional == dims
         if num_positional > 1 and not varargs_only:
             assert names_match, f"Positional arguments of {f.__name__}({', '.join(tuple(params))}) should match physical space {elements.shape.get_item_names('vector')}"
+        if not pass_varargs:
+            first = next(iter(params))
+            if first in ['geo', 'geometry'] or '_geo' in first:
+                pass_geometry = True
     except ValueError as err:  # signature not available for all functions
         pass_varargs = False
     if at == 'center':
-        pos = slice_off_constant_faces(elements.center, elements.boundary_elements, extrapolation)
+        pos = slice_off_constant_faces(elements if pass_geometry else elements.center, elements.boundary_elements, extrapolation)
     else:
-        pos = slice_off_constant_faces(elements.face_centers, elements.boundary_faces, extrapolation)
+        pos = elements if pass_geometry else slice_off_constant_faces(elements.face_centers, elements.boundary_faces, extrapolation)
     if pass_varargs:
         values = math.map_s2b(f)(*pos.vector)
     else:
