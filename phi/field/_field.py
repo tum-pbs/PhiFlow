@@ -623,8 +623,17 @@ class Field:
         return NotImplemented
 
     def __rshift__(self, other):
-        warnings.warn(">> operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.", SyntaxWarning, stacklevel=2)
-        return self.at(other, keep_boundary=False)
+        if isinstance(other, (Field, Geometry)):
+            warnings.warn(">> operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.", SyntaxWarning, stacklevel=2)
+            return self.at(other, keep_boundary=False)
+        else:
+            return NotImplemented
+
+    def __rrshift__(self, other):
+        return self.with_values(other)
+
+    def __lshift__(self, other):
+        return self.with_values(other)
 
     def __rrshift__(self, other):
         warnings.warn(">> operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.", SyntaxWarning, stacklevel=2)
