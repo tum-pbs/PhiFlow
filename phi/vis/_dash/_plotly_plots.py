@@ -477,7 +477,7 @@ class Scatter3D(Recipe):
         yrange = subplot.yaxis.range
         for idx in (channel(data.geometry) - 'vector').meshgrid():
             if color == 'cmap':
-                color_i = plotly_color(0)  # ToDo cmap
+                color_i = data[idx].values.numpy([math.shape]).astype(np.float32)
             else:
                 color_i = plotly_color(color[idx].native())
             if spatial(data.geometry):
@@ -508,7 +508,7 @@ class Scatter3D(Recipe):
                 symbol = 'asterisk'
                 marker_size = data.geometry[idx].bounding_radius().numpy()
             marker_size *= size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5
-            marker = graph_objects.scatter3d.Marker(size=marker_size, color=color_i, sizemode='diameter', symbol=symbol)
+            marker = graph_objects.scatter3d.Marker(size=marker_size, color=color_i, colorscale='Viridis', sizemode='diameter', symbol=symbol)
             figure.add_scatter3d(mode='markers', x=x, y=y, z=z, marker=marker, row=row, col=col)
             figure.update_layout(showlegend=False)
 
