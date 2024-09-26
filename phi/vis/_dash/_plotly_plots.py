@@ -268,9 +268,8 @@ class Heatmap3D(Recipe):
         min_val, max_val = min_val if numpy.isfinite(min_val) else 0, max_val if numpy.isfinite(max_val) else 0
         color_scale = get_div_map(min_val, max_val, equal_scale=True)
         figure.add_volume(x=x.flatten(), y=y.flatten(), z=z.flatten(), value=values.flatten(),
-                          showscale=show_color_bar, colorscale=color_scale, cmin=min_val, cmax=max_val, cauto=False,
-                          isomin=0.1, isomax=0.8,
-                          opacity=0.1,  # needs to be small to see through all surfaces
+                          showscale=show_color_bar, colorscale=color_scale, cmin=min_val, cmax=max_val,
+                          opacity=0.2 * float(alpha),  # needs to be small to see through all surfaces
                           surface_count=17,  # needs to be a large number for good volume rendering
                           row=row, col=col)
         figure.update_layout(uirevision=True)
