@@ -1,3 +1,4 @@
+import os
 import warnings
 from numbers import Number
 from typing import Dict, List, Sequence, Union, Any, Tuple, Optional
@@ -92,7 +93,7 @@ class Mesh(Geometry):
         self._max_cell_walk = max_cell_walk
 
     def __variable_attrs__(self):
-        return '_vertices', '_elements', '_center', '_volume', '_face_centers', '_face_normals', '_face_areas', '_face_vertices', '_relative_face_distance', '_neighbor_offsets'
+        return '_vertices', '_elements', '_center', '_volume', '_face_centers', '_face_normals', '_face_areas', '_face_vertices', '_normals', '_vertex_connectivity', '_vertex_normals', '_element_connectivity', '_relative_face_distance', '_neighbor_offsets'
 
     def __value_attrs__(self):
         return '_vertices',
@@ -571,6 +572,7 @@ def mesh_from_numpy(points: Union[list, np.ndarray],
     return mesh(vertices, polygons, boundaries, element_rank=element_rank, build_faces=build_faces, build_vertex_connectivity=build_vertex_connectivity, build_normals=build_normals, face_format=face_format, normals=normals)
 
 
+@math.broadcast(dims=batch)
 def mesh(vertices: Geometry | Tensor,
          elements: Tensor,
          boundaries: str | Dict[str, List[Sequence]] | None = None,
@@ -614,7 +616,7 @@ def mesh(vertices: Geometry | Tensor,
         if vertices.vector.size == 2:
             element_rank = 2
         elif vertices.vector.size == 3:
-            min_vertices = math.min(math.sum(elements, instance(vertices).as_dual()))
+            min_vertices = math.sum(elements, instance(vertices).as_dual()).min
             element_rank = 2 if min_vertices <= 4 else 3  # assume tri or quad mesh
         else:
             raise ValueError(vertices.vector.size)
@@ -936,6 +938,7 @@ def save_tri_mesh(file: str, mesh: Mesh):
     else:
         raise NotImplementedError
     print(f"Saving triangle mesh with {v.shape[0]} vertices and {f.shape[0]} faces to {file}")
+    os.makedirs(os.path.dirname(file), exist_ok=True)
     np.savez(file, vertices=v, faces=f, f_dim=instance(mesh).name, vertex_dim=instance(mesh.vertices).name, vector=mesh.vector.item_names)
 
 
@@ -944,7 +947,7 @@ def load_tri_mesh(file: str, convert=False) -> Mesh:
     f_dim = instance(str(data['f_dim']))
     vertex_dim = instance(str(data['vertex_dim']))
     vector = channel(vector=[str(d) for d in data['vector']])
-    faces = tensor(data['faces'], f_dim, vertex_dim.as_spatial(), convert=convert)
+    faces = tensor(data['faces'], f_dim, spatial('vertex_list'), convert=convert)
     vertices = tensor(data['vertices'], vertex_dim, vector, convert=convert)
     return mesh(vertices, faces, build_faces=False, build_vertex_connectivity=True, build_normals=True)
 
