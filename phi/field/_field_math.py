@@ -123,7 +123,7 @@ def laplace(u: Field,
     result = []
     for f in fields:
         if order == 2:
-            result.append(math.map_d2c(math.laplace)(f.values, dx=f.dx, padding=f.extrapolation, dims=axes, weights=weights))  # uses ghost cells
+            result.append(math.map_d2c(math.laplace)(f.values, dx=f.dx, padding=f.extrapolation, dims=axes, weights=weights, padding_kwargs={'bounds': f.bounds}))  # uses ghost cells
         else:
             result_components = [perform_finite_difference_operation(f.values, dim, 2, f.dx.vector[dim], f.extrapolation,
                                                                          laplace_ext, 'center', order, implicit,
