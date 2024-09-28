@@ -400,6 +400,8 @@ class Heatmap3D(Recipe):
         xyz = StaggeredGrid(lambda x: x, math.extrapolation.BOUNDARY, data.geometry.bounds, data.resolution).staggered_tensor().numpy(dims + ('vector',))[:-1, :-1, :-1, :]
         xyz = xyz.reshape(-1, 3)
         values = data.values.numpy(dims).flatten()
+        if color == 'cmap':
+            color = 0
         col = matplotlib.colors.to_rgba(_plt_col(color))
         colors = np.zeros_like(values)[..., None] + col
         norm_values = (values - min_val) / (max_val - min_val)
