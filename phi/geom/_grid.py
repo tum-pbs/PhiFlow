@@ -239,6 +239,19 @@ class UniformGrid(BaseBox):
 
 
 def enclosing_grid(*geometries: Geometry, voxel_count: int, rel_margin=0., abs_margin=0.) -> UniformGrid:
+    """
+    Constructs a `UniformGrid` which fully encloses the `geometries`.
+    The grid voxels are chosen to have approximately the same size along each axis.
+
+    Args:
+        *geometries: `Geometry` objects which should lie within the grid.
+        voxel_count: Approximate number of total voxels.
+        rel_margin: Relative margin, i.e. empty space on each side as a fraction of the bounding box size of `geometries`.
+        abs_margin: Absolute margin, i.e. empty space on each side.
+
+    Returns:
+        `UniformGrid`
+    """
     bounds = stack([g.bounding_box() for g in geometries], batch('_geometries'))
     bounds = bounds.largest(shape).scaled(1+rel_margin)
     bounds = Box(bounds.lower - abs_margin, bounds.upper + abs_margin)

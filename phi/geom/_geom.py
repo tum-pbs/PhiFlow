@@ -846,6 +846,19 @@ def slice_off_constant_faces(obj, boundary_slices: Dict[Any, Dict[str, slice]], 
 
 
 def sample_function(f: Callable, elements: Geometry, at: str, extrapolation: Extrapolation) -> Tensor:
+    """
+    Calls `f`, passing either the `elements` directly or the relevant sample points as a `Tensor`, depending on the signature of `f`.
+
+    Args:
+        f: Function taking a `Geometry` or location `Tensor´ and returning a `Tensor`.
+            A `Geometry` will be passed if the first argument of `f` is called `geometry` or `geo` or ends with `_geo`.
+        elements: `Geometry` on which to sample `f`.
+        at: Set of sample points, see `Geometry.sets`.
+        extrapolation: Determines which boundary points are relevant.
+
+    Returns:
+        Sampled values as `Tensor`.
+    """
     from phiml.math._functional import get_function_parameters
     pass_geometry = False
     try:

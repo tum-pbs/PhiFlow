@@ -193,6 +193,17 @@ class SDF(Geometry):
 
 
 def numpy_sdf(sdf: Callable, bounds: BaseBox, center: Tensor = None) -> SDF:
+    """
+    Define a `SDF` (signed distance function) from a NumPy function.
+
+    Args:
+        sdf: Function mapping a location `numpy.ndarray` of shape `(points, vector)` to the corresponding SDF value `(points,)`.
+        bounds: Bounds inside which the function is defined.
+        center: Optional center position of the object encoded via `sdf`.
+
+    Returns:
+        `SDF`
+    """
     def native_sdf_function(pos: Tensor) -> Tensor:
         nat_pos = math.reshaped_native(pos, [..., 'vector'])
         nat_sdf = pos.default_backend.numpy_call(sdf, nat_pos.shape[:1], math.DType(float, 32), nat_pos)

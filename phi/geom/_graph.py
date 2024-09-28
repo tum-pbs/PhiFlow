@@ -180,6 +180,21 @@ def graph(nodes: Union[Geometry, Tensor],
           boundary: Dict[str, Dict[str, slice]] = None,
           build_distances=True,
           build_bounding_distance=False) -> Graph:
+    """
+    Construct a `Graph`.
+
+    Args:
+        nodes: Location `Tensor` or `Geometry` objects representing the nodes.
+        edges: Connectivity and edge value `Tensor`.
+        boundary: Named boundary sets.
+        build_distances: Whether to compute all edge lengths.
+            This enables the properties `Graph.deltas`, `Graph.unit_deltas`, `Graph.distances`.
+        build_bounding_distance: Whether to compute the maximum edge length.
+            This enables the property `Graph.bounding_distance`.
+
+    Returns:
+        `Graph`
+    """
     if isinstance(nodes, Tensor):
         assert 'vector' in channel(nodes) and channel(nodes).get_item_names('vector') is not None, f"nodes must have a 'vector' dim listing the physical dimensions but got {shape(nodes)}"
         nodes = Point(nodes)
