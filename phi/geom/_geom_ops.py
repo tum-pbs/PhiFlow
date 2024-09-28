@@ -4,9 +4,9 @@ from typing import Union, Dict, Any, Optional, Tuple, Sequence
 
 from phi import math
 from phiml import math
-from phiml.math import wrap
+from phiml.math import wrap, merge_shapes
 from phiml.math._magic_ops import variable_attributes, copy_with
-from phiml.math._shape import shape_stack, Shape
+from phiml.math._shape import shape_stack, Shape, EMPTY_SHAPE
 from phiml.math._tensors import object_dims
 from phiml.math.magic import PhiTreeNode
 
@@ -58,6 +58,25 @@ class GeometryStack(Geometry):
 
     def __value_attrs__(self):
         return '_geometries',
+
+    @property
+    def sets(self) -> Dict[str, Shape]:
+        all_names = set()
+        for g in self._geometries:
+            all_names.update(g.sets)
+        result = {}
+        for name in all_names:
+            all_dims = []
+            for g in self._geometries:
+                all_dims.append(g.sets.get(name, EMPTY_SHAPE))
+            all_dims = merge_shapes(all_dims, allow_varying_sizes=True)
+            zeros = all_dims.with_sizes(0)
+            set_shapes = []
+            for g in self._geometries:
+                set_shapes.append(g.sets.get(name, zeros))
+            set_shape = math.stack(set_shapes, object_dims(self._geometries))
+            result[name] = set_shape
+        return result
 
     @property
     def object_dims(self):

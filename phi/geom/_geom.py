@@ -122,7 +122,7 @@ class Geometry:
         return None
 
     @property
-    def sets(self):
+    def sets(self) -> Dict[str, Shape]:
         if self.face_shape and self.face_shape != self.shape and self.face_shape.volume > 0:
             return {'center': non_batch(self)-'vector', 'face': self.face_shape.non_batch}
         else:
