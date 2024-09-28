@@ -556,12 +556,6 @@ def get_default_limits(f: Field, all_dims: Optional[Sequence[str]], log_dims: Tu
             half = expand(half, channel(vector='_'))
         else:
             err = expand(err, channel(center))
-    # if 'vector' in channel(err) and 'vector' not in channel(half):
-    #     half = expand(half, channel(vector='_'))
-    elif 'vector' in channel(err) and 'vector' in half.shape and '_' not in half.shape['vector'].item_names:  # add missing dimensions to half and err
-        half = vec(**half.vector, _=0)
-        center = vec(**center.vector, _=f.values)
-        err = vec(**{dim: err.vector[dim] if dim in err.vector.item_names else 0 for dim in half.vector.item_names + ('_',)})
     half = math.maximum(half, err)
     return _limits(center, half, is_log)
 
