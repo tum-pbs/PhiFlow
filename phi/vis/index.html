@@ -122,7 +122,7 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 <p>Plottable object</p></div>
 </dd>
 <dt id="phi.vis.plot"><code class="name flex">
-<span>def <span class="ident">plot</span></span>(<span>*fields: Union[phi.field._field.Field, phiml.math._tensors.Tensor, phi.geom._geom.Geometry, list, tuple, dict], lib: Union[str, phi.vis._vis_base.PlottingLibrary] = None, row_dims: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = None, col_dims: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = &lt;function batch&gt;, animate: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = None, overlay: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = 'overlay', title: Union[str, phiml.math._tensors.Tensor, list, tuple] = None, size=(12, 5), same_scale: Union[bool, phiml.math._shape.Shape, tuple, list, str] = True, log_dims: Union[str, phiml.math._shape.Shape, tuple, list] = '', show_color_bar=True, color: Union[str, int, phiml.math._tensors.Tensor, list, tuple] = None, alpha: Union[float, phiml.math._tensors.Tensor, list, tuple] = 1.0, err: Union[float, phiml.math._tensors.Tensor, list, tuple] = 0.0, frame_time=100, repeat=True, plt_params: Dict = None)</span>
+<span>def <span class="ident">plot</span></span>(<span>*fields: Union[phi.field._field.Field, phiml.math._tensors.Tensor, phi.geom._geom.Geometry, list, tuple, dict], lib: Union[str, phi.vis._vis_base.PlottingLibrary] = None, row_dims: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = None, col_dims: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = &lt;function batch&gt;, animate: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = None, overlay: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = 'overlay', title: Union[str, phiml.math._tensors.Tensor, list, tuple] = None, size=None, same_scale: Union[bool, phiml.math._shape.Shape, tuple, list, str] = True, log_dims: Union[str, phiml.math._shape.Shape, tuple, list] = '', show_color_bar=True, color: Union[str, int, phiml.math._tensors.Tensor, list, tuple] = None, alpha: Union[float, phiml.math._tensors.Tensor, list, tuple] = 1.0, err: Union[float, phiml.math._tensors.Tensor, list, tuple] = 0.0, frame_time=100, repeat=True, plt_params: Dict = None, max_subfigures=20)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Creates one or multiple figures and sub-figures and plots the given fields.</p>
@@ -187,48 +187,13 @@ Currently, only single-figure plots are supported.</p>
 <p>In case of an animation, a displayable animation object will be returned instead of a <code>Tensor</code>.</p></div>
 </dd>
 <dt id="phi.vis.plot_scalars"><code class="name flex">
-<span>def <span class="ident">plot_scalars</span></span>(<span>scene: Union[str, tuple, list, phi.field._scene.Scene, phiml.math._tensors.Tensor], names: Union[str, phiml.math._tensors.Tensor, list, tuple] = None, reduce: Union[str, phiml.math._shape.Shape, tuple, list] = 'names', down='', smooth=1, smooth_alpha=0.2, smooth_linewidth=2.0, size=(8, 6), transform: Callable = None, tight_layout=True, grid: Union[str, dict] = 'y', log_scale='', legend='upper right', x='steps', xlim=None, ylim=None, titles=True, labels: phiml.math._tensors.Tensor = None, xlabel: str = None, ylabel: str = None, colors: phiml.math._tensors.Tensor = 'default', dashed: phiml.math._tensors.Tensor = False)</span>
+<span>def <span class="ident">plot_scalars</span></span>(<span>*args, **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>scene</code></strong></dt>
-<dd><code>str</code> or <code>Tensor</code>. Scene paths containing the data to plot.</dd>
-<dt><strong><code>names</code></strong></dt>
-<dd>Data files to plot for each scene. The file must be located inside the scene directory and have the name <code>log_&lt;name&gt;.txt</code>.</dd>
-<dt><strong><code>reduce</code></strong></dt>
-<dd>Tensor dimensions along which all curves are plotted in the same diagram.</dd>
-<dt><strong><code>down</code></strong></dt>
-<dd>Tensor dimensions along which diagrams are ordered top-to-bottom instead of left-to-right.</dd>
-<dt><strong><code>smooth</code></strong></dt>
-<dd><code>int</code> or <code>Tensor</code>. Number of data points to average, -1 for all.</dd>
-<dt><strong><code>smooth_alpha</code></strong></dt>
-<dd>Opacity of the non-smoothed curves under the smoothed curves.</dd>
-<dt><strong><code>smooth_linewidth</code></strong></dt>
-<dd>Line width of the smoothed curves.</dd>
-<dt><strong><code>size</code></strong></dt>
-<dd>Figure size in inches.</dd>
-<dt><strong><code>transform</code></strong></dt>
-<dd>Function <code>T(x,y) -&gt; (x,y)</code> transforming the curves.</dd>
-<dt>tight_layout:</dt>
-<dt>grid:</dt>
-<dt>log_scale:</dt>
-<dt>legend:</dt>
-<dt>x:</dt>
-<dt>xlim:</dt>
-<dt>ylim:</dt>
-<dt>titles:</dt>
-<dt>labels:</dt>
-<dt>xlabel:</dt>
-<dt>ylabel:</dt>
-<dt><strong><code>colors</code></strong></dt>
-<dd>Line colors as <code>str</code>, <code>int</code> or <code>Tensor</code>. Integers are interpreted as indices of the default color list.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p>MatPlotLib <a href="https://matplotlib.org/stable/api/figure_api.html#matplotlib.figure.Figure">figure</a></p></div>
+<div class="desc"></div>
 </dd>
 <dt id="phi.vis.savefig"><code class="name flex">
-<span>def <span class="ident">savefig</span></span>(<span>path: str, figure=None, dpi=120.0, close=False)</span>
+<span>def <span class="ident">savefig</span></span>(<span>path: str, figure=None, dpi=120.0, close=False, transparent=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Save a figure to an image file.</p>
@@ -242,40 +207,16 @@ Currently, only single-figure plots are supported.</p>
 <dd>Pixels per inch.</dd>
 <dt><strong><code>close</code></strong></dt>
 <dd>Whether to close the figure after saving it.</dd>
+<dt><strong><code>transparent</code></strong></dt>
+<dd>Whether to save the figure with transparent background.</dd>
 </dl></div>
 </dd>
 <dt id="phi.vis.show"><code class="name flex">
-<span>def <span class="ident">show</span></span>(<span>*model: Union[phi.vis._vis_base.VisModel, phi.field._field.Field, phiml.math._tensors.Tensor, phi.geom._geom.Geometry, list, tuple, dict], play=True, gui: Union[phi.vis._vis_base.Gui, str] = None, lib: Union[phi.vis._vis_base.Gui, str] = None, keep_alive=True, **config)</span>
+<span>def <span class="ident">show</span></span>(<span>*fields: Union[phi.field._field.Field, phiml.math._tensors.Tensor, phi.geom._geom.Geometry, list, tuple, dict], lib: Union[str, phi.vis._vis_base.PlottingLibrary] = None, row_dims: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = None, col_dims: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = &lt;function batch&gt;, animate: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = None, overlay: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = 'overlay', title: Union[str, phiml.math._tensors.Tensor, list, tuple] = None, size=None, same_scale: Union[bool, phiml.math._shape.Shape, tuple, list, str] = True, log_dims: Union[str, phiml.math._shape.Shape, tuple, list] = '', show_color_bar=True, color: Union[str, int, phiml.math._tensors.Tensor, list, tuple] = None, alpha: Union[float, phiml.math._tensors.Tensor, list, tuple] = 1.0, err: Union[float, phiml.math._tensors.Tensor, list, tuple] = 0.0, frame_time=100, repeat=True, plt_params: Dict = None, max_subfigures=20)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>If <code>model</code> is a user interface model, launches the registered user interface.
-This will typically be the Dash web interface or the console interface if dash is not available.
-This method prepares the <code>model</code> before showing it. No more fields should be added to the vis after this method is invoked.</p>
-<p>See Also:
-<code><a title="phi.vis.view" href="#phi.vis.view">view()</a></code>.</p>
-<p>If <code>model</code> is plottable, e.g. a <code>Field</code> or <code>Tensor</code>, a figure is created and shown.
-If <code>model</code> is a figure, it is simply shown.</p>
-<p>See Also:
-<code><a title="phi.vis.plot" href="#phi.vis.plot">plot()</a></code>.</p>
-<p>This method may block until the GUI or plot window is closed.</p>
-<p>Also see the user interface documentation at <a href="https://tum-pbs.github.io/PhiFlow/Visualization.html">https://tum-pbs.github.io/PhiFlow/Visualization.html</a></p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>model</code></strong></dt>
-<dd>(Optional) <code>VisModel</code>, the application or plottable object to display.
-If unspecified, shows the most recently plotted figure.</dd>
-<dt><strong><code>play</code></strong></dt>
-<dd>If true, invokes <code>App.play()</code>. The default value is False unless "autorun" is passed as a command line argument.</dd>
-<dt><strong><code>gui</code></strong></dt>
-<dd>Deprecated. Use <code>lib</code> instead. (optional) class of GUI to use</dd>
-<dt><strong><code>lib</code></strong></dt>
-<dd>Gui class or plotting library as <code>str</code>, e.g. <code>'matplotlib'</code> or <code>'plotly'</code></dd>
-<dt><strong><code>keep_alive</code></strong></dt>
-<dd>Whether the GUI keeps the vis alive. If <code>False</code>, the program will exit when the main script is finished.</dd>
-<dt><strong><code>**config</code></strong></dt>
-<dd>additional GUI configuration parameters.
-For a full list of parameters, see the respective GUI documentation at <a href="https://tum-pbs.github.io/PhiFlow/Visualization.html">https://tum-pbs.github.io/PhiFlow/Visualization.html</a></dd>
-</dl></div>
+<div class="desc"><h2 id="args">Args</h2>
+<p>See <code><a title="phi.vis.plot" href="#phi.vis.plot">plot()</a></code>.</p></div>
 </dd>
 <dt id="phi.vis.smooth"><code class="name flex">
 <span>def <span class="ident">smooth</span></span>(<span>curves: phiml.math._tensors.Tensor, n: int, ext: phiml.math.extrapolation.Extrapolation = &lt;phiml.math.extrapolation._SymmetricGradientExtrapolation object&gt;) ‑> phiml.math._tensors.Tensor</span>
@@ -340,7 +281,7 @@ If <code>True</code>, will be logged as <code>step_time</code> to <code>log_step
 <p><code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></code></p></div>
 </dd>
 <dt id="phi.vis.write_image"><code class="name flex">
-<span>def <span class="ident">write_image</span></span>(<span>path: str, figure=None, dpi=120.0, close=False)</span>
+<span>def <span class="ident">write_image</span></span>(<span>path: str, figure=None, dpi=120.0, close=False, transparent=True)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Save a figure to an image file.</p>
@@ -354,6 +295,8 @@ If <code>True</code>, will be logged as <code>step_time</code> to <code>log_step
 <dd>Pixels per inch.</dd>
 <dt><strong><code>close</code></strong></dt>
 <dd>Whether to close the figure after saving it.</dd>
+<dt><strong><code>transparent</code></strong></dt>
+<dd>Whether to save the figure with transparent background.</dd>
 </dl></div>
 </dd>
 </dl>

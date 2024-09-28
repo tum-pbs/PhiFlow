@@ -41,6 +41,29 @@ hljs.highlightAll();
 <section>
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
+<dt id="phi.geom.as_sdf"><code class="name flex">
+<span>def <span class="ident">as_sdf</span></span>(<span>geo: phi.geom._geom.Geometry, bounds=None, rel_margin=None, abs_margin=0.0, separate: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = None, method='auto') ‑> phi.geom._sdf.SDF</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Represent existing geometry as a signed distance function.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>geo</code></strong></dt>
+<dd><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> to represent as a signed distance function.
+Must implement <code><a title="phi.geom.Geometry.approximate_signed_distance" href="#phi.geom.Geometry.approximate_signed_distance">Geometry.approximate_signed_distance()</a></code>.</dd>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>Bounds of the SDF. If <code>None</code> will be determined from bounds of <code>geo</code> and <code>rel_margin</code>/<code>abs_margin</code>.</dd>
+<dt><strong><code>rel_margin</code></strong></dt>
+<dd>Relative size to pad the domain on all sides around the bounds of <code>geo</code>.
+For example, 0.1 will pad 10% of <code>geo</code>'s size in each axis on both sides.</dd>
+<dt><strong><code>abs_margin</code></strong></dt>
+<dd>World-space size to pad the domain on all sides around the bounds of <code>geo</code>.</dd>
+<dt><strong><code>separate</code></strong></dt>
+<dd>Dimensions along which to unstack <code>geo</code> and return individual SDFs.
+Once created, SDFs cannot be unstacked.</dd>
+</dl>
+<p>Returns:</p></div>
+</dd>
 <dt id="phi.geom.assert_same_rank"><code class="name flex">
 <span>def <span class="ident">assert_same_rank</span></span>(<span>rank1, rank2, error_message)</span>
 </code></dt>
@@ -89,7 +112,9 @@ Batch dimensions will be added as needed.</p>
 <dd>Tuple or list of <code>phiml.math.magic.Shapable</code>, such as <code>phiml.math.Tensor</code></dd>
 <dt><strong><code>dim</code></strong></dt>
 <dd>Concatenation dimension, must be present in all <code>values</code>.
-The size along <code>dim</code> is determined from <code>values</code> and can be set to undefined (<code>None</code>).</dd>
+The size along <code>dim</code> is determined from <code>values</code> and can be set to undefined (<code>None</code>).
+Alternatively, a <code>str</code> of the form <code>'t-&gt;name:t'</code> can be specified, where <code>t</code> is on of <code>b d i s c</code> denoting the dimension type.
+This first packs all dimensions of the input into a new dim with given name and type, then concatenates the values along this dim.</dd>
 <dt><strong><code>expand_values</code></strong></dt>
 <dd>If <code>True</code>, will first add missing dimensions to all values, not just batch dimensions.
 This allows tensors with different dimensions to be concatenated.
@@ -126,6 +151,49 @@ The geometry value will be constant along the added dimensions, as if it had inf
 <h2 id="returns">Returns</h2>
 <p><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with spatial rank <code>geometry.spatial_rank + projected_dims.rank</code>.</p></div>
 </dd>
+<dt id="phi.geom.enclosing_grid"><code class="name flex">
+<span>def <span class="ident">enclosing_grid</span></span>(<span>*geometries: phi.geom._geom.Geometry, voxel_count: int, rel_margin=0.0, abs_margin=0.0) ‑> phi.geom._grid.UniformGrid</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Constructs a <code><a title="phi.geom.UniformGrid" href="#phi.geom.UniformGrid">UniformGrid</a></code> which fully encloses the <code>geometries</code>.
+The grid voxels are chosen to have approximately the same size along each axis.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>*geometries</code></strong></dt>
+<dd><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> objects which should lie within the grid.</dd>
+<dt><strong><code>voxel_count</code></strong></dt>
+<dd>Approximate number of total voxels.</dd>
+<dt><strong><code>rel_margin</code></strong></dt>
+<dd>Relative margin, i.e. empty space on each side as a fraction of the bounding box size of <code>geometries</code>.</dd>
+<dt><strong><code>abs_margin</code></strong></dt>
+<dd>Absolute margin, i.e. empty space on each side.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.geom.UniformGrid" href="#phi.geom.UniformGrid">UniformGrid</a></code></p></div>
+</dd>
+<dt id="phi.geom.graph"><code class="name flex">
+<span>def <span class="ident">graph</span></span>(<span>nodes: Union[phiml.math._tensors.Tensor, phi.geom._geom.Geometry], edges: phiml.math._tensors.Tensor, boundary: Dict[str, Dict[str, slice]] = None, build_distances=True, build_bounding_distance=False) ‑> phi.geom._graph.Graph</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Construct a <code><a title="phi.geom.Graph" href="#phi.geom.Graph">Graph</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>nodes</code></strong></dt>
+<dd>Location <code>Tensor</code> or <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> objects representing the nodes.</dd>
+<dt><strong><code>edges</code></strong></dt>
+<dd>Connectivity and edge value <code>Tensor</code>.</dd>
+<dt><strong><code>boundary</code></strong></dt>
+<dd>Named boundary sets.</dd>
+<dt><strong><code>build_distances</code></strong></dt>
+<dd>Whether to compute all edge lengths.
+This enables the properties <code><a title="phi.geom.Graph.deltas" href="#phi.geom.Graph.deltas">Graph.deltas</a></code>, <code><a title="phi.geom.Graph.unit_deltas" href="#phi.geom.Graph.unit_deltas">Graph.unit_deltas</a></code>, <code><a title="phi.geom.Graph.distances" href="#phi.geom.Graph.distances">Graph.distances</a></code>.</dd>
+<dt><strong><code>build_bounding_distance</code></strong></dt>
+<dd>Whether to compute the maximum edge length.
+This enables the property <code><a title="phi.geom.Graph.bounding_distance" href="#phi.geom.Graph.bounding_distance">Graph.bounding_distance</a></code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.geom.Graph" href="#phi.geom.Graph">Graph</a></code></p></div>
+</dd>
 <dt id="phi.geom.infinite_cylinder"><code class="name flex">
 <span>def <span class="ident">infinite_cylinder</span></span>(<span>center=None, radius=None, inf_dim: Union[str, phiml.math._shape.Shape, tuple, list] = None, **center_) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
@@ -150,7 +218,7 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
 <p><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></p></div>
 </dd>
 <dt id="phi.geom.intersection"><code class="name flex">
-<span>def <span class="ident">intersection</span></span>(<span>*geometries, dim=(intersectionⁱ=None)) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">intersection</span></span>(<span>*geometries: phi.geom._geom.Geometry, dim=(intersectionⁱ=None)) ‑> phi.geom._geom.Geometry</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Intersection of the given geometries.
@@ -177,6 +245,44 @@ A point lies inside the union if it lies within all of the geometries.</p>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>New <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> object with same surface but swapped normals</p></div>
+</dd>
+<dt id="phi.geom.line_trace"><code class="name flex">
+<span>def <span class="ident">line_trace</span></span>(<span>geo: phi.geom._geom.Geometry, origin: phiml.math._tensors.Tensor, direction: phiml.math._tensors.Tensor, side='both', tolerance=None, max_iter=64, step_size=0.9, max_line_length=None) ‑> Tuple[phiml.math._tensors.Tensor, phiml.math._tensors.Tensor, phiml.math._tensors.Tensor, phiml.math._tensors.Tensor, Optional[phiml.math._tensors.Tensor]]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Trace a line until it hits the surface of <code>geo</code>.
+The surface can be hit either from the outside or the inside.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>geo</code></strong></dt>
+<dd><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> that implements <code>approximate_closest_surface</code>.</dd>
+<dt><strong><code>origin</code></strong></dt>
+<dd>Line start location.</dd>
+<dt><strong><code>direction</code></strong></dt>
+<dd>Unit vector pointing in the line direction.</dd>
+<dt><strong><code>side</code></strong></dt>
+<dd>'outside' or 'inside' or 'both'.</dd>
+<dt><strong><code>tolerance</code></strong></dt>
+<dd>Surface distance tolerance.</dd>
+<dt><strong><code>max_iter</code></strong></dt>
+<dd>Maximum number of steps per line.</dd>
+<dt><strong><code>step_size</code></strong></dt>
+<dd>Step size factor. This can be set to <code>1</code> if the signed distance values of <code>geo</code> are exact.
+For inexact SDFs, smaller step sizes prevent skipping over surfaces.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>hit</code></dt>
+<dd>Whether a surface intersection was found for the line.</dd>
+<dt><code>distance</code></dt>
+<dd>Distance between the line and the surface.</dd>
+<dt><code>position</code></dt>
+<dd>Hit location or point until which the line was traced.</dd>
+<dt><code>normal</code></dt>
+<dd>Surface normal at hit location</dd>
+<dt><code>hit_index</code></dt>
+<dd>Geometry face index at hit location</dd>
+</dl></div>
 </dd>
 <dt id="phi.geom.load_gmsh"><code class="name flex">
 <span>def <span class="ident">load_gmsh</span></span>(<span>file: str, boundary_names: Sequence[str] = None, cell_dim=(cellsⁱ=None), face_format: str = 'csc')</span>
@@ -217,7 +323,7 @@ A point lies inside the union if it lies within all of the geometries.</p>
 <p><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code></p></div>
 </dd>
 <dt id="phi.geom.mesh"><code class="name flex">
-<span>def <span class="ident">mesh</span></span>(<span>vertices: phiml.math._tensors.Tensor, polygons: phiml.math._tensors.Tensor, boundaries: Union[str, Dict[str, List[Sequence]]], face_format: str = 'csc')</span>
+<span>def <span class="ident">mesh</span></span>(<span>vertices: Union[phiml.math._tensors.Tensor, phi.geom._geom.Geometry], elements: phiml.math._tensors.Tensor, boundaries: Union[str, Dict[str, List[Sequence]], ForwardRef(None)] = None, element_rank: int = None, build_faces=True, build_vertex_connectivity=True, build_element_connectivity=True, build_normals=True, normals=None, face_format: str = 'csc')</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Create a mesh from vertex positions and vertex lists.</p>
@@ -225,7 +331,7 @@ A point lies inside the union if it lies within all of the geometries.</p>
 <dl>
 <dt><strong><code>vertices</code></strong></dt>
 <dd><code>Tensor</code> with one instance and one channel dimension <code>vector</code>.</dd>
-<dt><strong><code>polygons</code></strong></dt>
+<dt><strong><code>elements</code></strong></dt>
 <dd>Lists of vertex indices as 2D tensor.
 The elements must be listed along an instance dimension, and the vertex indices belonging to the same polygon must be listed along a spatial dimension.</dd>
 <dt><strong><code>boundaries</code></strong></dt>
@@ -233,6 +339,10 @@ The elements must be listed along an instance dimension, and the vertex indices 
 For multiple boundaries, pass a <code>dict</code> mapping group names <code>str</code> to lists of faces, defined by their vertices.
 The last entry can be <code>None</code> to group all boundary faces not explicitly listed before.
 The <code>boundaries</code> <code>dict</code> maps boundary names to a list of edges (point pairs) in 2D and faces (3 or more points) in 3D (not yet supported).</dd>
+<dt><strong><code>build_faces</code></strong></dt>
+<dd>Whether to extract face information from the given vertex, polygon and boundary information.</dd>
+<dt><strong><code>build_vertex_connectivity</code></strong></dt>
+<dd>Whether to build a connectivity matrix for vertex-vertex connections.</dd>
 <dt><strong><code>face_format</code></strong></dt>
 <dd>Storage format for cell connectivity, must be one of <code>csc</code>, <code>coo</code>, <code>csr</code>, <code>dense</code>.</dd>
 </dl>
@@ -240,7 +350,7 @@ The <code>boundaries</code> <code>dict</code> maps boundary names to a list of e
 <p><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code></p></div>
 </dd>
 <dt id="phi.geom.mesh_from_numpy"><code class="name flex">
-<span>def <span class="ident">mesh_from_numpy</span></span>(<span>points: Union[list, numpy.ndarray], polygons: list, boundaries: Dict[str, List[Sequence]], cell_dim: phiml.math._shape.Shape = (cellsⁱ=None), face_format: str = 'csc') ‑> phi.geom._mesh.Mesh</span>
+<span>def <span class="ident">mesh_from_numpy</span></span>(<span>points: Union[list, numpy.ndarray], polygons: list, boundaries: Union[str, Dict[str, List[Sequence]], ForwardRef(None)] = None, element_rank: int = None, build_faces=True, build_vertex_connectivity=True, build_normals=True, normals=None, cell_dim: phiml.math._shape.Shape = (cellsⁱ=None), face_format: str = 'csc') ‑> phi.geom._mesh.Mesh</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Construct an unstructured mesh from vertices.</p>
@@ -255,6 +365,10 @@ E.g. <code>[(0, 1, 2)]</code> denotes a single triangle connecting points 0, 1, 
 <dt><strong><code>boundaries</code></strong></dt>
 <dd>An unstructured mesh can have multiple boundaries, each defined by a name <code>str</code> and a list of faces, defined by their vertices.
 The <code>boundaries</code> <code>dict</code> maps boundary names to a list of edges (point pairs) in 2D and faces (3 or more points) in 3D (not yet supported).</dd>
+<dt><strong><code>build_faces</code></strong></dt>
+<dd>Whether to extract face information from the given vertex, polygon and boundary information.</dd>
+<dt><strong><code>build_vertex_connectivity</code></strong></dt>
+<dd>Whether to build a connectivity matrix for vertex-vertex connections.</dd>
 <dt><strong><code>cell_dim</code></strong></dt>
 <dd>Dimension along which to list the cells. This should be an instance dimension.</dd>
 <dt><strong><code>face_format</code></strong></dt>
@@ -280,8 +394,25 @@ The vector must list all but one dimensions of <code>space</code>.</dd>
 <h2 id="returns">Returns</h2>
 <p>Normal vector with the channel dimension of <code>slope</code> listing all dimensions of <code>space</code> in that order.</p></div>
 </dd>
+<dt id="phi.geom.numpy_sdf"><code class="name flex">
+<span>def <span class="ident">numpy_sdf</span></span>(<span>sdf: Callable, bounds: phi.geom._box.BaseBox, center: phiml.math._tensors.Tensor = None) ‑> phi.geom._sdf.SDF</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Define a <code><a title="phi.geom.SDF" href="#phi.geom.SDF">SDF</a></code> (signed distance function) from a NumPy function.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>sdf</code></strong></dt>
+<dd>Function mapping a location <code>numpy.ndarray</code> of shape <code>(points, vector)</code> to the corresponding SDF value <code>(points,)</code>.</dd>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>Bounds inside which the function is defined.</dd>
+<dt><strong><code>center</code></strong></dt>
+<dd>Optional center position of the object encoded via <code>sdf</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.geom.SDF" href="#phi.geom.SDF">SDF</a></code></p></div>
+</dd>
 <dt id="phi.geom.pack_dims"><code class="name flex">
-<span>def <span class="ident">pack_dims</span></span>(<span>value, dims: Union[str, tuple, list, set, ForwardRef('Shape'), Callable], packed_dim: phiml.math._shape.Shape, pos: Optional[int] = None, **kwargs)</span>
+<span>def <span class="ident">pack_dims</span></span>(<span>value, dims: Union[str, tuple, list, set, ForwardRef('Shape'), Callable], packed_dim: Union[phiml.math._shape.Shape, str], pos: Optional[int] = None, **kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Compresses multiple dimensions into a single dimension by concatenating the elements.
@@ -327,14 +458,33 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <dt><strong><code>rot</code></strong></dt>
 <dd>Rotation, either as Euler angles or rotation matrix.</dd>
 <dt><strong><code>pivot</code></strong></dt>
-<dd>Any point lying on the rotation axis.
-If <code>None</code>, rotates about the center point(s).</dd>
+<dd>Any point lying on the rotation axis. Defaults to the bounding box center.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Rotated <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></p></div>
 </dd>
-<dt id="phi.geom.sdf_from_geometry"><code class="name flex">
-<span>def <span class="ident">sdf_from_geometry</span></span>(<span>geometry: phi.geom._geom.Geometry, bounds: phi.geom._box.Box, resolution: phiml.math._shape.Shape = (), approximate_outside=True, rebuild: Optional[str] = 'auto', valid_dist=None, **resolution_: int) ‑> phi.geom._sdf_grid.SDFGrid</span>
+<dt id="phi.geom.sample_function"><code class="name flex">
+<span>def <span class="ident">sample_function</span></span>(<span>f: Callable, elements: phi.geom._geom.Geometry, at: str, extrapolation: phiml.math.extrapolation.Extrapolation) ‑> phiml.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Calls <code>f</code>, passing either the <code>elements</code> directly or the relevant sample points as a <code>Tensor</code>, depending on the signature of <code>f</code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>f</code></strong></dt>
+<dd>Function taking a <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> or location <code>Tensor´ and returning a</code>Tensor`.
+A <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> will be passed if the first argument of <code>f</code> is called <code>geometry</code> or <code>geo</code> or ends with <code>_geo</code>.</dd>
+<dt><strong><code>elements</code></strong></dt>
+<dd><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> on which to sample <code>f</code>.</dd>
+<dt><strong><code>at</code></strong></dt>
+<dd>Set of sample points, see <code><a title="phi.geom.Geometry.sets" href="#phi.geom.Geometry.sets">Geometry.sets</a></code>.</dd>
+<dt><strong><code>extrapolation</code></strong></dt>
+<dd>Determines which boundary points are relevant.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Sampled values as <code>Tensor</code>.</p></div>
+</dd>
+<dt id="phi.geom.sample_sdf"><code class="name flex">
+<span>def <span class="ident">sample_sdf</span></span>(<span>geometry: phi.geom._geom.Geometry, bounds: phi.geom._box.BaseBox = None, resolution: phiml.math._shape.Shape = (), approximate_outside=False, rebuild: Optional[str] = None, valid_dist=None, rel_margin=0.1, abs_margin=0.0, **resolution_: int) ‑> phi.geom._sdf_grid.SDFGrid</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Build a grid of signed distance values for a given <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> object.</p>
@@ -352,8 +502,8 @@ If <code>None</code>, rotates about the center point(s).</dd>
 <dd>Whether queries outside the SDF grid should return approximate values. This requires additional computations.</dd>
 <dt><strong><code>rebuild</code></strong></dt>
 <dd>If <code>'from-surface'</code>, SDF values are calculated from a narrow strip above the enclosed surface. This is more accurate but requires additional steps.
-If <code>None</code>, SDF values are queried from <code>geometry</code>.
-The default <code>'auto'</code> rebuilds when geometry quierying is expected to be in accurate.</dd>
+If <code>None</code> (default), SDF values are queried from <code>geometry</code>.
+<code>'auto'</code> rebuilds when geometry querying is expected to be in accurate.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>SDF grid as <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.</p></div>
@@ -397,6 +547,25 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <pre><code class="language-python-repl">&gt;&gt;&gt; stack([vec(x=1, y=0), vec(x=2, y=3.)], batch('b'))
 (x=1.000, y=0.000); (x=2.000, y=3.000) (bᵇ=2, vectorᶜ=x,y)
 </code></pre></div>
+</dd>
+<dt id="phi.geom.surface_mesh"><code class="name flex">
+<span>def <span class="ident">surface_mesh</span></span>(<span>geo: phi.geom._geom.Geometry, rel_dx: float = None, abs_dx: float = None, method='auto', build_vertex_connectivity=False, build_normals=False) ‑> phi.geom._mesh.Mesh</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Create a surface <code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code> from a Geometry.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>geo</code></strong></dt>
+<dd><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> to convert. Must implement <code>approximate_signed_distance</code>.</dd>
+<dt><strong><code>rel_dx</code></strong></dt>
+<dd>Relative mesh resolution as fraction of bounding box size.</dd>
+<dt><strong><code>abs_dx</code></strong></dt>
+<dd>Absolute mesh resolution. If both <code>rel_dx</code> and <code>abs_dx</code> are provided, the lower value is used.</dd>
+<dt><strong><code>method</code></strong></dt>
+<dd>'auto' to select based on the type of <code>geo</code>. 'lewiner' or 'lorensen' for marching cubes.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code> if there is any geometry</p></div>
 </dd>
 <dt id="phi.geom.union"><code class="name flex">
 <span>def <span class="ident">union</span></span>(<span>*geometries, dim=(unionⁱ=None)) ‑> phi.geom._geom.Geometry</span>
@@ -501,11 +670,23 @@ A point lies inside the union if it lies within at least one of the geometries.<
         pos = local_position * (self.half_size if origin == &#39;center&#39; else self.size) if scale else local_position
         return math.rotate_vector(pos, self.rotation_matrix) + origin_loc
 
-    def lies_inside(self, location):
+    def largest(self, dim: DimFilter) -&gt; &#39;BaseBox&#39;:
+        dim = self.shape.without(&#39;vector&#39;).only(dim)
+        if not dim:
+            return self
+        return Box(math.min(self.lower, dim), math.max(self.upper, dim))
+
+    def smallest(self, dim: DimFilter) -&gt; &#39;BaseBox&#39;:
+        dim = self.shape.without(&#39;vector&#39;).only(dim)
+        if not dim:
+            return self
+        return Box(math.max(self.lower, dim), math.min(self.upper, dim))
+
+    def lies_inside(self, location: Tensor):
         assert self.rotation_matrix is None, f&#34;Please override lies_inside() for rotated boxes&#34;
         bool_inside = (location &gt;= self.lower) &amp; (location &lt;= self.upper)
         bool_inside = math.all(bool_inside, &#39;vector&#39;)
-        bool_inside = math.any(bool_inside, self.shape.instance)  # union for instance dimensions
+        bool_inside = math.any(bool_inside, self.shape.instance - instance(location))  # union for instance dimensions
         return bool_inside
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]):
@@ -553,7 +734,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
         # is_inside = math.all(sgn_surf_delta &lt; 0, &#39;vector&#39;)
         # abs_surf_delta = abs(sgn_surf_delta)
         max_sgn_dist = math.max(sgn_surf_delta, &#39;vector&#39;)
-        normal_axis = max_sgn_dist == sgn_surf_delta
+        normal_axis = max_sgn_dist == sgn_surf_delta  # ToDo only one if inside
         normal = math.vec_normalize(normal_axis * math.sign(loc_to_center))
         surf_to_center = math.where(normal_axis, math.sign(loc_to_center) * self.half_size, loc_to_center)
         closest_to_center = math.clip(surf_to_center, -self.half_size, self.half_size)
@@ -569,9 +750,26 @@ A point lies inside the union if it lies within at least one of the geometries.<
         warnings.warn(&#34;Box.project(dims) is deprecated. Use Box.vector[dims] instead&#34;, DeprecationWarning, stacklevel=2)
         return self.vector[dimensions]
 
-    def sample_uniform(self, *shape: math.Shape) -&gt; Tensor:
+    def sample_uniform(self, *shape: Shape) -&gt; Tensor:
         uniform = math.random_uniform(self.shape.non_singleton.without(&#39;vector&#39;), *shape, self.shape[&#39;vector&#39;])
         return self.lower + uniform * self.size
+
+    def sample_uniform_surface(self, *shape: Shape) -&gt; Tensor:
+        assert not instance(self), &#34;sample_uniform_surface not yet supported for unions of boxes&#34;
+        samples = math.random_uniform(self.shape.non_singleton.non_instance, *shape, low=self.lower, high=self.upper)
+        which = math.random_uniform(samples.shape.without(&#39;vector&#39;))
+        lo_or_up = math.where(which &gt; .5, self.upper, self.lower)
+        which = which * 2 % 1
+        # --- which axis ---
+        areas = self.face_areas
+        total_area = math.sum(areas)
+        frac_area = math.sum(areas / total_area, &#39;~side&#39;)
+        cum_area = math.cumulative_sum(frac_area, &#39;~vector&#39;)
+        axis = math.min(math.where(which &lt;= cum_area, math.range(self.shape[&#39;vector&#39;].as_dual()), self.spatial_rank), &#39;~vector&#39;)
+        axis_one_hot = math.scatter(math.zeros(samples.shape, dtype=bool), expand(axis, channel(index=&#39;vector&#39;)), True, treat_as_batch=samples.shape.without(&#39;vector&#39;))
+        math.assert_close(1, math.sum(axis_one_hot, &#39;vector&#39;))
+        samples = math.where(axis_one_hot, lo_or_up, samples)
+        return samples
 
     def corner_representation(self) -&gt; &#39;Box&#39;:
         assert self.rotation_matrix is None, f&#34;corner_representation does not support rotations&#34;
@@ -586,7 +784,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
         &#34;&#34;&#34; Tests if the other box lies fully inside this box. &#34;&#34;&#34;
         return np.all(other.lower &gt;= self.lower) and np.all(other.upper &lt;= self.upper)
 
-    def scaled(self, factor: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
+    def scaled(self, factor: Union[float, Tensor]) -&gt; &#39;BaseBox&#39;:
         return Cuboid(self.center, self.half_size * factor, size_variable=True)
 
     @property
@@ -615,7 +813,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
     def face_areas(self) -&gt; Tensor:
         others_mask = math.range(self.shape[&#39;vector&#39;]) != math.range(dual(**self.shape[&#39;vector&#39;].untyped_dict))
         result = math.exp(math.sum(math.log(self.size) * others_mask, &#39;vector&#39;))
-        return result  # ~vector
+        return expand(result, dual(side=&#39;lower,upper&#39;))  # ~vector
 
     @property
     def face_shape(self) -&gt; Shape:
@@ -646,7 +844,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
 Grids and meshes have no boundary elements and return <code>{}</code>.
 Dynamic graphs can define boundary elements for obstacles and walls.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -663,7 +861,7 @@ def boundary_elements(self) -&gt; Dict[Any, Dict[str, slice]]:
 Unstructured meshes use string identifiers for the boundaries.
 Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -715,7 +913,7 @@ Returns 0 for unconnected cells.</p></div>
 def face_areas(self) -&gt; Tensor:
     others_mask = math.range(self.shape[&#39;vector&#39;]) != math.range(dual(**self.shape[&#39;vector&#39;].untyped_dict))
     result = math.exp(math.sum(math.log(self.size) * others_mask, &#39;vector&#39;))
-    return result  # ~vector</code></pre>
+    return expand(result, dual(side=&#39;lower,upper&#39;))  # ~vector</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.BaseBox.face_centers"><code class="name">prop <span class="ident">face_centers</span> : phiml.math._tensors.Tensor</code></dt>
@@ -927,9 +1125,8 @@ For inside locations it is <code>-max(abs(l - s))</code>.</p>
 <dd>
 <div class="desc"><p>Returns the radius of a Sphere object that fully encloses this geometry.
 The sphere is centered at the center of this geometry.</p>
-<p>:return: radius of type float</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.BaseBox.box"><code class="name flex">
 <span>def <span class="ident">box</span></span>(<span>self) ‑> phi.geom._box.Box</span>
@@ -972,8 +1169,14 @@ The sphere is centered at the center of this geometry.</p>
 <h2 id="returns">Returns</h2>
 <p>Box-space coordinate <code>Tensor</code></p></div>
 </dd>
+<dt id="phi.geom.BaseBox.largest"><code class="name flex">
+<span>def <span class="ident">largest</span></span>(<span>self, dim: Union[str, tuple, list, set, ForwardRef('Shape'), Callable]) ‑> phi.geom._box.BaseBox</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="phi.geom.BaseBox.lies_inside"><code class="name flex">
-<span>def <span class="ident">lies_inside</span></span>(<span>self, location)</span>
+<span>def <span class="ident">lies_inside</span></span>(<span>self, location: phiml.math._tensors.Tensor)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.</p>
@@ -1028,8 +1231,14 @@ The sphere is centered at the center of this geometry.</p>
 <h2 id="returns">Returns</h2>
 <p><code>Tensor</code> containing all dimensions from <code><a title="phi.geom.Geometry.shape" href="#phi.geom.Geometry.shape">Geometry.shape</a></code>, <code>shape</code> as well as a <code>channel</code> dimension <code>vector</code> matching the dimensionality of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.</p></div>
 </dd>
+<dt id="phi.geom.BaseBox.sample_uniform_surface"><code class="name flex">
+<span>def <span class="ident">sample_uniform_surface</span></span>(<span>self, *shape: phiml.math._shape.Shape) ‑> phiml.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="phi.geom.BaseBox.scaled"><code class="name flex">
-<span>def <span class="ident">scaled</span></span>(<span>self, factor: Union[phiml.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">scaled</span></span>(<span>self, factor: Union[phiml.math._tensors.Tensor, float]) ‑> phi.geom._box.BaseBox</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Scales each individual geometry by <code>factor</code>.
@@ -1037,6 +1246,12 @@ The individual <code>center</code> points act as pivots for the operation.</p>
 <h2 id="args">Args</h2>
 <p>factor:
 Returns:</p></div>
+</dd>
+<dt id="phi.geom.BaseBox.smallest"><code class="name flex">
+<span>def <span class="ident">smallest</span></span>(<span>self, dim: Union[str, tuple, list, set, ForwardRef('Shape'), Callable]) ‑> phi.geom._box.BaseBox</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 </dl>
 </dd>
@@ -1145,18 +1360,6 @@ Returns:</p></div>
                 remaining.remove(dim)
         return self.vector[remaining]
 
-    def largest(self, dim: DimFilter) -&gt; &#39;Box&#39;:
-        dim = self.shape.without(&#39;vector&#39;).only(dim)
-        if not dim:
-            return self
-        return Box(math.min(self._lower, dim), math.max(self._upper, dim))
-
-    def smallest(self, dim: DimFilter) -&gt; &#39;Box&#39;:
-        dim = self.shape.without(&#39;vector&#39;).only(dim)
-        if not dim:
-            return self
-        return Box(math.max(self._lower, dim), math.min(self._upper, dim))
-
     def __variable_attrs__(self):
         return &#39;_lower&#39;, &#39;_upper&#39;
 
@@ -1200,10 +1403,10 @@ Returns:</p></div>
     def at(self, center: Tensor) -&gt; &#39;BaseBox&#39;:
         return Cuboid(center, self.half_size, self.rotation_matrix)
 
-    def shifted(self, delta, **delta_by_dim):
+    def shifted(self, delta, **delta_by_dim) -&gt; &#39;Box&#39;:
         return Box(self.lower + delta, self.upper + delta)
 
-    def rotated(self, angle) -&gt; Geometry:
+    def rotated(self, angle) -&gt; &#39;Cuboid&#39;:
         return self.center_representation().rotated(angle)
 
     def __mul__(self, other):
@@ -1369,17 +1572,11 @@ This is equal to calling <code>self @ center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
-If these dims are not present, all parts are assumed to have the same bounds.</p></div>
-</dd>
-<dt id="phi.geom.Box.largest"><code class="name flex">
-<span>def <span class="ident">largest</span></span>(<span>self, dim: Union[str, tuple, list, set, ForwardRef('Shape'), Callable]) ‑> phi.geom._box.Box</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Box.rotated"><code class="name flex">
-<span>def <span class="ident">rotated</span></span>(<span>self, angle) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">rotated</span></span>(<span>self, angle) ‑> phi.geom._box.Cuboid</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a rotated version of this geometry.
@@ -1400,7 +1597,7 @@ Either</p>
 <p>Rotated <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></p></div>
 </dd>
 <dt id="phi.geom.Box.shifted"><code class="name flex">
-<span>def <span class="ident">shifted</span></span>(<span>self, delta, **delta_by_dim)</span>
+<span>def <span class="ident">shifted</span></span>(<span>self, delta, **delta_by_dim) ‑> phi.geom._box.Box</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a translated version of this geometry.</p>
@@ -1418,12 +1615,6 @@ Either</p>
 <dt><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
 <dd>shifted geometry</dd>
 </dl></div>
-</dd>
-<dt id="phi.geom.Box.smallest"><code class="name flex">
-<span>def <span class="ident">smallest</span></span>(<span>self, dim: Union[str, tuple, list, set, ForwardRef('Shape'), Callable]) ‑> phi.geom._box.Box</span>
-</code></dt>
-<dd>
-<div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.without"><code class="name flex">
 <span>def <span class="ident">without</span></span>(<span>self, dims: Tuple[str, ...])</span>
@@ -1487,7 +1678,7 @@ Either</p>
     def __repr__(self):
         return f&#34;Cuboid(center={self._center}, half_size={self._half_size})&#34;
 
-    def __getitem__(self, item):
+    def __getitem__(self, item) -&gt; &#39;Cuboid&#39;:
         item = _keep_vector(slicing_dict(self, item))
         rotation = self._rotation_matrix[item] if self._rotation_matrix is not None else None
         return Cuboid(self._center[item], self._half_size[item], rotation, size_variable=self._size_variable)
@@ -1549,27 +1740,27 @@ Either</p>
     def is_size_variable(self):
         return self._size_variable
 
-    def at(self, center: Tensor) -&gt; &#39;BaseBox&#39;:
+    def at(self, center: Tensor) -&gt; &#39;Cuboid&#39;:
         return Cuboid(center, self.half_size, self.rotation_matrix, size_variable=self._size_variable)
 
-    def rotated(self, angle) -&gt; Geometry:
+    def rotated(self, angle) -&gt; &#39;Cuboid&#39;:
         if self._rotation_matrix is None:
             return Cuboid(self._center, self._half_size, angle, size_variable=self._size_variable)
         else:
             matrix = self._rotation_matrix @ (angle if dual(angle) else math.rotation_matrix(angle))
             return Cuboid(self._center, self._half_size, matrix, size_variable=self._size_variable)
 
-    def bounding_half_extent(self):
+    def bounding_half_extent(self) -&gt; Tensor:
         if self._rotation_matrix is not None:
             to_face = self.face_normals[{&#39;~side&#39;: 0}] * math.rename_dims(self._half_size, &#39;vector&#39;, dual)
             return math.sum(abs(to_face), &#39;~vector&#39;)
         return self.half_size
 
-    def lies_inside(self, location):
+    def lies_inside(self, location: Tensor) -&gt; Tensor:
         location = self.global_to_local(location, scale=False, origin=&#39;center&#39;)  # scale can only be performed for finite sizes
         bool_inside = abs(location) &lt;= self._half_size
         bool_inside = math.all(bool_inside, &#39;vector&#39;)
-        bool_inside = math.any(bool_inside, self.shape.instance)  # union for instance dimensions
+        bool_inside = math.any(bool_inside, self.shape.instance - instance(location))  # union for instance dimensions
         return bool_inside</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -1687,7 +1878,7 @@ def upper(self):
 <h3>Methods</h3>
 <dl>
 <dt id="phi.geom.Cuboid.at"><code class="name flex">
-<span>def <span class="ident">at</span></span>(<span>self, center: phiml.math._tensors.Tensor) ‑> phi.geom._box.BaseBox</span>
+<span>def <span class="ident">at</span></span>(<span>self, center: phiml.math._tensors.Tensor) ‑> phi.geom._box.Cuboid</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a copy of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with the center at <code>center</code>.
@@ -1703,18 +1894,18 @@ This is equal to calling <code>self @ center</code>.</p>
 <p><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.</p></div>
 </dd>
 <dt id="phi.geom.Cuboid.bounding_half_extent"><code class="name flex">
-<span>def <span class="ident">bounding_half_extent</span></span>(<span>self)</span>
+<span>def <span class="ident">bounding_half_extent</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>The bounding half-extent sets a limit on the outer-most point for each coordinate axis.
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
-If these dims are not present, all parts are assumed to have the same bounds.</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Cuboid.lies_inside"><code class="name flex">
-<span>def <span class="ident">lies_inside</span></span>(<span>self, location)</span>
+<span>def <span class="ident">lies_inside</span></span>(<span>self, location: phiml.math._tensors.Tensor) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.</p>
@@ -1728,7 +1919,7 @@ If these dims are not present, all parts are assumed to have the same bounds.</p
 <p>bool tensor of shape (*location.shape[:-1], 1).</p></div>
 </dd>
 <dt id="phi.geom.Cuboid.rotated"><code class="name flex">
-<span>def <span class="ident">rotated</span></span>(<span>self, angle) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">rotated</span></span>(<span>self, angle) ‑> phi.geom._box.Cuboid</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a rotated version of this geometry.
@@ -1845,19 +2036,19 @@ Equality checks must also take this into account.</p></div>
         raise NotImplementedError(self.__class__)
 
     @property
-    def boundary_elements(self) -&gt; Dict[Any, Dict[str, slice]]:
+    def boundary_elements(self) -&gt; Dict[str, Dict[str, slice]]:
         &#34;&#34;&#34;
         Slices on the primal dimensions to mark boundary elements.
         Grids and meshes have no boundary elements and return `{}`.
         Dynamic graphs can define boundary elements for obstacles and walls.
 
         Returns:
-            Map from `(name, is_upper)` to slicing `dict`.
+            Map from `name` to slicing `dict`.
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
     @property
-    def boundary_faces(self) -&gt; Dict[Any, Dict[str, slice]]:
+    def boundary_faces(self) -&gt; Dict[str, Dict[str, slice]]:
         &#34;&#34;&#34;
         Slices on the dual dimensions to mark boundary faces.
 
@@ -1866,7 +2057,7 @@ Equality checks must also take this into account.</p></div>
         Dynamic graphs return slices along the dual dimensions.
 
         Returns:
-            Map from `(name, is_upper)` to slicing `dict`.
+            Map from `name` to slicing `dict`.
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
@@ -1877,7 +2068,30 @@ Equality checks must also take this into account.</p></div>
             Full Shape to identify each face of this `Geometry`, including instance/spatial dimensions for the elements and dual dimensions listing the faces per element.
             If this `Geometry` has no faces, returns an empty `Shape`.
         &#34;&#34;&#34;
-        raise NotImplementedError(self.__class__)
+        return None
+
+    @property
+    def sets(self) -&gt; Dict[str, Shape]:
+        if self.face_shape and self.face_shape != self.shape and self.face_shape.volume &gt; 0:
+            return {&#39;center&#39;: non_batch(self)-&#39;vector&#39;, &#39;face&#39;: self.face_shape.non_batch}
+        else:
+            return {&#39;center&#39;: non_batch(self)-&#39;vector&#39;}
+
+    def get_points(self, set_key: str) -&gt; Tensor:
+        if set_key == &#39;center&#39;:
+            return self.center
+        elif set_key == &#39;face&#39;:
+            return self.face_centers
+        else:
+            raise ValueError(f&#34;Unknown set: &#39;{set_key}&#39;&#34;)
+
+    def get_boundary(self, set_key: str) -&gt; Dict[str, Dict[str, slice]]:
+        if set_key == &#39;center&#39;:
+            return self.boundary_elements
+        elif set_key == &#39;face&#39;:
+            return self.boundary_faces
+        else:
+            raise ValueError(f&#34;Unknown set: &#39;{set_key}&#39;&#34;)
 
     @property
     def corners(self) -&gt; Tensor:
@@ -2068,12 +2282,8 @@ Equality checks must also take this into account.</p></div>
         Returns the radius of a Sphere object that fully encloses this geometry.
         The sphere is centered at the center of this geometry.
 
-        :return: radius of type float
-
-        Args:
-
-        Returns:
-
+        If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+        If these dims are not present on the result, all parts are assumed to have the same bounds.
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
@@ -2085,8 +2295,8 @@ Equality checks must also take this into account.</p></div>
         Let the bounding half-extent have value `e` in dimension `d` (`extent[...,d] = e`).
         Then, no point of the geometry lies further away from its center point than `e` along `d` (in both axis directions).
 
-        When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
-        If these dims are not present, all parts are assumed to have the same bounds.
+        If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+        If these dims are not present on the result, all parts are assumed to have the same bounds.
         &#34;&#34;&#34;
         raise NotImplementedError(self.__class__)
 
@@ -2241,56 +2451,57 @@ Equality checks must also take this into account.</p></div>
 <ul class="hlist">
 <li>phi.geom._box.BaseBox</li>
 <li>phi.geom._geom.InvertedGeometry</li>
+<li>phi.geom._geom.NoGeometry</li>
 <li>phi.geom._geom.Point</li>
-<li>phi.geom._geom._NoGeometry</li>
 <li>phi.geom._geom_ops.GeometryStack</li>
 <li>phi.geom._graph.Graph</li>
 <li>phi.geom._heightmap.Heightmap</li>
 <li>phi.geom._mesh.Mesh</li>
+<li>phi.geom._sdf.SDF</li>
 <li>phi.geom._sdf_grid.SDFGrid</li>
 <li>phi.geom._sphere.Sphere</li>
 <li>phi.geom._transform._EmbeddedGeometry</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
-<dt id="phi.geom.Geometry.boundary_elements"><code class="name">prop <span class="ident">boundary_elements</span> : Dict[Any, Dict[str, slice]]</code></dt>
+<dt id="phi.geom.Geometry.boundary_elements"><code class="name">prop <span class="ident">boundary_elements</span> : Dict[str, Dict[str, slice]]</code></dt>
 <dd>
 <div class="desc"><p>Slices on the primal dimensions to mark boundary elements.
 Grids and meshes have no boundary elements and return <code>{}</code>.
 Dynamic graphs can define boundary elements for obstacles and walls.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
-def boundary_elements(self) -&gt; Dict[Any, Dict[str, slice]]:
+def boundary_elements(self) -&gt; Dict[str, Dict[str, slice]]:
     &#34;&#34;&#34;
     Slices on the primal dimensions to mark boundary elements.
     Grids and meshes have no boundary elements and return `{}`.
     Dynamic graphs can define boundary elements for obstacles and walls.
 
     Returns:
-        Map from `(name, is_upper)` to slicing `dict`.
+        Map from `name` to slicing `dict`.
     &#34;&#34;&#34;
     raise NotImplementedError(self.__class__)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.Geometry.boundary_faces"><code class="name">prop <span class="ident">boundary_faces</span> : Dict[Any, Dict[str, slice]]</code></dt>
+<dt id="phi.geom.Geometry.boundary_faces"><code class="name">prop <span class="ident">boundary_faces</span> : Dict[str, Dict[str, slice]]</code></dt>
 <dd>
 <div class="desc"><p>Slices on the dual dimensions to mark boundary faces.</p>
 <p>Regular grids use the keys (dim, is_upper) to identify boundaries.
 Unstructured meshes use string identifiers for the boundaries.
 Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
-def boundary_faces(self) -&gt; Dict[Any, Dict[str, slice]]:
+def boundary_faces(self) -&gt; Dict[str, Dict[str, slice]]:
     &#34;&#34;&#34;
     Slices on the dual dimensions to mark boundary faces.
 
@@ -2299,7 +2510,7 @@ def boundary_faces(self) -&gt; Dict[Any, Dict[str, slice]]:
     Dynamic graphs return slices along the dual dimensions.
 
     Returns:
-        Map from `(name, is_upper)` to slicing `dict`.
+        Map from `name` to slicing `dict`.
     &#34;&#34;&#34;
     raise NotImplementedError(self.__class__)</code></pre>
 </details>
@@ -2412,7 +2623,7 @@ def face_shape(self) -&gt; Shape:
         Full Shape to identify each face of this `Geometry`, including instance/spatial dimensions for the elements and dual dimensions listing the faces per element.
         If this `Geometry` has no faces, returns an empty `Shape`.
     &#34;&#34;&#34;
-    raise NotImplementedError(self.__class__)</code></pre>
+    return None</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.faces"><code class="name">prop <span class="ident">faces</span> : <a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
@@ -2425,6 +2636,21 @@ def face_shape(self) -&gt; Shape:
 <pre><code class="python">@property
 def faces(self) -&gt; &#39;Geometry&#39;:
     raise NotImplementedError(self.__class__)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Geometry.sets"><code class="name">prop <span class="ident">sets</span> : Dict[str, phiml.math._shape.Shape]</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def sets(self) -&gt; Dict[str, Shape]:
+    if self.face_shape and self.face_shape != self.shape and self.face_shape.volume &gt; 0:
+        return {&#39;center&#39;: non_batch(self)-&#39;vector&#39;, &#39;face&#39;: self.face_shape.non_batch}
+    else:
+        return {&#39;center&#39;: non_batch(self)-&#39;vector&#39;}</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Geometry.shape"><code class="name">prop <span class="ident">shape</span> : phiml.math._shape.Shape</code></dt>
@@ -2588,8 +2814,8 @@ The center of the box may not be equal to <code>self.center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
-If these dims are not present, all parts are assumed to have the same bounds.</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Geometry.bounding_radius"><code class="name flex">
 <span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
@@ -2597,9 +2823,20 @@ If these dims are not present, all parts are assumed to have the same bounds.</p
 <dd>
 <div class="desc"><p>Returns the radius of a Sphere object that fully encloses this geometry.
 The sphere is centered at the center of this geometry.</p>
-<p>:return: radius of type float</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
+</dd>
+<dt id="phi.geom.Geometry.get_boundary"><code class="name flex">
+<span>def <span class="ident">get_boundary</span></span>(<span>self, set_key: str) ‑> Dict[str, Dict[str, slice]]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="phi.geom.Geometry.get_points"><code class="name flex">
+<span>def <span class="ident">get_points</span></span>(<span>self, set_key: str) ‑> phiml.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.Geometry.integrate_flux"><code class="name flex">
 <span>def <span class="ident">integrate_flux</span></span>(<span>self, flux: phiml.math._tensors.Tensor, divide_volume=False) ‑> phiml.math._tensors.Tensor</span>
@@ -2777,7 +3014,7 @@ Possible causes:</p>
 </dd>
 <dt id="phi.geom.Graph"><code class="flex name class">
 <span>class <span class="ident">Graph</span></span>
-<span>(</span><span>nodes: Union[phiml.math._tensors.Tensor, phi.geom._geom.Geometry], edges: phiml.math._tensors.Tensor, boundary: Dict[str, Dict[str, slice]], deltas=None, distances=None, bounding_distance: Union[bool, phiml.math._tensors.Tensor, float, ForwardRef(None)] = False)</span>
+<span>(</span><span>nodes: Union[phiml.math._tensors.Tensor, phi.geom._geom.Geometry], edges: phiml.math._tensors.Tensor, boundary: Dict[str, Dict[str, slice]], deltas: Optional[phiml.math._tensors.Tensor] = None, distances: Optional[phiml.math._tensors.Tensor] = None, bounding_distance: phiml.math._tensors.Tensor | float | None = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>A graph consists of multiple geometry nodes and corresponding edge information.</p>
@@ -2815,7 +3052,9 @@ Additional dimensions can be added to <code>edges</code> to store vector-valued 
                  nodes: Union[Geometry, Tensor],
                  edges: Tensor,
                  boundary: Dict[str, Dict[str, slice]],
-                 deltas=None, distances=None, bounding_distance: Union[bool, Tensor, float, None] = False):
+                 deltas: Optional[Tensor] = None,
+                 distances: Optional[Tensor] = None,
+                 bounding_distance: Tensor | float | None = None):
         &#34;&#34;&#34;
         Create a graph where `nodes` are connected by `edges`.
 
@@ -2827,15 +3066,14 @@ Additional dimensions can be added to <code>edges</code> to store vector-valued 
             distances: (Optional) Pre-computed distance matrix.
             bounding_distance: (Optional) Pre-computed distance bounds. No distance is larger than this value. If `True`, will be computed now, if `False`, will not be computed.
         &#34;&#34;&#34;
-        if isinstance(nodes, Tensor):
-            assert &#39;vector&#39; in channel(nodes) and channel(nodes).get_item_names(&#39;vector&#39;) is not None, f&#34;nodes must have a &#39;vector&#39; dim listing the physical dimensions but got {shape(nodes)}&#34;
+        assert isinstance(nodes, Geometry), f&#34;nodes must be a Geometry  but got {nodes}&#34;
         node_dims = non_batch(nodes).non_channel
         assert node_dims in edges.shape and edges.shape.dual.rank == node_dims.rank, f&#34;edges must contain all node dims {node_dims} as primal and dual but got {edges.shape}&#34;
         self._nodes: Geometry = nodes if isinstance(nodes, Geometry) else Point(nodes)
         self._edges = edges
         self._boundary = boundary
-        self._deltas = math.pairwise_distances(self._nodes.center, format=edges) if deltas is None else deltas
-        self._distances = math.vec_length(self._deltas) if distances is None else distances
+        self._deltas = deltas
+        self._distances = distances
         self._connectivity = math.tensor_like(edges, 1) if math.is_sparse(edges) else (edges != 0) &amp; ~math.is_nan(edges)
         if isinstance(bounding_distance, bool):
             self._bounding_distance = math.max(self._distances) if bounding_distance else None
@@ -2861,7 +3099,7 @@ Additional dimensions can be added to <code>edges</code> to store vector-valued 
         return self._nodes
 
     def as_points(self):
-        return Graph(self._nodes.center, self._edges, self._boundary, self._deltas, self._distances, self._bounding_distance)
+        return Graph(Point(self._nodes.center), self._edges, self._boundary, self._deltas, self._distances, self._bounding_distance)
 
     @property
     def deltas(self):
@@ -2943,7 +3181,7 @@ Additional dimensions can be added to <code>edges</code> to store vector-valued 
         # return Graph(self.nodes.at(center), self._edges, self._boundary, bounding_distance=self._bounding_distance is not None)
 
     def shifted(self, delta: Tensor) -&gt; &#39;Geometry&#39;:
-        if non_batch(delta).non_channel.only(self._nodes.shape):  # shift varies between
+        if non_batch(delta).non_channel.only(self._nodes.shape) and self._deltas is not None:  # shift varies between elements
             raise NotImplementedError(&#34;Shifting the node positions of a Graph is not supported as it would invalidate distances.&#34;)
         return Graph(self.nodes.shifted(delta), self._edges, self._boundary, deltas=self._deltas, distances=self._distances, bounding_distance=self._bounding_distance is not None)
 
@@ -2965,7 +3203,10 @@ Additional dimensions can be added to <code>edges</code> to store vector-valued 
                 edge_sel[dim] = edge_sel[dual_dim] = sel
             elif dim in batch(self):
                 edge_sel[dim] = sel
-        return Graph(self._nodes[item], self._edges[edge_sel], self._boundary)</code></pre>
+        deltas = self._deltas[edge_sel] if self._deltas is not None else None
+        distances = self._distances[edge_sel] if self._distances is not None else None
+        bounding_distance = self._bounding_distance[item] if self._bounding_distance is not None else None
+        return Graph(self._nodes[item], self._edges[edge_sel], self._boundary, deltas, distances, bounding_distance)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -2979,7 +3220,7 @@ Additional dimensions can be added to <code>edges</code> to store vector-valued 
 Grids and meshes have no boundary elements and return <code>{}</code>.
 Dynamic graphs can define boundary elements for obstacles and walls.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -2996,7 +3237,7 @@ def boundary_elements(self) -&gt; Dict[str, Dict[str, slice]]:
 Unstructured meshes use string identifiers for the boundaries.
 Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3278,8 +3519,8 @@ This is equal to calling <code>self @ center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
-If these dims are not present, all parts are assumed to have the same bounds.</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Graph.bounding_radius"><code class="name flex">
 <span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
@@ -3287,9 +3528,8 @@ If these dims are not present, all parts are assumed to have the same bounds.</p
 <dd>
 <div class="desc"><p>Returns the radius of a Sphere object that fully encloses this geometry.
 The sphere is centered at the center of this geometry.</p>
-<p>:return: radius of type float</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Graph.lies_inside"><code class="name flex">
 <span>def <span class="ident">lies_inside</span></span>(<span>self, location: phiml.math._tensors.Tensor) ‑> phiml.math._tensors.Tensor</span>
@@ -3482,7 +3722,7 @@ Otherwise, values outside <code>bounds</code> always lie on the outside.</dd>
 
     @property
     def shape(self) -&gt; Shape:
-        return self._height.shape &amp; channel(self._bounds)
+        return (self._height.shape - 1) &amp; channel(self._bounds)
 
     @property
     def resolution(self):
@@ -3536,6 +3776,7 @@ Otherwise, values outside <code>bounds</code> always lie on the outside.</dd>
         offsets = faces.origin_distance[cell_idx]
         face_idx = faces.index[cell_idx]
         # --- test location against all considered faces and boundaries ---
+        # distances = plane_sgn_dist(-offsets, normals, location)  # offset has the - convention here
         distances = normals.vector @ location.vector + offsets
         projected_onto_face = location - normals * distances
         projected_idx = cell_index(projected_onto_face, grid_bounds, self.resolution, clip=False)
@@ -3641,7 +3882,7 @@ Otherwise, values outside <code>bounds</code> always lie on the outside.</dd>
 Grids and meshes have no boundary elements and return <code>{}</code>.
 Dynamic graphs can define boundary elements for obstacles and walls.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3658,7 +3899,7 @@ def boundary_elements(self) -&gt; Dict[Any, Dict[str, slice]]:
 Unstructured meshes use string identifiers for the boundaries.
 Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -3858,7 +4099,7 @@ def resolution(self):
 </summary>
 <pre><code class="python">@property
 def shape(self) -&gt; Shape:
-    return self._height.shape &amp; channel(self._bounds)</code></pre>
+    return (self._height.shape - 1) &amp; channel(self._bounds)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Heightmap.up"><code class="name">prop <span class="ident">up</span></code></dt>
@@ -3976,8 +4217,8 @@ This is equal to calling <code>self @ center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
-If these dims are not present, all parts are assumed to have the same bounds.</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Heightmap.bounding_radius"><code class="name flex">
 <span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
@@ -3985,9 +4226,8 @@ If these dims are not present, all parts are assumed to have the same bounds.</p
 <dd>
 <div class="desc"><p>Returns the radius of a Sphere object that fully encloses this geometry.
 The sphere is centered at the center of this geometry.</p>
-<p>:return: radius of type float</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Heightmap.lies_inside"><code class="name flex">
 <span>def <span class="ident">lies_inside</span></span>(<span>self, location: phiml.math._tensors.Tensor) ‑> phiml.math._tensors.Tensor</span>
@@ -4060,7 +4300,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 </dd>
 <dt id="phi.geom.Mesh"><code class="flex name class">
 <span>class <span class="ident">Mesh</span></span>
-<span>(</span><span>vertices: phi.geom._graph.Graph, elements: phiml.math._tensors.Tensor, element_rank: int, boundaries: Dict[str, Dict[str, slice]], center: phiml.math._tensors.Tensor, volume: phiml.math._tensors.Tensor, face_centers: phiml.math._tensors.Tensor, face_normals: phiml.math._tensors.Tensor, face_areas: phiml.math._tensors.Tensor, face_vertices: phiml.math._tensors.Tensor, max_cell_walk: int = None)</span>
+<span>(</span><span>vertices: Union[phiml.math._tensors.Tensor, phi.geom._geom.Geometry], elements: phiml.math._tensors.Tensor, element_rank: int, boundaries: Dict[str, Dict[str, slice]], center: phiml.math._tensors.Tensor, volume: phiml.math._tensors.Tensor, normals: Optional[phiml.math._tensors.Tensor], face_centers: Optional[phiml.math._tensors.Tensor], face_normals: Optional[phiml.math._tensors.Tensor], face_areas: Optional[phiml.math._tensors.Tensor], face_vertices: Optional[phiml.math._tensors.Tensor], vertex_normals: Optional[phiml.math._tensors.Tensor], vertex_connectivity: Optional[phiml.math._tensors.Tensor], element_connectivity: Optional[phiml.math._tensors.Tensor], max_cell_walk: int = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Unstructured mesh.
@@ -4068,13 +4308,12 @@ Use <code><a title="phi.geom.mesh" href="#phi.geom.mesh">mesh()</a></code> or <c
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>vertices</code></strong></dt>
-<dd>Vertex positions, shape (vertices:i, vector:c)
-Vertex 0 must be at position 0.</dd>
+<dd>Vertex positions, shape (vertices:i, vector:c)</dd>
 <dt><strong><code>elements</code></strong></dt>
-<dd>Sparse <code>Tensor</code> listing ordered vertex indices per cell. (cells, vertices).
+<dd>Sparse <code>Tensor</code> listing ordered vertex indices per cell. (cells, ~vertices).
 The vertex count is equal to the number of elements per row.</dd>
 <dt><strong><code>face_vertices</code></strong></dt>
-<dd>(cells, ~neighbors, face_vertices)</dd>
+<dd>(cells, ~cells, face_vertices)</dd>
 </dl></div>
 <details class="source">
 <summary>
@@ -4087,27 +4326,32 @@ The vertex count is equal to the number of elements per row.</dd>
     &#34;&#34;&#34;
 
     def __init__(self,
-                 vertices: Graph,
+                 vertices: Union[Geometry, Tensor],
                  elements: Tensor,
                  element_rank: int,
                  boundaries: Dict[str, Dict[str, slice]],
                  center: Tensor,
                  volume: Tensor,
-                 face_centers: Tensor,
-                 face_normals: Tensor,
-                 face_areas: Tensor,
-                 face_vertices: Tensor,
+                 normals: Optional[Tensor],
+                 face_centers: Optional[Tensor],
+                 face_normals: Optional[Tensor],
+                 face_areas: Optional[Tensor],
+                 face_vertices: Optional[Tensor],
+                 vertex_normals: Optional[Tensor],
+                 vertex_connectivity: Optional[Tensor],
+                 element_connectivity: Optional[Tensor],
                  max_cell_walk: int = None):
         &#34;&#34;&#34;
         Args:
             vertices: Vertex positions, shape (vertices:i, vector:c)
-                Vertex 0 must be at position 0.
-            elements: Sparse `Tensor` listing ordered vertex indices per cell. (cells, vertices).
+            elements: Sparse `Tensor` listing ordered vertex indices per cell. (cells, ~vertices).
                 The vertex count is equal to the number of elements per row.
-            face_vertices: (cells, ~neighbors, face_vertices)
+            face_vertices: (cells, ~cells, face_vertices)
         &#34;&#34;&#34;
         assert elements.dtype.kind == int, f&#34;elements must be integer lists but got dtype {elements.dtype}&#34;
-        assert isinstance(vertices, Graph), f&#34;vertices must be a Graph&#34;
+        assert isinstance(center, Tensor), f&#34;center must be a Tensor&#34;
+        if not isinstance(vertices, Geometry):
+            vertices = Point(vertices)
         self._vertices = vertices
         self._elements = elements
         self._element_rank = element_rank
@@ -4117,29 +4361,46 @@ The vertex count is equal to the number of elements per row.</dd>
         self._face_centers = face_centers
         self._face_normals = face_normals
         self._face_areas = face_areas
+        if self._face_areas is not None:
+            assert set(face_areas.shape.names) == set((instance(elements) &amp; dual).names), f&#34;face_areas must have matching primal and dual dims matching elements {instance(elements)} but got {face_areas.shape}&#34;
         self._face_vertices = face_vertices
-        cell_deltas = pairwise_distances(self.center, format=self.cell_connectivity, default=None)
-        cell_distances = math.vec_length(cell_deltas)
-        neighbors_dim = dual(face_areas)
-        assert (cell_distances &gt; 0).all, f&#34;All cells must have distance &gt; 0 but found 0 distance at {math.nonzero(cell_distances == 0)}&#34;
-        face_distances = math.vec_length(self.face_centers[self.interior_faces] - self.center)
-        self._relative_face_distance = math.concat([face_distances / cell_distances, self.boundary_connectivity], neighbors_dim)
-        boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
-        assert (math.vec_length(boundary_deltas) &gt; 0).all, f&#34;All boundary faces must be separated from the cell centers but 0 distance at the following {channel(math.stored_indices(boundary_deltas)).item_names[0]}:\n{math.nonzero(math.vec_length(boundary_deltas) == 0):full}&#34;
-        self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], neighbors_dim)
+        assert normals is None or (isinstance(normals, Tensor) and instance(center) in normals)
+        self._normals = normals
+        if vertex_connectivity is None and isinstance(vertices, Graph):
+            self._vertex_connectivity = vertices.connectivity
+        else:
+            assert vertex_connectivity is None or (isinstance(vertex_connectivity, Tensor) and instance(self._vertices) in vertex_connectivity.shape), f&#34;Illegal vertex connectivity: {vertex_connectivity}&#34;
+            self._vertex_connectivity = vertex_connectivity
+        assert vertex_normals is None or (dual(vertex_normals).rank == 1 and instance(vertex_normals).rank == 0)
+        self._vertex_normals = vertex_normals
+        assert element_connectivity is None or isinstance(element_connectivity, Tensor), f&#34;element_connectivity must be a Tensor&#34;
+        self._element_connectivity = element_connectivity
+        if face_areas is not None or face_centers is not None or face_normals is not None:
+            cell_deltas = pairwise_distances(self.center, format=self.cell_connectivity)
+            cell_distances = math.vec_length(cell_deltas)
+            neighbors_dim = dual(face_areas)
+            assert (cell_distances &gt; 0).all, f&#34;All cells must have distance &gt; 0 but found 0 distance at {math.nonzero(cell_distances == 0)}&#34;
+            face_distances = math.vec_length(self.face_centers[self.interior_faces] - self.center)
+            self._relative_face_distance = math.concat([face_distances / cell_distances, self.boundary_connectivity], neighbors_dim)
+            boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
+            assert (math.vec_length(boundary_deltas) &gt; 0).all, f&#34;All boundary faces must be separated from the cell centers but 0 distance at the following {channel(math.stored_indices(boundary_deltas)).item_names[0]}:\n{math.nonzero(math.vec_length(boundary_deltas) == 0):full}&#34;
+            self._neighbor_offsets = math.concat([cell_deltas, boundary_deltas], neighbors_dim)
+        else:
+            self._relative_face_distance = None
+            self._neighbor_offsets = None
         if max_cell_walk is None:
             max_cell_walk = 2 if instance(elements).volume &gt; 1 else 1
         self._max_cell_walk = max_cell_walk
 
     def __variable_attrs__(self):
-        return &#39;_vertices&#39;, &#39;_elements&#39;, &#39;_center&#39;, &#39;_volume&#39;, &#39;_face_centers&#39;, &#39;_face_normals&#39;, &#39;_face_areas&#39;, &#39;_face_vertices&#39;, &#39;_relative_face_distance&#39;, &#39;_neighbor_offsets&#39;
+        return &#39;_vertices&#39;, &#39;_elements&#39;, &#39;_center&#39;, &#39;_volume&#39;, &#39;_face_centers&#39;, &#39;_face_normals&#39;, &#39;_face_areas&#39;, &#39;_face_vertices&#39;, &#39;_normals&#39;, &#39;_vertex_connectivity&#39;, &#39;_vertex_normals&#39;, &#39;_element_connectivity&#39;, &#39;_relative_face_distance&#39;, &#39;_neighbor_offsets&#39;
 
     def __value_attrs__(self):
         return &#39;_vertices&#39;,
 
     @property
     def shape(self) -&gt; Shape:
-        return shape(self._elements).non_dual &amp; channel(self._vertices)
+        return shape(self._elements).non_dual &amp; channel(self._vertices) &amp; batch(self._vertices)
 
     @property
     def cell_count(self):
@@ -4163,7 +4424,24 @@ The vertex count is equal to the number of elements per row.</dd>
 
     @property
     def face_shape(self) -&gt; Shape:
-        return self.face_areas.shape
+        return instance(self._elements) &amp; dual
+
+    @property
+    def sets(self):
+        return {&#39;center&#39;: non_batch(self)-&#39;vector&#39;, &#39;vertex&#39;: instance(self._vertices), &#39;~vertex&#39;: dual(self._elements)}
+
+    def get_points(self, set_key: str) -&gt; Tensor:
+        if set_key == &#39;vertex&#39;:
+            return self.vertices.center
+        elif set_key == &#39;~vertex&#39;:
+            return si2d(self.vertices.center)
+        else:
+            return Geometry.get_points(self, set_key)
+
+    def get_boundary(self, set_key: str) -&gt; Dict[str, Dict[str, slice]]:
+        if set_key in [&#39;vertex&#39;, &#39;~vertex&#39;]:
+            return {}
+        return Geometry.get_boundary(self, set_key)
 
     @property
     def boundary_elements(self) -&gt; Dict[str, Dict[str, slice]]:
@@ -4225,6 +4503,10 @@ The vertex count is equal to the number of elements per row.</dd>
 
     @property
     def connectivity(self) -&gt; Tensor:
+        if self._element_connectivity is not None:
+            return self._element_connectivity
+        if self._face_areas is None and self._face_normals is None and self._face_centers is None:
+            return None
         if is_sparse(self._face_areas):
             return tensor_like(self._face_areas, True)
         else:
@@ -4273,8 +4555,45 @@ The vertex count is equal to the number of elements per row.</dd>
         return Point(self.face_centers)
 
     @property
-    def vertices(self) -&gt; Graph:
+    def vertices(self) -&gt; Geometry:
         return self._vertices
+
+    @property
+    def vertex_connectivity(self) -&gt; Tensor:
+        return self._vertex_connectivity
+
+    @property
+    def element_connectivity(self) -&gt; Tensor:
+        return self._element_connectivity
+
+    @property
+    def vertex_graph(self) -&gt; Graph:
+        if isinstance(self._vertices, Graph):
+            return self._vertices
+        assert self._vertex_connectivity is not None, f&#34;vertex_graph not available because vertex_connectivity has not been computed&#34;
+        return graph(self._vertices, self._vertex_connectivity)
+
+    def filter_unused_vertices(self) -&gt; &#39;Mesh&#39;:
+        coo = math.to_format(self._elements, &#39;coo&#39;).numpy()
+        has_element = np.asarray(coo.sum(0) &gt; 0)[0]
+        new_index = np.cumsum(has_element) - 1
+        new_index_t = wrap(new_index, dual(self._elements))
+        has_element = wrap(has_element, instance(self._vertices))
+        has_element_d = si2d(has_element)
+        vertices = self._vertices[has_element]
+        v_normals = self._vertex_normals[has_element_d]
+        vertex_connectivity = None
+        if self._vertex_connectivity is not None:
+            vertex_connectivity = math.stored_indices(self._vertex_connectivity).index.as_batch()
+            vertex_connectivity = new_index_t[{dual: vertex_connectivity}].index.as_channel()
+            vertex_connectivity = math.sparse_tensor(vertex_connectivity, math.stored_values(self._vertex_connectivity), non_batch(self._vertex_connectivity).with_sizes(instance(vertices).size), False)
+        if isinstance(self._elements, CompactSparseTensor):
+            indices = new_index_t[{dual: self._elements._indices}]
+            elements = CompactSparseTensor(indices, self._elements._values, self._elements._compressed_dims.with_size(instance(vertices).volume), self._elements._indices_constant, self._elements._matrix_rank)
+        else:
+            filtered_coo = coo_matrix((coo.data, (coo.row, new_index)), shape=(instance(self._elements).volume, instance(vertices).volume))  # ToDo keep sparse format
+            elements = wrap(filtered_coo, self._elements.shape.without_sizes())
+        return Mesh(vertices, elements, self._element_rank, self._boundaries, self._center, self._volume, self._normals, self._face_centers, self._face_normals, self._face_areas, None, v_normals, vertex_connectivity, self._element_connectivity, self._max_cell_walk)
 
     @property
     def elements(self):
@@ -4292,6 +4611,18 @@ The vertex count is equal to the number of elements per row.</dd>
     def element_rank(self):
         return self._element_rank
 
+    @property
+    def normals(self) -&gt; Tensor:
+        return self._normals
+
+    @property
+    def vertex_normals(self) -&gt; Tensor:
+        return self._vertex_normals  # dual dim
+
+    @property
+    def vertex_positions(self) -&gt; Tensor:
+        return si2d(self._vertices.center)  # dual dim
+
     def lies_inside(self, location: Tensor) -&gt; Tensor:
         idx = math.find_closest(self._center, location)
         for i in range(self._max_cell_walk):
@@ -4299,12 +4630,29 @@ The vertex count is equal to the number of elements per row.</dd>
         return ~(leaves_mesh &amp; is_outside)
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]) -&gt; Tensor:
+        if self.element_rank == 2 and self.spatial_rank == 3:
+            closest_elem = math.find_closest(self._center, location)
+            center = self._center[closest_elem]
+            normal = self._normals[closest_elem]
+            return plane_sgn_dist(center, normal, location)
+        if self._center is None:
+            raise NotImplementedError(&#34;Mesh.approximate_signed_distance only available when faces are built.&#34;)
         idx = math.find_closest(self._center, location)
         for i in range(self._max_cell_walk):
             idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
         return math.max(distances, dual)
 
     def approximate_closest_surface(self, location: Tensor) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        if self.element_rank == 2 and self.spatial_rank == 3:
+            closest_elem = math.find_closest(self._center, location)
+            center = self._center[closest_elem]
+            normal = self._normals[closest_elem]
+            face_size = math.sqrt(self._volume) * 4
+            size = face_size[closest_elem]
+            sgn_dist = plane_sgn_dist(center, normal, location)
+            delta = center - location  # this is not accurate...
+            outward = math.where(abs(sgn_dist) &lt; size, normal, math.normalize(delta))
+            return sgn_dist, delta, outward, None, closest_elem
         # idx = math.find_closest(self._center, location)
         # for i in range(self._max_cell_walk):
         #     idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
@@ -4354,30 +4702,62 @@ The vertex count is equal to the number of elements per row.</dd>
         max_delta = math.max(abs(vert_pos - center), dual)
         return max_delta
 
+    def bounding_box(self) -&gt; &#39;BaseBox&#39;:
+        return self.vertices.bounding_box()
+
     @property
     def bounds(self):
         return Box(math.min(self._vertices.center, instance), math.max(self._vertices.center, instance))
 
-    def at(self, center: Tensor) -&gt; &#39;Geometry&#39;:
-        raise NotImplementedError
+    def at(self, center: Tensor) -&gt; &#39;Mesh&#39;:
+        if instance(self._elements) in center.shape:
+            raise NotImplementedError(&#34;Setting Mesh positions only supported for vertices, not elements&#34;)
+        if dual(self._elements) in center.shape:
+            delta = rename_dims(center, dual, instance(self._vertices))
+        if instance(self._vertices) in center.shape:
+            vertices = self._vertices.at(center)
+            return mesh(vertices, self._elements, self._boundaries, build_faces=self._face_areas is not None)
+        else:
+            shift = center - self.bounds.center
+            return self.shifted(shift)
+
+    def shifted(self, delta: Tensor) -&gt; &#39;Mesh&#39;:
+        if instance(self._elements) in delta.shape:
+            raise NotImplementedError(&#34;Shifting Mesh positions only supported for vertices, not elements&#34;)
+        if dual(self._elements) in delta.shape:
+            delta = rename_dims(delta, dual, instance(self._vertices))
+        if instance(self._vertices) in delta.shape:
+            vertices = self._vertices.shifted(delta)
+            return mesh(vertices, self._elements, self._boundaries, build_faces=self._face_areas is not None)
+        else:  # shift everything
+            vertices = self._vertices.shifted(delta)
+            center = self._center + delta
+            return Mesh(vertices, self._elements, self._element_rank, self._boundaries, center, self._volume, self._normals, self._face_centers, self._face_normals, self._face_areas, self._face_vertices, self._vertex_normals, self._vertex_connectivity, self._element_connectivity, self._max_cell_walk)
 
     def rotated(self, angle: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
         raise NotImplementedError
 
-    def scaled(self, factor: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
-        raise NotImplementedError
+    def scaled(self, factor: float | Tensor) -&gt; &#39;Geometry&#39;:
+        pivot = self.bounds.center
+        vertices = scale(self._vertices, factor, pivot)
+        center = scale(Point(self._center), factor, pivot).center
+        volume = self._volume * factor**self._element_rank if self._volume is not None else None
+        face_areas = None
+        return Mesh(vertices, self._elements, self._element_rank, self._boundaries, center, volume, self._normals, self._face_centers, self._face_normals, face_areas, self._face_vertices, self._vertex_normals, self._vertex_connectivity, self._element_connectivity, self._max_cell_walk)
 
     def __getitem__(self, item):
         item: dict = slicing_dict(self, item)
         assert not spatial(self._elements).only(tuple(item)), f&#34;Cannot slice vertex lists (&#39;{spatial(self._elements)}&#39;) but got slicing dict {item}&#34;
         assert not instance(self._vertices).only(tuple(item)), f&#34;Slicing by vertex indices (&#39;{instance(self._vertices)}&#39;) not supported but got slicing dict {item}&#34;
         cells = instance(self.shape).name
-        if cells in item and isinstance(item[&#39;cells&#39;], int):
+        if cells in item and isinstance(item[cells], int):
             item[cells] = slice(item[cells], item[cells] + 1)
         vertices = self._vertices[item]
         polygons = self._elements[item]
-        return Mesh(vertices, polygons, self._element_rank, self._boundaries, self._center[item], self._volume[item],
-                    self._face_centers[item], self._face_normals[item], self._face_areas[item], self._face_vertices[item])</code></pre>
+        s = math.slice
+        return Mesh(vertices, polygons, self._element_rank, self._boundaries, self._center[item], self._volume[item], s(self._normals, item),
+                    s(self._face_centers, item), s(self._face_normals, item), s(self._face_areas, item), s(self._face_vertices, item),
+                    s(self._vertex_normals, item), s(self._vertex_connectivity, item), None, self._max_cell_walk)</code></pre>
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
@@ -4415,7 +4795,7 @@ def boundary_connectivity(self) -&gt; Tensor:
 Grids and meshes have no boundary elements and return <code>{}</code>.
 Dynamic graphs can define boundary elements for obstacles and walls.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -4432,7 +4812,7 @@ def boundary_elements(self) -&gt; Dict[str, Dict[str, slice]]:
 Unstructured meshes use string identifiers for the boundaries.
 Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -4509,6 +4889,10 @@ def center(self) -&gt; Tensor:
 </summary>
 <pre><code class="python">@property
 def connectivity(self) -&gt; Tensor:
+    if self._element_connectivity is not None:
+        return self._element_connectivity
+    if self._face_areas is None and self._face_normals is None and self._face_centers is None:
+        return None
     if is_sparse(self._face_areas):
         return tensor_like(self._face_areas, True)
     else:
@@ -4525,6 +4909,18 @@ def connectivity(self) -&gt; Tensor:
 <pre><code class="python">@property
 def distance_matrix(self):
     return math.vec_length(math.pairwise_distances(self.center, edges=self.cell_connectivity, format=&#39;as edges&#39;, default=None))</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Mesh.element_connectivity"><code class="name">prop <span class="ident">element_connectivity</span> : phiml.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def element_connectivity(self) -&gt; Tensor:
+    return self._element_connectivity</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Mesh.element_rank"><code class="name">prop <span class="ident">element_rank</span></code></dt>
@@ -4603,7 +4999,7 @@ If this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a
 </summary>
 <pre><code class="python">@property
 def face_shape(self) -&gt; Shape:
-    return self.face_areas.shape</code></pre>
+    return instance(self._elements) &amp; dual</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.Mesh.faces"><code class="name">prop <span class="ident">faces</span> : <a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
@@ -4682,6 +5078,18 @@ def neighbor_offsets(self):
     return self._neighbor_offsets</code></pre>
 </details>
 </dd>
+<dt id="phi.geom.Mesh.normals"><code class="name">prop <span class="ident">normals</span> : phiml.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def normals(self) -&gt; Tensor:
+    return self._normals</code></pre>
+</details>
+</dd>
 <dt id="phi.geom.Mesh.polygons"><code class="name">prop <span class="ident">polygons</span></code></dt>
 <dd>
 <div class="desc"></div>
@@ -4707,6 +5115,18 @@ def relative_face_distance(self):
     return self._relative_face_distance</code></pre>
 </details>
 </dd>
+<dt id="phi.geom.Mesh.sets"><code class="name">prop <span class="ident">sets</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def sets(self):
+    return {&#39;center&#39;: non_batch(self)-&#39;vector&#39;, &#39;vertex&#39;: instance(self._vertices), &#39;~vertex&#39;: dual(self._elements)}</code></pre>
+</details>
+</dd>
 <dt id="phi.geom.Mesh.shape"><code class="name">prop <span class="ident">shape</span> : phiml.math._shape.Shape</code></dt>
 <dd>
 <div class="desc"><p>The <code>shape</code> of a <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> consists of the following dimensions:</p>
@@ -4722,10 +5142,10 @@ def relative_face_distance(self):
 </summary>
 <pre><code class="python">@property
 def shape(self) -&gt; Shape:
-    return shape(self._elements).non_dual &amp; channel(self._vertices)</code></pre>
+    return shape(self._elements).non_dual &amp; channel(self._vertices) &amp; batch(self._vertices)</code></pre>
 </details>
 </dd>
-<dt id="phi.geom.Mesh.vertices"><code class="name">prop <span class="ident">vertices</span> : phi.geom._graph.Graph</code></dt>
+<dt id="phi.geom.Mesh.vertex_connectivity"><code class="name">prop <span class="ident">vertex_connectivity</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <div class="desc"></div>
 <details class="source">
@@ -4733,7 +5153,58 @@ def shape(self) -&gt; Shape:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
-def vertices(self) -&gt; Graph:
+def vertex_connectivity(self) -&gt; Tensor:
+    return self._vertex_connectivity</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Mesh.vertex_graph"><code class="name">prop <span class="ident">vertex_graph</span> : phi.geom._graph.Graph</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def vertex_graph(self) -&gt; Graph:
+    if isinstance(self._vertices, Graph):
+        return self._vertices
+    assert self._vertex_connectivity is not None, f&#34;vertex_graph not available because vertex_connectivity has not been computed&#34;
+    return graph(self._vertices, self._vertex_connectivity)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Mesh.vertex_normals"><code class="name">prop <span class="ident">vertex_normals</span> : phiml.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def vertex_normals(self) -&gt; Tensor:
+    return self._vertex_normals  # dual dim</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Mesh.vertex_positions"><code class="name">prop <span class="ident">vertex_positions</span> : phiml.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def vertex_positions(self) -&gt; Tensor:
+    return si2d(self._vertices.center)  # dual dim</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.Mesh.vertices"><code class="name">prop <span class="ident">vertices</span> : phi.geom._geom.Geometry</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def vertices(self) -&gt; Geometry:
     return self._vertices</code></pre>
 </details>
 </dd>
@@ -4799,7 +5270,7 @@ This also holds for negative distances.</p>
 <p>Float <code>Tensor</code></p></div>
 </dd>
 <dt id="phi.geom.Mesh.at"><code class="name flex">
-<span>def <span class="ident">at</span></span>(<span>self, center: phiml.math._tensors.Tensor) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">at</span></span>(<span>self, center: phiml.math._tensors.Tensor) ‑> phi.geom._mesh.Mesh</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Returns a copy of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with the center at <code>center</code>.
@@ -4814,6 +5285,15 @@ This is equal to calling <code>self @ center</code>.</p>
 <h2 id="returns">Returns</h2>
 <p><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.</p></div>
 </dd>
+<dt id="phi.geom.Mesh.bounding_box"><code class="name flex">
+<span>def <span class="ident">bounding_box</span></span>(<span>self) ‑> phi.geom._box.BaseBox</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the approximately smallest axis-aligned box that contains this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.
+The center of the box may not be equal to <code>self.center</code>.</p>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.geom.Box" href="#phi.geom.Box">Box</a></code> or <code><a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid</a></code> that fully contains this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.</p></div>
+</dd>
 <dt id="phi.geom.Mesh.bounding_half_extent"><code class="name flex">
 <span>def <span class="ident">bounding_half_extent</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
@@ -4822,8 +5302,8 @@ This is equal to calling <code>self @ center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
-If these dims are not present, all parts are assumed to have the same bounds.</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Mesh.bounding_radius"><code class="name flex">
 <span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
@@ -4831,9 +5311,8 @@ If these dims are not present, all parts are assumed to have the same bounds.</p
 <dd>
 <div class="desc"><p>Returns the radius of a Sphere object that fully encloses this geometry.
 The sphere is centered at the center of this geometry.</p>
-<p>:return: radius of type float</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Mesh.cell_walk_towards"><code class="name flex">
 <span>def <span class="ident">cell_walk_towards</span></span>(<span>self, location: phiml.math._tensors.Tensor, start_cell_idx: phiml.math._tensors.Tensor, allow_exit=False)</span>
@@ -4861,6 +5340,24 @@ The sphere is centered at the center of this geometry.</p>
 </dd>
 <dt id="phi.geom.Mesh.faces_to_vertices"><code class="name flex">
 <span>def <span class="ident">faces_to_vertices</span></span>(<span>self, values: phiml.math._tensors.Tensor, reduce=&lt;built-in function sum&gt;)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="phi.geom.Mesh.filter_unused_vertices"><code class="name flex">
+<span>def <span class="ident">filter_unused_vertices</span></span>(<span>self) ‑> phi.geom._mesh.Mesh</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="phi.geom.Mesh.get_boundary"><code class="name flex">
+<span>def <span class="ident">get_boundary</span></span>(<span>self, set_key: str) ‑> Dict[str, Dict[str, slice]]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="phi.geom.Mesh.get_points"><code class="name flex">
+<span>def <span class="ident">get_points</span></span>(<span>self, set_key: str) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"></div>
@@ -4928,6 +5425,26 @@ The individual <code>center</code> points act as pivots for the operation.</p>
 <h2 id="args">Args</h2>
 <p>factor:
 Returns:</p></div>
+</dd>
+<dt id="phi.geom.Mesh.shifted"><code class="name flex">
+<span>def <span class="ident">shifted</span></span>(<span>self, delta: phiml.math._tensors.Tensor) ‑> phi.geom._mesh.Mesh</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a translated version of this geometry.</p>
+<p>See Also:
+<code><a title="phi.geom.Geometry.at" href="#phi.geom.Geometry.at">Geometry.at()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>delta</code></strong></dt>
+<dd>direction vector</dd>
+<dt><strong><code>delta</code></strong></dt>
+<dd>Tensor:</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
+<dd>shifted geometry</dd>
+</dl></div>
 </dd>
 </dl>
 </dd>
@@ -5055,7 +5572,7 @@ An instance of <code><a title="phi.geom.Point" href="#phi.geom.Point">Point</a><
 Grids and meshes have no boundary elements and return <code>{}</code>.
 Dynamic graphs can define boundary elements for obstacles and walls.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -5072,7 +5589,7 @@ def boundary_elements(self) -&gt; Dict[str, Tuple[Dict[str, slice], Dict[str, sl
 Unstructured meshes use string identifiers for the boundaries.
 Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -5253,8 +5770,8 @@ This is equal to calling <code>self @ center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
-If these dims are not present, all parts are assumed to have the same bounds.</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Point.bounding_radius"><code class="name flex">
 <span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
@@ -5262,9 +5779,8 @@ If these dims are not present, all parts are assumed to have the same bounds.</p
 <dd>
 <div class="desc"><p>Returns the radius of a Sphere object that fully encloses this geometry.
 The sphere is centered at the center of this geometry.</p>
-<p>:return: radius of type float</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Point.lies_inside"><code class="name flex">
 <span>def <span class="ident">lies_inside</span></span>(<span>self, location: phiml.math._tensors.Tensor) ‑> phiml.math._tensors.Tensor</span>
@@ -5343,9 +5859,619 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 </dd>
 </dl>
 </dd>
+<dt id="phi.geom.SDF"><code class="flex name class">
+<span>class <span class="ident">SDF</span></span>
+<span>(</span><span>sdf: Callable, out_shape=None, bounds: phi.geom._box.BaseBox = None, center: phiml.math._tensors.Tensor = None, volume: phiml.math._tensors.Tensor = None, bounding_radius: phiml.math._tensors.Tensor = None, sdf_and_grad: Callable = None)</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Function-based signed distance field.
+Negative values lie inside the geometry, the 0-level represents the surface.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>sdf</code></strong></dt>
+<dd>SDF function. First argument is a <code>phiml.math.Tensor</code> with a <code>vector</code> channel dim.</dd>
+<dt><strong><code>bounds</code></strong></dt>
+<dd>Grid limits. The bounds fully enclose all virtual cells.</dd>
+<dt><strong><code>center</code></strong></dt>
+<dd>(Optional) Geometry center point. Will be computed otherwise.</dd>
+<dt><strong><code>volume</code></strong></dt>
+<dd>(Optional) Geometry volume. Will be computed otherwise.</dd>
+<dt><strong><code>bounding_radius</code></strong></dt>
+<dd>(Optional) Geometry bounding radius around center. Will be computed otherwise.</dd>
+</dl></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">class SDF(Geometry):
+    &#34;&#34;&#34;
+    Function-based signed distance field.
+    Negative values lie inside the geometry, the 0-level represents the surface.
+    &#34;&#34;&#34;
+    def __init__(self, sdf: Callable, out_shape=None, bounds: BaseBox = None, center: Tensor = None, volume: Tensor = None, bounding_radius: Tensor = None, sdf_and_grad: Callable = None):
+        &#34;&#34;&#34;
+        Args:
+            sdf: SDF function. First argument is a `phiml.math.Tensor` with a `vector` channel dim.
+            bounds: Grid limits. The bounds fully enclose all virtual cells.
+            center: (Optional) Geometry center point. Will be computed otherwise.
+            volume: (Optional) Geometry volume. Will be computed otherwise.
+            bounding_radius: (Optional) Geometry bounding radius around center. Will be computed otherwise.
+        &#34;&#34;&#34;
+        self._sdf = sdf
+        if out_shape is not None:
+            self._out_shape = out_shape or math.EMPTY_SHAPE
+        else:
+            dims = channel([bounds, center, bounding_radius])
+            assert &#39;vector&#39; in dims, f&#34;If out_shape is not specified, either bounds, center or bounding_radius must be given.&#34;
+            self._out_shape = sdf(math.zeros(dims[&#39;vector&#39;])).shape
+        self._bounds = bounds
+        if sdf_and_grad is not None:
+            self._grad = sdf_and_grad
+        else:
+            self._grad = math.gradient(sdf, wrt=0, get_output=True)
+        if center is not None:
+            self._center = center
+        else:
+            self._center = bounds.center
+        if volume is not None:
+            self._volume = volume
+        else:
+            self._volume = None
+        if bounding_radius is not None:
+            self._bounding_radius = bounding_radius
+        else:
+            self._bounding_radius = self._bounds.bounding_radius()
+
+    def __call__(self, location, *aux_args, **aux_kwargs):
+        native_loc = not isinstance(location, Tensor)
+        if native_loc:
+            location = math.wrap(location, instance(&#39;points&#39;), self.shape[&#39;vector&#39;])
+        sdf_val: Tensor = self._sdf(location, *aux_args, **aux_kwargs)
+        return sdf_val.native() if native_loc else sdf_val
+
+    def __variable_attrs__(self):
+        return &#39;_bounds&#39;, &#39;_center&#39;, &#39;_volume&#39;, &#39;_bounding_radius&#39;
+
+    def __value_attrs__(self):
+        return ()
+
+    @property
+    def bounds(self) -&gt; BaseBox:
+        return self._bounds
+
+    @property
+    def size(self):
+        return self._bounds.size
+
+    @property
+    def resolution(self):
+        return spatial(self._sdf)
+
+    @property
+    def points(self):
+        return UniformGrid(spatial(self._sdf), self._bounds).center
+
+    @property
+    def grid(self):
+        return UniformGrid(spatial(self._sdf), self._bounds)
+
+    @property
+    def center(self) -&gt; Tensor:
+        return self._center
+
+    @property
+    def shape(self) -&gt; Shape:
+        return self._out_shape &amp; self._bounds.shape
+
+    @property
+    def volume(self) -&gt; Tensor:
+        return self._volume
+
+    @property
+    def faces(self) -&gt; &#39;Geometry&#39;:
+        raise NotImplementedError(f&#34;SDF does not support faces&#34;)
+
+    @property
+    def face_centers(self) -&gt; Tensor:
+        raise NotImplementedError(f&#34;SDF does not support faces&#34;)
+
+    @property
+    def face_areas(self) -&gt; Tensor:
+        raise NotImplementedError(f&#34;SDF does not support faces&#34;)
+
+    @property
+    def face_normals(self) -&gt; Tensor:
+        raise NotImplementedError(f&#34;SDF does not support faces&#34;)
+
+    @property
+    def boundary_elements(self) -&gt; Dict[Any, Dict[str, slice]]:
+        return {}
+
+    @property
+    def boundary_faces(self) -&gt; Dict[Any, Dict[str, slice]]:
+        return {}
+
+    @property
+    def face_shape(self) -&gt; Shape:
+        return math.EMPTY_SHAPE
+
+    @property
+    def corners(self) -&gt; Tensor:
+        raise NotImplementedError(f&#34;SDF does not support corners&#34;)
+
+    def lies_inside(self, location: Tensor) -&gt; Tensor:
+        sdf = self._sdf(location)
+        return sdf &lt;= 0
+
+    def approximate_closest_surface(self, location: Tensor, refine_iter=0) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        sgn_dist, outward = self._grad(location)
+        closest = location - sgn_dist * outward
+        if not refine_iter:
+            _, normal = self._grad(closest)
+        else:
+            for i in range(refine_iter):
+                sgn_dist, outward = self._grad(closest)
+                closest -= sgn_dist * outward
+            normal = outward
+        offset = None
+        face_index = None
+        return sgn_dist, closest - location, normal, offset, face_index
+
+    def sdf_and_gradient(self, location: Tensor, refine_iter=0) -&gt; Tuple[Tensor, Tensor]:
+        if not refine_iter:
+            sgn_dist, outward = self._grad(location)
+        else:
+            sgn_dist, delta, *_ = self.approximate_closest_surface(location)
+            outward = math.vec_normalize(math.sign(-sgn_dist) * delta)
+        return sgn_dist, outward
+
+    def approximate_signed_distance(self, location: Tensor) -&gt; Tensor:
+        return self._sdf(location)
+
+    def sample_uniform(self, *shape: math.Shape) -&gt; Tensor:
+        raise NotImplementedError
+
+    def bounding_radius(self) -&gt; Tensor:
+        return self._bounding_radius
+
+    def bounding_half_extent(self) -&gt; Tensor:
+        return self._bounds.half_size  # this could be too small if the center is not in the middle of the bounds
+
+    def bounding_box(self) -&gt; &#39;BaseBox&#39;:
+        return self._bounds
+
+    def shifted(self, delta: Tensor) -&gt; &#39;Geometry&#39;:
+        raise NotImplementedError(&#34;SDF does not yet support shifting&#34;)
+
+    def at(self, center: Tensor) -&gt; &#39;Geometry&#39;:
+        raise NotImplementedError(&#34;SDF does not yet support shifting&#34;)
+
+    def rotated(self, angle: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
+        raise NotImplementedError(&#34;SDF does not yet support rotation&#34;)
+
+    def scaled(self, factor: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
+        off_center = self._center - self._bounds.center
+        volume = self._volume * factor ** self.spatial_rank
+        bounds = self._bounds.scaled(factor).shifted(off_center * (factor - 1)).corner_representation()
+        return SDF(self._sdf, bounds, self._center, volume, self._bounding_radius * factor)
+
+    def __getitem__(self, item):
+        item = slicing_dict(self, item)
+        if not item:
+            return self
+        raise NotImplementedError
+
+    @staticmethod
+    def __stack__(values: tuple, dim: Shape, **kwargs) -&gt; &#39;Geometry&#39;:
+        from ._geom_ops import GeometryStack
+        return GeometryStack(math.layout(values, dim))</code></pre>
+</details>
+<h3>Ancestors</h3>
+<ul class="hlist">
+<li>phi.geom._geom.Geometry</li>
+</ul>
+<h3>Instance variables</h3>
+<dl>
+<dt id="phi.geom.SDF.boundary_elements"><code class="name">prop <span class="ident">boundary_elements</span> : Dict[Any, Dict[str, slice]]</code></dt>
+<dd>
+<div class="desc"><p>Slices on the primal dimensions to mark boundary elements.
+Grids and meshes have no boundary elements and return <code>{}</code>.
+Dynamic graphs can define boundary elements for obstacles and walls.</p>
+<h2 id="returns">Returns</h2>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def boundary_elements(self) -&gt; Dict[Any, Dict[str, slice]]:
+    return {}</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.SDF.boundary_faces"><code class="name">prop <span class="ident">boundary_faces</span> : Dict[Any, Dict[str, slice]]</code></dt>
+<dd>
+<div class="desc"><p>Slices on the dual dimensions to mark boundary faces.</p>
+<p>Regular grids use the keys (dim, is_upper) to identify boundaries.
+Unstructured meshes use string identifiers for the boundaries.
+Dynamic graphs return slices along the dual dimensions.</p>
+<h2 id="returns">Returns</h2>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def boundary_faces(self) -&gt; Dict[Any, Dict[str, slice]]:
+    return {}</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.SDF.bounds"><code class="name">prop <span class="ident">bounds</span> : phi.geom._box.BaseBox</code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def bounds(self) -&gt; BaseBox:
+    return self._bounds</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.SDF.center"><code class="name">prop <span class="ident">center</span> : phiml.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><p>Center location in single channel dimension.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def center(self) -&gt; Tensor:
+    return self._center</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.SDF.corners"><code class="name">prop <span class="ident">corners</span> : phiml.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><h2 id="returns">Returns</h2>
+<p>Corner locations as <code>phiml.math.Tensor</code>.
+Corners belonging to one object or cell are listed along dual dimensions.
+If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def corners(self) -&gt; Tensor:
+    raise NotImplementedError(f&#34;SDF does not support corners&#34;)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.SDF.face_areas"><code class="name">prop <span class="ident">face_areas</span> : phiml.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><p>Area of face connecting a pair of cells. Shape <code>(elements, ~)</code>.
+Returns 0 for unconnected cells.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def face_areas(self) -&gt; Tensor:
+    raise NotImplementedError(f&#34;SDF does not support faces&#34;)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.SDF.face_centers"><code class="name">prop <span class="ident">face_centers</span> : phiml.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><p>Center of face connecting a pair of cells. Shape <code>(elements, ~, vector)</code>.
+Here, <code>~</code> represents arbitrary internal dual dimensions, such as <code>~staggered_direction</code> or <code>~elements</code>.
+Returns 0-vectors for unconnected cells.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def face_centers(self) -&gt; Tensor:
+    raise NotImplementedError(f&#34;SDF does not support faces&#34;)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.SDF.face_normals"><code class="name">prop <span class="ident">face_normals</span> : phiml.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><p>Normal vectors of cell faces, including boundary faces. Shape <code>(elements, ~, vector)</code>.
+For meshes, The vectors point out of the primal cells and into the dual cells.</p>
+<p>Instance/spatial dimensions along which the normal does not vary may not be included in the result tensor's shape.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def face_normals(self) -&gt; Tensor:
+    raise NotImplementedError(f&#34;SDF does not support faces&#34;)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.SDF.face_shape"><code class="name">prop <span class="ident">face_shape</span> : phiml.math._shape.Shape</code></dt>
+<dd>
+<div class="desc"><h2 id="returns">Returns</h2>
+<p>Full Shape to identify each face of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>, including instance/spatial dimensions for the elements and dual dimensions listing the faces per element.
+If this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> has no faces, returns an empty <code>Shape</code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def face_shape(self) -&gt; Shape:
+    return math.EMPTY_SHAPE</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.SDF.faces"><code class="name">prop <span class="ident">faces</span> : <a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def faces(self) -&gt; &#39;Geometry&#39;:
+    raise NotImplementedError(f&#34;SDF does not support faces&#34;)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.SDF.grid"><code class="name">prop <span class="ident">grid</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def grid(self):
+    return UniformGrid(spatial(self._sdf), self._bounds)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.SDF.points"><code class="name">prop <span class="ident">points</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def points(self):
+    return UniformGrid(spatial(self._sdf), self._bounds).center</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.SDF.resolution"><code class="name">prop <span class="ident">resolution</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def resolution(self):
+    return spatial(self._sdf)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.SDF.shape"><code class="name">prop <span class="ident">shape</span> : phiml.math._shape.Shape</code></dt>
+<dd>
+<div class="desc"><p>The <code>shape</code> of a <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> consists of the following dimensions:</p>
+<ul>
+<li>A single <em>channel</em> dimension called <code>'vector'</code> specifying the physical space</li>
+<li>Instance dimensions denote that this geometry consists of multiple copies in the same space</li>
+<li>Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space</li>
+<li>Batch dimensions indicate non-interacting versions of this geometry for parallelization only.</li>
+</ul></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def shape(self) -&gt; Shape:
+    return self._out_shape &amp; self._bounds.shape</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.SDF.size"><code class="name">prop <span class="ident">size</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def size(self):
+    return self._bounds.size</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.SDF.volume"><code class="name">prop <span class="ident">volume</span> : phiml.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><p><code>phi.math.Tensor</code> representing the volume of each element.
+The result retains batch, spatial and instance dimensions.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def volume(self) -&gt; Tensor:
+    return self._volume</code></pre>
+</details>
+</dd>
+</dl>
+<h3>Methods</h3>
+<dl>
+<dt id="phi.geom.SDF.approximate_closest_surface"><code class="name flex">
+<span>def <span class="ident">approximate_closest_surface</span></span>(<span>self, location: phiml.math._tensors.Tensor, refine_iter=0) ‑> Tuple[phiml.math._tensors.Tensor, phiml.math._tensors.Tensor, phiml.math._tensors.Tensor, phiml.math._tensors.Tensor, phiml.math._tensors.Tensor]</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Find the closest surface face of this geometry given a point that can be outside or inside the geometry.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>location</code></strong></dt>
+<dd><code>Tensor</code> with a single channel dimension called vector. Can have arbitrary other dimensions.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>signed_distance</code></dt>
+<dd>Scalar signed distance from <code>location</code>
+to the closest point on the surface.
+Positive values indicate the point lies outside the geometry, negative values indicate the point lies inside the geometry.</dd>
+<dt><code>delta</code></dt>
+<dd>Vector-valued distance vector from <code>location</code> to the closest point on the surface.</dd>
+<dt><code>normal</code></dt>
+<dd>Closest surface normal vector.</dd>
+<dt><code>offset</code></dt>
+<dd>Min distance of a surface-tangential plane from 0 as a scalar.</dd>
+<dt><code>face_index</code></dt>
+<dd>(Optional) An index vector pointing at the closest face.</dd>
+</dl></div>
+</dd>
+<dt id="phi.geom.SDF.approximate_signed_distance"><code class="name flex">
+<span>def <span class="ident">approximate_signed_distance</span></span>(<span>self, location: phiml.math._tensors.Tensor) ‑> phiml.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Computes the approximate distance from location to the surface of the geometry.
+Locations outside return positive values, inside negative values and zero exactly at the boundary.</p>
+<p>The exact distance metric used depends on the geometry.
+The approximation holds close to the surface and the distance grows to infinity as the location is moved infinitely far from the geometry.
+The distance metric is differentiable and its gradients are bounded at every point in space.</p>
+<p>When dealing with unions or collections of geometries (instance dimensions), the shortest distance to any instance is returned.
+This also holds for negative distances.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>location</code></strong></dt>
+<dd><code>Tensor</code> with one channel dim <code>vector</code> matching the geometry's <code>vector</code> dim.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Float <code>Tensor</code></p></div>
+</dd>
+<dt id="phi.geom.SDF.at"><code class="name flex">
+<span>def <span class="ident">at</span></span>(<span>self, center: phiml.math._tensors.Tensor) ‑> phi.geom._geom.Geometry</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a copy of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with the center at <code>center</code>.
+This is equal to calling <code>self @ center</code>.</p>
+<p>See Also:
+<code><a title="phi.geom.Geometry.shifted" href="#phi.geom.Geometry.shifted">Geometry.shifted()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>center</code></strong></dt>
+<dd>New center as <code>Tensor</code>.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.</p></div>
+</dd>
+<dt id="phi.geom.SDF.bounding_box"><code class="name flex">
+<span>def <span class="ident">bounding_box</span></span>(<span>self) ‑> phi.geom._box.BaseBox</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the approximately smallest axis-aligned box that contains this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.
+The center of the box may not be equal to <code>self.center</code>.</p>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.geom.Box" href="#phi.geom.Box">Box</a></code> or <code><a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid</a></code> that fully contains this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.</p></div>
+</dd>
+<dt id="phi.geom.SDF.bounding_half_extent"><code class="name flex">
+<span>def <span class="ident">bounding_half_extent</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>The bounding half-extent sets a limit on the outer-most point for each coordinate axis.
+Each component is non-negative.</p>
+<p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
+Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
+</dd>
+<dt id="phi.geom.SDF.bounding_radius"><code class="name flex">
+<span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns the radius of a Sphere object that fully encloses this geometry.
+The sphere is centered at the center of this geometry.</p>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
+</dd>
+<dt id="phi.geom.SDF.lies_inside"><code class="name flex">
+<span>def <span class="ident">lies_inside</span></span>(<span>self, location: phiml.math._tensors.Tensor) ‑> phiml.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.</p>
+<p>When dealing with unions or collections of geometries (instance dimensions), a point lies inside the geometry if it lies inside any instance.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>location</code></strong></dt>
+<dd>float tensor of shape (batch_size, &hellip;, rank)</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>bool tensor of shape (*location.shape[:-1], 1).</p></div>
+</dd>
+<dt id="phi.geom.SDF.rotated"><code class="name flex">
+<span>def <span class="ident">rotated</span></span>(<span>self, angle: Union[phiml.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a rotated version of this geometry.
+The geometry is rotated about its center point.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>angle</code></strong></dt>
+<dd>
+<p>Delta rotation.
+Either</p>
+<ul>
+<li>Angle(s): scalar angle in 2d or euler angles along <code>vector</code> in 3D or higher.</li>
+<li>Matrix: d⨯d rotation matrix</li>
+</ul>
+</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Rotated <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></p></div>
+</dd>
+<dt id="phi.geom.SDF.sample_uniform"><code class="name flex">
+<span>def <span class="ident">sample_uniform</span></span>(<span>self, *shape: phiml.math._shape.Shape) ‑> phiml.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Samples uniformly distributed random points inside this volume.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>*shape</code></strong></dt>
+<dd>How many points to sample per individual geometry.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>Tensor</code> containing all dimensions from <code><a title="phi.geom.Geometry.shape" href="#phi.geom.Geometry.shape">Geometry.shape</a></code>, <code>shape</code> as well as a <code>channel</code> dimension <code>vector</code> matching the dimensionality of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.</p></div>
+</dd>
+<dt id="phi.geom.SDF.scaled"><code class="name flex">
+<span>def <span class="ident">scaled</span></span>(<span>self, factor: Union[phiml.math._tensors.Tensor, float]) ‑> phi.geom._geom.Geometry</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Scales each individual geometry by <code>factor</code>.
+The individual <code>center</code> points act as pivots for the operation.</p>
+<h2 id="args">Args</h2>
+<p>factor:
+Returns:</p></div>
+</dd>
+<dt id="phi.geom.SDF.sdf_and_gradient"><code class="name flex">
+<span>def <span class="ident">sdf_and_gradient</span></span>(<span>self, location: phiml.math._tensors.Tensor, refine_iter=0) ‑> Tuple[phiml.math._tensors.Tensor, phiml.math._tensors.Tensor]</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="phi.geom.SDF.shifted"><code class="name flex">
+<span>def <span class="ident">shifted</span></span>(<span>self, delta: phiml.math._tensors.Tensor) ‑> phi.geom._geom.Geometry</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Returns a translated version of this geometry.</p>
+<p>See Also:
+<code><a title="phi.geom.Geometry.at" href="#phi.geom.Geometry.at">Geometry.at()</a></code>.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>delta</code></strong></dt>
+<dd>direction vector</dd>
+<dt><strong><code>delta</code></strong></dt>
+<dd>Tensor:</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
+<dd>shifted geometry</dd>
+</dl></div>
+</dd>
+</dl>
+</dd>
 <dt id="phi.geom.SDFGrid"><code class="flex name class">
 <span>class <span class="ident">SDFGrid</span></span>
-<span>(</span><span>sdf: phiml.math._tensors.Tensor, bounds: phi.geom._box.Box, approximate_outside=True, gradient: phiml.math._tensors.Tensor = None, center: phiml.math._tensors.Tensor = None, volume: phiml.math._tensors.Tensor = None, bounding_radius: phiml.math._tensors.Tensor = None)</span>
+<span>(</span><span>sdf: phiml.math._tensors.Tensor, bounds: phi.geom._box.BaseBox, approximate_outside=True, gradient: phiml.math._tensors.Tensor = None, center: phiml.math._tensors.Tensor = None, volume: phiml.math._tensors.Tensor = None, bounding_radius: phiml.math._tensors.Tensor = None)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Grid-based signed distance field.</p>
@@ -5375,7 +6501,7 @@ Each value samples the SDF value at the center of a virtual cell.</dd>
     &#34;&#34;&#34;
     Grid-based signed distance field.
     &#34;&#34;&#34;
-    def __init__(self, sdf: Tensor, bounds: Box, approximate_outside=True, gradient: Tensor = None, center: Tensor = None, volume: Tensor = None, bounding_radius: Tensor = None):
+    def __init__(self, sdf: Tensor, bounds: BaseBox, approximate_outside=True, gradient: Tensor = None, center: Tensor = None, volume: Tensor = None, bounding_radius: Tensor = None):
         &#34;&#34;&#34;
         Args:
             sdf: Signed distance values. `Tensor` with spatial dimensions corresponding to the physical space.
@@ -5420,6 +6546,10 @@ Each value samples the SDF value at the center of a virtual cell.</dd>
         &#34;&#34;&#34;Signed distance grid.&#34;&#34;&#34;
         return self._sdf
 
+    def with_values(self, values: Tensor):
+        values = expand(values, spatial(self._sdf) - spatial(values))
+        return SDFGrid(values, self._bounds, self._approximate_outside, self._grad, self._center, self._volume, self._bounding_radius)
+
     @property
     def bounds(self):
         return self._bounds
@@ -5431,6 +6561,10 @@ Each value samples the SDF value at the center of a virtual cell.</dd>
     @property
     def resolution(self):
         return spatial(self._sdf)
+
+    @property
+    def dx(self):
+        return self._bounds.size / spatial(self._sdf)
 
     @property
     def points(self):
@@ -5447,6 +6581,12 @@ Each value samples the SDF value at the center of a virtual cell.</dd>
     @property
     def volume(self) -&gt; Tensor:
         return self._volume
+
+    def __variable_attrs__(self):
+        return &#39;_sdf&#39;, &#39;_bounds&#39;, &#39;_grad&#39;, &#39;_center&#39;, &#39;_volume&#39;, &#39;_bounding_radius&#39;
+
+    def __value_attrs__(self):
+        return &#39;_sdf&#39;,
 
     @property
     def faces(self) -&gt; &#39;Geometry&#39;:
@@ -5474,7 +6614,7 @@ Each value samples the SDF value at the center of a virtual cell.</dd>
 
     @property
     def face_shape(self) -&gt; Shape:
-        raise NotImplementedError(f&#34;SDF does not support boundaries&#34;)
+        return math.EMPTY_SHAPE
 
     @property
     def corners(self) -&gt; Tensor:
@@ -5562,7 +6702,7 @@ Each value samples the SDF value at the center of a virtual cell.</dd>
 Grids and meshes have no boundary elements and return <code>{}</code>.
 Dynamic graphs can define boundary elements for obstacles and walls.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -5579,7 +6719,7 @@ def boundary_elements(self) -&gt; Dict[Any, Dict[str, slice]]:
 Unstructured meshes use string identifiers for the boundaries.
 Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -5626,6 +6766,18 @@ If the object has no corners, a size-0 tensor with the correct vector and instan
 <pre><code class="python">@property
 def corners(self) -&gt; Tensor:
     raise NotImplementedError(f&#34;SDF does not support corners&#34;)</code></pre>
+</details>
+</dd>
+<dt id="phi.geom.SDFGrid.dx"><code class="name">prop <span class="ident">dx</span></code></dt>
+<dd>
+<div class="desc"></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def dx(self):
+    return self._bounds.size / spatial(self._sdf)</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.SDFGrid.face_areas"><code class="name">prop <span class="ident">face_areas</span> : phiml.math._tensors.Tensor</code></dt>
@@ -5680,7 +6832,7 @@ If this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a
 </summary>
 <pre><code class="python">@property
 def face_shape(self) -&gt; Shape:
-    raise NotImplementedError(f&#34;SDF does not support boundaries&#34;)</code></pre>
+    return math.EMPTY_SHAPE</code></pre>
 </details>
 </dd>
 <dt id="phi.geom.SDFGrid.faces"><code class="name">prop <span class="ident">faces</span> : <a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
@@ -5847,8 +6999,8 @@ This is equal to calling <code>self @ center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
-If these dims are not present, all parts are assumed to have the same bounds.</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.SDFGrid.bounding_radius"><code class="name flex">
 <span>def <span class="ident">bounding_radius</span></span>(<span>self) ‑> phiml.math._tensors.Tensor</span>
@@ -5856,9 +7008,8 @@ If these dims are not present, all parts are assumed to have the same bounds.</p
 <dd>
 <div class="desc"><p>Returns the radius of a Sphere object that fully encloses this geometry.
 The sphere is centered at the center of this geometry.</p>
-<p>:return: radius of type float</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.SDFGrid.lies_inside"><code class="name flex">
 <span>def <span class="ident">lies_inside</span></span>(<span>self, location: phiml.math._tensors.Tensor) ‑> phiml.math._tensors.Tensor</span>
@@ -5937,6 +7088,12 @@ Returns:</p></div>
 <dt><code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
 <dd>shifted geometry</dd>
 </dl></div>
+</dd>
+<dt id="phi.geom.SDFGrid.with_values"><code class="name flex">
+<span>def <span class="ident">with_values</span></span>(<span>self, values: phiml.math._tensors.Tensor)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
 </dd>
 </dl>
 </dd>
@@ -6175,7 +7332,7 @@ The spatial dimension order should be specified in the <code>vector</code> dimen
 Grids and meshes have no boundary elements and return <code>{}</code>.
 Dynamic graphs can define boundary elements for obstacles and walls.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -6192,7 +7349,7 @@ def boundary_elements(self) -&gt; Dict[str, Tuple[Dict[str, slice], Dict[str, sl
 Unstructured meshes use string identifiers for the boundaries.
 Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -6408,8 +7565,8 @@ This is equal to calling <code>self @ center</code>.</p>
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
-If these dims are not present, all parts are assumed to have the same bounds.</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Sphere.bounding_radius"><code class="name flex">
 <span>def <span class="ident">bounding_radius</span></span>(<span>self)</span>
@@ -6417,9 +7574,8 @@ If these dims are not present, all parts are assumed to have the same bounds.</p
 <dd>
 <div class="desc"><p>Returns the radius of a Sphere object that fully encloses this geometry.
 The sphere is centered at the center of this geometry.</p>
-<p>:return: radius of type float</p>
-<p>Args:</p>
-<p>Returns:</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.Sphere.lies_inside"><code class="name flex">
 <span>def <span class="ident">lies_inside</span></span>(<span>self, location)</span>
@@ -6720,7 +7876,7 @@ Returns:</p></div>
 Grids and meshes have no boundary elements and return <code>{}</code>.
 Dynamic graphs can define boundary elements for obstacles and walls.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -6737,7 +7893,7 @@ def boundary_elements(self) -&gt; Dict[Any, Dict[str, slice]]:
 Unstructured meshes use string identifiers for the boundaries.
 Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
-<p>Map from <code>(name, is_upper)</code> to slicing <code>dict</code>.</p></div>
+<p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -6998,8 +8154,8 @@ def upper(self):
 Each component is non-negative.</p>
 <p>Let the bounding half-extent have value <code>e</code> in dimension <code>d</code> (<code>extent[...,d] = e</code>).
 Then, no point of the geometry lies further away from its center point than <code>e</code> along <code>d</code> (in both axis directions).</p>
-<p>When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
-If these dims are not present, all parts are assumed to have the same bounds.</p></div>
+<p>If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+If these dims are not present on the result, all parts are assumed to have the same bounds.</p></div>
 </dd>
 <dt id="phi.geom.UniformGrid.interior"><code class="name flex">
 <span>def <span class="ident">interior</span></span>(<span>self) ‑> phi.geom._geom.Geometry</span>
@@ -7098,22 +8254,29 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 </li>
 <li><h3><a href="#header-functions">Functions</a></h3>
 <ul class="two-column">
+<li><code><a title="phi.geom.as_sdf" href="#phi.geom.as_sdf">as_sdf</a></code></li>
 <li><code><a title="phi.geom.assert_same_rank" href="#phi.geom.assert_same_rank">assert_same_rank</a></code></li>
 <li><code><a title="phi.geom.build_mesh" href="#phi.geom.build_mesh">build_mesh</a></code></li>
 <li><code><a title="phi.geom.concat" href="#phi.geom.concat">concat</a></code></li>
 <li><code><a title="phi.geom.embed" href="#phi.geom.embed">embed</a></code></li>
+<li><code><a title="phi.geom.enclosing_grid" href="#phi.geom.enclosing_grid">enclosing_grid</a></code></li>
+<li><code><a title="phi.geom.graph" href="#phi.geom.graph">graph</a></code></li>
 <li><code><a title="phi.geom.infinite_cylinder" href="#phi.geom.infinite_cylinder">infinite_cylinder</a></code></li>
 <li><code><a title="phi.geom.intersection" href="#phi.geom.intersection">intersection</a></code></li>
 <li><code><a title="phi.geom.invert" href="#phi.geom.invert">invert</a></code></li>
+<li><code><a title="phi.geom.line_trace" href="#phi.geom.line_trace">line_trace</a></code></li>
 <li><code><a title="phi.geom.load_gmsh" href="#phi.geom.load_gmsh">load_gmsh</a></code></li>
 <li><code><a title="phi.geom.load_su2" href="#phi.geom.load_su2">load_su2</a></code></li>
 <li><code><a title="phi.geom.mesh" href="#phi.geom.mesh">mesh</a></code></li>
 <li><code><a title="phi.geom.mesh_from_numpy" href="#phi.geom.mesh_from_numpy">mesh_from_numpy</a></code></li>
 <li><code><a title="phi.geom.normal_from_slope" href="#phi.geom.normal_from_slope">normal_from_slope</a></code></li>
+<li><code><a title="phi.geom.numpy_sdf" href="#phi.geom.numpy_sdf">numpy_sdf</a></code></li>
 <li><code><a title="phi.geom.pack_dims" href="#phi.geom.pack_dims">pack_dims</a></code></li>
 <li><code><a title="phi.geom.rotate" href="#phi.geom.rotate">rotate</a></code></li>
-<li><code><a title="phi.geom.sdf_from_geometry" href="#phi.geom.sdf_from_geometry">sdf_from_geometry</a></code></li>
+<li><code><a title="phi.geom.sample_function" href="#phi.geom.sample_function">sample_function</a></code></li>
+<li><code><a title="phi.geom.sample_sdf" href="#phi.geom.sample_sdf">sample_sdf</a></code></li>
 <li><code><a title="phi.geom.stack" href="#phi.geom.stack">stack</a></code></li>
+<li><code><a title="phi.geom.surface_mesh" href="#phi.geom.surface_mesh">surface_mesh</a></code></li>
 <li><code><a title="phi.geom.union" href="#phi.geom.union">union</a></code></li>
 </ul>
 </li>
@@ -7141,6 +8304,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.BaseBox.global_to_local" href="#phi.geom.BaseBox.global_to_local">global_to_local</a></code></li>
 <li><code><a title="phi.geom.BaseBox.half_size" href="#phi.geom.BaseBox.half_size">half_size</a></code></li>
 <li><code><a title="phi.geom.BaseBox.is_size_variable" href="#phi.geom.BaseBox.is_size_variable">is_size_variable</a></code></li>
+<li><code><a title="phi.geom.BaseBox.largest" href="#phi.geom.BaseBox.largest">largest</a></code></li>
 <li><code><a title="phi.geom.BaseBox.lies_inside" href="#phi.geom.BaseBox.lies_inside">lies_inside</a></code></li>
 <li><code><a title="phi.geom.BaseBox.local_to_global" href="#phi.geom.BaseBox.local_to_global">local_to_global</a></code></li>
 <li><code><a title="phi.geom.BaseBox.lower" href="#phi.geom.BaseBox.lower">lower</a></code></li>
@@ -7148,9 +8312,11 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.BaseBox.push" href="#phi.geom.BaseBox.push">push</a></code></li>
 <li><code><a title="phi.geom.BaseBox.rotation_matrix" href="#phi.geom.BaseBox.rotation_matrix">rotation_matrix</a></code></li>
 <li><code><a title="phi.geom.BaseBox.sample_uniform" href="#phi.geom.BaseBox.sample_uniform">sample_uniform</a></code></li>
+<li><code><a title="phi.geom.BaseBox.sample_uniform_surface" href="#phi.geom.BaseBox.sample_uniform_surface">sample_uniform_surface</a></code></li>
 <li><code><a title="phi.geom.BaseBox.scaled" href="#phi.geom.BaseBox.scaled">scaled</a></code></li>
 <li><code><a title="phi.geom.BaseBox.shape" href="#phi.geom.BaseBox.shape">shape</a></code></li>
 <li><code><a title="phi.geom.BaseBox.size" href="#phi.geom.BaseBox.size">size</a></code></li>
+<li><code><a title="phi.geom.BaseBox.smallest" href="#phi.geom.BaseBox.smallest">smallest</a></code></li>
 <li><code><a title="phi.geom.BaseBox.upper" href="#phi.geom.BaseBox.upper">upper</a></code></li>
 <li><code><a title="phi.geom.BaseBox.volume" href="#phi.geom.BaseBox.volume">volume</a></code></li>
 </ul>
@@ -7163,14 +8329,12 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Box.center" href="#phi.geom.Box.center">center</a></code></li>
 <li><code><a title="phi.geom.Box.half_size" href="#phi.geom.Box.half_size">half_size</a></code></li>
 <li><code><a title="phi.geom.Box.is_size_variable" href="#phi.geom.Box.is_size_variable">is_size_variable</a></code></li>
-<li><code><a title="phi.geom.Box.largest" href="#phi.geom.Box.largest">largest</a></code></li>
 <li><code><a title="phi.geom.Box.lower" href="#phi.geom.Box.lower">lower</a></code></li>
 <li><code><a title="phi.geom.Box.rotated" href="#phi.geom.Box.rotated">rotated</a></code></li>
 <li><code><a title="phi.geom.Box.rotation_matrix" href="#phi.geom.Box.rotation_matrix">rotation_matrix</a></code></li>
 <li><code><a title="phi.geom.Box.shape" href="#phi.geom.Box.shape">shape</a></code></li>
 <li><code><a title="phi.geom.Box.shifted" href="#phi.geom.Box.shifted">shifted</a></code></li>
 <li><code><a title="phi.geom.Box.size" href="#phi.geom.Box.size">size</a></code></li>
-<li><code><a title="phi.geom.Box.smallest" href="#phi.geom.Box.smallest">smallest</a></code></li>
 <li><code><a title="phi.geom.Box.upper" href="#phi.geom.Box.upper">upper</a></code></li>
 <li><code><a title="phi.geom.Box.without" href="#phi.geom.Box.without">without</a></code></li>
 </ul>
@@ -7211,6 +8375,8 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Geometry.face_normals" href="#phi.geom.Geometry.face_normals">face_normals</a></code></li>
 <li><code><a title="phi.geom.Geometry.face_shape" href="#phi.geom.Geometry.face_shape">face_shape</a></code></li>
 <li><code><a title="phi.geom.Geometry.faces" href="#phi.geom.Geometry.faces">faces</a></code></li>
+<li><code><a title="phi.geom.Geometry.get_boundary" href="#phi.geom.Geometry.get_boundary">get_boundary</a></code></li>
+<li><code><a title="phi.geom.Geometry.get_points" href="#phi.geom.Geometry.get_points">get_points</a></code></li>
 <li><code><a title="phi.geom.Geometry.integrate_flux" href="#phi.geom.Geometry.integrate_flux">integrate_flux</a></code></li>
 <li><code><a title="phi.geom.Geometry.integrate_surface" href="#phi.geom.Geometry.integrate_surface">integrate_surface</a></code></li>
 <li><code><a title="phi.geom.Geometry.lies_inside" href="#phi.geom.Geometry.lies_inside">lies_inside</a></code></li>
@@ -7218,6 +8384,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated">rotated</a></code></li>
 <li><code><a title="phi.geom.Geometry.sample_uniform" href="#phi.geom.Geometry.sample_uniform">sample_uniform</a></code></li>
 <li><code><a title="phi.geom.Geometry.scaled" href="#phi.geom.Geometry.scaled">scaled</a></code></li>
+<li><code><a title="phi.geom.Geometry.sets" href="#phi.geom.Geometry.sets">sets</a></code></li>
 <li><code><a title="phi.geom.Geometry.shallow_equals" href="#phi.geom.Geometry.shallow_equals">shallow_equals</a></code></li>
 <li><code><a title="phi.geom.Geometry.shape" href="#phi.geom.Geometry.shape">shape</a></code></li>
 <li><code><a title="phi.geom.Geometry.shifted" href="#phi.geom.Geometry.shifted">shifted</a></code></li>
@@ -7307,6 +8474,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Mesh.boundary_connectivity" href="#phi.geom.Mesh.boundary_connectivity">boundary_connectivity</a></code></li>
 <li><code><a title="phi.geom.Mesh.boundary_elements" href="#phi.geom.Mesh.boundary_elements">boundary_elements</a></code></li>
 <li><code><a title="phi.geom.Mesh.boundary_faces" href="#phi.geom.Mesh.boundary_faces">boundary_faces</a></code></li>
+<li><code><a title="phi.geom.Mesh.bounding_box" href="#phi.geom.Mesh.bounding_box">bounding_box</a></code></li>
 <li><code><a title="phi.geom.Mesh.bounding_half_extent" href="#phi.geom.Mesh.bounding_half_extent">bounding_half_extent</a></code></li>
 <li><code><a title="phi.geom.Mesh.bounding_radius" href="#phi.geom.Mesh.bounding_radius">bounding_radius</a></code></li>
 <li><code><a title="phi.geom.Mesh.bounds" href="#phi.geom.Mesh.bounds">bounds</a></code></li>
@@ -7316,6 +8484,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Mesh.center" href="#phi.geom.Mesh.center">center</a></code></li>
 <li><code><a title="phi.geom.Mesh.connectivity" href="#phi.geom.Mesh.connectivity">connectivity</a></code></li>
 <li><code><a title="phi.geom.Mesh.distance_matrix" href="#phi.geom.Mesh.distance_matrix">distance_matrix</a></code></li>
+<li><code><a title="phi.geom.Mesh.element_connectivity" href="#phi.geom.Mesh.element_connectivity">element_connectivity</a></code></li>
 <li><code><a title="phi.geom.Mesh.element_rank" href="#phi.geom.Mesh.element_rank">element_rank</a></code></li>
 <li><code><a title="phi.geom.Mesh.elements" href="#phi.geom.Mesh.elements">elements</a></code></li>
 <li><code><a title="phi.geom.Mesh.face_areas" href="#phi.geom.Mesh.face_areas">face_areas</a></code></li>
@@ -7324,17 +8493,27 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Mesh.face_shape" href="#phi.geom.Mesh.face_shape">face_shape</a></code></li>
 <li><code><a title="phi.geom.Mesh.faces" href="#phi.geom.Mesh.faces">faces</a></code></li>
 <li><code><a title="phi.geom.Mesh.faces_to_vertices" href="#phi.geom.Mesh.faces_to_vertices">faces_to_vertices</a></code></li>
+<li><code><a title="phi.geom.Mesh.filter_unused_vertices" href="#phi.geom.Mesh.filter_unused_vertices">filter_unused_vertices</a></code></li>
+<li><code><a title="phi.geom.Mesh.get_boundary" href="#phi.geom.Mesh.get_boundary">get_boundary</a></code></li>
+<li><code><a title="phi.geom.Mesh.get_points" href="#phi.geom.Mesh.get_points">get_points</a></code></li>
 <li><code><a title="phi.geom.Mesh.interior_faces" href="#phi.geom.Mesh.interior_faces">interior_faces</a></code></li>
 <li><code><a title="phi.geom.Mesh.lies_inside" href="#phi.geom.Mesh.lies_inside">lies_inside</a></code></li>
 <li><code><a title="phi.geom.Mesh.neighbor_distances" href="#phi.geom.Mesh.neighbor_distances">neighbor_distances</a></code></li>
 <li><code><a title="phi.geom.Mesh.neighbor_offsets" href="#phi.geom.Mesh.neighbor_offsets">neighbor_offsets</a></code></li>
+<li><code><a title="phi.geom.Mesh.normals" href="#phi.geom.Mesh.normals">normals</a></code></li>
 <li><code><a title="phi.geom.Mesh.pad_boundary" href="#phi.geom.Mesh.pad_boundary">pad_boundary</a></code></li>
 <li><code><a title="phi.geom.Mesh.polygons" href="#phi.geom.Mesh.polygons">polygons</a></code></li>
 <li><code><a title="phi.geom.Mesh.relative_face_distance" href="#phi.geom.Mesh.relative_face_distance">relative_face_distance</a></code></li>
 <li><code><a title="phi.geom.Mesh.rotated" href="#phi.geom.Mesh.rotated">rotated</a></code></li>
 <li><code><a title="phi.geom.Mesh.sample_uniform" href="#phi.geom.Mesh.sample_uniform">sample_uniform</a></code></li>
 <li><code><a title="phi.geom.Mesh.scaled" href="#phi.geom.Mesh.scaled">scaled</a></code></li>
+<li><code><a title="phi.geom.Mesh.sets" href="#phi.geom.Mesh.sets">sets</a></code></li>
 <li><code><a title="phi.geom.Mesh.shape" href="#phi.geom.Mesh.shape">shape</a></code></li>
+<li><code><a title="phi.geom.Mesh.shifted" href="#phi.geom.Mesh.shifted">shifted</a></code></li>
+<li><code><a title="phi.geom.Mesh.vertex_connectivity" href="#phi.geom.Mesh.vertex_connectivity">vertex_connectivity</a></code></li>
+<li><code><a title="phi.geom.Mesh.vertex_graph" href="#phi.geom.Mesh.vertex_graph">vertex_graph</a></code></li>
+<li><code><a title="phi.geom.Mesh.vertex_normals" href="#phi.geom.Mesh.vertex_normals">vertex_normals</a></code></li>
+<li><code><a title="phi.geom.Mesh.vertex_positions" href="#phi.geom.Mesh.vertex_positions">vertex_positions</a></code></li>
 <li><code><a title="phi.geom.Mesh.vertices" href="#phi.geom.Mesh.vertices">vertices</a></code></li>
 <li><code><a title="phi.geom.Mesh.volume" href="#phi.geom.Mesh.volume">volume</a></code></li>
 </ul>
@@ -7365,6 +8544,39 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 </ul>
 </li>
 <li>
+<h4><code><a title="phi.geom.SDF" href="#phi.geom.SDF">SDF</a></code></h4>
+<ul class="">
+<li><code><a title="phi.geom.SDF.approximate_closest_surface" href="#phi.geom.SDF.approximate_closest_surface">approximate_closest_surface</a></code></li>
+<li><code><a title="phi.geom.SDF.approximate_signed_distance" href="#phi.geom.SDF.approximate_signed_distance">approximate_signed_distance</a></code></li>
+<li><code><a title="phi.geom.SDF.at" href="#phi.geom.SDF.at">at</a></code></li>
+<li><code><a title="phi.geom.SDF.boundary_elements" href="#phi.geom.SDF.boundary_elements">boundary_elements</a></code></li>
+<li><code><a title="phi.geom.SDF.boundary_faces" href="#phi.geom.SDF.boundary_faces">boundary_faces</a></code></li>
+<li><code><a title="phi.geom.SDF.bounding_box" href="#phi.geom.SDF.bounding_box">bounding_box</a></code></li>
+<li><code><a title="phi.geom.SDF.bounding_half_extent" href="#phi.geom.SDF.bounding_half_extent">bounding_half_extent</a></code></li>
+<li><code><a title="phi.geom.SDF.bounding_radius" href="#phi.geom.SDF.bounding_radius">bounding_radius</a></code></li>
+<li><code><a title="phi.geom.SDF.bounds" href="#phi.geom.SDF.bounds">bounds</a></code></li>
+<li><code><a title="phi.geom.SDF.center" href="#phi.geom.SDF.center">center</a></code></li>
+<li><code><a title="phi.geom.SDF.corners" href="#phi.geom.SDF.corners">corners</a></code></li>
+<li><code><a title="phi.geom.SDF.face_areas" href="#phi.geom.SDF.face_areas">face_areas</a></code></li>
+<li><code><a title="phi.geom.SDF.face_centers" href="#phi.geom.SDF.face_centers">face_centers</a></code></li>
+<li><code><a title="phi.geom.SDF.face_normals" href="#phi.geom.SDF.face_normals">face_normals</a></code></li>
+<li><code><a title="phi.geom.SDF.face_shape" href="#phi.geom.SDF.face_shape">face_shape</a></code></li>
+<li><code><a title="phi.geom.SDF.faces" href="#phi.geom.SDF.faces">faces</a></code></li>
+<li><code><a title="phi.geom.SDF.grid" href="#phi.geom.SDF.grid">grid</a></code></li>
+<li><code><a title="phi.geom.SDF.lies_inside" href="#phi.geom.SDF.lies_inside">lies_inside</a></code></li>
+<li><code><a title="phi.geom.SDF.points" href="#phi.geom.SDF.points">points</a></code></li>
+<li><code><a title="phi.geom.SDF.resolution" href="#phi.geom.SDF.resolution">resolution</a></code></li>
+<li><code><a title="phi.geom.SDF.rotated" href="#phi.geom.SDF.rotated">rotated</a></code></li>
+<li><code><a title="phi.geom.SDF.sample_uniform" href="#phi.geom.SDF.sample_uniform">sample_uniform</a></code></li>
+<li><code><a title="phi.geom.SDF.scaled" href="#phi.geom.SDF.scaled">scaled</a></code></li>
+<li><code><a title="phi.geom.SDF.sdf_and_gradient" href="#phi.geom.SDF.sdf_and_gradient">sdf_and_gradient</a></code></li>
+<li><code><a title="phi.geom.SDF.shape" href="#phi.geom.SDF.shape">shape</a></code></li>
+<li><code><a title="phi.geom.SDF.shifted" href="#phi.geom.SDF.shifted">shifted</a></code></li>
+<li><code><a title="phi.geom.SDF.size" href="#phi.geom.SDF.size">size</a></code></li>
+<li><code><a title="phi.geom.SDF.volume" href="#phi.geom.SDF.volume">volume</a></code></li>
+</ul>
+</li>
+<li>
 <h4><code><a title="phi.geom.SDFGrid" href="#phi.geom.SDFGrid">SDFGrid</a></code></h4>
 <ul class="">
 <li><code><a title="phi.geom.SDFGrid.approximate_closest_surface" href="#phi.geom.SDFGrid.approximate_closest_surface">approximate_closest_surface</a></code></li>
@@ -7377,6 +8589,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.SDFGrid.bounds" href="#phi.geom.SDFGrid.bounds">bounds</a></code></li>
 <li><code><a title="phi.geom.SDFGrid.center" href="#phi.geom.SDFGrid.center">center</a></code></li>
 <li><code><a title="phi.geom.SDFGrid.corners" href="#phi.geom.SDFGrid.corners">corners</a></code></li>
+<li><code><a title="phi.geom.SDFGrid.dx" href="#phi.geom.SDFGrid.dx">dx</a></code></li>
 <li><code><a title="phi.geom.SDFGrid.face_areas" href="#phi.geom.SDFGrid.face_areas">face_areas</a></code></li>
 <li><code><a title="phi.geom.SDFGrid.face_centers" href="#phi.geom.SDFGrid.face_centers">face_centers</a></code></li>
 <li><code><a title="phi.geom.SDFGrid.face_normals" href="#phi.geom.SDFGrid.face_normals">face_normals</a></code></li>
@@ -7393,6 +8606,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.SDFGrid.size" href="#phi.geom.SDFGrid.size">size</a></code></li>
 <li><code><a title="phi.geom.SDFGrid.values" href="#phi.geom.SDFGrid.values">values</a></code></li>
 <li><code><a title="phi.geom.SDFGrid.volume" href="#phi.geom.SDFGrid.volume">volume</a></code></li>
+<li><code><a title="phi.geom.SDFGrid.with_values" href="#phi.geom.SDFGrid.with_values">with_values</a></code></li>
 </ul>
 </li>
 <li>

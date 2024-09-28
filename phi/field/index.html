@@ -325,7 +325,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None, implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fdd81475da0></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None, implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fb226f5d300></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -779,7 +779,7 @@ If both are <code>Fields</code> but have different points, <code>f1</code> takes
 <p><code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code></p></div>
 </dd>
 <dt id="phi.field.mean"><code class="name flex">
-<span>def <span class="ident">mean</span></span>(<span>field: phi.field._field.Field) ‑> phiml.math._tensors.Tensor</span>
+<span>def <span class="ident">mean</span></span>(<span>field: phi.field._field.Field, dim=&lt;function &lt;lambda&gt;&gt;) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the mean value by reducing all spatial / instance dimensions.</p>
@@ -1467,7 +1467,7 @@ This is the case with rotating rigid bodies, for example.</p></div>
 </dd>
 <dt id="phi.field.Field"><code class="flex name class">
 <span>class <span class="ident">Field</span></span>
-<span>(</span><span>geometry: Union[phiml.math._tensors.Tensor, phi.geom._geom.Geometry], values: Union[phiml.math._tensors.Tensor, numbers.Number, bool, Callable, phi.field._field.FieldInitializer, phi.geom._geom.Geometry, ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>')], boundary: Union[numbers.Number, phiml.math.extrapolation.Extrapolation, ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>'), dict], **sampling_kwargs)</span>
+<span>(</span><span>geometry: Union[phiml.math._tensors.Tensor, phi.geom._geom.Geometry], values: Union[phiml.math._tensors.Tensor, numbers.Number, bool, Callable, phi.field._field.FieldInitializer, phi.geom._geom.Geometry, ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>')], boundary: Union[numbers.Number, phiml.math.extrapolation.Extrapolation, ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>'), dict] = 0, **sampling_kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all fields.</p>
@@ -1509,7 +1509,7 @@ This is the case with rotating rigid bodies, for example.</p></div>
     def __init__(self,
                  geometry: Union[Geometry, Tensor],
                  values: Union[Tensor, Number, bool, Callable, FieldInitializer, Geometry, &#39;Field&#39;],
-                 boundary: Union[Number, Extrapolation, &#39;Field&#39;, dict],
+                 boundary: Union[Number, Extrapolation, &#39;Field&#39;, dict] = 0,
                  **sampling_kwargs):
         &#34;&#34;&#34;
         Args:
@@ -1525,8 +1525,9 @@ This is the case with rotating rigid bodies, for example.</p></div>
         else:
             from ._resample import sample
             values = sample(values, geometry, &#39;center&#39;, self._boundary, **sampling_kwargs)
-        if non_batch(geometry).non_channel not in values.shape:
-            values = expand(wrap(values), non_batch(geometry).non_channel)
+        matching_sets = [s for s, s_shape in geometry.sets.items() if s_shape in values.shape]
+        if not matching_sets:
+            values = expand(wrap(values), non_batch(geometry) - &#39;vector&#39;)
         self._values: Tensor = values
         math.merge_shapes(values, non_batch(self.sampled_elements).non_channel)  # shape check
 
@@ -1598,16 +1599,9 @@ This is the case with rotating rigid bodies, for example.</p></div>
     @property
     def center(self) -&gt; Tensor:
         &#34;&#34;&#34; Returns the center points of the `elements` of this `Field`. &#34;&#34;&#34;
-        # { ~vector, x }      for staggered grid
-        # { ~cells }          for unstructured mesh
-        # { particles }       for graph
-        # { ~particles }      for graph edges
-        if self.is_centered:
-            return slice_off_constant_faces(self._geometry.center, self._geometry.boundary_elements, self.extrapolation)
-        elif self.is_staggered:
-            return slice_off_constant_faces(self._geometry.face_centers, self._geometry.boundary_faces, self.extrapolation)
-        else:
-            raise NotImplementedError
+        all_points = self._geometry.get_points(self.sampled_at)
+        boundary = self._geometry.get_boundary(self.sampled_at)
+        return slice_off_constant_faces(all_points, boundary, self.extrapolation)
 
     @property
     def points(self):
@@ -1680,7 +1674,8 @@ This is the case with rotating rigid bodies, for example.</p></div>
         &#34;&#34;&#34;
         if self.is_staggered and self.is_grid:
             return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
-        return self._geometry.shape.without(&#39;vector&#39;) &amp; self._values
+        set_shape = self._geometry.sets[self.sampled_at]
+        return batch(self._geometry) &amp; (channel(self._geometry) - &#39;vector&#39;) &amp; set_shape &amp; self._values
 
     @property
     def resolution(self):
@@ -1843,7 +1838,8 @@ This is the case with rotating rigid bodies, for example.</p></div>
 
     @property
     def sampled_at(self):
-        return &#39;face&#39; if self.is_staggered else &#39;center&#39;
+        matching_sets = [s for s, s_shape in self._geometry.sets.items() if s_shape in self._values.shape]
+        return matching_sets[-1]
 
     def at(self, representation: Union[&#39;Field&#39;, Geometry], keep_boundary=False, **kwargs) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -1857,6 +1853,21 @@ This is the case with rotating rigid bodies, for example.</p></div>
         &#34;&#34;&#34;
         from ._resample import resample
         return resample(self, representation, keep_boundary, **kwargs)
+
+    def sample(self, where: Union[Geometry, &#39;Field&#39;, Tensor], at: str = &#39;center&#39;, **kwargs) -&gt; &#39;Tensor&#39;:
+        &#34;&#34;&#34;
+        Sample the values of this `Field` at the given location or geometry.
+
+        Args:
+            where: Location `Tensor` or `Geometry` or
+            at: `&#39;center&#39;` or `&#39;face&#39;`.
+            **kwargs: Sampling arguments.
+
+        Returns:
+            `Tensor`
+        &#34;&#34;&#34;
+        from ._resample import sample
+        return sample(self, where, at, **kwargs)
 
     def closest_values(self, points: Tensor):
         &#34;&#34;&#34;
@@ -2085,8 +2096,17 @@ This is the case with rotating rigid bodies, for example.</p></div>
         return NotImplemented
 
     def __rshift__(self, other):
-        warnings.warn(&#34;&gt;&gt; operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.&#34;, SyntaxWarning, stacklevel=2)
-        return self.at(other, keep_boundary=False)
+        if isinstance(other, (Field, Geometry)):
+            warnings.warn(&#34;&gt;&gt; operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.&#34;, SyntaxWarning, stacklevel=2)
+            return self.at(other, keep_boundary=False)
+        else:
+            return NotImplemented
+
+    def __rrshift__(self, other):
+        return self.with_values(other)
+
+    def __lshift__(self, other):
+        return self.with_values(other)
 
     def __rrshift__(self, other):
         warnings.warn(&#34;&gt;&gt; operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.&#34;, SyntaxWarning, stacklevel=2)
@@ -2411,16 +2431,9 @@ def cells(self):
 <pre><code class="python">@property
 def center(self) -&gt; Tensor:
     &#34;&#34;&#34; Returns the center points of the `elements` of this `Field`. &#34;&#34;&#34;
-    # { ~vector, x }      for staggered grid
-    # { ~cells }          for unstructured mesh
-    # { particles }       for graph
-    # { ~particles }      for graph edges
-    if self.is_centered:
-        return slice_off_constant_faces(self._geometry.center, self._geometry.boundary_elements, self.extrapolation)
-    elif self.is_staggered:
-        return slice_off_constant_faces(self._geometry.face_centers, self._geometry.boundary_faces, self.extrapolation)
-    else:
-        raise NotImplementedError</code></pre>
+    all_points = self._geometry.get_points(self.sampled_at)
+    boundary = self._geometry.get_boundary(self.sampled_at)
+    return slice_off_constant_faces(all_points, boundary, self.extrapolation)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.data"><code class="name">prop <span class="ident">data</span> : phiml.math._tensors.Tensor</code></dt>
@@ -2691,7 +2704,8 @@ def resolution(self):
 </summary>
 <pre><code class="python">@property
 def sampled_at(self):
-    return &#39;face&#39; if self.is_staggered else &#39;center&#39;</code></pre>
+    matching_sets = [s for s, s_shape in self._geometry.sets.items() if s_shape in self._values.shape]
+    return matching_sets[-1]</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.sampled_elements"><code class="name">prop <span class="ident">sampled_elements</span> : phi.geom._geom.Geometry</code></dt>
@@ -2734,7 +2748,8 @@ def shape(self) -&gt; Shape:
     &#34;&#34;&#34;
     if self.is_staggered and self.is_grid:
         return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
-    return self._geometry.shape.without(&#39;vector&#39;) &amp; self._values</code></pre>
+    set_shape = self._geometry.sets[self.sampled_at]
+    return batch(self._geometry) &amp; (channel(self._geometry) - &#39;vector&#39;) &amp; set_shape &amp; self._values</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.spatial_rank"><code class="name">prop <span class="ident">spatial_rank</span> : int</code></dt>
@@ -2944,6 +2959,23 @@ or <code>dict</code> mapping dimension names to <code>(lower, upper)</code>.</dd
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Padded <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code></p></div>
+</dd>
+<dt id="phi.field.Field.sample"><code class="name flex">
+<span>def <span class="ident">sample</span></span>(<span>self, where: Union[phi.geom._geom.Geometry, ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>'), phiml.math._tensors.Tensor], at: str = 'center', **kwargs) ‑> phiml.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sample the values of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> at the given location or geometry.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>where</code></strong></dt>
+<dd>Location <code>Tensor</code> or <code>Geometry</code> or</dd>
+<dt><strong><code>at</code></strong></dt>
+<dd><code>'center'</code> or <code>'face'</code>.</dd>
+<dt><strong><code>**kwargs</code></strong></dt>
+<dd>Sampling arguments.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>Tensor</code></p></div>
 </dd>
 <dt id="phi.field.Field.shifted"><code class="name flex">
 <span>def <span class="ident">shifted</span></span>(<span>self, delta: phiml.math._tensors.Tensor) ‑> phi.field._field.Field</span>
@@ -3039,7 +3071,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
 </dd>
 <dt id="phi.field.Field"><code class="flex name class">
 <span>class <span class="ident">SampledField</span></span>
-<span>(</span><span>geometry: Union[phiml.math._tensors.Tensor, phi.geom._geom.Geometry], values: Union[phiml.math._tensors.Tensor, numbers.Number, bool, Callable, phi.field._field.FieldInitializer, phi.geom._geom.Geometry, ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>')], boundary: Union[numbers.Number, phiml.math.extrapolation.Extrapolation, ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>'), dict], **sampling_kwargs)</span>
+<span>(</span><span>geometry: Union[phiml.math._tensors.Tensor, phi.geom._geom.Geometry], values: Union[phiml.math._tensors.Tensor, numbers.Number, bool, Callable, phi.field._field.FieldInitializer, phi.geom._geom.Geometry, ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>')], boundary: Union[numbers.Number, phiml.math.extrapolation.Extrapolation, ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>'), dict] = 0, **sampling_kwargs)</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Base class for all fields.</p>
@@ -3081,7 +3113,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     def __init__(self,
                  geometry: Union[Geometry, Tensor],
                  values: Union[Tensor, Number, bool, Callable, FieldInitializer, Geometry, &#39;Field&#39;],
-                 boundary: Union[Number, Extrapolation, &#39;Field&#39;, dict],
+                 boundary: Union[Number, Extrapolation, &#39;Field&#39;, dict] = 0,
                  **sampling_kwargs):
         &#34;&#34;&#34;
         Args:
@@ -3097,8 +3129,9 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         else:
             from ._resample import sample
             values = sample(values, geometry, &#39;center&#39;, self._boundary, **sampling_kwargs)
-        if non_batch(geometry).non_channel not in values.shape:
-            values = expand(wrap(values), non_batch(geometry).non_channel)
+        matching_sets = [s for s, s_shape in geometry.sets.items() if s_shape in values.shape]
+        if not matching_sets:
+            values = expand(wrap(values), non_batch(geometry) - &#39;vector&#39;)
         self._values: Tensor = values
         math.merge_shapes(values, non_batch(self.sampled_elements).non_channel)  # shape check
 
@@ -3170,16 +3203,9 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     @property
     def center(self) -&gt; Tensor:
         &#34;&#34;&#34; Returns the center points of the `elements` of this `Field`. &#34;&#34;&#34;
-        # { ~vector, x }      for staggered grid
-        # { ~cells }          for unstructured mesh
-        # { particles }       for graph
-        # { ~particles }      for graph edges
-        if self.is_centered:
-            return slice_off_constant_faces(self._geometry.center, self._geometry.boundary_elements, self.extrapolation)
-        elif self.is_staggered:
-            return slice_off_constant_faces(self._geometry.face_centers, self._geometry.boundary_faces, self.extrapolation)
-        else:
-            raise NotImplementedError
+        all_points = self._geometry.get_points(self.sampled_at)
+        boundary = self._geometry.get_boundary(self.sampled_at)
+        return slice_off_constant_faces(all_points, boundary, self.extrapolation)
 
     @property
     def points(self):
@@ -3252,7 +3278,8 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         &#34;&#34;&#34;
         if self.is_staggered and self.is_grid:
             return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
-        return self._geometry.shape.without(&#39;vector&#39;) &amp; self._values
+        set_shape = self._geometry.sets[self.sampled_at]
+        return batch(self._geometry) &amp; (channel(self._geometry) - &#39;vector&#39;) &amp; set_shape &amp; self._values
 
     @property
     def resolution(self):
@@ -3415,7 +3442,8 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
 
     @property
     def sampled_at(self):
-        return &#39;face&#39; if self.is_staggered else &#39;center&#39;
+        matching_sets = [s for s, s_shape in self._geometry.sets.items() if s_shape in self._values.shape]
+        return matching_sets[-1]
 
     def at(self, representation: Union[&#39;Field&#39;, Geometry], keep_boundary=False, **kwargs) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -3429,6 +3457,21 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         &#34;&#34;&#34;
         from ._resample import resample
         return resample(self, representation, keep_boundary, **kwargs)
+
+    def sample(self, where: Union[Geometry, &#39;Field&#39;, Tensor], at: str = &#39;center&#39;, **kwargs) -&gt; &#39;Tensor&#39;:
+        &#34;&#34;&#34;
+        Sample the values of this `Field` at the given location or geometry.
+
+        Args:
+            where: Location `Tensor` or `Geometry` or
+            at: `&#39;center&#39;` or `&#39;face&#39;`.
+            **kwargs: Sampling arguments.
+
+        Returns:
+            `Tensor`
+        &#34;&#34;&#34;
+        from ._resample import sample
+        return sample(self, where, at, **kwargs)
 
     def closest_values(self, points: Tensor):
         &#34;&#34;&#34;
@@ -3657,8 +3700,17 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         return NotImplemented
 
     def __rshift__(self, other):
-        warnings.warn(&#34;&gt;&gt; operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.&#34;, SyntaxWarning, stacklevel=2)
-        return self.at(other, keep_boundary=False)
+        if isinstance(other, (Field, Geometry)):
+            warnings.warn(&#34;&gt;&gt; operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.&#34;, SyntaxWarning, stacklevel=2)
+            return self.at(other, keep_boundary=False)
+        else:
+            return NotImplemented
+
+    def __rrshift__(self, other):
+        return self.with_values(other)
+
+    def __lshift__(self, other):
+        return self.with_values(other)
 
     def __rrshift__(self, other):
         warnings.warn(&#34;&gt;&gt; operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.&#34;, SyntaxWarning, stacklevel=2)
@@ -3983,16 +4035,9 @@ def cells(self):
 <pre><code class="python">@property
 def center(self) -&gt; Tensor:
     &#34;&#34;&#34; Returns the center points of the `elements` of this `Field`. &#34;&#34;&#34;
-    # { ~vector, x }      for staggered grid
-    # { ~cells }          for unstructured mesh
-    # { particles }       for graph
-    # { ~particles }      for graph edges
-    if self.is_centered:
-        return slice_off_constant_faces(self._geometry.center, self._geometry.boundary_elements, self.extrapolation)
-    elif self.is_staggered:
-        return slice_off_constant_faces(self._geometry.face_centers, self._geometry.boundary_faces, self.extrapolation)
-    else:
-        raise NotImplementedError</code></pre>
+    all_points = self._geometry.get_points(self.sampled_at)
+    boundary = self._geometry.get_boundary(self.sampled_at)
+    return slice_off_constant_faces(all_points, boundary, self.extrapolation)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.data"><code class="name">prop <span class="ident">data</span> : phiml.math._tensors.Tensor</code></dt>
@@ -4263,7 +4308,8 @@ def resolution(self):
 </summary>
 <pre><code class="python">@property
 def sampled_at(self):
-    return &#39;face&#39; if self.is_staggered else &#39;center&#39;</code></pre>
+    matching_sets = [s for s, s_shape in self._geometry.sets.items() if s_shape in self._values.shape]
+    return matching_sets[-1]</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.sampled_elements"><code class="name">prop <span class="ident">sampled_elements</span> : phi.geom._geom.Geometry</code></dt>
@@ -4306,7 +4352,8 @@ def shape(self) -&gt; Shape:
     &#34;&#34;&#34;
     if self.is_staggered and self.is_grid:
         return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
-    return self._geometry.shape.without(&#39;vector&#39;) &amp; self._values</code></pre>
+    set_shape = self._geometry.sets[self.sampled_at]
+    return batch(self._geometry) &amp; (channel(self._geometry) - &#39;vector&#39;) &amp; set_shape &amp; self._values</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.spatial_rank"><code class="name">prop <span class="ident">spatial_rank</span> : int</code></dt>
@@ -4516,6 +4563,23 @@ or <code>dict</code> mapping dimension names to <code>(lower, upper)</code>.</dd
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Padded <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code></p></div>
+</dd>
+<dt id="phi.field.Field.sample"><code class="name flex">
+<span>def <span class="ident">sample</span></span>(<span>self, where: Union[phi.geom._geom.Geometry, ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>'), phiml.math._tensors.Tensor], at: str = 'center', **kwargs) ‑> phiml.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sample the values of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> at the given location or geometry.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>where</code></strong></dt>
+<dd>Location <code>Tensor</code> or <code>Geometry</code> or</dd>
+<dt><strong><code>at</code></strong></dt>
+<dd><code>'center'</code> or <code>'face'</code>.</dd>
+<dt><strong><code>**kwargs</code></strong></dt>
+<dd>Sampling arguments.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>Tensor</code></p></div>
 </dd>
 <dt id="phi.field.Field.shifted"><code class="name flex">
 <span>def <span class="ident">shifted</span></span>(<span>self, delta: phiml.math._tensors.Tensor) ‑> phi.field._field.Field</span>
@@ -4652,7 +4716,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     def __init__(self,
                  geometry: Union[Geometry, Tensor],
                  values: Union[Tensor, Number, bool, Callable, FieldInitializer, Geometry, &#39;Field&#39;],
-                 boundary: Union[Number, Extrapolation, &#39;Field&#39;, dict],
+                 boundary: Union[Number, Extrapolation, &#39;Field&#39;, dict] = 0,
                  **sampling_kwargs):
         &#34;&#34;&#34;
         Args:
@@ -4668,8 +4732,9 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         else:
             from ._resample import sample
             values = sample(values, geometry, &#39;center&#39;, self._boundary, **sampling_kwargs)
-        if non_batch(geometry).non_channel not in values.shape:
-            values = expand(wrap(values), non_batch(geometry).non_channel)
+        matching_sets = [s for s, s_shape in geometry.sets.items() if s_shape in values.shape]
+        if not matching_sets:
+            values = expand(wrap(values), non_batch(geometry) - &#39;vector&#39;)
         self._values: Tensor = values
         math.merge_shapes(values, non_batch(self.sampled_elements).non_channel)  # shape check
 
@@ -4741,16 +4806,9 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     @property
     def center(self) -&gt; Tensor:
         &#34;&#34;&#34; Returns the center points of the `elements` of this `Field`. &#34;&#34;&#34;
-        # { ~vector, x }      for staggered grid
-        # { ~cells }          for unstructured mesh
-        # { particles }       for graph
-        # { ~particles }      for graph edges
-        if self.is_centered:
-            return slice_off_constant_faces(self._geometry.center, self._geometry.boundary_elements, self.extrapolation)
-        elif self.is_staggered:
-            return slice_off_constant_faces(self._geometry.face_centers, self._geometry.boundary_faces, self.extrapolation)
-        else:
-            raise NotImplementedError
+        all_points = self._geometry.get_points(self.sampled_at)
+        boundary = self._geometry.get_boundary(self.sampled_at)
+        return slice_off_constant_faces(all_points, boundary, self.extrapolation)
 
     @property
     def points(self):
@@ -4823,7 +4881,8 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         &#34;&#34;&#34;
         if self.is_staggered and self.is_grid:
             return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
-        return self._geometry.shape.without(&#39;vector&#39;) &amp; self._values
+        set_shape = self._geometry.sets[self.sampled_at]
+        return batch(self._geometry) &amp; (channel(self._geometry) - &#39;vector&#39;) &amp; set_shape &amp; self._values
 
     @property
     def resolution(self):
@@ -4986,7 +5045,8 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
 
     @property
     def sampled_at(self):
-        return &#39;face&#39; if self.is_staggered else &#39;center&#39;
+        matching_sets = [s for s, s_shape in self._geometry.sets.items() if s_shape in self._values.shape]
+        return matching_sets[-1]
 
     def at(self, representation: Union[&#39;Field&#39;, Geometry], keep_boundary=False, **kwargs) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -5000,6 +5060,21 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         &#34;&#34;&#34;
         from ._resample import resample
         return resample(self, representation, keep_boundary, **kwargs)
+
+    def sample(self, where: Union[Geometry, &#39;Field&#39;, Tensor], at: str = &#39;center&#39;, **kwargs) -&gt; &#39;Tensor&#39;:
+        &#34;&#34;&#34;
+        Sample the values of this `Field` at the given location or geometry.
+
+        Args:
+            where: Location `Tensor` or `Geometry` or
+            at: `&#39;center&#39;` or `&#39;face&#39;`.
+            **kwargs: Sampling arguments.
+
+        Returns:
+            `Tensor`
+        &#34;&#34;&#34;
+        from ._resample import sample
+        return sample(self, where, at, **kwargs)
 
     def closest_values(self, points: Tensor):
         &#34;&#34;&#34;
@@ -5228,8 +5303,17 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         return NotImplemented
 
     def __rshift__(self, other):
-        warnings.warn(&#34;&gt;&gt; operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.&#34;, SyntaxWarning, stacklevel=2)
-        return self.at(other, keep_boundary=False)
+        if isinstance(other, (Field, Geometry)):
+            warnings.warn(&#34;&gt;&gt; operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.&#34;, SyntaxWarning, stacklevel=2)
+            return self.at(other, keep_boundary=False)
+        else:
+            return NotImplemented
+
+    def __rrshift__(self, other):
+        return self.with_values(other)
+
+    def __lshift__(self, other):
+        return self.with_values(other)
 
     def __rrshift__(self, other):
         warnings.warn(&#34;&gt;&gt; operator for Fields is deprecated. Use field.at(), the constructor or obj @ field instead.&#34;, SyntaxWarning, stacklevel=2)
@@ -5554,16 +5638,9 @@ def cells(self):
 <pre><code class="python">@property
 def center(self) -&gt; Tensor:
     &#34;&#34;&#34; Returns the center points of the `elements` of this `Field`. &#34;&#34;&#34;
-    # { ~vector, x }      for staggered grid
-    # { ~cells }          for unstructured mesh
-    # { particles }       for graph
-    # { ~particles }      for graph edges
-    if self.is_centered:
-        return slice_off_constant_faces(self._geometry.center, self._geometry.boundary_elements, self.extrapolation)
-    elif self.is_staggered:
-        return slice_off_constant_faces(self._geometry.face_centers, self._geometry.boundary_faces, self.extrapolation)
-    else:
-        raise NotImplementedError</code></pre>
+    all_points = self._geometry.get_points(self.sampled_at)
+    boundary = self._geometry.get_boundary(self.sampled_at)
+    return slice_off_constant_faces(all_points, boundary, self.extrapolation)</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.data"><code class="name">prop <span class="ident">data</span> : phiml.math._tensors.Tensor</code></dt>
@@ -5834,7 +5911,8 @@ def resolution(self):
 </summary>
 <pre><code class="python">@property
 def sampled_at(self):
-    return &#39;face&#39; if self.is_staggered else &#39;center&#39;</code></pre>
+    matching_sets = [s for s, s_shape in self._geometry.sets.items() if s_shape in self._values.shape]
+    return matching_sets[-1]</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.sampled_elements"><code class="name">prop <span class="ident">sampled_elements</span> : phi.geom._geom.Geometry</code></dt>
@@ -5877,7 +5955,8 @@ def shape(self) -&gt; Shape:
     &#34;&#34;&#34;
     if self.is_staggered and self.is_grid:
         return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
-    return self._geometry.shape.without(&#39;vector&#39;) &amp; self._values</code></pre>
+    set_shape = self._geometry.sets[self.sampled_at]
+    return batch(self._geometry) &amp; (channel(self._geometry) - &#39;vector&#39;) &amp; set_shape &amp; self._values</code></pre>
 </details>
 </dd>
 <dt id="phi.field.Field.spatial_rank"><code class="name">prop <span class="ident">spatial_rank</span> : int</code></dt>
@@ -6087,6 +6166,23 @@ or <code>dict</code> mapping dimension names to <code>(lower, upper)</code>.</dd
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Padded <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code></p></div>
+</dd>
+<dt id="phi.field.Field.sample"><code class="name flex">
+<span>def <span class="ident">sample</span></span>(<span>self, where: Union[phi.geom._geom.Geometry, ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>'), phiml.math._tensors.Tensor], at: str = 'center', **kwargs) ‑> phiml.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<div class="desc"><p>Sample the values of this <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> at the given location or geometry.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>where</code></strong></dt>
+<dd>Location <code>Tensor</code> or <code>Geometry</code> or</dd>
+<dt><strong><code>at</code></strong></dt>
+<dd><code>'center'</code> or <code>'face'</code>.</dd>
+<dt><strong><code>**kwargs</code></strong></dt>
+<dd>Sampling arguments.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code>Tensor</code></p></div>
 </dd>
 <dt id="phi.field.Field.shifted"><code class="name flex">
 <span>def <span class="ident">shifted</span></span>(<span>self, delta: phiml.math._tensors.Tensor) ‑> phi.field._field.Field</span>
@@ -6302,7 +6398,7 @@ Each time values are sampled from a Noise field, a new noise field is generated.
     def grid_sample(self, resolution: math.Shape, size, shape: math.Shape = None):
         shape = (self._shape if shape is None else shape) &amp; resolution
         for dim in channel(self._shape):
-            if dim.item_names[0] is None:
+            if dim.name == &#39;vector&#39; and dim.item_names[0] is None:
                 warnings.warn(f&#34;Please provide item names for Noise dim {dim} using {dim}=&#39;x,y,z&#39;&#34;, FutureWarning)
                 shape &amp;= channel(**{dim.name: resolution.names})
         rndj = math.to_complex(random_normal(shape)) + 1j * math.to_complex(random_normal(shape))  # Note: there is no complex32
@@ -7406,6 +7502,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <li><code><a title="phi.field.Field.pad" href="#phi.field.Field.pad">pad</a></code></li>
 <li><code><a title="phi.field.Field.points" href="#phi.field.Field.points">points</a></code></li>
 <li><code><a title="phi.field.Field.resolution" href="#phi.field.Field.resolution">resolution</a></code></li>
+<li><code><a title="phi.field.Field.sample" href="#phi.field.Field.sample">sample</a></code></li>
 <li><code><a title="phi.field.Field.sampled_at" href="#phi.field.Field.sampled_at">sampled_at</a></code></li>
 <li><code><a title="phi.field.Field.sampled_elements" href="#phi.field.Field.sampled_elements">sampled_elements</a></code></li>
 <li><code><a title="phi.field.Field.shape" href="#phi.field.Field.shape">shape</a></code></li>
@@ -7467,6 +7564,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <li><code><a title="phi.field.Field.pad" href="#phi.field.Field.pad">pad</a></code></li>
 <li><code><a title="phi.field.Field.points" href="#phi.field.Field.points">points</a></code></li>
 <li><code><a title="phi.field.Field.resolution" href="#phi.field.Field.resolution">resolution</a></code></li>
+<li><code><a title="phi.field.Field.sample" href="#phi.field.Field.sample">sample</a></code></li>
 <li><code><a title="phi.field.Field.sampled_at" href="#phi.field.Field.sampled_at">sampled_at</a></code></li>
 <li><code><a title="phi.field.Field.sampled_elements" href="#phi.field.Field.sampled_elements">sampled_elements</a></code></li>
 <li><code><a title="phi.field.Field.shape" href="#phi.field.Field.shape">shape</a></code></li>
@@ -7528,6 +7626,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <li><code><a title="phi.field.Field.pad" href="#phi.field.Field.pad">pad</a></code></li>
 <li><code><a title="phi.field.Field.points" href="#phi.field.Field.points">points</a></code></li>
 <li><code><a title="phi.field.Field.resolution" href="#phi.field.Field.resolution">resolution</a></code></li>
+<li><code><a title="phi.field.Field.sample" href="#phi.field.Field.sample">sample</a></code></li>
 <li><code><a title="phi.field.Field.sampled_at" href="#phi.field.Field.sampled_at">sampled_at</a></code></li>
 <li><code><a title="phi.field.Field.sampled_elements" href="#phi.field.Field.sampled_elements">sampled_elements</a></code></li>
 <li><code><a title="phi.field.Field.shape" href="#phi.field.Field.shape">shape</a></code></li>
