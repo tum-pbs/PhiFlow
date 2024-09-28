@@ -65,7 +65,7 @@ class TestBox(TestCase):
 
     def test_embed(self):
         self.assertEqual(Box(x=4, y=3, z=None), embed(Box(x=4, y=3), 'z'))
-        self.assertEqual(Box(x=4, y=3, z=None), embed(Box(x=4, y=3), 'x,z'))
+        self.assertEqual(Box(x=4, y=3, z=None), embed(Box(x=4, y=3), 'x,z')['x,y,z'])
 
     def test_box_product(self):
         a = Box(x=4)

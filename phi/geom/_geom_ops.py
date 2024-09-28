@@ -1,17 +1,17 @@
 from numbers import Number
 import warnings
-from typing import Union, Dict, Any, Optional, Tuple
+from typing import Union, Dict, Any, Optional, Tuple, Sequence
 
 from phi import math
 from phiml import math
-from phiml.math import wrap
+from phiml.math import wrap, merge_shapes
 from phiml.math._magic_ops import variable_attributes, copy_with
-from phiml.math._shape import shape_stack, Shape
+from phiml.math._shape import shape_stack, Shape, EMPTY_SHAPE
 from phiml.math._tensors import object_dims
 from phiml.math.magic import PhiTreeNode
 
 from ._box import bounding_box, Box
-from ._geom import Geometry, NO_GEOMETRY, rotate
+from ._geom import Geometry, NoGeometry, rotate
 from ._geom import InvertedGeometry
 from ..math import Tensor, instance
 from ..math.magic import slicing_dict
@@ -48,7 +48,7 @@ class GeometryStack(Geometry):
     @property
     def geometries(self):
         return self._geometries
-    
+
     @property
     def set_op(self):
         return self._set_op
@@ -58,6 +58,25 @@ class GeometryStack(Geometry):
 
     def __value_attrs__(self):
         return '_geometries',
+
+    @property
+    def sets(self) -> Dict[str, Shape]:
+        all_names = set()
+        for g in self._geometries:
+            all_names.update(g.sets)
+        result = {}
+        for name in all_names:
+            all_dims = []
+            for g in self._geometries:
+                all_dims.append(g.sets.get(name, EMPTY_SHAPE))
+            all_dims = merge_shapes(all_dims, allow_varying_sizes=True)
+            zeros = all_dims.with_sizes(0)
+            set_shapes = []
+            for g in self._geometries:
+                set_shapes.append(g.sets.get(name, zeros))
+            set_shape = math.stack(set_shapes, object_dims(self._geometries))
+            result[name] = set_shape
+        return result
 
     @property
     def object_dims(self):
@@ -252,7 +271,8 @@ class GeometryStack(Geometry):
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         raise NotImplementedError
 
-def _stack_geometries(geometries: Tuple[Geometry], set_op: str, dim=None) -> Geometry:
+
+def _stack_geometries(geometries: Sequence[Geometry], set_op: str, dim=None) -> Geometry:
     assert set_op in ['union', 'intersection'], f"Set operation must be 'union' or 'intersection' but got {set_op}"
     if dim is None:
         dim = instance(set_op)
@@ -260,7 +280,8 @@ def _stack_geometries(geometries: Tuple[Geometry], set_op: str, dim=None) -> Geo
     if len(geometries) == 1 and isinstance(geometries[0], (tuple, list)):
         geometries = geometries[0]
     if len(geometries) == 0:
-        return NO_GEOMETRY
+        warnings.warn("Empty union cannot in fer dimensionality. Return 0-dimensional object.")
+        return NoGeometry(math.channel(vector=0))
     elif len(geometries) == 1:
         return geometries[0]
     elif set_op == 'union' and all(type(g) == type(geometries[0]) and isinstance(g, PhiTreeNode) for g in geometries):
@@ -269,11 +290,9 @@ def _stack_geometries(geometries: Tuple[Geometry], set_op: str, dim=None) -> Geo
         values = {a: math.stack([getattr(g, a) for g in geometries], dim) for a in attrs}
         return copy_with(geometries[0], **values)
     else:
-        # ToDo group by type, union individual types along union_<type>, then stack the groups
-        base_geometries = ()
-        for geometry in geometries:
-            base_geometries += (geometry,)
-        return math.stack(base_geometries, dim, set_op=set_op)
+        geos = math.layout(geometries, dim)
+        return GeometryStack(geos, set_op=set_op)
+
 
 def union(*geometries, dim=instance('union')) -> Geometry:
     """
@@ -289,7 +308,8 @@ def union(*geometries, dim=instance('union')) -> Geometry:
     """
     return _stack_geometries(geometries, 'union', dim)
 
-def intersection(*geometries, dim=instance('intersection')) -> Geometry:
+
+def intersection(*geometries: Geometry, dim=instance('intersection')) -> Geometry:
     """
     Intersection of the given geometries.
     A point lies inside the union if it lies within all of the geometries.

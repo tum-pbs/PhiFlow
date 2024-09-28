@@ -1,27 +1,32 @@
+import os
+import subprocess
+import tempfile
 import warnings
+import webbrowser
+from numbers import Number
 from typing import Tuple, Any, Dict, List, Callable, Union
 
 import numpy
 import numpy as np
 import plotly.graph_objs
-from plotly.graph_objs import layout
+from phiml.math._sparse import CompactSparseTensor
 from scipy.sparse import csr_matrix, coo_matrix
 
-from phiml.math import reshaped_numpy, dual, instance
 from plotly import graph_objects, figure_factory
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
 import plotly.io as pio
 
-from phi import math, field
+from phiml.math import reshaped_numpy, dual, instance, non_dual, merge_shapes
+from phi import math, field, geom
 from phi.field import Field
-from phi.geom import Sphere, BaseBox, Point, Box
+from phi.geom import Sphere, BaseBox, Point, Box, SDF, SDFGrid
 from phi.geom._geom_ops import GeometryStack
 from phi.math import Tensor, spatial, channel, non_channel
 from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve, down_sample_curve
-from phi.vis._vis_base import PlottingLibrary, Recipe
+from phi.vis._vis_base import PlottingLibrary, Recipe, is_jupyter
 
 
 class PlotlyPlots(PlottingLibrary):
@@ -51,12 +56,71 @@ class PlotlyPlots(PlottingLibrary):
                 subplot.xaxis.update(title=bounds.vector.item_names[0], range=_get_range(bounds, 0))
                 subplot.yaxis.update(title=bounds.vector.item_names[1], range=_get_range(bounds, 1))
                 subplot.zaxis.update(title=bounds.vector.item_names[2], range=_get_range(bounds, 2))
+                subplot.aspectmode = 'data'
         fig._phi_size = size
-        fig.update_layout(width=size[0] * 70, height=size[1] * 70)  # 70 approximately matches matplotlib but it's not consistent
+        if size[0] is not None:
+            fig.update_layout(width=size[0] * 70)
+        if size[1] is not None:
+            fig.update_layout(height=size[1] * 70)  # 70 approximately matches matplotlib but it's not consistent
         return fig, {pos: (pos[0]+1, pos[1]+1) for pos in subplots.keys()}
 
-    def animate(self, fig, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
-        raise NotImplementedError()
+    def animate(self, fig, frame_count: int, plot_frame_function: Callable, interval: float, repeat: bool, interactive: bool):
+        figures = []
+        for frame in range(frame_count):
+            frame_fig = go.Figure(fig)
+            frame_fig._phi_size = fig._phi_size
+            plot_frame_function(frame_fig, frame)
+            figures.append(frame_fig)
+        frames = [go.Frame(data=fig.data, layout=fig.layout, name=f'frame{i}') for i, fig in enumerate(figures)]
+        anim = go.Figure(data=figures[0].data, frames=frames)
+        anim._phi_size = fig._phi_size
+        if interactive:
+            anim.update_layout(
+                updatemenus=[{
+                    'buttons': [
+                        {
+                            'args': [None, {'frame': {'duration': 500, 'redraw': True}, 'fromcurrent': True}],
+                            'label': 'Play',
+                            'method': 'animate'
+                        },
+                        {
+                            'args': [[None], {'frame': {'duration': 0, 'redraw': True}, 'mode': 'immediate', 'transition': {'duration': 0}}],
+                            'label': 'Pause',
+                            'method': 'animate'
+                        }
+                    ],
+                    'direction': 'left',
+                    'pad': {'r': 10, 't': 87},
+                    'showactive': False,
+                    'type': 'buttons',
+                    'x': 0.1,
+                    'xanchor': 'right',
+                    'y': 0,
+                    'yanchor': 'top'
+                }],
+                sliders=[{
+                    'active': 0,
+                    'yanchor': 'top',
+                    'xanchor': 'left',
+                    'currentvalue': {
+                        'font': {'size': 20},
+                        'prefix': 'Frame:',
+                        'visible': True,
+                        'xanchor': 'right'
+                    },
+                    'transition': {'duration': interval, 'easing': 'cubic-in-out'},
+                    'pad': {'b': 10, 't': 50},
+                    'len': 0.9,
+                    'x': 0.1,
+                    'y': 0,
+                    'steps': [{
+                        'args': [[f'frame{i}'], {'frame': {'duration': interval, 'redraw': True}, 'mode': 'immediate', 'transition': {'duration': interval}}],
+                        'label': f'Frame {i}',
+                        'method': 'animate'
+                    } for i in range(frame_count)]
+                }]
+            )
+        return anim
 
     def finalize(self, figure):
         pass
@@ -65,18 +129,58 @@ class PlotlyPlots(PlottingLibrary):
         pass
 
     def show(self, figure: graph_objects.Figure):
-        figure.show()
+        if is_jupyter():
+            plotly.io.renderers.default = 'notebook'
+        else:
+            plotly.io.renderers.default = 'browser'
+        try:
+            figure.show()
+        except webbrowser.Error as err:
+            warnings.warn(f"{err}", RuntimeWarning)
 
-    def save(self, figure: graph_objects.Figure, path: str, dpi: float):
+    def save(self, figure: graph_objects.Figure, path: str, dpi: float, transparent: bool):
         width, height = figure._phi_size
         figure.layout.update(margin=dict(l=0, r=0, b=0, t=0))
         scale = dpi/90.
+        width = None if width is None else width * dpi / scale
+        height = None if height is None else height * dpi / scale
         if path.endswith('.html'):
             plotly.io.write_html(figure, path, auto_play=True, default_width="100%", default_height="100%")
         elif path.endswith('.json'):
             raise NotImplementedError("Call Plotly functions directly to save JSON.")
+        elif path.endswith('.mp4'):
+            config = {
+                'displayModeBar': False,  # Hides the modebar
+                'displaylogo': False,  # Hides the Plotly logo
+                'scrollZoom': False,  # Disables scroll-to-zoom
+                'showAxisDragHandles': False,  # Hides axis drag handles
+                'staticPlot': True,  # Makes the plot static (no interaction)
+            }
+            img_dir = tempfile.mkdtemp()
+            images = []
+            for i, frame in enumerate(figure.frames):
+                layout = frame.layout
+                layout.update(sliders=[], updatemenus=[])
+                frame_fig = go.Figure(data=frame.data, layout=layout)
+                img_path = os.path.join(img_dir, f'{i:04d}.png')
+                print(f"Writing image to {img_path}... (width={width}, height={height}, scale={scale})")
+                frame_fig.write_image(img_path, width=width, height=height, scale=scale)  # requires kaleido==0.1.0.post1, see https://community.plotly.com/t/static-image-export-hangs-using-kaleido/61519/3
+                images.append(img_path)
+                # image = PIL.Image.open(io.BytesIO(figure.to_image(format="png")))
+            frame_rate = 1 / .2
+            print("Writing video...")
+            command = [
+                'ffmpeg',
+                '-y',  # override
+                '-framerate', str(frame_rate),
+                '-i', os.path.join(img_dir, f'%04d.png'),  # Assuming image files are named like 001.png, 002.png, etc.
+                # '-c:v', 'libx264',
+                # '-pix_fmt', 'yuv420p',
+                path
+            ]
+            subprocess.run(command, check=True)
         else:
-            figure.write_image(path, width=width * dpi / scale, height=height * dpi / scale, scale=scale)
+            figure.write_image(path, width=width, height=height, scale=scale)
 
 
 class LinePlot(Recipe):
@@ -164,9 +268,8 @@ class Heatmap3D(Recipe):
         min_val, max_val = min_val if numpy.isfinite(min_val) else 0, max_val if numpy.isfinite(max_val) else 0
         color_scale = get_div_map(min_val, max_val, equal_scale=True)
         figure.add_volume(x=x.flatten(), y=y.flatten(), z=z.flatten(), value=values.flatten(),
-                          showscale=show_color_bar, colorscale=color_scale, cmin=min_val, cmax=max_val, cauto=False,
-                          isomin=0.1, isomax=0.8,
-                          opacity=0.1,  # needs to be small to see through all surfaces
+                          showscale=show_color_bar, colorscale=color_scale, cmin=min_val, cmax=max_val,
+                          opacity=0.2 * float(alpha),  # needs to be small to see through all surfaces
                           surface_count=17,  # needs to be a large number for good volume rendering
                           row=row, col=col)
         figure.update_layout(uirevision=True)
@@ -192,14 +295,19 @@ class VectorCloud3D(Recipe):
         dims = data.elements.vector.item_names
         vector = data.elements.shape['vector']
         extra_channels = data.shape.channel.without('vector')
+        if color == 'cmap':
+            colorscale = 'Blues'
+        else:
+            hex_color = plotly_color(color.native())
+            colorscale = [[0, hex_color], [1, hex_color]]
         if data.is_staggered:
             data = data.at_centers()
         x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
         u, v, w = math.reshaped_numpy(data.values.vector[dims], [vector, extra_channels, data.shape.non_channel])
         figure.add_cone(x=x.flatten(), y=y.flatten(), z=z.flatten(), u=u.flatten(), v=v.flatten(), w=w.flatten(),
-                        colorscale='Blues',
-                        sizemode="absolute", sizeref=1,
-                        row=row, col=col)
+                        colorscale=colorscale,
+                        sizemode='raw', anchor='tail',
+                        row=row, col=col, opacity=float(alpha))
 
 
 class VectorCloud2D(Recipe):
@@ -213,7 +321,7 @@ class VectorCloud2D(Recipe):
         x, y = math.reshaped_numpy(data.points, [vector, data.shape.without('vector')])
         u, v = math.reshaped_numpy(data.values, [vector, data.shape.without('vector')])
         quiver = figure_factory.create_quiver(x, y, u, v, scale=1.0).data[0]  # 7 points per arrow
-        if (color != None).all:
+        if color != 'cmap':
             quiver.line.update(color=color.native())
         figure.add_trace(quiver, row=row, col=col)
 
@@ -238,17 +346,17 @@ class PointCloud2D(Recipe):
             raise NotImplementedError("Plotly does not yet support plotting point clouds with spatial dimensions")
         for idx in non_channel(data.points).meshgrid(names=True):
             x, y = reshaped_numpy(data.points[idx].vector[dims], [vector, non_channel(data)])
-            hex_color = color[idx].native()
-            if hex_color is None:
-                hex_color = pio.templates[pio.templates.default].layout.colorway[0]
+            if color[idx] == 'cmap':
+                hex_color = plotly_color(0)  # ToDo add color bar
+            else:
+                hex_color = plotly_color(color[idx].native())
             alphas = reshaped_numpy(alpha, [non_channel(data)])
-            subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1] * 100
-            if isinstance(data.elements, Sphere):
+            if isinstance(data.geometry, Sphere):
                 hex_color = [hex_color] * non_channel(data).volume if isinstance(hex_color, str) else hex_color
                 rad = reshaped_numpy(data.geometry.bounding_radius(), [data.shape.non_channel])
                 for xi, yi, ri, ci, a in zip(x, y, rad, hex_color, alphas):
                     figure.add_shape(type="circle", xref="x", yref="y", x0=xi-ri, y0=yi-ri, x1=xi+ri, y1=yi+ri, fillcolor=ci, line_width=0)
-            elif isinstance(data.elements, BaseBox):
+            elif isinstance(data.geometry, BaseBox):
                 hex_color = [hex_color] * non_channel(data).volume if isinstance(hex_color, str) else hex_color
                 half_size = data.geometry.half_size
                 min_len = space.size.sum
@@ -267,55 +375,141 @@ class PointCloud2D(Recipe):
                     for c1i, c2i, c3i, c4i, ci, a in zip(c1, c2, c3, c4, hex_color, alphas):
                         path = f"M{c1i[0]},{c1i[1]} L{c2i[0]},{c2i[1]} L{c3i[0]},{c3i[1]} L{c4i[0]},{c4i[1]} Z"
                         figure.add_shape(type="path", xref="x", yref="y", path=path, fillcolor=ci, line_width=.5, line_color='#FFFFFF')
+            elif isinstance(data.geometry, SDFGrid):
+                sdf = data.geometry.values.numpy(dims)
+                x, y = data.geometry.points.numpy(('vector',) + dims)
+                x = x[:, 0]
+                y = y[0, :]
+                dx, dy = data.geometry.dx[dims].numpy()
+                sdf = np.where(sdf > (dx ** 2 + dy ** 2) ** .5, np.nan, sdf)
+                colorscale = [[0, 'blue'], [.5, 'white'], [1, 'rgba(0.,0.,0.,0.)']]
+                contour = go.Contour(
+                    x=x, y=y, z=sdf.T,
+                    contours=dict(start=-.001, end=.001, size=.002),
+                    colorscale=colorscale, showscale=False,
+                )
+                figure.add_trace(contour)
             else:
+                subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1] * 100 if size[1] is not None else None
                 if isinstance(data.elements, Point):
                     symbol = None
-                    marker_size = 12 / (subplot_height / (yrange[1] - yrange[0]))
+                    marker_size = 12 / (subplot_height / (yrange[1] - yrange[0])) if subplot_height else None
                 else:
                     symbol = 'asterisk'
                     marker_size = data.elements.bounding_radius().numpy()
-                marker_size *= subplot_height / (yrange[1] - yrange[0])
+                if subplot_height:
+                    marker_size *= subplot_height / (yrange[1] - yrange[0])
                 marker = graph_objects.scatter.Marker(size=marker_size, color=hex_color, sizemode='diameter', symbol=symbol)
                 figure.add_scatter(mode='markers', x=x, y=y, marker=marker, row=row, col=col)
         figure.update_layout(showlegend=False)
 
 
-class PointCloud3D(Recipe):
+class Object3D(Recipe):
+
+    def can_plot(self, data: Field, space: Box) -> bool:
+        if not data.is_point_cloud or data.spatial_rank != 3:
+            return False
+        if isinstance(data.geometry, Sphere):
+            v_count = self._sphere_vertex_count(data.geometry.radius, space)
+            face_count = (v_count + 1) * (v_count * 2) / 2  # half as many tris as vertices
+        elif isinstance(data.geometry, BaseBox):
+            face_count = 12
+        else:
+            return False
+        face_count *= non_dual(data.geometry).without('vector').volume
+        return face_count < 10_000
+
+    def plot(self, data: Field, figure: go.Figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+        row, col = subplot
+        dims = data.geometry.vector.item_names
+        def plot_one_material(data, color, alpha: float):
+            if color == 'cmap':
+                color = plotly_color(0)  # ToDo cmap
+            else:
+                color = plotly_color(color)
+            alpha = float(alpha)
+            count = instance(data.geometry).volume
+            if isinstance(data.geometry, Sphere):
+                vertex_count = self._sphere_vertex_count(data.geometry.radius, space)
+                cx, cy, cz = reshaped_numpy(data.points[dims], ['vector', instance, (), ()])
+                rad = reshaped_numpy(data.geometry.radius, [instance, (), ()])
+                d = np.pi / vertex_count
+                theta, phi = np.mgrid[0:np.pi+d:d, 0:2*np.pi:d]
+                # --- to cartesian ---
+                x = np.sin(theta) * np.cos(phi) * rad + cx
+                y = np.sin(theta) * np.sin(phi) * rad + cy
+                z = np.cos(theta) * rad + cz
+                for inst in range(count):
+                    xyz = np.vstack([x[inst].ravel(), y[inst].ravel(), z[inst].ravel()])
+                    figure.add_trace(go.Mesh3d(x=xyz[0], y=xyz[1], z=xyz[2], flatshading=False, alphahull=0, color=color, opacity=alpha), row=row, col=col)
+            elif isinstance(data.geometry, BaseBox):
+                cx, cy, cz = reshaped_numpy(data.geometry.corners, ['vector', instance, *['~' + d for d in dims]])
+                x = cx.flatten()
+                y = cy.flatten()
+                z = cz.flatten()
+                v1 = [0, 1, 4, 5, 4, 6, 5, 7, 0, 1, 2, 6]
+                v2 = [1, 3, 6, 6, 0, 0, 7, 3, 4, 4, 3, 3]
+                v3 = [2, 2, 5, 7, 6, 2, 1, 1, 1, 5, 6, 7]
+                v1 = (v1 + np.arange(count)[:, None] * 8).flatten()
+                v2 = (v2 + np.arange(count)[:, None] * 8).flatten()
+                v3 = (v3 + np.arange(count)[:, None] * 8).flatten()
+                figure.add_trace(go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, flatshading=False, color=color, opacity=alpha), row=row, col=col)
+        math.map(plot_one_material, data, color, alpha, dims=merge_shapes(color, alpha), unwrap_scalars=True)
+
+    def _sphere_vertex_count(self, radius: Tensor, space: Box):
+        size_in_fig = radius.max / space.size.max
+        vertex_count = np.clip(int(size_in_fig ** .5 * 50), 4, 64)
+        return vertex_count
+
+
+class Scatter3D(Recipe):
 
     def can_plot(self, data: Field, space: Box) -> bool:
         return data.is_point_cloud and data.spatial_rank == 3
 
-    def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
+    def plot(self, data: Field, figure: go.Figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
         subplot = figure.get_subplot(row, col)
         dims = data.elements.vector.item_names
         vector = data.elements.shape['vector']
-        size = figure._phi_size
+        size = (figure._phi_size[0] or 10, figure._phi_size[1] or 6)
         yrange = subplot.yaxis.range
-        if data.points.shape.non_channel.rank > 1:
-            data_list = field.unstack(data, data.points.shape.non_channel[0].name)
-            for d in data_list:
-                self.plot(d, figure, (row, col), space, min_val, max_val, show_color_bar, color)
-        else:
-            x, y, z = math.reshaped_numpy(data.points.vector[dims], [vector, data.shape.non_channel])
-            color = color.native()
+        for idx in (channel(data.geometry) - 'vector').meshgrid():
+            if color == 'cmap':
+                color_i = data[idx].values.numpy([math.shape]).astype(np.float32)
+            else:
+                color_i = plotly_color(color[idx].native())
+            if spatial(data.geometry):
+                assert spatial(data.geometry).rank == 1
+                xyz = math.reshaped_numpy(data[idx].points.vector[dims], [vector, data.shape.non_channel.non_spatial, spatial])
+                xyz_padded = [[i.tolist() + [None] for i in c] for c in xyz]
+                x, y, z = [sum(c, []) for c in xyz_padded]
+                mode = 'markers+lines' if data.shape.non_channel.volume <= 100 else 'lines'
+                figure.add_scatter3d(mode=mode, x=x, y=y, z=z, row=row, col=col, line=dict(color=color_i, width=2), opacity=float(alpha))
+                return
+            # if data.points.shape.non_channel.rank > 1:
+            #     data_list = field.unstack(data, data.points.shape.non_channel[0].name)
+            #     for d in data_list:
+            #         self.plot(d, figure, (row, col), space, min_val, max_val, show_color_bar, color_i, alpha, err)
+            #     return
             domain_y = figure.layout[subplot.plotly_name].domain.y
-            if isinstance(data.elements, Sphere):
+            x, y, z = math.reshaped_numpy(data[idx].points.vector[dims], [vector, data.shape.non_channel])
+            if isinstance(data.geometry, Sphere):
                 symbol = 'circle'
-                marker_size = data.elements.bounding_radius().numpy() * 2
-            elif isinstance(data.elements, BaseBox):
+                marker_size = data.geometry[idx].bounding_radius().numpy() * 2
+            elif isinstance(data.geometry, BaseBox):
                 symbol = 'square'
-                marker_size = math.mean(data.elements.bounding_half_extent(), 'vector').numpy() * 1
-            elif isinstance(data.elements, Point):
+                marker_size = math.mean(data.geometry[idx].bounding_half_extent(), 'vector').numpy() * 1
+            elif isinstance(data.geometry, Point):
                 symbol = None
                 marker_size = 4 / (size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5)
             else:
                 symbol = 'asterisk'
-                marker_size = data.elements.bounding_radius().numpy()
+                marker_size = data.geometry[idx].bounding_radius().numpy()
             marker_size *= size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5
-            marker = graph_objects.scatter3d.Marker(size=marker_size, color=color, sizemode='diameter', symbol=symbol)
+            marker = graph_objects.scatter3d.Marker(size=marker_size, color=color_i, colorscale='Viridis', sizemode='diameter', symbol=symbol)
             figure.add_scatter3d(mode='markers', x=x, y=y, z=z, marker=marker, row=row, col=col)
-        figure.update_layout(showlegend=False)
+            figure.update_layout(showlegend=False)
 
 
 class Graph3D(Recipe):
@@ -365,39 +559,80 @@ class SurfaceMesh3D(Recipe):
         dims = space.vector.item_names
         row, col = subplot
         x, y, z = reshaped_numpy(data.mesh.vertices.center.vector[dims], ['vector', instance])
-        elements: csr_matrix = data.mesh.elements.numpy().tocsr()
-        indices = elements.indices
-        pointers = elements.indptr
-        vertex_count = pointers[1:] - pointers[:-1]
-        v1, v2, v3 = [], [], []
-        # --- add triangles ---
-        tris, = np.where(vertex_count == 3)
-        tri_pointers = pointers[:-1][tris]
-        v1.extend(indices[tri_pointers])
-        v2.extend(indices[tri_pointers+1])
-        v3.extend(indices[tri_pointers+2])
-        # --- add two tris for each quad ---
-        quads, = np.where(vertex_count == 4)
-        quad_pointers = pointers[:-1][quads]
-        v1.extend(indices[quad_pointers])
-        v2.extend(indices[quad_pointers+1])
-        v3.extend(indices[quad_pointers+2])
-        v1.extend(indices[quad_pointers+1])
-        v2.extend(indices[quad_pointers+2])
-        v3.extend(indices[quad_pointers+3])
-        # --- polygons with > 4 vertices ---
-        if np.any(vertex_count > 4):
-            warnings.warn("Only tris and quads are currently supported with Plotly mesh render", RuntimeWarning)
+        if isinstance(data.mesh.elements, CompactSparseTensor):
+            polygons = data.mesh.elements._indices
+            math.assert_close(1, data.mesh.elements._values)
+            if dual(polygons).size == 3:  # triangles
+                v1, v2, v3 = reshaped_numpy(polygons, [dual, instance])
+            else:
+                raise NotImplementedError
+        else:
+            elements: csr_matrix = data.mesh.elements.numpy().tocsr()
+            indices = elements.indices
+            pointers = elements.indptr
+            vertex_count = pointers[1:] - pointers[:-1]
+            v1, v2, v3 = [], [], []
+            # --- add triangles ---
+            tris, = np.where(vertex_count == 3)
+            tri_pointers = pointers[:-1][tris]
+            v1.extend(indices[tri_pointers])
+            v2.extend(indices[tri_pointers+1])
+            v3.extend(indices[tri_pointers+2])
+            # --- add two tris for each quad ---
+            quads, = np.where(vertex_count == 4)
+            quad_pointers = pointers[:-1][quads]
+            v1.extend(indices[quad_pointers])
+            v2.extend(indices[quad_pointers+1])
+            v3.extend(indices[quad_pointers+2])
+            v1.extend(indices[quad_pointers+1])
+            v2.extend(indices[quad_pointers+2])
+            v3.extend(indices[quad_pointers+3])
+            # --- polygons with > 4 vertices ---
+            if np.any(vertex_count > 4):
+                warnings.warn("Only tris and quads are currently supported with Plotly mesh render", RuntimeWarning)
         # --- plot mesh ---
         cbar = None if not channel(data) or not channel(data).item_names[0] else channel(data).item_names[0][0]
         if math.is_nan(data.values).all:
-            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3)
-        else:
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, flatshading=False, opacity=float(alpha))
+        elif data.sampled_at == 'center':
             values = reshaped_numpy(data.values, [instance(data.mesh)])
-            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='cell')
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='cell', flatshading=True, opacity=float(alpha))
+        elif data.sampled_at == 'vertex':
+            values = reshaped_numpy(data.values, [instance(data.mesh.vertices)])
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='vertex', flatshading=True, opacity=float(alpha))
+        elif data.sampled_at == '~vertex':
+            values = reshaped_numpy(data.values, [dual(data.mesh.elements)])
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='vertex', flatshading=True, opacity=float(alpha))
+        else:
+            warnings.warn(f"No recipe for mesh sampled at {data.sampled_at}")
+            return
         figure.add_trace(mesh, row=row, col=col)
-        # fig = go.Figure(go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3))
-        # fig.write_html("plotly_direct.html")
+
+
+class SDF3D(Recipe):
+
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return isinstance(data.geometry, (SDF, SDFGrid)) and data.spatial_rank == 3
+
+    def plot(self,
+             data: Field,
+             figure: go.Figure,
+             subplot,
+             space: Box,
+             min_val: float,
+             max_val: float,
+             show_color_bar: bool,
+             color: Tensor,
+             alpha: Tensor,
+             err: Tensor):
+        def plot_single_material(data: Field, color, alpha: float):
+            color = plotly_color(color)
+            with math.NUMPY:
+                surf_mesh = geom.surface_mesh(data.geometry)
+            mesh_data = Field(surf_mesh, math.NAN, 0)
+            SurfaceMesh3D().plot(mesh_data, figure, subplot, space, min_val, max_val, show_color_bar, color, alpha, err)
+        math.map(plot_single_material, data, color, alpha, dims=channel(data.geometry) - 'vector')
+
 
 
 def _get_range(bounds: Box, index: int):
@@ -409,6 +644,22 @@ def _get_range(bounds: Box, index: int):
 def real_values(field: Field):
     return field.values if field.values.dtype.kind != complex else abs(field.values)
 
+
+def plotly_color(col: Union[int,str]):
+    if isinstance(col, int):
+        return DEFAULT_PLOTLY_COLORS[col % len(DEFAULT_PLOTLY_COLORS)]
+    if isinstance(col, str) and (col.startswith('#') or col.startswith('rgb(') or col.startswith('rgba(')):
+        return col
+    elif isinstance(col, str):
+        return col  # color name, e.g. 'blue'
+    elif isinstance(col, Number) and int(col) == col:
+        return DEFAULT_PLOTLY_COLORS[int(col) % len(DEFAULT_PLOTLY_COLORS)]
+    raise NotImplementedError(type(col), col)
+    # if isinstance(col, (tuple, list)):
+    #     col = np.asarray(col)
+    #     if col.dtype.kind == 'i':
+    #         col = col / 255.
+    #     return col
 
 def get_div_map(zmin, zmax, equal_scale=False, colormap: str = None):
     """
@@ -569,7 +820,9 @@ PLOTLY.recipes.extend([
     # --- 3D ---
     Heatmap3D(),
     SurfaceMesh3D(),
+    SDF3D(),
     Graph3D(),
     VectorCloud3D(),
-    PointCloud3D(),
+    Object3D(),
+    Scatter3D(),
 ])

@@ -5,7 +5,7 @@ import plotly
 from phi import geom, field, math
 from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Noise, resample, Field
 from phi.geom import Sphere, Box
-from phiml.math import extrapolation, wrap, instance, channel, batch, spatial, vec, stack
+from phiml.math import extrapolation, wrap, instance, channel, batch, spatial, vec, stack, Tensor
 from phi.vis import show, overlay, plot, close
 import matplotlib.pyplot as plt
 
@@ -14,12 +14,13 @@ class TestPlots(TestCase):
 
     def _test_plot(self, *plottable, show_=True, **kwargs):
         fig = plot(*plottable, lib='matplotlib', **kwargs)
-        self.assertIsInstance(fig.native(), plt.Figure)
+        fig = fig.native() if isinstance(fig, Tensor) else fig
+        self.assertIsInstance(fig, plt.Figure)
         fig = plot(*plottable, lib='plotly', **kwargs)
-        self.assertIsInstance(fig.native(), plotly.graph_objs.Figure)
+        self.assertIsInstance(fig, plotly.graph_objs.Figure)
         if show_:
-            show(gui='matplotlib')
-            show(gui='plotly')
+            show(lib='matplotlib')
+            show(lib='plotly')
 
     def test_bar_chart(self):
         dim = instance(planets='Sun,Earth,Mars')
@@ -67,13 +68,13 @@ class TestPlots(TestCase):
     def test_plot_multi_grid(self):
         self._test_plot(overlay(CenteredGrid(Noise(), x=10, y=10), CenteredGrid(Noise(), x=10, y=10, bounds=Box(x=(5, 15), y=(5, 15)))))
 
-    def test_plot_sphere(self):
+    def test_plot_circle(self):
         self._test_plot(Sphere(x=1, y=0, radius=.5))
 
     def test_plot_box(self):
         self._test_plot(Box(x=(1, 2), y=1))
 
-    def test_plot_spheres_2d(self):
+    def test_plot_circles(self):
         spheres = Sphere(wrap([(.2, .4), (.9, .8), (.7, .8)], instance('points'), channel(vector='x,y')), radius=.1)
         self._test_plot(spheres)
 
@@ -176,9 +177,9 @@ class TestPlots(TestCase):
     def test_plot_graph(self):
         points = wrap([(0, 0), (1.2, 0), (2, 0), (2, 1), (.8, 1), (0, 1)], instance('points'), channel(vector='x,y'))
         dense_edges = math.vec_length(math.pairwise_distances(points, 1.5))
-        dense_graph = geom.Graph(points, dense_edges, {})
+        dense_graph = geom.graph(points, dense_edges, {})
         sparse_edges = math.vec_length(math.pairwise_distances(points, 1.5, format='csr'))
-        sparse_graph = geom.Graph(points, sparse_edges, {})
+        sparse_graph = geom.graph(points, sparse_edges, {})
         try:
             self._test_plot(dense_graph, sparse_graph, Field(sparse_graph, lambda x: math.vec_length(x), 0))
         except NotImplementedError:

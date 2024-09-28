@@ -6,16 +6,16 @@ from ._box import BaseBox, Box, Cuboid
 from ._geom import Geometry, GeometryException
 from .. import math
 from ..math import Shape, Tensor, Extrapolation, stack, vec
-from phiml.math._shape import shape_stack, dual, spatial, EMPTY_SHAPE, channel
+from phiml.math._shape import shape_stack, dual, spatial, EMPTY_SHAPE, channel, batch, shape
 from ..math.magic import slicing_dict
 
 
 def _get_bounds(bounds: Union[Box, float, None], resolution: Shape):
     if bounds is None:
         return Box(math.const_vec(0, resolution), math.wrap(resolution, channel(vector=resolution.names)))
-    if isinstance(bounds, Box):
+    if isinstance(bounds, BaseBox):
         assert set(bounds.vector.item_names) == set(resolution.names), f"bounds dimensions {bounds.vector.item_names} must match resolution {resolution}"
-        return bounds
+        return bounds.corner_representation()
     if isinstance(bounds, (int, float)):
         return Box(math.const_vec(0, resolution), math.const_vec(bounds, resolution))
     raise ValueError(f"bounds must be a Box, float or None but got {type(bounds).__name__}")
@@ -236,3 +236,27 @@ class UniformGrid(BaseBox):
 
     def bounding_half_extent(self) -> Tensor:
         return self.half_size
+
+
+def enclosing_grid(*geometries: Geometry, voxel_count: int, rel_margin=0., abs_margin=0.) -> UniformGrid:
+    """
+    Constructs a `UniformGrid` which fully encloses the `geometries`.
+    The grid voxels are chosen to have approximately the same size along each axis.
+
+    Args:
+        *geometries: `Geometry` objects which should lie within the grid.
+        voxel_count: Approximate number of total voxels.
+        rel_margin: Relative margin, i.e. empty space on each side as a fraction of the bounding box size of `geometries`.
+        abs_margin: Absolute margin, i.e. empty space on each side.
+
+    Returns:
+        `UniformGrid`
+    """
+    bounds = stack([g.bounding_box() for g in geometries], batch('_geometries'))
+    bounds = bounds.largest(shape).scaled(1+rel_margin)
+    bounds = Box(bounds.lower - abs_margin, bounds.upper + abs_margin)
+    voxel_vol = bounds.volume / voxel_count
+    voxel_size = voxel_vol ** (1/bounds.spatial_rank)
+    resolution = math.to_int32(math.round(bounds.size / voxel_size))
+    resolution = spatial(**resolution.vector)
+    return UniformGrid(resolution, bounds)

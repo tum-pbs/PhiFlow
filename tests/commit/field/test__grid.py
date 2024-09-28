@@ -144,7 +144,7 @@ class GridTest(TestCase):
         # Varargs
         grid = CenteredGrid(lambda *x: x[0], x=10, y=10)
         math.assert_close(grid.points['x'], grid.values)
-        grid = CenteredGrid(lambda t, *x: t, t=5, x=10, y=10)
+        grid = CenteredGrid(lambda t, x, y: t, t=5, x=10, y=10)
         math.assert_close(grid.points['t'], grid.values)
 
     def test_is_phi_tree_node(self):

@@ -2,7 +2,7 @@ from numbers import Number
 from typing import Union, List, Callable, Optional
 
 from phi import math
-from phi.geom import Geometry, Box, Point, UniformGrid, Mesh
+from phi.geom import Geometry, Box, Point, UniformGrid, Mesh, sample_function
 from phi.math import Shape, Tensor, instance, spatial, Solve, dual, si2d
 from phi.math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
 from phiml.math import unstack, channel, rename_dims, batch, extrapolation
@@ -364,7 +364,7 @@ def _shift_resample(self: Field, resolution: Shape, bounds: Box, threshold=1e-5,
 
 def centroid_to_faces(u: Field, boundary: Extrapolation, order=2, upwind: Field = None, ignore_skew=False, gradient: Field = None):
     assert isinstance(upwind, Field) or upwind is None, f"upwind must be a Field but got {type(upwind)}"
-    if '~neighbors' in u.values.shape:
+    if u.mesh._nb in u.values.shape:
         return u.values
     neighbor_val = u.mesh.pad_boundary(u.values, mode=u.boundary)
     upwind = upwind.at_faces(extrapolation.NONE, order=2, upwind=None) if upwind is not None else None
@@ -387,13 +387,13 @@ def centroid_to_faces(u: Field, boundary: Extrapolation, order=2, upwind: Field 
             relative_face_distance = slice_off_constant_faces(u.mesh.relative_face_distance, u.mesh.boundary_faces, boundary)
             return (1 - relative_face_distance) * u.values + relative_face_distance * neighbor_val
         else:  # skew correction
-            nb_center = math.replace_dims(u.mesh.center, 'cells', dual('~neighbors'))
+            nb_center = math.replace_dims(u.mesh.center, 'cells', u.mesh._nb)
             cell_deltas = math.pairwise_distances(u.mesh.center, format=u.mesh.cell_connectivity, default=None)  # x_N - x_P
             face_distance = nb_center - u.mesh.face_centers[u.mesh.interior_faces]  # x_N - x_f
             # face_distance = u.mesh.face_centers[u.mesh.interior_faces] - u.mesh.center  # x_f - x_P
             normals = u.mesh.face_normals[u.mesh.interior_faces]
             w_interior = (face_distance.vector @ normals.vector) / (cell_deltas.vector @ normals.vector)  # n·(x_N - x_f) / n·(x_N - x_P)
-            w = math.concat([w_interior, 0 * u.mesh.boundary_connectivity], '~neighbors')
+            w = math.concat([w_interior, 0 * u.mesh.boundary_connectivity], u.mesh._nb)
             w = slice_off_constant_faces(w, u.mesh.boundary_faces, boundary)  # first padding, then slicing is inefficient, but usually we don't slice anything off (boundary=none)
             # w = u.mesh.pad_boundary(w_interior, {k: s for k, s in u.mesh.boundary_faces.items() if not boundary.determines_boundary_values(k)}, boundary) this is only for vectors
             # b0 = math.tensor_like(slice_off_constant_faces(u.mesh.connectivity, u.mesh.boundary_faces, boundary), 0)
@@ -423,34 +423,3 @@ def sample_mesh(f: Field,
         dx = location - f.mesh.center[math.where(is_outside_mesh, 0, idx)]
         return math.where(is_outside_mesh, v0, v0 + grad @ dx)
     raise NotImplementedError(f"sampling meshes only supports order <= 2 but got order={order}")
-
-
-def sample_function(f: Callable, elements: Geometry, at: str, extrapolation: Extrapolation) -> Tensor:
-    from phiml.math._functional import get_function_parameters
-    try:
-        params = get_function_parameters(f)
-        dims = elements.shape.get_size('vector')
-        names_match = tuple(params.keys())[:dims] == elements.shape.get_item_names('vector')
-        num_positional = 0
-        has_varargs = False
-        for n, p in params.items():
-            if p.default is p.empty:
-                num_positional += 1
-            if p.kind == 2:  # _ParameterKind.VAR_POSITIONAL
-                has_varargs = True
-        assert num_positional <= dims, f"Cannot sample {f.__name__}({', '.join(tuple(params))}) on physical space {elements.shape.get_item_names('vector')}"
-        pass_varargs = has_varargs or names_match or num_positional > 1 or num_positional == dims
-        if num_positional > 1 and not has_varargs:
-            assert names_match, f"Positional arguments of {f.__name__}({', '.join(tuple(params))}) should match physical space {elements.shape.get_item_names('vector')}"
-    except ValueError as err:  # signature not available for all functions
-        pass_varargs = False
-    if at == 'center':
-        pos = slice_off_constant_faces(elements.center, elements.boundary_elements, extrapolation)
-    else:
-        pos = slice_off_constant_faces(elements.face_centers, elements.boundary_faces, extrapolation)
-    if pass_varargs:
-        values = math.map_s2b(f)(*pos.vector)
-    else:
-        values = math.map_s2b(f)(pos)
-    assert isinstance(values, math.Tensor), f"values function must return a Tensor but returned {type(values)}"
-    return values

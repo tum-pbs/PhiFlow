@@ -1,9 +1,9 @@
 import copy
 import warnings
 from numbers import Number
-from typing import Union, Dict, Any, Tuple
+from typing import Union, Dict, Any, Tuple, Callable
 
-from phiml.math import instance
+from phiml.math import instance, non_batch
 
 from phi import math
 from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape, Extrapolation
@@ -87,19 +87,19 @@ class Geometry:
         raise NotImplementedError(self.__class__)
 
     @property
-    def boundary_elements(self) -> Dict[Any, Dict[str, slice]]:
+    def boundary_elements(self) -> Dict[str, Dict[str, slice]]:
         """
         Slices on the primal dimensions to mark boundary elements.
         Grids and meshes have no boundary elements and return `{}`.
         Dynamic graphs can define boundary elements for obstacles and walls.
 
         Returns:
-            Map from `(name, is_upper)` to slicing `dict`.
+            Map from `name` to slicing `dict`.
         """
         raise NotImplementedError(self.__class__)
 
     @property
-    def boundary_faces(self) -> Dict[Any, Dict[str, slice]]:
+    def boundary_faces(self) -> Dict[str, Dict[str, slice]]:
         """
         Slices on the dual dimensions to mark boundary faces.
 
@@ -108,7 +108,7 @@ class Geometry:
         Dynamic graphs return slices along the dual dimensions.
 
         Returns:
-            Map from `(name, is_upper)` to slicing `dict`.
+            Map from `name` to slicing `dict`.
         """
         raise NotImplementedError(self.__class__)
 
@@ -119,7 +119,30 @@ class Geometry:
             Full Shape to identify each face of this `Geometry`, including instance/spatial dimensions for the elements and dual dimensions listing the faces per element.
             If this `Geometry` has no faces, returns an empty `Shape`.
         """
-        raise NotImplementedError(self.__class__)
+        return None
+
+    @property
+    def sets(self) -> Dict[str, Shape]:
+        if self.face_shape and self.face_shape != self.shape and self.face_shape.volume > 0:
+            return {'center': non_batch(self)-'vector', 'face': self.face_shape.non_batch}
+        else:
+            return {'center': non_batch(self)-'vector'}
+
+    def get_points(self, set_key: str) -> Tensor:
+        if set_key == 'center':
+            return self.center
+        elif set_key == 'face':
+            return self.face_centers
+        else:
+            raise ValueError(f"Unknown set: '{set_key}'")
+
+    def get_boundary(self, set_key: str) -> Dict[str, Dict[str, slice]]:
+        if set_key == 'center':
+            return self.boundary_elements
+        elif set_key == 'face':
+            return self.boundary_faces
+        else:
+            raise ValueError(f"Unknown set: '{set_key}'")
 
     @property
     def corners(self) -> Tensor:
@@ -310,12 +333,8 @@ class Geometry:
         Returns the radius of a Sphere object that fully encloses this geometry.
         The sphere is centered at the center of this geometry.
 
-        :return: radius of type float
-
-        Args:
-
-        Returns:
-
+        If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+        If these dims are not present on the result, all parts are assumed to have the same bounds.
         """
         raise NotImplementedError(self.__class__)
 
@@ -327,8 +346,8 @@ class Geometry:
         Let the bounding half-extent have value `e` in dimension `d` (`extent[...,d] = e`).
         Then, no point of the geometry lies further away from its center point than `e` along `d` (in both axis directions).
 
-        When this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
-        If these dims are not present, all parts are assumed to have the same bounds.
+        If this geometry consists of multiple parts listed along instance/spatial dims, these dims are retained, giving the bounds of each part.
+        If these dims are not present on the result, all parts are assumed to have the same bounds.
         """
         raise NotImplementedError(self.__class__)
 
@@ -563,7 +582,10 @@ def invert(geometry: Geometry):
     return ~geometry
 
 
-class _NoGeometry(Geometry):
+class NoGeometry(Geometry):
+
+    def __init__(self, vector: Shape):
+        self._shape = vector
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
@@ -576,7 +598,7 @@ class _NoGeometry(Geometry):
 
     @property
     def shape(self):
-        return EMPTY_SHAPE
+        return self._shape
 
     @property
     def volume(self) -> Tensor:
@@ -611,7 +633,7 @@ class _NoGeometry(Geometry):
         raise AssertionError('empty geometry cannot be unstacked')
 
     def __eq__(self, other):
-        return isinstance(other, _NoGeometry)
+        return isinstance(other, NoGeometry)
 
     def __hash__(self):
         return 1
@@ -625,9 +647,6 @@ class _NoGeometry(Geometry):
 
     def interior(self) -> 'Geometry':
         raise GeometryException("Empty geometry does not have an interior")
-
-
-NO_GEOMETRY = _NoGeometry()
 
 
 class Point(Geometry):
@@ -781,16 +800,33 @@ def rotate(geometry: Geometry, rot: Union[float, Tensor], pivot: Tensor = None) 
     Args:
         geometry: `Geometry` to rotate
         rot: Rotation, either as Euler angles or rotation matrix.
-        pivot: Any point lying on the rotation axis.
-            If `None`, rotates about the center point(s).
+        pivot: Any point lying on the rotation axis. Defaults to the bounding box center.
 
     Returns:
         Rotated `Geometry`
     """
     if pivot is None:
-        return geometry.rotated(rot)
+        pivot = geometry.bounding_box().center
     center = pivot + math.rotate_vector(geometry.center - pivot, rot)
     return geometry.rotated(rot).at(center)
+
+
+def scale(geometry: Geometry, scale: float | Tensor, pivot: Tensor = None) -> Geometry:
+    """
+    Scale a `Geometry` about a pivot point.
+
+    Args:
+        geometry: `Geometry` to scale.
+        scale: Scaling factor.
+        pivot: Point that stays fixed under the scaling operation. Defaults to the bounding box center.
+
+    Returns:
+        Rotated `Geometry`
+    """
+    if pivot is None:
+        pivot = geometry.bounding_box().center
+    center = pivot + scale * (geometry.center - pivot)
+    return geometry.scaled(scale).at(center)
 
 
 def slice_off_constant_faces(obj, boundary_slices: Dict[Any, Dict[str, slice]], boundary: Extrapolation):
@@ -807,3 +843,52 @@ def slice_off_constant_faces(obj, boundary_slices: Dict[Any, Dict[str, slice]], 
     """
     determined_slices = [s for k, s in boundary_slices.items() if boundary.determines_boundary_values(k)]
     return math.slice_off(obj, *determined_slices)
+
+
+def sample_function(f: Callable, elements: Geometry, at: str, extrapolation: Extrapolation) -> Tensor:
+    """
+    Calls `f`, passing either the `elements` directly or the relevant sample points as a `Tensor`, depending on the signature of `f`.
+
+    Args:
+        f: Function taking a `Geometry` or location `Tensor´ and returning a `Tensor`.
+            A `Geometry` will be passed if the first argument of `f` is called `geometry` or `geo` or ends with `_geo`.
+        elements: `Geometry` on which to sample `f`.
+        at: Set of sample points, see `Geometry.sets`.
+        extrapolation: Determines which boundary points are relevant.
+
+    Returns:
+        Sampled values as `Tensor`.
+    """
+    from phiml.math._functional import get_function_parameters
+    pass_geometry = False
+    try:
+        params = get_function_parameters(f)
+        dims = elements.shape.get_size('vector')
+        names_match = tuple(params.keys())[:dims] == elements.shape.get_item_names('vector')
+        num_positional = 0
+        varargs_only = False
+        for i, (n, p) in enumerate(params.items()):
+            if p.default is p.empty and p.kind == 1:
+                num_positional += 1
+            if p.kind == 2 and i == 0:  # _ParameterKind.VAR_POSITIONAL
+                varargs_only = True
+        assert num_positional <= dims, f"Cannot sample {f.__name__}({', '.join(tuple(params))}) on physical space {elements.shape.get_item_names('vector')}"
+        pass_varargs = varargs_only or names_match or num_positional > 1 or num_positional == dims
+        if num_positional > 1 and not varargs_only:
+            assert names_match, f"Positional arguments of {f.__name__}({', '.join(tuple(params))}) should match physical space {elements.shape.get_item_names('vector')}"
+        if not pass_varargs:
+            first = next(iter(params))
+            if first in ['geo', 'geometry'] or '_geo' in first:
+                pass_geometry = True
+    except ValueError as err:  # signature not available for all functions
+        pass_varargs = False
+    if at == 'center':
+        pos = slice_off_constant_faces(elements if pass_geometry else elements.center, elements.boundary_elements, extrapolation)
+    else:
+        pos = elements if pass_geometry else slice_off_constant_faces(elements.face_centers, elements.boundary_faces, extrapolation)
+    if pass_varargs:
+        values = math.map_s2b(f)(*pos.vector)
+    else:
+        values = math.map_s2b(f)(pos)
+    assert isinstance(values, math.Tensor), f"values function must return a Tensor but returned {type(values)}"
+    return values

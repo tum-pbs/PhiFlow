@@ -4,82 +4,64 @@ import sys
 import warnings
 from contextlib import contextmanager
 from threading import Thread
-from typing import Tuple, List, Dict, Union, Sequence
+from typing import Tuple, List, Dict, Union, Sequence, Any
 
 from phiml.math._magic_ops import tree_map
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
 from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, common_index, to_field, \
-    get_default_limits, uniform_bound
+    get_default_limits, uniform_bound, is_jupyter, requires_color_map
 from ._vis_base import title_label
 from .. import math
 from ..field import Scene, Field
 from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
 from phiml.math import Tensor, layout, batch, Shape, concat, vec, wrap, stack
-from phiml.math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape
+from phiml.math._shape import parse_dim_order, DimFilter, EMPTY_SHAPE, merge_shapes, shape, channel
 from phiml.math._tensors import Layout
 
 
-def show(*model: Union[VisModel, Field, Tensor, Geometry, list, tuple, dict],
-         play=True,
-         gui: Union[Gui, str] = None,
-         lib: Union[Gui, str] = None,
-         keep_alive=True,
-         **config):
+def show(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
+         lib: Union[str, PlottingLibrary] = None,
+         row_dims: DimFilter = None,
+         col_dims: DimFilter = batch,
+         animate: DimFilter = None,
+         overlay: DimFilter = 'overlay',
+         title: Union[str, Tensor, list, tuple] = None,
+         size=None,  # (12, 5),
+         same_scale: Union[bool, Shape, tuple, list, str] = True,
+         log_dims: Union[str, tuple, list, Shape] = '',
+         show_color_bar=True,
+         color: Union[str, int, Tensor, list, tuple] = None,
+         alpha: Union[float, Tensor, list, tuple] = 1.,
+         err: Union[Tensor, tuple, list, float] = 0.,
+         frame_time=100,
+         repeat=True,
+         plt_params: Dict = None,
+         max_subfigures=20):
     """
-    If `model` is a user interface model, launches the registered user interface.
-    This will typically be the Dash web interface or the console interface if dash is not available.
-    This method prepares the `model` before showing it. No more fields should be added to the vis after this method is invoked.
-
-    See Also:
-        `view()`.
-
-    If `model` is plottable, e.g. a `Field` or `Tensor`, a figure is created and shown.
-    If `model` is a figure, it is simply shown.
-
-    See Also:
-        `plot()`.
-
-    This method may block until the GUI or plot window is closed.
-
-    Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
-
     Args:
-      model: (Optional) `VisModel`, the application or plottable object to display.
-        If unspecified, shows the most recently plotted figure.
-      play: If true, invokes `App.play()`. The default value is False unless "autorun" is passed as a command line argument.
-      gui: Deprecated. Use `lib` instead. (optional) class of GUI to use
-      lib: Gui class or plotting library as `str`, e.g. `'matplotlib'` or `'plotly'`
-      keep_alive: Whether the GUI keeps the vis alive. If `False`, the program will exit when the main script is finished.
-      **config: additional GUI configuration parameters.
-        For a full list of parameters, see the respective GUI documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
+        See `plot()`.
     """
-    lib = lib if lib is not None else gui
-    if len(model) == 1 and isinstance(model[0], VisModel):
-        model[0].prepare()
-        # --- Setup Gui ---
-        gui = default_gui() if lib is None else get_gui(lib)
-        gui.configure(config)
-        gui.setup(model[0])
-        if play:  # this needs to be done even if model cannot progress right now
-            gui.auto_play()
-        if gui.asynchronous:
-            display_thread = Thread(target=lambda: gui.show(True), name="AsyncGui", daemon=not keep_alive)
-            display_thread.start()
+    if not fields:  # only show, no plot
+        if lib is not None:
+            plots = get_plots(lib)
         else:
-            gui.show(True)  # may be blocking call
-    elif len(model) == 0:
-        plots = default_plots() if lib is None else get_plots(lib)
+            if not LAST_FIGURE:
+                warnings.warn("No plot yet created with phi.vis; nothing to show.", RuntimeWarning)
+                return
+            plots = get_plots_by_figure(LAST_FIGURE[0])
         return plots.show(plots.current_figure)
     else:
-        plots = default_plots() if lib is None else get_plots(lib)
-        fig_tensor = plot(*model, lib=plots, **config)
-        if isinstance(fig_tensor, Tensor):
-            for fig in fig_tensor:
+        kwargs = locals()
+        del kwargs['fields']
+        fig = plot(*fields, **kwargs)
+        plots = get_plots_by_figure(fig)
+        if isinstance(fig, Tensor):
+            for fig in fig:
                 plots.show(fig)
         else:
-            return plots.show(fig_tensor)
+            return plots.show(fig)
 
 
 def close(figure=None):
@@ -279,7 +261,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
          animate: DimFilter = None,
          overlay: DimFilter = 'overlay',
          title: Union[str, Tensor, list, tuple] = None,
-         size=(12, 5),
+         size=None,  # (12, 5),
          same_scale: Union[bool, Shape, tuple, list, str] = True,
          log_dims: Union[str, tuple, list, Shape] = '',
          show_color_bar=True,
@@ -288,7 +270,8 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
          err: Union[Tensor, tuple, list, float] = 0.,
          frame_time=100,
          repeat=True,
-         plt_params: Dict = None):
+         plt_params: Dict = None,
+         max_subfigures=20):
     """
     Creates one or multiple figures and sub-figures and plots the given fields.
 
@@ -347,10 +330,12 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
     reduced_shape = row_dims & col_dims & animate & overlay
     nrows = uniform_bound(row_dims).volume
     ncols = uniform_bound(col_dims).volume
+    assert nrows * ncols <= max_subfigures, f"Too many subfigures ({nrows * ncols}) for max_subfigures={max_subfigures}. If you want to plot this many subfigures, increase the limit."
     positioning, indices = layout_sub_figures(data, row_dims, col_dims, animate, overlay, 0, 0)
     # --- Process arguments ---
-    plots = default_plots() if lib is None else get_plots(lib)
+    plots = default_plots(positioning) if lib is None else get_plots(lib)
     plt_params = {} if plt_params is None else dict(**plt_params)
+    size = (None, None) if size is None else size
     if title is None:
         title_by_subplot = {pos: title_label(common_index(*i, exclude=reduced_shape.singleton)) for pos, i in indices.items()}
     elif isinstance(title, Tensor) and ('rows' in title.shape or 'cols' in title.shape):
@@ -360,6 +345,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
         title_by_subplot = {pos: _title(title, i[0]) for pos, i in indices.items()}
     log_dims = parse_dim_order(log_dims) or ()
     color = layout_pytree_node(color, wrap_leaf=True)
+    color = layout_color(positioning, indices, color)
     alpha = layout_pytree_node(alpha, wrap_leaf=True)
     alpha = tree_map(lambda x: 1 if x is None else x, alpha)
     err = layout_pytree_node(err, wrap_leaf=True)
@@ -392,15 +378,15 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
     for plot_idx in fig_shape.meshgrid():
         figure, axes = plots.create_figure(size, nrows, ncols, subplots, title_by_subplot, log_dims, plt_params)
         if animate:
-            def plot_frame(frame: int):
+            def plot_frame(figure, frame: int):
                 for pos, fields in positioning.items():
                     for i, f in enumerate(fields):
                         idx = indices[pos][i]
                         f = f[{animate.name: frame}]
-                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[idx], alpha[idx], err[idx])
+                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[pos][i], alpha[idx], err[idx])
                 plots.finalize(figure)
-            anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat)
-            if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
+            anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat, interactive=True)
+            if is_jupyter():
                 plots.close(figure)
             LAST_FIGURE[0] = anim
             if fig_shape.volume == 1:
@@ -410,19 +396,11 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
             for pos, fields in positioning.items():
                 for i, f in enumerate(fields):
                     idx = indices[pos][i]
-                    err_ = err[idx]
-                    while isinstance(err_, Layout) and not err_.shape and isinstance(err_.native(), Tensor):
-                        err_ = err_.native()[idx]
-                    color_ = color[idx]
-                    while isinstance(color_, Layout) and not color_.shape and isinstance(color_.native(), Tensor):
-                        color_ = color_.native()[idx]
-                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color_, alpha[idx], err_)
+                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[pos][i], alpha[idx], err[idx])
             plots.finalize(figure)
             LAST_FIGURE[0] = figure
             figures.append(figure)
-    return stack([layout(f) for f in figures], fig_shape)
-
-
+    return stack([layout(f) for f in figures], fig_shape) if fig_shape else figures[0]
 
 def layout_pytree_node(data, wrap_leaf=False):
     # we could wrap instead of layout if all values have same shapes
@@ -524,6 +502,27 @@ def _insert_value_dim(space: Box, pos: Tuple[int, int], subplots: dict, min_val,
         return space
 
 
+def layout_color(content: Dict[Tuple[int, int], List[Field]], indices: Dict[Tuple[int, int], List[dict]], color: Tensor):
+    result = {}
+    for pos, fields in content.items():
+        result_pos = result[pos] = []
+        counter = 0
+        for i, f in enumerate(fields):
+            idx = indices[pos][i]
+            if (color[idx] != None).all:  # user-specified color
+                result_pos.append(color[idx])
+            elif requires_color_map(f):
+                result_pos.append(wrap('cmap'))
+            else:
+                channels = channel(f).without('vector')
+                if channels:
+                    result_pos.append(counter + math.range_tensor(channels))
+                else:
+                    result_pos.append(wrap(counter))
+                counter += channels.volume
+    return result
+
+
 def overlay(*fields: Union[Field, Tensor, Geometry]) -> Tensor:
     """
     Specify that multiple fields should be drawn on top of one another in the same figure.
@@ -540,7 +539,7 @@ def overlay(*fields: Union[Field, Tensor, Geometry]) -> Tensor:
     return layout(fields, math.channel('overlay'))
 
 
-def write_image(path: str, figure=None, dpi=120., close=False):
+def write_image(path: str, figure=None, dpi=120., close=False, transparent=True):
     """
     Save a figure to an image file.
 
@@ -549,16 +548,18 @@ def write_image(path: str, figure=None, dpi=120., close=False):
         path: File path.
         dpi: Pixels per inch.
         close: Whether to close the figure after saving it.
+        transparent: Whether to save the figure with transparent background.
     """
     figure = figure or LAST_FIGURE[0]
     if figure is None:
-        figure = default_plots().current_figure
+        warnings.warn("No plot yet created with phi.vis; nothing to save.", RuntimeWarning)
+        return
     assert figure is not None, "No figure to save."
     lib = get_plots_by_figure(figure)
     path = os.path.expanduser(path)
     directory = os.path.abspath(os.path.dirname(path))
     os.path.isdir(directory) or os.makedirs(directory)
-    lib.save(figure, path, dpi)
+    lib.save(figure, path, dpi, transparent)
     if close:
         close_(figure=figure)
 
@@ -566,7 +567,7 @@ def write_image(path: str, figure=None, dpi=120., close=False):
 def default_gui() -> Gui:
     if GUI_OVERRIDES:
         return GUI_OVERRIDES[-1]
-    if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
+    if is_jupyter():
         raise NotImplementedError("There is currently no GUI support for Python notebooks. Use `vis.plot()` to display plots or animations instead.")
     else:
         options = ['dash', 'console']
@@ -611,11 +612,16 @@ def force_use_gui(gui: Gui):
 _LOADED_PLOTTING_LIBRARIES: List[PlottingLibrary] = []
 
 
-def default_plots() -> PlottingLibrary:
-    if 'google.colab' in sys.modules or 'ipykernel' in sys.modules:
-        options = ['matplotlib']
+def default_plots(content: Dict[Tuple[int, int], List[Field]]) -> PlottingLibrary:
+    is_3d = False
+    for fields in content.values():
+        if any(f.spatial_rank == 3 for f in fields):
+            is_3d = True
+            break
+    if is_jupyter():
+        options = ['plotly', 'matplotlib'] if is_3d else ['matplotlib', 'plotly']
     else:
-        options = ['matplotlib', 'plotly', 'ascii']
+        options = ['plotly', 'matplotlib'] if is_3d else ['matplotlib', 'plotly', 'ascii']
     for option in options:
         try:
             return get_plots(option)
@@ -646,7 +652,9 @@ def get_plots(lib: Union[str, PlottingLibrary]) -> PlottingLibrary:
         raise NotImplementedError(f"No plotting library available with name {lib}")
 
 
-def get_plots_by_figure(figure):
+def get_plots_by_figure(figure: Union[Tensor, Any]):
+    if isinstance(figure, Tensor):
+        figure = next(iter(figure))
     for loaded_lib in _LOADED_PLOTTING_LIBRARIES:
         if loaded_lib.is_figure(figure):
             return loaded_lib

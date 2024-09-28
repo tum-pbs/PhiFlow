@@ -10,7 +10,7 @@ from phiml.math._tensors import cached
 from phiml.math.magic import slicing_dict
 from . import UniformGrid
 from ._box import Box
-from ._functions import normal_from_slope, y_intersect_2d
+from ._functions import normal_from_slope, y_intersect_2d, plane_sgn_dist
 from ._geom import Geometry
 
 
@@ -84,7 +84,7 @@ class Heightmap(Geometry):
 
     @property
     def shape(self) -> Shape:
-        return self._height.shape & channel(self._bounds)
+        return (self._height.shape - 1) & channel(self._bounds)
 
     @property
     def resolution(self):
@@ -138,6 +138,7 @@ class Heightmap(Geometry):
         offsets = faces.origin_distance[cell_idx]
         face_idx = faces.index[cell_idx]
         # --- test location against all considered faces and boundaries ---
+        # distances = plane_sgn_dist(-offsets, normals, location)  # offset has the - convention here
         distances = normals.vector @ location.vector + offsets
         projected_onto_face = location - normals * distances
         projected_idx = cell_index(projected_onto_face, grid_bounds, self.resolution, clip=False)
@@ -270,7 +271,7 @@ def build_faces(heightmap: Heightmap):
 def plane_from_slope(slope: Tensor, point: Tensor):
     space = channel(point).item_names[0]
     normal = normal_from_slope(slope, space)
-    origin_distance = (-point).vector @ normal.vector
+    origin_distance = (-point).vector @ normal.vector  # ToDo we should really use the positive sign
     return normal, origin_distance
 
 

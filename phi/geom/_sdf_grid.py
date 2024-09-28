@@ -5,14 +5,14 @@ from phiml import math
 from phiml.math import Shape, Tensor, spatial, channel, non_spatial, expand, non_channel, instance, stack, batch
 from . import UniformGrid
 from ._geom import Geometry
-from ._box import Box
+from ._box import Box, BaseBox, Cuboid
 
 
 class SDFGrid(Geometry):
     """
     Grid-based signed distance field.
     """
-    def __init__(self, sdf: Tensor, bounds: Box, approximate_outside=True, gradient: Tensor = None, center: Tensor = None, volume: Tensor = None, bounding_radius: Tensor = None):
+    def __init__(self, sdf: Tensor, bounds: BaseBox, approximate_outside=True, gradient: Tensor = None, center: Tensor = None, volume: Tensor = None, bounding_radius: Tensor = None):
         """
         Args:
             sdf: Signed distance values. `Tensor` with spatial dimensions corresponding to the physical space.
@@ -57,6 +57,10 @@ class SDFGrid(Geometry):
         """Signed distance grid."""
         return self._sdf
 
+    def with_values(self, values: Tensor):
+        values = expand(values, spatial(self._sdf) - spatial(values))
+        return SDFGrid(values, self._bounds, self._approximate_outside, self._grad, self._center, self._volume, self._bounding_radius)
+
     @property
     def bounds(self):
         return self._bounds
@@ -68,6 +72,10 @@ class SDFGrid(Geometry):
     @property
     def resolution(self):
         return spatial(self._sdf)
+
+    @property
+    def dx(self):
+        return self._bounds.size / spatial(self._sdf)
 
     @property
     def points(self):
@@ -84,6 +92,12 @@ class SDFGrid(Geometry):
     @property
     def volume(self) -> Tensor:
         return self._volume
+
+    def __variable_attrs__(self):
+        return '_sdf', '_bounds', '_grad', '_center', '_volume', '_bounding_radius'
+
+    def __value_attrs__(self):
+        return '_sdf',
 
     @property
     def faces(self) -> 'Geometry':
@@ -111,7 +125,7 @@ class SDFGrid(Geometry):
 
     @property
     def face_shape(self) -> Shape:
-        raise NotImplementedError(f"SDF does not support boundaries")
+        return math.EMPTY_SHAPE
 
     @property
     def corners(self) -> Tensor:
@@ -188,13 +202,15 @@ class SDFGrid(Geometry):
         return SDFGrid(self._sdf[item], self._bounds[item], self._approximate_outside, self._grad[item], self._center[item], self._volume[item], self._bounding_radius[item])
 
 
-def sdf_from_geometry(geometry: Geometry,
-                      bounds: Box,
-                      resolution: Shape = math.EMPTY_SHAPE,
-                      approximate_outside=True,
-                      rebuild: Optional[str] ='auto',
-                      valid_dist=None,
-                      **resolution_: int) -> SDFGrid:
+def sample_sdf(geometry: Geometry,
+               bounds: BaseBox = None,
+               resolution: Shape = math.EMPTY_SHAPE,
+               approximate_outside=False,
+               rebuild: Optional[str] = None,
+               valid_dist=None,
+               rel_margin=.1,
+               abs_margin=0.,
+               **resolution_: int) -> SDFGrid:
     """
     Build a grid of signed distance values for a given `Geometry` object.
 
@@ -205,17 +221,21 @@ def sdf_from_geometry(geometry: Geometry,
         **resolution_: Grid resolution as `kwargs`, e.g. `x=64, y=32`.
         approximate_outside: Whether queries outside the SDF grid should return approximate values. This requires additional computations.
         rebuild: If `'from-surface'`, SDF values are calculated from a narrow strip above the enclosed surface. This is more accurate but requires additional steps.
-            If `None`, SDF values are queried from `geometry`.
-            The default `'auto'` rebuilds when geometry quierying is expected to be in accurate.
+            If `None` (default), SDF values are queried from `geometry`.
+            `'auto'` rebuilds when geometry querying is expected to be in accurate.
 
     Returns:
         SDF grid as `Geometry`.
     """
     resolution = resolution & spatial(**resolution_)
+    if bounds is None:
+        bounds: BaseBox = geometry.bounding_box()
+        bounds = Cuboid(bounds.center, half_size=bounds.half_size * (1 + 2 * rel_margin) + 2 * abs_margin)
     points = UniformGrid(resolution, bounds).center
     sdf = geometry.approximate_signed_distance(points)
-    if instance(geometry):
-        center = math.mean(geometry.center, instance)
+    reduce = instance(geometry) & spatial(geometry)
+    if reduce:
+        center = math.mean(geometry.center, reduce)
         volume = None
         bounding_radius = None
         rebuild = 'from-surface' if rebuild == 'auto' else rebuild
