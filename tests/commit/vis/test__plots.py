@@ -177,9 +177,9 @@ class TestPlots(TestCase):
     def test_plot_graph(self):
         points = wrap([(0, 0), (1.2, 0), (2, 0), (2, 1), (.8, 1), (0, 1)], instance('points'), channel(vector='x,y'))
         dense_edges = math.vec_length(math.pairwise_distances(points, 1.5))
-        dense_graph = geom.Graph(points, dense_edges, {})
+        dense_graph = geom.graph(points, dense_edges, {})
         sparse_edges = math.vec_length(math.pairwise_distances(points, 1.5, format='csr'))
-        sparse_graph = geom.Graph(points, sparse_edges, {})
+        sparse_graph = geom.graph(points, sparse_edges, {})
         try:
             self._test_plot(dense_graph, sparse_graph, Field(sparse_graph, lambda x: math.vec_length(x), 0))
         except NotImplementedError:
