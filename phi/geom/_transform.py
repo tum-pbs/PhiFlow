@@ -124,13 +124,15 @@ def embed(geometry: Geometry, projected_dims: Union[math.Shape, str, tuple, list
     axes = parse_dim_order(projected_dims)
     embedded_axes = [a for a in axes if a not in geometry.shape.get_item_names('vector')]
     if not embedded_axes:
-        return geometry
+        return geometry[axes]
+    # --- add dims from geometry to axes ---
     for name in reversed(geometry.shape.get_item_names('vector')):
         if name not in projected_dims:
             axes = (name,) + axes
     if isinstance(geometry, BaseBox):
         box = geometry.corner_representation()
-        return box * Box(**{dim: None for dim in embedded_axes})
+        embedded = box * Box(**{dim: None for dim in embedded_axes})
+        return embedded[axes]
     return _EmbeddedGeometry(geometry, axes)
 
 

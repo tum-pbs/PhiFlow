@@ -15,8 +15,8 @@ from matplotlib.transforms import Bbox
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from phi import math
-from phi.field import StaggeredGrid, Field
-from phi.geom import Sphere, BaseBox, Point, Box, Mesh, Graph, SDFGrid
+from phi.field import StaggeredGrid, Field, CenteredGrid
+from phi.geom import Sphere, BaseBox, Point, Box, Mesh, Graph, SDFGrid, SDF, UniformGrid
 from phi.geom._heightmap import Heightmap
 from phi.geom._geom_ops import GeometryStack
 from phi.geom._transform import _EmbeddedGeometry
@@ -40,6 +40,7 @@ class MatplotlibPlots(PlottingLibrary):
                       titles: Dict[Tuple[int, int], str],
                       log_dims: Tuple[str, ...],
                       plt_params: Dict[str, Any]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
+        size = (size[0] or 12, size[1] or 5)
         figure, axes = plt.subplots(rows, cols, figsize=size)
         self.current_figure = figure
         axes = np.reshape(axes, (rows, cols))
@@ -127,7 +128,7 @@ class MatplotlibPlots(PlottingLibrary):
             warnings.warn(f"tight_layout could not be applied: {err}")
         return figure, axes_by_pos
 
-    def animate(self, fig: plt.Figure, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
+    def animate(self, fig: plt.Figure, frame_count: int, plot_frame_function: Callable, interval: float, repeat: bool, interactive: bool):
         if 'ipykernel' in sys.modules:
             rc('animation', html='html5')
 
@@ -154,9 +155,9 @@ class MatplotlibPlots(PlottingLibrary):
                     axis.set_subplotspec(specs[axis])
                     # subplot.set_title(titles[subplot])
             # plt.tight_layout()
-            plot_frame_function(frame)
+            plot_frame_function(fig, frame)
 
-        return animation.FuncAnimation(fig, clear_and_plot, repeat=repeat, frames=frames, interval=interval)
+        return animation.FuncAnimation(fig, clear_and_plot, repeat=repeat, frames=frame_count, interval=interval)
 
     def finalize(self, figure):
         pass
@@ -179,9 +180,9 @@ class MatplotlibPlots(PlottingLibrary):
         else:
             raise ValueError(f"{type(figure)} is not a valid {self.name} figure")
 
-    def save(self, figure, path: str, dpi: float):
+    def save(self, figure, path: str, dpi: float, transparent: bool):
         if isinstance(figure, plt.Figure):
-            figure.savefig(path, dpi=dpi, transparent=True)
+            figure.savefig(path, dpi=dpi, transparent=transparent)
         elif isinstance(figure, animation.Animation):
             figure.save(path, dpi=dpi)
         else:
@@ -399,6 +400,8 @@ class Heatmap3D(Recipe):
         xyz = StaggeredGrid(lambda x: x, math.extrapolation.BOUNDARY, data.geometry.bounds, data.resolution).staggered_tensor().numpy(dims + ('vector',))[:-1, :-1, :-1, :]
         xyz = xyz.reshape(-1, 3)
         values = data.values.numpy(dims).flatten()
+        if color == 'cmap':
+            color = 0
         col = matplotlib.colors.to_rgba(_plt_col(color))
         colors = np.zeros_like(values)[..., None] + col
         norm_values = (values - min_val) / (max_val - min_val)
@@ -448,8 +451,8 @@ class VectorCloud2D(Recipe):
             x, y = reshaped_numpy(c_data.center[dims], [vector, c_data.shape.without('vector')])
             u, v = reshaped_numpy(c_data.values.vector[dims], [vector, c_data.shape.without('vector')])
             color_i = color[idx]
-            if (color[idx] == None).all:
-                col = _next_line_color(subplot, kind='collections')
+            if color[idx] == 'cmap':
+                col = _next_line_color(subplot, kind='collections')  # ToDo
             elif color[idx].shape:
                 col = [_plt_col(c) for c in color_i.numpy(c_data.shape.non_channel).reshape(-1)]
             else:
@@ -491,13 +494,12 @@ class StreamPlot2D(Recipe):
         x = x[:, 0]
         y = y[0, :]
         u, v = reshaped_numpy(data.values.vector[vector.item_names[0]], [vector, *data.shape.without('vector')])
-        if (color == None).all:
+        if color == 'cmap':
             col = reshaped_numpy(math.vec_length(data.values), [*data.shape.without('vector')]).T
+        elif color.shape:
+            col = [_plt_col(c) for c in color.numpy(data.shape.non_channel).reshape(-1)]
         else:
-            if color.shape:
-                col = [_plt_col(c) for c in color.numpy(data.shape.non_channel).reshape(-1)]
-            else:
-                col = _plt_col(color)
+            col = _plt_col(color)
         alphas = reshaped_numpy(alpha, [data.shape.without('vector')])
         a = float(alphas[0])
         prev_patches = set(subplot.patches)
@@ -606,22 +608,21 @@ class PointCloud2D(Recipe):
     def _plot_points(axis: Axes, data: Field, dims: tuple, vector: Shape, color: Tensor, alpha: Tensor, err: Tensor, min_val, max_val, label):
         connected = spatial(data.points)
         if isinstance(data.sampled_elements, GeometryStack):
-            for idx in data.sampled_elements.object_dims.meshgrid():
-                PointCloud2D._plot_points(axis, data[idx], dims, vector, color[idx], alpha[idx], err[idx], min_val, max_val, label)
-            return
+            if data.sampled_elements.is_union:
+                for idx in data.sampled_elements.object_dims.meshgrid():
+                    PointCloud2D._plot_points(axis, data[idx], dims, vector, color[idx], alpha[idx], err[idx], min_val, max_val, label)
+                return
+            elif data.sampled_elements.is_intersection:
+                math.assert_close(data.values, math.NAN, msg="Intersections can only be plotted as Geometries, not Fields.")
+                sdf = CenteredGrid(data.sampled_elements.approximate_signed_distance, bounds=data.sampled_elements.bounding_box().scaled(1.).corner_representation(), **{d: 32 for d in dims})
+                sdf_grid = SDFGrid(sdf.values, sdf.bounds, approximate_outside=False)
+                data = Field(sdf_grid, math.NAN, 0)
         data = only_stored_elements(data)
-        x, y = reshaped_numpy(data.points.vector[dims], [vector, non_channel(data)])
-        if (color == None).all:
-            if math.is_finite(data.values).any:
-                values = reshaped_numpy(data.values, [non_channel(data)])
-                mpl_colors = add_color_bar(axis, values, min_val, max_val)
-                single_color = False
-                # if np.any(values != values[0]):
-                # else:
-                #     mpl_colors = [_next_line_color(axis, 'lines' if connected else 'collections')] * non_channel(data).volume
-            else:
-                mpl_colors = [_next_line_color(axis, 'lines' if connected else 'collections')] * non_channel(data).volume
-                single_color = True
+        x, y = reshaped_numpy(data.points.vector[dims], ['vector', non_channel(data)])
+        if color == 'cmap':
+            values = reshaped_numpy(data.values, [non_channel(data)])
+            mpl_colors = add_color_bar(axis, values, min_val, max_val)
+            single_color = False
         elif non_channel(data).only(color.shape) and color.dtype.kind == float:  # use color map
             values = reshaped_numpy(color, [non_channel(data)])
             mpl_colors = add_color_bar(axis, values, None, None)
@@ -656,7 +657,7 @@ class PointCloud2D(Recipe):
                     lower_x = x - w2
                     lower_y = y - h2
                 else:
-                    angles = reshaped_numpy(math.rotation_angles(data.geometry.rotation_matrix), ['vector', data.shape.non_channel])
+                    angles = reshaped_numpy(math.rotation_angles(data.geometry.rotation_matrix), [data.shape.non_channel])
                     lower_x, lower_y = reshaped_numpy(data.geometry.center - math.rotate_vector(data.geometry.half_size, data.geometry.rotation_matrix), ['vector', data.shape.non_channel])
                 shapes = [plt.Rectangle((lxi, lyi), w2i * 2, h2i * 2, angle=ang*180/np.pi, linewidth=1, edgecolor='white', alpha=a, facecolor=ci) for lxi, lyi, w2i, h2i, ang, ci, a in zip(lower_x, lower_y, w2, h2, angles, mpl_colors, alphas)]
                 axis.add_collection(matplotlib.collections.PatchCollection(shapes, match_original=True))
@@ -689,14 +690,14 @@ class PointCloud2D(Recipe):
                 p1, p2 = edges.index
                 x1, y1 = reshaped_numpy(data.graph.center[p1], ['vector', instance])
                 x2, y2 = reshaped_numpy(data.graph.center[p2], ['vector', instance])
-                if (color == None).all:
+                if color == 'cmap':
                     edge_val = reshaped_numpy(edge_val, [instance])
                     edge_colors = add_color_bar(axis, edge_val, min_val, max_val)
                     if edge_val.min() == edge_val.max():
                         edge_colors = edge_colors[0]
                 else:
                     edge_colors = mpl_colors[0]
-                if np.array(edge_colors).ndim == 1:
+                if np.array(edge_colors).ndim <= 1:
                     axis.plot([x1, x2], [y1, y2], color=edge_colors, alpha=alphas[0])
                 else:
                     for i, (x1_, x2_, y1_, y2_, col) in enumerate(zip(x1, x2, y1, y2, edge_colors)):
@@ -704,6 +705,15 @@ class PointCloud2D(Recipe):
             elif isinstance(data.geometry, SDFGrid):
                 d = data.geometry.values.numpy(dims)
                 x, y = data.geometry.points.numpy(('vector',) + dims)
+                x = x[:, 0]
+                y = y[0, :]
+                axis.contourf(x, y, d.T, levels=[float('-inf'), 0], colors=[mpl_colors[0]], alpha=alphas[0])
+            elif isinstance(data.geometry, SDF):
+                bounds = data.geometry.bounding_box()
+                grid = UniformGrid(spatial(**{d: 100 for d in dims}), bounds=bounds).center
+                sdf = data.geometry(grid)
+                d = sdf.numpy(dims)
+                x, y = grid.numpy(('vector',) + dims)
                 x = x[:, 0]
                 y = y[0, :]
                 axis.contourf(x, y, d.T, levels=[float('-inf'), 0], colors=[mpl_colors[0]], alpha=alphas[0])
@@ -806,6 +816,7 @@ class PointCloud3D(Recipe):
             elif isinstance(data.geometry, BaseBox):
                 a = alphas[0]
                 c = mpl_colors[0]
+                # ToDo support collections of boxes
                 cx, cy, cz = math.reshaped_numpy(data.geometry.corners, ['vector', *['~'+d for d in dims]])
                 plot_surface(subplot, cx[:, :, 1], cy[:, :, 1], cz[:, :, 1], alpha=a, color=c)
                 plot_surface(subplot, cx[:, :, 0], cy[:, :, 0], cz[:, :, 0], alpha=a, color=c)
@@ -866,7 +877,7 @@ def _plt_col(col):
 
 
 def matplotlib_colors(color: Tensor, dims: Shape, default=None) -> Union[list, None]:
-    if color.rank == 0 and color.native() is None:
+    if color.rank == 0 and color == 'cmap':
         if default is None:
             return None
         else:

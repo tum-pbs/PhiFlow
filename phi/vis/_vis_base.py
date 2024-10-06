@@ -1,3 +1,4 @@
+import sys
 import threading
 import time
 from collections import namedtuple
@@ -10,7 +11,7 @@ from phi.field import Field, Scene, PointCloud, CenteredGrid
 from phi.field._field_math import data_bounds
 from phi.geom import Box, Cuboid, Geometry, Point
 from phi.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel, expand, non_batch
-from phiml.math import vec
+from phiml.math import vec, concat
 
 Control = namedtuple('Control', [
     'name',
@@ -362,7 +363,7 @@ class PlottingLibrary:
         """
         raise NotImplementedError
 
-    def animate(self, fig, frames: int, plot_frame_function: Callable, interval: float, repeat: bool):
+    def animate(self, fig, frame_count: int, plot_frame_function: Callable, interval: float, repeat: bool, interactive: bool):
         raise NotImplementedError
 
     def finalize(self, figure):
@@ -374,7 +375,7 @@ class PlottingLibrary:
     def show(self, figure):
         raise NotImplementedError
 
-    def save(self, figure, path: str, dpi: float):
+    def save(self, figure, path: str, dpi: float, transparent: bool):
         raise NotImplementedError
 
     def plot(self, data, figure, subplot, space, *args, **kwargs):
@@ -495,28 +496,26 @@ def to_field(obj) -> Field:
     if isinstance(obj, Field):
         return obj
     if isinstance(obj, Geometry):
-        return PointCloud(obj, math.NAN)
+        return Field(obj, math.NAN, math.NAN)
     if isinstance(obj, Tensor):
         arbitrary_lines_1d = spatial(obj).rank == 1 and 'vector' in obj.shape
         point_cloud = instance(obj) and 'vector' in obj.shape
         if point_cloud or arbitrary_lines_1d:
             if math.get_format(obj) != 'dense':
                 obj = math.stored_values(obj)
-            return PointCloud(obj)
+            return PointCloud(obj, math.NAN)
         elif spatial(obj):
             return CenteredGrid(obj, 0, bounds=Box(math.const_vec(-0.5, spatial(obj)), wrap(spatial(obj), channel('vector')) - 0.5))
         elif 'vector' in obj.shape:
-            return PointCloud(math.expand(obj, instance(points=1)), bounds=Cuboid(obj, half_size=math.const_vec(1e-3, obj.shape['vector'])).box())
+            return PointCloud(math.expand(obj, instance(points=1)), math.NAN)
         elif instance(obj) and not spatial(obj):
             assert instance(obj).rank == 1, "Bar charts must have only one instance dimension"
             vector = channel(vector=instance(obj).names)
             equal_spacing = math.range_tensor(instance(obj), vector)
-            lower = expand(-.5, vector)
-            upper = expand(equal_spacing.max + .5, vector)
-            return PointCloud(equal_spacing, values=obj, bounds=Box(lower, upper))
-            # positions = math.layout(instance(obj).item_names, instance(obj))
-            # positions = expand(positions, vector)
-            # return PointCloud(positions, values=obj)
+            return PointCloud(equal_spacing, values=obj)
+        else:
+            point = expand(vec(value=0.), instance(value=1))
+            return PointCloud(point, obj)
     raise ValueError(f"Cannot plot {obj}. Tensors, geometries and fields can be plotted.")
 
 
@@ -534,10 +533,22 @@ def get_default_limits(f: Field, all_dims: Optional[Sequence[str]], log_dims: Tu
         value_limits = _limits(vec(**{value_dim: f.values}), vec(**{value_dim: err}), value_dim in log_dims)
         return data_bounds(f) * value_limits
     # --- Determine element size ---
+    f_dims = f.geometry.vector.item_names
+    value_axis = f.spatial_rank <= 1
+    if value_axis:
+        f_dims += ('_',)
+    is_log = wrap([dim in log_dims for dim in f_dims], channel(vector=f_dims))
+    if math.equal(0, err):
+        bounding_box = f.geometry.bounding_box()
+        if value_axis:
+            bounding_box *= Box(_=(math.finite_min(f.values), math.finite_max(f.values)))
+        return _limits(bounding_box.center, bounding_box.half_size, is_log)
     half = f.geometry.bounding_half_extent()
     center = f.center
-    if (err == None).all:
-        err = wrap(0)
+    if '_' in f_dims and '_' not in center.vector.item_names:
+        center = concat([center, expand(f.values, channel(vector='_'))], 'vector')
+    if '_' in f_dims and '_' not in half.vector.item_names:
+        half = concat([half, expand(0, channel(vector='_'))], 'vector')
     if 'vector' not in channel(err):
         if 'vector' not in channel(center):
             err = expand(err, channel(vector='_'))
@@ -545,16 +556,8 @@ def get_default_limits(f: Field, all_dims: Optional[Sequence[str]], log_dims: Tu
             half = expand(half, channel(vector='_'))
         else:
             err = expand(err, channel(center))
-    # if 'vector' in channel(err) and 'vector' not in channel(half):
-    #     half = expand(half, channel(vector='_'))
-    elif 'vector' in channel(err) and 'vector' in half.shape and '_' not in half.shape['vector'].item_names:  # add missing dimensions to half and err
-        half = vec(**half.vector, _=0)
-        center = vec(**center.vector, _=f.values)
-        err = vec(**{dim: err.vector[dim] if dim in err.vector.item_names else 0 for dim in half.vector.item_names + ('_',)})
     half = math.maximum(half, err)
-    is_log = wrap([dim in log_dims for dim in half.vector.item_names], half.shape['vector'])
-    limits = _limits(center, half, is_log)
-    return limits
+    return _limits(center, half, is_log)
 
 
 def _limits(center: Tensor, half: Tensor, is_log: Union[bool, Tensor]):
@@ -586,3 +589,23 @@ def only_stored_elements(f: Field) -> Field:
 def uniform_bound(shape: Shape):
     sizes = [int(s.max) if isinstance(s, Tensor) else s for s in shape.sizes]
     return shape.with_sizes(sizes)
+
+
+def requires_color_map(f: Field):
+    if f.spatial_rank <= 1:
+        return False
+    return math.is_finite(f.values).any
+
+
+def is_jupyter():
+    if 'google.colab' in sys.modules:
+        return True
+    if 'IPython' not in sys.modules:
+        return False
+    from IPython import get_ipython
+    ipy = get_ipython().__class__.__name__
+    return {
+        'NoneType': False,
+        'ZMQInteractiveShell': True,  # Jupyter notebook or qtconsole
+        'TerminalInteractiveShell': False  # Jupyter notebook or qtconsole
+    }.get(ipy, False)

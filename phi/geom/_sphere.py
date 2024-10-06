@@ -2,7 +2,7 @@ from typing import Union, Dict, Tuple
 
 from phi import math
 from phiml.math import Shape, dual, PI, non_channel, instance
-from ._geom import Geometry, _keep_vector, NO_GEOMETRY
+from ._geom import Geometry, _keep_vector
 from ..math import wrap, Tensor, expand
 from ..math.magic import slicing_dict
 
@@ -120,7 +120,16 @@ class Sphere(Geometry):
         return sgn_dist, delta, normal, offset, face_index
 
     def sample_uniform(self, *shape: math.Shape):
-        raise NotImplementedError('Not yet implemented')  # ToDo
+        # --- Choose a distance from the center of the sphere, equally weighted by mass ---
+        uniform = math.random_uniform(self.shape.non_singleton.without('vector'), *shape)
+        if self.spatial_rank == 1:
+            r = self.radius * uniform
+        else:
+            r = self.radius * (uniform ** (1 / self.spatial_rank))
+        # --- Uniformly sample a unit vector for direction over the surface of the sphere (Muller 1959, Marsaglia 1972) ---
+        unit_vector = math.random_normal(self.shape.non_singleton.without('vector'), *shape, self.shape['vector'])
+        unit_vector /= math.vec_length(unit_vector, vec_dim='vector')
+        return self.center + r * unit_vector
 
     def bounding_radius(self):
         return self.radius

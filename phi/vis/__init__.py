@@ -8,10 +8,15 @@ Use `plot()` to plot fields using Matplotlib.
 See the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
 """
 from ._viewer import Viewer
-from ._matplotlib import plot_scalars
 from ._io import load_scalars
 from ._plot_util import smooth
 from ._vis import view, control, show, close, action, plot, overlay, write_image, write_image as savefig
+
+
+def plot_scalars(*args, **kwargs):
+    from ._matplotlib import plot_scalars
+    return plot_scalars(*args, **kwargs)
+
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]
 

@@ -54,3 +54,14 @@ class TestGeom(TestCase):
         self.assertEqual(channel(vector='x,y'), u.shape['vector'])
         math.assert_close(1 + 3.1415927, u.volume)
         math.assert_close(True, u.lies_inside(vec(x=0, y=0)))
+
+    def test_intersection(self):
+        u = geom.intersection(Box(x=1, y=1), Sphere(x=0, y=0, radius=1))
+        print(u)
+        math.assert_close(vec(x=0.5, y=0.5), u.center)
+        self.assertEqual(2, u.spatial_rank)
+        self.assertEqual(channel(vector='x,y'), u.shape['vector'])
+        math.assert_close(1, u.volume)
+        math.assert_close(False, u.lies_inside(vec(x=0.5, y=-0.5)))
+        math.assert_close(True, u.lies_inside(vec(x=0.5, y=0.5)))
+        math.assert_close(False, u.lies_inside(vec(x=0.9, y=0.9)))
