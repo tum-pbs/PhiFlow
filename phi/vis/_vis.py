@@ -64,6 +64,11 @@ def show(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
             return plots.show(fig)
 
 
+def show_hist(data: Tensor, bins=math.instance(bins=20), weights=1, same_bins: DimFilter = None):
+    hist, edges, center = math.histogram(data, bins, weights, same_bins)
+    show(PointCloud(center, hist))
+
+
 def close(figure=None):
     """
     Close and destroy a figure.
@@ -83,93 +88,6 @@ def close(figure=None):
 
 
 close_ = close
-
-
-RECORDINGS = {}
-
-
-def record(*fields: Union[str, Field]) -> Viewer:
-    user_namespace = get_user_namespace(1)
-    variables = _default_field_variables(user_namespace, fields)
-    viewer = create_viewer(user_namespace, variables, "record", "", scene=None, asynchronous=False, controls=(),
-                           actions={}, log_performance=False)
-    viewer.post_step.append(lambda viewer: print(viewer.steps, end=" "))
-    viewer.progress_unavailable.append(lambda viewer: print())
-    return viewer
-
-
-def view(*fields: Union[str, Field],
-         play: bool = True,
-         gui=None,
-         name: str = None,
-         description: str = None,
-         scene: Union[bool, Scene] = False,
-         keep_alive=True,
-         select: Union[str, tuple, list] = '',
-         framerate=None,
-         namespace=None,
-         log_performance=True,
-         **config) -> Viewer:
-    """
-    Show `fields` in a graphical user interface.
-
-    `fields` may contain instances of `Field` or variable names of top-level variables (main module or Jupyter notebook).
-    During loops, e.g. `view().range()`, the variable status is tracked and the GUI is updated.
-
-    When called from a Python script, name and description may be specified in the module docstring (string before imports).
-    The first line is interpreted as the name, the rest as the subtitle.
-    If not specified, a generic name and description is chosen.
-
-    Args:
-        *fields: (Optional) Contents to be displayed. Either variable names or values.
-            For field instances, all variables referencing the value will be shown.
-            If not provided, the user namespace is searched for Field variables.
-        play: Whether to immediately start executing loops.
-        gui: (Optional) Name of GUI as `str` or GUI class.
-            Built-in GUIs can be selected via `'dash'`, `'console'`.
-            See https://tum-pbs.github.io/PhiFlow/Visualization.html
-        name: (Optional) Name to display in GUI and use for the output directory if `scene=True`.
-            Will be generated from the top-level script if not provided.
-        description: (Optional) Description to be displayed in the GUI.
-            Will be generated from the top-level script if not provided.
-        scene: Existing `Scene` to write into or `bool`. If `True`, creates a new Scene in `~/phi/<name>`
-        keep_alive: Whether the GUI should keep running even after the main thread finishes.
-        framerate: Target frame rate in Hz. Play will not step faster than the framerate. `None` for unlimited frame rate.
-        select: Dimension names along which one item to show is selected.
-            Dimensions may be passed as `tuple` of `str` or as comma-separated names in a single `str`.
-            For each `select` dimension, an associated selection slider will be created.
-        log_performance: Whether to measure and log the time each step takes.
-            If `True`, will be logged as `step_time` to `log_step_time.txt`.
-        **config: Additional GUI configuration arguments.
-
-    Returns:
-        `Viewer`
-    """
-    default_namespace = get_user_namespace(1)
-    user_namespace = default_namespace if namespace is None else DictNamespace(namespace,
-                                                                               title=default_namespace.get_title(),
-                                                                               description=default_namespace.get_description(),
-                                                                               reference=default_namespace.get_reference())
-    variables = _default_field_variables(user_namespace, fields)
-    actions = dict(ACTIONS)
-    ACTIONS.clear()
-    if scene is False:
-        scene = None
-    elif scene is True:
-        scene = Scene.create(os.path.join("~", "phi", _slugify_filename(name or user_namespace.get_reference())))
-        print(f"Created scene at {scene}")
-    else:
-        assert isinstance(scene, Scene)
-    name = name or user_namespace.get_title()
-    description = description or user_namespace.get_description()
-    gui = default_gui() if gui is None else get_gui(gui)
-    controls = tuple(c for c in sorted(CONTROL_VARS.values(), key=lambda c: c.name) if
-                     user_namespace.get_variable(c.name) is not None)
-    CONTROL_VARS.clear()
-    viewer = create_viewer(user_namespace, variables, name, description, scene, asynchronous=gui.asynchronous,
-                           controls=controls, actions=actions, log_performance=log_performance)
-    show(viewer, play=play, gui=gui, keep_alive=keep_alive, framerate=framerate, select=select, **config)
-    return viewer
 
 
 def _default_field_variables(user_namespace: UserNamespace, fields: tuple):

@@ -24,7 +24,6 @@ from .physics import fluid, advect, diffuse
 from phiml.math import Shape, Tensor, DType, Solve
 from .geom import Geometry, Point, Sphere, Box, Cuboid, UniformGrid, Mesh, Graph
 from .field import Field, Grid, CenteredGrid, StaggeredGrid, mask, Noise, PointCloud, Scene, resample, GeometryMask, SoftGeometryMask, HardGeometryMask
-from .vis import Viewer
 from .physics.fluid import Obstacle
 
 # Constants
@@ -47,7 +46,7 @@ from phiml.math import (
     assert_close, always_close, equal, close
 )
 from .geom import union
-from .vis import show, view, control, plot
+from .vis import show, control, plot
 
 # Exceptions
 from phiml.math import ConvergenceException, NotConverged, Diverged
