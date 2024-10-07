@@ -528,8 +528,10 @@ def to_field(obj) -> Field:
 def get_default_limits(f: Field, all_dims: Optional[Sequence[str]], log_dims: Tuple[str], err: Tensor) -> Box:
     if f.is_point_cloud and f.spatial_rank == 1:  # 1D: bar chart
         bounds = f.bounds
+        if instance(f).volume == 1:
+            return Box(bounds.lower - .5, bounds.upper + .5)
         count = non_batch(f).non_dual.non_channel.volume
-        return Box(bounds.lower - bounds.size / count / 2, bounds.upper + bounds.size / count / 2)
+        return Box(bounds.lower - bounds.size / (count - 1) / 2, bounds.upper + bounds.size / (count - 1) / 2)
     if f.spatial_rank == 1 and spatial(f).rank == 1 and all_dims and len(all_dims) > 1:  # Embedded 1D line
         if all_dims:
             remaining = [d for d in all_dims if d not in f.geometry.vector.item_names]
