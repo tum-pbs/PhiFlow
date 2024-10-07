@@ -6,7 +6,7 @@ import numpy as np
 from phi import math
 from phi.math import DimFilter
 from phiml.math import rename_dims, vec, stack, expand, instance
-from phiml.math._shape import parse_dim_order, dual, non_channel
+from phiml.math._shape import parse_dim_order, dual, non_channel, non_batch
 from ._geom import Geometry, _keep_vector
 from ..math import wrap, INF, Shape, channel, Tensor
 from ..math.magic import slicing_dict
@@ -534,7 +534,19 @@ class Cuboid(BaseBox):
         return bool_inside
 
 
-def bounding_box(geometry: Geometry):
+def bounding_box(geometry: Geometry | Tensor) -> Box:
+    """
+    Builds a bounding box around `geometry` or a collection of points.
+
+    Args:
+        geometry: `Geometry` object or `Tensor` of points.
+
+    Returns:
+        Bounding `Box` containing only batch dims and `vector`.
+    """
+    if isinstance(geometry, Tensor):
+        assert 'vector' in geometry.shape, f"When passing a Tensor to bounding_box, it needs to have a vector dimension but got {geometry.shape}"
+        return Box(math.min(geometry, non_batch(geometry) - 'vector'), math.max(geometry, non_batch(geometry) - 'vector'))
     center = geometry.center
     extent = geometry.bounding_half_extent()
     return Box(lower=center - extent, upper=center + extent)
