@@ -325,7 +325,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None, implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fe5ed35ec00></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None, implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f4052552d40></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -1544,6 +1544,12 @@ This is the case with rotating rigid bodies, for example.</p></div>
         return self._geometry
 
     @property
+    def grid(self) -&gt; UniformGrid:
+        &#34;&#34;&#34;Cast `self.geometry` to a `phi.geom.UniformGrid`.&#34;&#34;&#34;
+        assert isinstance(self._geometry, UniformGrid), f&#34;Geometry is not a UniformGrid but {type(self._geometry)}&#34;
+        return self._geometry
+
+    @property
     def mesh(self) -&gt; Mesh:
         &#34;&#34;&#34;Cast `self.geometry` to a `phi.geom.Mesh`.&#34;&#34;&#34;
         assert isinstance(self._geometry, Mesh), f&#34;Geometry is not a mesh but {type(self._geometry)}&#34;
@@ -2574,6 +2580,20 @@ def geometry(self) -&gt; Geometry:
 def graph(self) -&gt; Graph:
     &#34;&#34;&#34;Cast `self.geometry` to a `phi.geom.Graph`.&#34;&#34;&#34;
     assert isinstance(self._geometry, Graph), f&#34;Geometry is not a mesh but {type(self._geometry)}&#34;
+    return self._geometry</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Field.grid"><code class="name">prop <span class="ident">grid</span> : phi.geom._grid.UniformGrid</code></dt>
+<dd>
+<div class="desc"><p>Cast <code>self.geometry</code> to a <code><a title="phi.geom.UniformGrid" href="../geom/index.html#phi.geom.UniformGrid">UniformGrid</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def grid(self) -&gt; UniformGrid:
+    &#34;&#34;&#34;Cast `self.geometry` to a `phi.geom.UniformGrid`.&#34;&#34;&#34;
+    assert isinstance(self._geometry, UniformGrid), f&#34;Geometry is not a UniformGrid but {type(self._geometry)}&#34;
     return self._geometry</code></pre>
 </details>
 </dd>
@@ -3148,6 +3168,12 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         return self._geometry
 
     @property
+    def grid(self) -&gt; UniformGrid:
+        &#34;&#34;&#34;Cast `self.geometry` to a `phi.geom.UniformGrid`.&#34;&#34;&#34;
+        assert isinstance(self._geometry, UniformGrid), f&#34;Geometry is not a UniformGrid but {type(self._geometry)}&#34;
+        return self._geometry
+
+    @property
     def mesh(self) -&gt; Mesh:
         &#34;&#34;&#34;Cast `self.geometry` to a `phi.geom.Mesh`.&#34;&#34;&#34;
         assert isinstance(self._geometry, Mesh), f&#34;Geometry is not a mesh but {type(self._geometry)}&#34;
@@ -4178,6 +4204,20 @@ def geometry(self) -&gt; Geometry:
 def graph(self) -&gt; Graph:
     &#34;&#34;&#34;Cast `self.geometry` to a `phi.geom.Graph`.&#34;&#34;&#34;
     assert isinstance(self._geometry, Graph), f&#34;Geometry is not a mesh but {type(self._geometry)}&#34;
+    return self._geometry</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Field.grid"><code class="name">prop <span class="ident">grid</span> : phi.geom._grid.UniformGrid</code></dt>
+<dd>
+<div class="desc"><p>Cast <code>self.geometry</code> to a <code><a title="phi.geom.UniformGrid" href="../geom/index.html#phi.geom.UniformGrid">UniformGrid</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def grid(self) -&gt; UniformGrid:
+    &#34;&#34;&#34;Cast `self.geometry` to a `phi.geom.UniformGrid`.&#34;&#34;&#34;
+    assert isinstance(self._geometry, UniformGrid), f&#34;Geometry is not a UniformGrid but {type(self._geometry)}&#34;
     return self._geometry</code></pre>
 </details>
 </dd>
@@ -4751,6 +4791,12 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         return self._geometry
 
     @property
+    def grid(self) -&gt; UniformGrid:
+        &#34;&#34;&#34;Cast `self.geometry` to a `phi.geom.UniformGrid`.&#34;&#34;&#34;
+        assert isinstance(self._geometry, UniformGrid), f&#34;Geometry is not a UniformGrid but {type(self._geometry)}&#34;
+        return self._geometry
+
+    @property
     def mesh(self) -&gt; Mesh:
         &#34;&#34;&#34;Cast `self.geometry` to a `phi.geom.Mesh`.&#34;&#34;&#34;
         assert isinstance(self._geometry, Mesh), f&#34;Geometry is not a mesh but {type(self._geometry)}&#34;
@@ -5781,6 +5827,20 @@ def geometry(self) -&gt; Geometry:
 def graph(self) -&gt; Graph:
     &#34;&#34;&#34;Cast `self.geometry` to a `phi.geom.Graph`.&#34;&#34;&#34;
     assert isinstance(self._geometry, Graph), f&#34;Geometry is not a mesh but {type(self._geometry)}&#34;
+    return self._geometry</code></pre>
+</details>
+</dd>
+<dt id="phi.field.Field.grid"><code class="name">prop <span class="ident">grid</span> : phi.geom._grid.UniformGrid</code></dt>
+<dd>
+<div class="desc"><p>Cast <code>self.geometry</code> to a <code><a title="phi.geom.UniformGrid" href="../geom/index.html#phi.geom.UniformGrid">UniformGrid</a></code>.</p></div>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def grid(self) -&gt; UniformGrid:
+    &#34;&#34;&#34;Cast `self.geometry` to a `phi.geom.UniformGrid`.&#34;&#34;&#34;
+    assert isinstance(self._geometry, UniformGrid), f&#34;Geometry is not a UniformGrid but {type(self._geometry)}&#34;
     return self._geometry</code></pre>
 </details>
 </dd>
@@ -7489,6 +7549,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <li><code><a title="phi.field.Field.geometry" href="#phi.field.Field.geometry">geometry</a></code></li>
 <li><code><a title="phi.field.Field.gradient" href="#phi.field.Field.gradient">gradient</a></code></li>
 <li><code><a title="phi.field.Field.graph" href="#phi.field.Field.graph">graph</a></code></li>
+<li><code><a title="phi.field.Field.grid" href="#phi.field.Field.grid">grid</a></code></li>
 <li><code><a title="phi.field.Field.grid_scatter" href="#phi.field.Field.grid_scatter">grid_scatter</a></code></li>
 <li><code><a title="phi.field.Field.is_centered" href="#phi.field.Field.is_centered">is_centered</a></code></li>
 <li><code><a title="phi.field.Field.is_graph" href="#phi.field.Field.is_graph">is_graph</a></code></li>
@@ -7551,6 +7612,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <li><code><a title="phi.field.Field.geometry" href="#phi.field.Field.geometry">geometry</a></code></li>
 <li><code><a title="phi.field.Field.gradient" href="#phi.field.Field.gradient">gradient</a></code></li>
 <li><code><a title="phi.field.Field.graph" href="#phi.field.Field.graph">graph</a></code></li>
+<li><code><a title="phi.field.Field.grid" href="#phi.field.Field.grid">grid</a></code></li>
 <li><code><a title="phi.field.Field.grid_scatter" href="#phi.field.Field.grid_scatter">grid_scatter</a></code></li>
 <li><code><a title="phi.field.Field.is_centered" href="#phi.field.Field.is_centered">is_centered</a></code></li>
 <li><code><a title="phi.field.Field.is_graph" href="#phi.field.Field.is_graph">is_graph</a></code></li>
@@ -7613,6 +7675,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <li><code><a title="phi.field.Field.geometry" href="#phi.field.Field.geometry">geometry</a></code></li>
 <li><code><a title="phi.field.Field.gradient" href="#phi.field.Field.gradient">gradient</a></code></li>
 <li><code><a title="phi.field.Field.graph" href="#phi.field.Field.graph">graph</a></code></li>
+<li><code><a title="phi.field.Field.grid" href="#phi.field.Field.grid">grid</a></code></li>
 <li><code><a title="phi.field.Field.grid_scatter" href="#phi.field.Field.grid_scatter">grid_scatter</a></code></li>
 <li><code><a title="phi.field.Field.is_centered" href="#phi.field.Field.is_centered">is_centered</a></code></li>
 <li><code><a title="phi.field.Field.is_graph" href="#phi.field.Field.is_graph">is_graph</a></code></li>

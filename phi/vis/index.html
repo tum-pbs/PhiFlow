@@ -26,7 +26,7 @@ hljs.highlightAll();
 </header>
 <section id="section-intro">
 <p>Visualization: plotting, interactive user interfaces.</p>
-<p>Use <code><a title="phi.vis.view" href="#phi.vis.view">view()</a></code> to show fields or field variables in an interactive user interface.</p>
+<p>Use <code>view()</code> to show fields or field variables in an interactive user interface.</p>
 <p>Use <code><a title="phi.vis.plot" href="#phi.vis.plot">plot()</a></code> to plot fields using Matplotlib.</p>
 <p>See the user interface documentation at <a href="https://tum-pbs.github.io/PhiFlow/Visualization.html">https://tum-pbs.github.io/PhiFlow/Visualization.html</a></p>
 </section>
@@ -59,7 +59,7 @@ If not specified, closes the figure created most recently.</dd>
 <span>def <span class="ident">control</span></span>(<span>value, range: tuple = None, description='', **kwargs)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Mark a variable as controllable by any GUI created via <code><a title="phi.vis.view" href="#phi.vis.view">view()</a></code>.</p>
+<div class="desc"><p>Mark a variable as controllable by any GUI created via <code>view()</code>.</p>
 <p>Example:</p>
 <pre><code class="language-python-repl">&gt;&gt;&gt; dt = control(1.0, (0.1, 10), name=&quot;Time increment (dt)&quot;)
 </code></pre>
@@ -218,6 +218,12 @@ Currently, only single-figure plots are supported.</p>
 <div class="desc"><h2 id="args">Args</h2>
 <p>See <code><a title="phi.vis.plot" href="#phi.vis.plot">plot()</a></code>.</p></div>
 </dd>
+<dt id="phi.vis.show_hist"><code class="name flex">
+<span>def <span class="ident">show_hist</span></span>(<span>data: phiml.math._tensors.Tensor, bins=(binsⁱ=20), weights=1, same_bins: Union[str, tuple, list, set, ForwardRef('Shape'), Callable] = None)</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="phi.vis.smooth"><code class="name flex">
 <span>def <span class="ident">smooth</span></span>(<span>curves: phiml.math._tensors.Tensor, n: int, ext: phiml.math.extrapolation.Extrapolation = &lt;phiml.math.extrapolation._SymmetricGradientExtrapolation object&gt;) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
@@ -232,53 +238,6 @@ Currently, only single-figure plots are supported.</p>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Smoothed curves as <code>Tensor</code></p></div>
-</dd>
-<dt id="phi.vis.view"><code class="name flex">
-<span>def <span class="ident">view</span></span>(<span>*fields: Union[str, phi.field._field.Field], play: bool = True, gui=None, name: str = None, description: str = None, scene: Union[bool, phi.field._scene.Scene] = False, keep_alive=True, select: Union[str, tuple, list] = '', framerate=None, namespace=None, log_performance=True, **config) ‑> phi.vis._viewer.Viewer</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Show <code>fields</code> in a graphical user interface.</p>
-<p><code>fields</code> may contain instances of <code>Field</code> or variable names of top-level variables (main module or Jupyter notebook).
-During loops, e.g. <code><a title="phi.vis.view" href="#phi.vis.view">view()</a>.range()</code>, the variable status is tracked and the GUI is updated.</p>
-<p>When called from a Python script, name and description may be specified in the module docstring (string before imports).
-The first line is interpreted as the name, the rest as the subtitle.
-If not specified, a generic name and description is chosen.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>*fields</code></strong></dt>
-<dd>(Optional) Contents to be displayed. Either variable names or values.
-For field instances, all variables referencing the value will be shown.
-If not provided, the user namespace is searched for Field variables.</dd>
-<dt><strong><code>play</code></strong></dt>
-<dd>Whether to immediately start executing loops.</dd>
-<dt><strong><code>gui</code></strong></dt>
-<dd>(Optional) Name of GUI as <code>str</code> or GUI class.
-Built-in GUIs can be selected via <code>'dash'</code>, <code>'console'</code>.
-See <a href="https://tum-pbs.github.io/PhiFlow/Visualization.html">https://tum-pbs.github.io/PhiFlow/Visualization.html</a></dd>
-<dt><strong><code>name</code></strong></dt>
-<dd>(Optional) Name to display in GUI and use for the output directory if <code>scene=True</code>.
-Will be generated from the top-level script if not provided.</dd>
-<dt><strong><code>description</code></strong></dt>
-<dd>(Optional) Description to be displayed in the GUI.
-Will be generated from the top-level script if not provided.</dd>
-<dt><strong><code>scene</code></strong></dt>
-<dd>Existing <code>Scene</code> to write into or <code>bool</code>. If <code>True</code>, creates a new Scene in <code>~/phi/&lt;name&gt;</code></dd>
-<dt><strong><code>keep_alive</code></strong></dt>
-<dd>Whether the GUI should keep running even after the main thread finishes.</dd>
-<dt><strong><code>framerate</code></strong></dt>
-<dd>Target frame rate in Hz. Play will not step faster than the framerate. <code>None</code> for unlimited frame rate.</dd>
-<dt><strong><code>select</code></strong></dt>
-<dd>Dimension names along which one item to show is selected.
-Dimensions may be passed as <code>tuple</code> of <code>str</code> or as comma-separated names in a single <code>str</code>.
-For each <code>select</code> dimension, an associated selection slider will be created.</dd>
-<dt><strong><code>log_performance</code></strong></dt>
-<dd>Whether to measure and log the time each step takes.
-If <code>True</code>, will be logged as <code>step_time</code> to <code>log_step_time.txt</code>.</dd>
-<dt><strong><code>**config</code></strong></dt>
-<dd>Additional GUI configuration arguments.</dd>
-</dl>
-<h2 id="returns">Returns</h2>
-<p><code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></code></p></div>
 </dd>
 <dt id="phi.vis.write_image"><code class="name flex">
 <span>def <span class="ident">write_image</span></span>(<span>path: str, figure=None, dpi=120.0, close=False, transparent=True)</span>
@@ -302,297 +261,6 @@ If <code>True</code>, will be logged as <code>step_time</code> to <code>log_step
 </dl>
 </section>
 <section>
-<h2 class="section-title" id="header-classes">Classes</h2>
-<dl>
-<dt id="phi.vis.Viewer"><code class="flex name class">
-<span>class <span class="ident">Viewer</span></span>
-</code></dt>
-<dd>
-<div class="desc"><p>Shows variables from the user namespace.
-To create a <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></code>, call <code><a title="phi.vis.view" href="#phi.vis.view">view()</a></code> from the top-level Python script or from a notebook.</p>
-<p>Use <code><a title="phi.vis.Viewer.range" href="#phi.vis.Viewer.range">Viewer.range()</a></code> to control the loop execution from the user interface.</p>
-<p>Also see the user interface documentation at <a href="https://tum-pbs.github.io/PhiFlow/Visualization.html">https://tum-pbs.github.io/PhiFlow/Visualization.html</a></p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">class Viewer(VisModel):
-    &#34;&#34;&#34;
-    Shows variables from the user namespace.
-    To create a `Viewer`, call `phi.vis.view()` from the top-level Python script or from a notebook.
-
-    Use `Viewer.range()` to control the loop execution from the user interface.
-
-    Also see the user interface documentation at https://tum-pbs.github.io/PhiFlow/Visualization.html
-    &#34;&#34;&#34;
-
-    def __init__(self,
-                 namespace: UserNamespace,
-                 fields: dict,
-                 name: str,
-                 description: str,
-                 scene: Scene,
-                 controls: tuple,
-                 actions: dict,
-                 log_performance: bool,
-                 ):
-        VisModel.__init__(self, name, description, scene=scene)
-        self.initial_field_values = fields
-        self._controls = controls
-        self.namespace = namespace
-        self.log_performance = log_performance
-        self._rec = None
-        self._in_loop = False
-        self._log = SceneLog(self.scene)
-        self.log_file = self._log.log_file
-        self._elapsed = None
-        self.reset_step = 0
-        self._actions = {}
-        custom_reset = False
-        self.reset_count = 0
-        for action, function in actions.items():
-            if action.name == &#39;reset&#39;:
-                self._actions[action] = partial(self.reset, custom_reset=function)
-                custom_reset = True
-            else:
-                self._actions[action] = function
-        if not custom_reset:
-            self._actions[Action(&#39;reset&#39;, Viewer.reset.__doc__)] = self.reset
-
-    def log_scalars(self, reduce=math.mean, **values):
-        self._log.log_scalars(self.steps, reduce=reduce, **values)
-
-    def info(self, message: str):  # may be replaced by a different solution later on
-        &#34;&#34;&#34;
-        Update the status message.
-        The status message is written to the console and the log file.
-        Additionally, it may be displayed by the user interface.
-
-        See `debug()`.
-
-        Args:
-            message: Message to display
-        &#34;&#34;&#34;
-        message = str(message)
-        self.message = message
-        self._log.log(message)
-
-    def __rrshift__(self, other):
-        self.info(other)
-
-    @property
-    def field_names(self) -&gt; tuple:
-        return tuple(self.initial_field_values.keys())
-
-    def get_field(self, name, dim_selection: dict) -&gt; Field:
-        if name not in self.initial_field_values:
-            raise KeyError(name)
-        if self._rec:
-            value = self._rec[name]
-        else:
-            value = self.namespace.get_variable(name)
-        if callable(value):
-            value = value()
-        if isinstance(value, (Field, Tensor)):
-            value = value[dim_selection]
-        return value
-
-    @property
-    def curve_names(self) -&gt; tuple:
-        return self._log.scalar_curve_names
-
-    def get_curve(self, name: str) -&gt; tuple:
-        return self._log.get_scalar_curve(name)
-
-    @property
-    def controls(self) -&gt; Tuple[Control]:
-        return self._controls
-
-    def get_control_value(self, name):
-        return self.namespace.get_variable(name)
-
-    def set_control_value(self, name, value):
-        self.namespace.set_variable(name, value)
-
-    @property
-    def actions(self) -&gt; tuple:
-        return tuple(self._actions.keys())
-
-    def run_action(self, name):
-        for action, fun in self._actions.items():
-            if action.name == name:
-                fun()
-                return
-        raise KeyError(name)
-
-    def range(self, *args, warmup=0, **rec_dim):
-        &#34;&#34;&#34;
-        Similarly to `range()`, returns a generator that can be used in a `for` loop.
-
-        &gt;&gt;&gt; for step in ModuleViewer().range(100):
-        &gt;&gt;&gt;     print(f&#39;Running step {step}&#39;)
-
-        However, `Viewer.range()` enables controlling the flow via the user interface.
-        Each element returned by the generator waits for `progress` to be invoked once.
-
-        Note that `step` is always equal to `Viewer.steps`.
-
-        This method can be invoked multiple times.
-        However, do not call this method while one `range` is still active.
-
-        Args:
-            *args: Either no arguments for infinite loop or single `int` argument `stop`.
-                Must be empty if `rec_dim` is used.
-            **rec_dim: Can be used instead of `*args` to record values along a new batch dimension of this name.
-                The recorded values can be accessed as `Viewer.rec.&lt;name&gt;` or `Viewer.rec[&#39;&lt;name&gt;&#39;]`.
-            warmup: Number of uncounted loop iterations to perform before `step()` is invoked for the first time.
-
-        Yields:
-            Step count of `Viewer`.
-        &#34;&#34;&#34;
-        for _ in range(warmup):
-            yield self.steps
-
-        self._in_loop = True
-        self._call(self.progress_available)
-
-        if rec_dim:
-            assert len(rec_dim) == 1, f&#34;Only one rec_dim allowed but got {rec_dim}&#34;
-            assert not args, f&#34;No positional arguments are allowed when a rec_dim is specified. {rec_dim}&#34;
-            rec_dim_name = next(iter(rec_dim.keys()))
-            size = rec_dim[rec_dim_name]
-            assert isinstance(size, int)
-            self._rec = Record(rec_dim_name)
-            self._rec.append(self.initial_field_values, warn_missing=False)
-            args = [size]
-            self.growing_dims = [rec_dim_name]
-
-        if len(args) == 0:
-            def count():
-                i = 0
-                while True:
-                    yield i
-                    i += 1
-
-            step_source = count()
-        else:
-            step_source = range(*args)
-
-        try:
-            for step in step_source:
-                self.steps = step - self.reset_step
-                try:
-                    self._pre_step()
-                    t = time.perf_counter()
-                    yield step - self.reset_step
-                    self._elapsed = time.perf_counter() - t
-                    self.steps = step - self.reset_step + 1
-                    if rec_dim:
-                        self._rec.append({name: self.namespace.get_variable(name) for name in self.field_names})
-                    if self.log_performance:
-                        self._log.log_scalars(self.steps, reduce=None, step_time=self._elapsed)
-                finally:
-                    self._post_step()
-        finally:
-            self._in_loop = False
-            self._call(self.progress_unavailable)
-
-    def _pre_step(self):
-        self._call(self.pre_step)
-
-    def _post_step(self):
-        self._call(self.post_step)
-
-    @property
-    def rec(self) -&gt; &#39;Record&#39;:
-        &#34;&#34;&#34;
-        Read recorded fields as `viewer.rec.&lt;name&gt;`.
-        Accessing `rec` without having started a recording using `Viewer.range()` raises an `AssertionError`.
-        &#34;&#34;&#34;
-        assert self._rec, &#34;Enable recording by calling range() with a dimension name, e.g. &#39;range(frames=10)&#39;.&#34;
-        return self._rec
-
-    def progress(self):
-        raise AssertionError(&#34;progress() not supported by synchronous Viewer.&#34;)
-
-    @property
-    def can_progress(self) -&gt; bool:
-        return self._in_loop
-
-    def reset(self, custom_reset=None):
-        &#34;&#34;&#34;
-        Restores all viewed fields to the states they were in when the viewer was created.
-        Changes variable values in the user namespace.
-        &#34;&#34;&#34;
-        if custom_reset:
-            custom_reset()
-        for name, value in self.initial_field_values.items():
-            self.namespace.set_variable(name, value)
-        self.reset_step += self.steps
-        self.steps = 0
-        self.reset_count += 1</code></pre>
-</details>
-<h3>Ancestors</h3>
-<ul class="hlist">
-<li>phi.vis._vis_base.VisModel</li>
-</ul>
-<h3>Subclasses</h3>
-<ul class="hlist">
-<li>phi.vis._viewer.AsyncViewer</li>
-</ul>
-<h3>Instance variables</h3>
-<dl>
-<dt id="phi.vis.Viewer.rec"><code class="name">prop <span class="ident">rec</span> : Record</code></dt>
-<dd>
-<div class="desc"><p>Read recorded fields as <code>viewer.rec.&lt;name&gt;</code>.
-Accessing <code>rec</code> without having started a recording using <code><a title="phi.vis.Viewer.range" href="#phi.vis.Viewer.range">Viewer.range()</a></code> raises an <code>AssertionError</code>.</p></div>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def rec(self) -&gt; &#39;Record&#39;:
-    &#34;&#34;&#34;
-    Read recorded fields as `viewer.rec.&lt;name&gt;`.
-    Accessing `rec` without having started a recording using `Viewer.range()` raises an `AssertionError`.
-    &#34;&#34;&#34;
-    assert self._rec, &#34;Enable recording by calling range() with a dimension name, e.g. &#39;range(frames=10)&#39;.&#34;
-    return self._rec</code></pre>
-</details>
-</dd>
-</dl>
-<h3>Methods</h3>
-<dl>
-<dt id="phi.vis.Viewer.range"><code class="name flex">
-<span>def <span class="ident">range</span></span>(<span>self, *args, warmup=0, **rec_dim)</span>
-</code></dt>
-<dd>
-<div class="desc"><p>Similarly to <code>range()</code>, returns a generator that can be used in a <code>for</code> loop.</p>
-<pre><code class="language-python-repl">&gt;&gt;&gt; for step in ModuleViewer().range(100):
-&gt;&gt;&gt;     print(f'Running step {step}')
-</code></pre>
-<p>However, <code><a title="phi.vis.Viewer.range" href="#phi.vis.Viewer.range">Viewer.range()</a></code> enables controlling the flow via the user interface.
-Each element returned by the generator waits for <code>progress</code> to be invoked once.</p>
-<p>Note that <code>step</code> is always equal to <code>Viewer.steps</code>.</p>
-<p>This method can be invoked multiple times.
-However, do not call this method while one <code>range</code> is still active.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>*args</code></strong></dt>
-<dd>Either no arguments for infinite loop or single <code>int</code> argument <code>stop</code>.
-Must be empty if <code>rec_dim</code> is used.</dd>
-<dt><strong><code>**rec_dim</code></strong></dt>
-<dd>Can be used instead of <code>*args</code> to record values along a new batch dimension of this name.
-The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <code>Viewer.rec['&lt;name&gt;']</code>.</dd>
-<dt><strong><code>warmup</code></strong></dt>
-<dd>Number of uncounted loop iterations to perform before <code>step()</code> is invoked for the first time.</dd>
-</dl>
-<h2 id="yields">Yields</h2>
-<p>Step count of <code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></code>.</p></div>
-</dd>
-</dl>
-</dd>
-</dl>
 </section>
 </article>
 <nav id="sidebar">
@@ -616,20 +284,9 @@ The recorded values can be accessed as <code>Viewer.rec.&lt;name&gt;</code> or <
 <li><code><a title="phi.vis.plot_scalars" href="#phi.vis.plot_scalars">plot_scalars</a></code></li>
 <li><code><a title="phi.vis.savefig" href="#phi.vis.savefig">savefig</a></code></li>
 <li><code><a title="phi.vis.show" href="#phi.vis.show">show</a></code></li>
+<li><code><a title="phi.vis.show_hist" href="#phi.vis.show_hist">show_hist</a></code></li>
 <li><code><a title="phi.vis.smooth" href="#phi.vis.smooth">smooth</a></code></li>
-<li><code><a title="phi.vis.view" href="#phi.vis.view">view</a></code></li>
 <li><code><a title="phi.vis.write_image" href="#phi.vis.write_image">write_image</a></code></li>
-</ul>
-</li>
-<li><h3><a href="#header-classes">Classes</a></h3>
-<ul>
-<li>
-<h4><code><a title="phi.vis.Viewer" href="#phi.vis.Viewer">Viewer</a></code></h4>
-<ul class="">
-<li><code><a title="phi.vis.Viewer.range" href="#phi.vis.Viewer.range">range</a></code></li>
-<li><code><a title="phi.vis.Viewer.rec" href="#phi.vis.Viewer.rec">rec</a></code></li>
-</ul>
-</li>
 </ul>
 </li>
 </ul>

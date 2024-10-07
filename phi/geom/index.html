@@ -70,6 +70,12 @@ Once created, SDFs cannot be unstacked.</dd>
 <dd>
 <div class="desc"><p>Tests that two objects have the same spatial rank. Objects can be of types: <code>int</code>, <code>None</code> (no check), <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>, <code>Shape</code>, <code>Tensor</code></p></div>
 </dd>
+<dt id="phi.geom.bounding_box"><code class="name flex">
+<span>def <span class="ident">bounding_box</span></span>(<span>geometry: Union[phiml.math._tensors.Tensor, phi.geom._geom.Geometry])</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="phi.geom.build_mesh"><code class="name flex">
 <span>def <span class="ident">build_mesh</span></span>(<span>bounds: phi.geom._box.Box = None, resolution=(), obstacles: Union[phi.geom._geom.Geometry, Dict[str, phi.geom._geom.Geometry]] = None, method='quad', cell_dim: phiml.math._shape.Shape = (cellsⁱ=None), face_format: str = 'csc', max_squish: Optional[float] = 0.5, **resolution_: Union[int, phiml.math._tensors.Tensor, tuple, list, Any]) ‑> phi.geom._mesh.Mesh</span>
 </code></dt>
@@ -8256,6 +8262,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <ul class="two-column">
 <li><code><a title="phi.geom.as_sdf" href="#phi.geom.as_sdf">as_sdf</a></code></li>
 <li><code><a title="phi.geom.assert_same_rank" href="#phi.geom.assert_same_rank">assert_same_rank</a></code></li>
+<li><code><a title="phi.geom.bounding_box" href="#phi.geom.bounding_box">bounding_box</a></code></li>
 <li><code><a title="phi.geom.build_mesh" href="#phi.geom.build_mesh">build_mesh</a></code></li>
 <li><code><a title="phi.geom.concat" href="#phi.geom.concat">concat</a></code></li>
 <li><code><a title="phi.geom.embed" href="#phi.geom.embed">embed</a></code></li>
