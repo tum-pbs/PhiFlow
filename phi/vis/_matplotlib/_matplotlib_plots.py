@@ -1,6 +1,6 @@
 import sys
 import warnings
-from typing import Callable, Tuple, Any, Dict, Union
+from typing import Callable, Tuple, Any, Dict, Union, Optional
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -37,7 +37,6 @@ class MatplotlibPlots(PlottingLibrary):
                       rows: int,
                       cols: int,
                       spaces: Dict[Tuple[int, int], Box],
-                      titles: Dict[Tuple[int, int], str],
                       log_dims: Tuple[str, ...],
                       plt_params: Dict[str, Any]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         size = (size[0] or 12, size[1] or 5)
@@ -120,7 +119,6 @@ class MatplotlibPlots(PlottingLibrary):
                             # subplot.set_yscale('log')
                         if bounds.vector.item_names[2] in log_dims:
                             axis.set_zscale('log')
-                    axis.set_title(titles.get((row, col), None))
                     axes_by_pos[(row, col)] = axes[row, col]
         try:
             figure.tight_layout()
@@ -128,7 +126,13 @@ class MatplotlibPlots(PlottingLibrary):
             warnings.warn(f"tight_layout could not be applied: {err}")
         return figure, axes_by_pos
 
-    def animate(self, fig: plt.Figure, frame_count: int, plot_frame_function: Callable, interval: float, repeat: bool, interactive: bool):
+    def set_title(self, title: str, figure, subplot: Optional):
+        if subplot is None:
+            pass
+        else:
+            subplot.set_title(title)
+
+    def animate(self, fig: plt.Figure, frame_count: int, plot_frame_function: Callable, interval: float, repeat: bool, interactive: bool, time_axis: Optional[str]):
         if 'ipykernel' in sys.modules:
             rc('animation', html='html5')
 
@@ -160,7 +164,7 @@ class MatplotlibPlots(PlottingLibrary):
         return animation.FuncAnimation(fig, clear_and_plot, repeat=repeat, frames=frame_count, interval=interval)
 
     def finalize(self, figure):
-        pass
+        plt.tight_layout()  # because subplot titles can be added after figure creation
 
     def close(self, figure):
         if isinstance(figure, plt.Figure):

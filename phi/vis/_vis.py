@@ -10,7 +10,7 @@ from phiml.math._magic_ops import tree_map
 from ._user_namespace import get_user_namespace, UserNamespace, DictNamespace
 from ._viewer import create_viewer, Viewer
 from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibrary, common_index, to_field, \
-    get_default_limits, uniform_bound, is_jupyter, requires_color_map
+    get_default_limits, uniform_bound, is_jupyter, requires_color_map, display_name
 from ._vis_base import title_label
 from .. import math
 from ..field import Scene, Field
@@ -376,16 +376,18 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
     # --- animate or plot ---
     figures = []
     for plot_idx in fig_shape.meshgrid():
-        figure, axes = plots.create_figure(size, nrows, ncols, subplots, title_by_subplot, log_dims, plt_params)
+        figure, axes = plots.create_figure(size, nrows, ncols, subplots, log_dims, plt_params)
         if animate:
             def plot_frame(figure, frame: int):
                 for pos, fields in positioning.items():
+                    plots.set_title(title_by_subplot[pos], figure, axes[pos])
+                    plots.set_title(display_name(animate.item_names[0][frame]) if animate.item_names[0] else None, figure, None)
                     for i, f in enumerate(fields):
                         idx = indices[pos][i]
                         f = f[{animate.name: frame}]
                         plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[pos][i], alpha[idx], err[idx])
                 plots.finalize(figure)
-            anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat, interactive=True)
+            anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat, interactive=True, time_axis=animate.name)
             if is_jupyter():
                 plots.close(figure)
             LAST_FIGURE[0] = anim
@@ -394,6 +396,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
             figures.append(anim)
         else:  # non-animated plot
             for pos, fields in positioning.items():
+                plots.set_title(title_by_subplot[pos], figure, axes[pos])
                 for i, f in enumerate(fields):
                     idx = indices[pos][i]
                     plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[pos][i], alpha[idx], err[idx])
