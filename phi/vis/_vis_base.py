@@ -496,6 +496,8 @@ def select_channel(value: Union[Field, Tensor, tuple, list], channel: Union[str,
 
 
 def to_field(obj) -> Field:
+    if isinstance(obj, Tensor) and obj.dtype.kind == object:
+        return math.map(to_field, obj, dims=object)
     if isinstance(obj, Field):
         return obj
     if isinstance(obj, Geometry):
@@ -522,6 +524,7 @@ def to_field(obj) -> Field:
     raise ValueError(f"Cannot plot {obj}. Tensors, geometries and fields can be plotted.")
 
 
+@math.broadcast(dims=object)
 def get_default_limits(f: Field, all_dims: Optional[Sequence[str]], log_dims: Tuple[str], err: Tensor) -> Box:
     if f.is_point_cloud and f.spatial_rank == 1:  # 1D: bar chart
         bounds = f.bounds
@@ -594,6 +597,7 @@ def uniform_bound(shape: Shape):
     return shape.with_sizes(sizes)
 
 
+@math.broadcast(dims=object)
 def requires_color_map(f: Field):
     if f.spatial_rank <= 1:
         return False

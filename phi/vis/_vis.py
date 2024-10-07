@@ -13,7 +13,7 @@ from ._vis_base import Control, value_range, Action, VisModel, Gui, PlottingLibr
     get_default_limits, uniform_bound, is_jupyter, requires_color_map, display_name
 from ._vis_base import title_label
 from .. import math
-from ..field import Scene, Field
+from ..field import Scene, Field, PointCloud
 from ..field._scene import _slugify_filename
 from ..geom import Geometry, Box, embed
 from phiml.math import Tensor, layout, batch, Shape, concat, vec, wrap, stack
@@ -359,8 +359,10 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
             min_val = 0
             max_val = max([float(abs(f.values).finite_max) for l in positioning.values() for f in l] or [0])
         else:
-            min_val = min([float(f.values.finite_min) for l in positioning.values() for f in l] or [0])
-            max_val = max([float(f.values.finite_max) for l in positioning.values() for f in l] or [0])
+            fin_min = lambda t: float(math.map(lambda f: math.finite_min(f.values, shape), t, dims=object).finite_min)
+            fin_max = lambda t: float(math.map(lambda f: math.finite_max(f.values, shape), t, dims=object).finite_max)
+            min_val = min([fin_min(f) for l in positioning.values() for f in l] or [0])
+            max_val = max([fin_max(f) for l in positioning.values() for f in l] or [0])
             if min_val != min_val:  # NaN
                 min_val = None
             if max_val != max_val:  # NaN
@@ -440,9 +442,9 @@ def layout_sub_figures(data: Union[Tensor, Field],
             for overlay_index in dim0.only(overlay).meshgrid(names=True):  # overlay these fields
                 # ToDo expand constants along rows/cols
                 layout_sub_figures(data[overlay_index], row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, {**base_index, **overlay_index})
+            return positioning, indices
         elif dim0.only(animate):
-            data = math.stack(data.native(), dim0)
-            layout_sub_figures(data, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, base_index)
+            pass
         else:
             elements = math.unstack(data, dim0.name)
             offset = 0
@@ -456,20 +458,21 @@ def layout_sub_figures(data: Union[Tensor, Field],
                     offset += shape(e).only(col_dims).volume
                 else:
                     layout_sub_figures(e, row_dims, col_dims, animate, overlay, offset_row, offset_col, positioning, indices, index)
-    else:   # --- data must be a plottable object ---
-        data = to_field(data)
-        overlay = data.shape.only(overlay)
-        animate = data.shape.only(animate).without(overlay)
-        row_shape = data.shape.only(row_dims).without(animate).without(overlay)
-        col_shape = data.shape.only(col_dims).without(row_dims).without(animate).without(overlay)
-        row_shape &= row_dims.after_gather(base_index)
-        col_shape &= col_dims.after_gather(base_index)
-        for ri, r in enumerate(row_shape.meshgrid(names=True)):
-            for ci, c in enumerate(col_shape.meshgrid(names=True)):
-                for o in overlay.meshgrid(names=True):
-                    sub_data = data[r][c][o]
-                    positioning.setdefault((offset_row + ri, offset_col + ci), []).append(sub_data)
-                    indices.setdefault((offset_row + ri, offset_col + ci), []).append(dict(base_index, **r, **c, **o))
+            return positioning, indices
+    # --- data must be a plottable object ---
+    data = to_field(data)
+    overlay = data.shape.only(overlay)
+    animate = data.shape.only(animate).without(overlay)
+    row_shape = data.shape.only(row_dims).without(animate).without(overlay)
+    col_shape = data.shape.only(col_dims).without(row_dims).without(animate).without(overlay)
+    row_shape &= row_dims.after_gather(base_index)
+    col_shape &= col_dims.after_gather(base_index)
+    for ri, r in enumerate(row_shape.meshgrid(names=True)):
+        for ci, c in enumerate(col_shape.meshgrid(names=True)):
+            for o in overlay.meshgrid(names=True):
+                sub_data = data[r][c][o]
+                positioning.setdefault((offset_row + ri, offset_col + ci), []).append(sub_data)
+                indices.setdefault((offset_row + ri, offset_col + ci), []).append(dict(base_index, **r, **c, **o))
     return positioning, indices
 
 
@@ -514,15 +517,11 @@ def layout_color(content: Dict[Tuple[int, int], List[Field]], indices: Dict[Tupl
             idx = indices[pos][i]
             if (color[idx] != None).all:  # user-specified color
                 result_pos.append(color[idx])
-            elif requires_color_map(f):
-                result_pos.append(wrap('cmap'))
-            else:
-                channels = channel(f).without('vector')
-                if channels:
-                    result_pos.append(counter + math.range_tensor(channels))
-                else:
-                    result_pos.append(wrap(counter))
-                counter += channels.volume
+            cmap = requires_color_map(f)
+            channels = channel(f).without('vector')
+            channel_colors = counter + math.range_tensor(channels)
+            result_pos.append(math.where(cmap, wrap('cmap'), channel_colors))
+            counter += channels.volume * math.any(~cmap, shape)
     return result
 
 
