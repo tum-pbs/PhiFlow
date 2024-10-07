@@ -15157,12 +15157,12 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>2024-10-07 11:30:35.674687: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:485] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
-2024-10-07 11:30:35.689190: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:8454] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-2024-10-07 11:30:35.693621: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1452] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-2024-10-07 11:30:35.704864: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+<pre>2024-10-07 13:21:35.849615: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:485] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+2024-10-07 13:21:35.865105: E external/local_xla/xla/stream_executor/cuda/cuda_dnn.cc:8454] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+2024-10-07 13:21:35.869499: E external/local_xla/xla/stream_executor/cuda/cuda_blas.cc:1452] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+2024-10-07 13:21:35.881632: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
 To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
-2024-10-07 11:30:36.707855: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
+2024-10-07 13:21:36.955179: W tensorflow/compiler/tf2tensorrt/utils/py_utils.cc:38] TF-TRT Warning: Could not find TensorRT
 </pre>
 </div>
 </div>
@@ -15350,7 +15350,7 @@ To enable the following instructions: AVX2 FMA, in other operations, rebuild Ten
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(examplesᵇ=10, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">0.550 ± 0.280</span> <span class="ansi-white-fg">(1e-01...1e+00)</span></pre>
+<pre><span class="ansi-green-intense-fg">(examplesᵇ=10, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">0.441 ± 0.310</span> <span class="ansi-white-fg">(3e-02...9e-01)</span></pre>
 </div>
 
 </div>
@@ -15400,7 +15400,7 @@ To enable the following instructions: AVX2 FMA, in other operations, rebuild Ten
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre><span class="ansi-blue-intense-fg">(x=0.580, y=0.412)</span></pre>
+<pre><span class="ansi-blue-intense-fg">(x=0.060, y=0.887)</span></pre>
 </div>
 
 </div>
@@ -15449,18 +15449,18 @@ To enable the following instructions: AVX2 FMA, in other operations, rebuild Ten
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre><span class="ansi-green-intense-fg">(examplesᵇ=10, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">0.550 ± 0.280</span> <span class="ansi-white-fg">(1e-01...1e+00)</span>
+<pre><span class="ansi-green-intense-fg">(examplesᵇ=10, vectorᶜ=x,y)</span> <span class="ansi-blue-intense-fg">0.441 ± 0.310</span> <span class="ansi-white-fg">(3e-02...9e-01)</span>
 <span class="ansi-green-intense-fg">(examplesᵇ=10, vectorᶜ=x,y)</span>
-[[0.6, 0.4],
- [0.1, 0.3],
- [0.2, 0.4],
- [1.0, 0.9],
- [0.3, 0.9],
- [0.2, 0.7],
- [0.8, 0.4],
- [0.7, 0.2],
- [0.8, 0.4],
- [1.0, 0.7]]
+[[0.1, 0.9],
+ [0.1, 0.0],
+ [0.5, 0.1],
+ [0.6, 0.4],
+ [0.9, 0.5],
+ [0.7, 0.4],
+ [0.9, 0.9],
+ [0.0, 0.1],
+ [0.7, 0.5],
+ [0.4, 0.1]]
 </pre>
 </div>
 </div>
@@ -15604,22 +15604,22 @@ File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.6/x64/lib/pyth
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>array([[0.3329956 , 0.4011873 , 0.6239837 , 0.0376181 , 0.89401233,
-        0.43821055],
-       [0.5358846 , 0.7988787 , 0.34376866, 0.8745558 , 0.7809825 ,
-        0.59379935],
-       [0.3717966 , 0.71178716, 0.49168497, 0.5758126 , 0.2874921 ,
-        0.58042383],
-       [0.17343128, 0.93945116, 0.27086568, 0.44141543, 0.15919876,
-        0.0751192 ],
-       [0.6516449 , 0.938997  , 0.45098168, 0.45119005, 0.70229506,
-        0.9216628 ],
-       [0.8307401 , 0.04403538, 0.28472513, 0.40246093, 0.7638735 ,
-        0.5899265 ],
-       [0.6238564 , 0.04896659, 0.8279844 , 0.21262503, 0.6256444 ,
-        0.7665008 ],
-       [0.00880033, 0.9075418 , 0.29580957, 0.31291986, 0.8558848 ,
-        0.02917475]], dtype=float32)</pre>
+<pre>array([[4.70470846e-01, 9.20384109e-01, 9.62274969e-01, 3.22779536e-01,
+        3.30583692e-01, 5.49813330e-01],
+       [8.29283714e-01, 1.65878475e-01, 6.11229360e-01, 2.12907791e-04,
+        3.80763173e-01, 5.88124216e-01],
+       [6.20536268e-01, 2.38151789e-01, 9.02212977e-01, 8.16517115e-01,
+        3.35690439e-01, 2.94101655e-01],
+       [4.63237643e-01, 9.09590542e-01, 1.80232704e-01, 7.97231436e-01,
+        7.20673084e-01, 5.42150021e-01],
+       [3.80976796e-02, 4.47712064e-01, 1.33004129e-01, 2.09360063e-01,
+        4.31701779e-01, 1.87618196e-01],
+       [5.73881269e-01, 6.57267570e-02, 3.06678116e-01, 1.07592165e-01,
+        1.50276303e-01, 7.97904670e-01],
+       [6.59991264e-01, 8.46080661e-01, 1.22367024e-01, 8.98710072e-01,
+        9.09133673e-01, 4.49350476e-02],
+       [6.41172469e-01, 6.98916316e-01, 2.48942852e-01, 3.20672989e-05,
+        1.38096631e-01, 3.76250207e-01]], dtype=float32)</pre>
 </div>
 
 </div>
@@ -15658,16 +15658,19 @@ File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.6/x64/lib/pyth
 
 
 <div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
-<pre>array([[0.3329956 , 0.4011873 , 0.6239837 , 0.0376181 , 0.89401233,
-        0.43821055, 0.5358846 , 0.7988787 , 0.34376866, 0.8745558 ,
-        0.7809825 , 0.59379935, 0.3717966 , 0.71178716, 0.49168497,
-        0.5758126 , 0.2874921 , 0.58042383, 0.17343128, 0.93945116,
-        0.27086568, 0.44141543, 0.15919876, 0.0751192 , 0.6516449 ,
-        0.938997  , 0.45098168, 0.45119005, 0.70229506, 0.9216628 ,
-        0.8307401 , 0.04403538, 0.28472513, 0.40246093, 0.7638735 ,
-        0.5899265 , 0.6238564 , 0.04896659, 0.8279844 , 0.21262503,
-        0.6256444 , 0.7665008 , 0.00880033, 0.9075418 , 0.29580957,
-        0.31291986, 0.8558848 , 0.02917475]], dtype=float32)</pre>
+<pre>array([[4.70470846e-01, 9.20384109e-01, 9.62274969e-01, 3.22779536e-01,
+        3.30583692e-01, 5.49813330e-01, 8.29283714e-01, 1.65878475e-01,
+        6.11229360e-01, 2.12907791e-04, 3.80763173e-01, 5.88124216e-01,
+        6.20536268e-01, 2.38151789e-01, 9.02212977e-01, 8.16517115e-01,
+        3.35690439e-01, 2.94101655e-01, 4.63237643e-01, 9.09590542e-01,
+        1.80232704e-01, 7.97231436e-01, 7.20673084e-01, 5.42150021e-01,
+        3.80976796e-02, 4.47712064e-01, 1.33004129e-01, 2.09360063e-01,
+        4.31701779e-01, 1.87618196e-01, 5.73881269e-01, 6.57267570e-02,
+        3.06678116e-01, 1.07592165e-01, 1.50276303e-01, 7.97904670e-01,
+        6.59991264e-01, 8.46080661e-01, 1.22367024e-01, 8.98710072e-01,
+        9.09133673e-01, 4.49350476e-02, 6.41172469e-01, 6.98916316e-01,
+        2.48942852e-01, 3.20672989e-05, 1.38096631e-01, 3.76250207e-01]],
+      dtype=float32)</pre>
 </div>
 
 </div>
@@ -16308,7 +16311,7 @@ File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.6/x64/lib/pyth
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>/tmp/ipykernel_2113/1489350838.py:9: UserWarning: bounds argument is deprecated since 2.5 and will be ignored.
+<pre>/tmp/ipykernel_2115/1489350838.py:9: UserWarning: bounds argument is deprecated since 2.5 and will be ignored.
   segments.append(PointCloud(start, end - start, bounds=Box(x=2*PI, y=2*PI)))
 </pre>
 </div>
@@ -16425,8 +16428,8 @@ File <span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.6/x64/lib/pyth
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="text/plain">
-<pre>Initial loss: <span class="ansi-green-intense-fg">(batchᵇ=100)</span> <span class="ansi-blue-intense-fg">0.254 ± 0.272</span> <span class="ansi-white-fg">(2e-04...9e-01)</span>
-Final loss: <span class="ansi-green-intense-fg">(batchᵇ=100)</span> <span class="ansi-blue-intense-fg">0.081 ± 0.091</span> <span class="ansi-white-fg">(5e-05...3e-01)</span>
+<pre>Initial loss: <span class="ansi-green-intense-fg">(batchᵇ=100)</span> <span class="ansi-blue-intense-fg">0.199 ± 0.171</span> <span class="ansi-white-fg">(2e-04...6e-01)</span>
+Final loss: <span class="ansi-green-intense-fg">(batchᵇ=100)</span> <span class="ansi-blue-intense-fg">0.081 ± 0.090</span> <span class="ansi-white-fg">(4e-05...3e-01)</span>
 </pre>
 </div>
 </div>
