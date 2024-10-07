@@ -932,6 +932,8 @@ def stack(fields: Sequence[Field], dim: Shape, dim_bounds: Box = None):
     """
     assert all(isinstance(f, Field) for f in fields), f"All fields must be Fields of the same type but got {fields}"
     assert all(isinstance(f, type(fields[0])) for f in fields), f"All fields must be Fields of the same type but got {fields}"
+    if not all([f.geometry == fields[0].geometry or f.sampled_at != fields[0].sampled_at for f in fields]):
+        return math.layout(fields, dim)
     if any(f.boundary != fields[0].boundary for f in fields):
         boundary = math.stack([f.boundary for f in fields], dim)
     else:
@@ -949,7 +951,6 @@ def stack(fields: Sequence[Field], dim: Shape, dim_bounds: Box = None):
         values = math.stack([f.values for f in fields], dim)
         return PointCloud(geometry, values, boundary)
     elif fields[0].is_mesh:
-        assert all([f.geometry == fields[0].geometry for f in fields]), f"stacking fields with different geometries is not supported. Got {[f.geometry for f in fields]}"
         values = math.stack([f.values for f in fields], dim)
         return Field(fields[0].geometry, values, boundary)
     raise NotImplementedError(type(fields[0]))
