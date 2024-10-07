@@ -488,7 +488,7 @@ class VectorCloud3D(Recipe):
 class StreamPlot2D(Recipe):
 
     def can_plot(self, data: Field, space: Box) -> bool:
-        return data.spatial_rank == 2 and 'vector' in channel(data) and data.is_grid and (data.values != 0).any
+        return data.spatial_rank == 2 and 'vector' in channel(data) and data.is_grid and (data.values != 0).any and all(dim.size > 1 for dim in data.resolution)
 
     def plot(self, data: Field, figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         vector = data.geometry.shape['vector']
