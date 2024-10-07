@@ -4,7 +4,7 @@ import tempfile
 import warnings
 import webbrowser
 from numbers import Number
-from typing import Tuple, Any, Dict, List, Callable, Union
+from typing import Tuple, Any, Dict, List, Callable, Union, Optional
 
 import numpy
 import numpy as np
@@ -26,7 +26,7 @@ from phi.geom._geom_ops import GeometryStack
 from phi.math import Tensor, spatial, channel, non_channel
 from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve, down_sample_curve
-from phi.vis._vis_base import PlottingLibrary, Recipe, is_jupyter
+from phi.vis._vis_base import PlottingLibrary, Recipe, is_jupyter, display_name
 
 
 class PlotlyPlots(PlottingLibrary):
@@ -39,12 +39,10 @@ class PlotlyPlots(PlottingLibrary):
                       rows: int,
                       cols: int,
                       subplots: Dict[Tuple[int, int], Box],
-                      titles: Dict[Tuple[int, int], str],
                       log_dims: Tuple[str, ...],
                       plt_params: Dict[str, Any]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
-        titles = [titles.get((r, c), None) for r in range(rows) for c in range(cols)]
         specs = [[{'type': 'xy' if subplots.get((row, col), Box()).spatial_rank < 3 else 'surface'} for col in range(cols)] for row in range(rows)]
-        fig = self.current_figure = make_subplots(rows=rows, cols=cols, subplot_titles=titles, specs=specs)
+        fig = self.current_figure = make_subplots(rows=rows, cols=cols, specs=specs)
         for (row, col), bounds in subplots.items():
             subplot = fig.get_subplot(row + 1, col + 1)
             if bounds.spatial_rank == 1:
@@ -64,7 +62,19 @@ class PlotlyPlots(PlottingLibrary):
             fig.update_layout(height=size[1] * 70)  # 70 approximately matches matplotlib but it's not consistent
         return fig, {pos: (pos[0]+1, pos[1]+1) for pos in subplots.keys()}
 
-    def animate(self, fig, frame_count: int, plot_frame_function: Callable, interval: float, repeat: bool, interactive: bool):
+    def set_title(self, title, figure: go.Figure, subplot):
+        if subplot is not None:
+            subplot = figure.get_subplot(*subplot)
+            if hasattr(subplot, 'domain'):
+                domain = subplot.domain.x, subplot.domain.y
+            else:
+                domain = [subplot.xaxis.domain, subplot.yaxis.domain]
+            annotation = _build_subplot_title_annotations([title], domain)
+            figure.layout.annotations += tuple(annotation)
+        else:
+            figure.update_layout(title_text=title)
+
+    def animate(self, fig, frame_count: int, plot_frame_function: Callable, interval: float, repeat: bool, interactive: bool, time_axis: Optional[str]):
         figures = []
         for frame in range(frame_count):
             frame_fig = go.Figure(fig)
@@ -72,20 +82,21 @@ class PlotlyPlots(PlottingLibrary):
             plot_frame_function(frame_fig, frame)
             figures.append(frame_fig)
         frames = [go.Frame(data=fig.data, layout=fig.layout, name=f'frame{i}') for i, fig in enumerate(figures)]
-        anim = go.Figure(data=figures[0].data, frames=frames)
+        anim = go.Figure(data=figures[0].data, layout=figures[0].layout, frames=frames)
         anim._phi_size = fig._phi_size
         if interactive:
+            names = [f.layout.title.text if f.layout.title.text else f'{i}' for i, f in enumerate(figures)]
             anim.update_layout(
                 updatemenus=[{
                     'buttons': [
                         {
                             'args': [None, {'frame': {'duration': 500, 'redraw': True}, 'fromcurrent': True}],
-                            'label': 'Play',
+                            'label': '⏵',
                             'method': 'animate'
                         },
                         {
                             'args': [[None], {'frame': {'duration': 0, 'redraw': True}, 'mode': 'immediate', 'transition': {'duration': 0}}],
-                            'label': 'Pause',
+                            'label': '⏸',
                             'method': 'animate'
                         }
                     ],
@@ -104,7 +115,7 @@ class PlotlyPlots(PlottingLibrary):
                     'xanchor': 'left',
                     'currentvalue': {
                         'font': {'size': 20},
-                        'prefix': 'Frame:',
+                        'prefix': display_name(time_axis) + " ",
                         'visible': True,
                         'xanchor': 'right'
                     },
@@ -115,7 +126,7 @@ class PlotlyPlots(PlottingLibrary):
                     'y': 0,
                     'steps': [{
                         'args': [[f'frame{i}'], {'frame': {'duration': interval, 'redraw': True}, 'mode': 'immediate', 'transition': {'duration': interval}}],
-                        'label': f'Frame {i}',
+                        'label': names[i],
                         'method': 'animate'
                     } for i in range(frame_count)]
                 }]
@@ -807,6 +818,96 @@ def split_curve(curve: np.ndarray) -> List[np.ndarray]:
 def join_curves(curves: List[np.ndarray]) -> np.ndarray:
     curves = [np.append(np.array(c, numpy.float), [[numpy.nan, numpy.nan]], -2) for c in curves[:-1]] + [curves[-1]]
     return np.concatenate(curves, -2)
+
+
+def _build_subplot_title_annotations(subplot_titles, list_of_domains, title_edge="top", offset=0):  # copied from plotly for future compatibility
+    # If shared_axes is False (default) use list_of_domains
+    # This is used for insets and irregular layouts
+    # if not shared_xaxes and not shared_yaxes:
+    x_dom = list_of_domains[::2]
+    y_dom = list_of_domains[1::2]
+    subtitle_pos_x = []
+    subtitle_pos_y = []
+
+    if title_edge == "top":
+        text_angle = 0
+        xanchor = "center"
+        yanchor = "bottom"
+
+        for x_domains in x_dom:
+            subtitle_pos_x.append(sum(x_domains) / 2.0)
+        for y_domains in y_dom:
+            subtitle_pos_y.append(y_domains[1])
+
+        yshift = offset
+        xshift = 0
+    elif title_edge == "bottom":
+        text_angle = 0
+        xanchor = "center"
+        yanchor = "top"
+
+        for x_domains in x_dom:
+            subtitle_pos_x.append(sum(x_domains) / 2.0)
+        for y_domains in y_dom:
+            subtitle_pos_y.append(y_domains[0])
+
+        yshift = -offset
+        xshift = 0
+    elif title_edge == "right":
+        text_angle = 90
+        xanchor = "left"
+        yanchor = "middle"
+
+        for x_domains in x_dom:
+            subtitle_pos_x.append(x_domains[1])
+        for y_domains in y_dom:
+            subtitle_pos_y.append(sum(y_domains) / 2.0)
+
+        yshift = 0
+        xshift = offset
+    elif title_edge == "left":
+        text_angle = -90
+        xanchor = "right"
+        yanchor = "middle"
+
+        for x_domains in x_dom:
+            subtitle_pos_x.append(x_domains[0])
+        for y_domains in y_dom:
+            subtitle_pos_y.append(sum(y_domains) / 2.0)
+
+        yshift = 0
+        xshift = -offset
+    else:
+        raise ValueError("Invalid annotation edge '{edge}'".format(edge=title_edge))
+
+    plot_titles = []
+    for index in range(len(subplot_titles)):
+        if not subplot_titles[index] or index >= len(subtitle_pos_y):
+            pass
+        else:
+            annot = {
+                "y": subtitle_pos_y[index],
+                "xref": "paper",
+                "x": subtitle_pos_x[index],
+                "yref": "paper",
+                "text": subplot_titles[index],
+                "showarrow": False,
+                "font": dict(size=16),
+                "xanchor": xanchor,
+                "yanchor": yanchor,
+            }
+
+            if xshift != 0:
+                annot["xshift"] = xshift
+
+            if yshift != 0:
+                annot["yshift"] = yshift
+
+            if text_angle != 0:
+                annot["textangle"] = text_angle
+
+            plot_titles.append(annot)
+    return plot_titles
 
 
 PLOTLY = PlotlyPlots()

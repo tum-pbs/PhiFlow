@@ -343,7 +343,6 @@ class PlottingLibrary:
                       rows: int,
                       cols: int,
                       spaces: Dict[Tuple[int, int], Box],
-                      titles: Dict[Tuple[int, int], str],
                       log_dims: Tuple[str, ...],
                       plt_params: Dict[str, Any]) -> Tuple[Any, Dict[Tuple[int, int], Any]]:
         """
@@ -353,7 +352,6 @@ class PlottingLibrary:
             cols: Number of sub-figures laid out horizontally.
             spaces: Axes and range per sub-plot: `(x,y) -> Box`. Only subplot locations contained as keys should be plotted.
                 To indicate automatic limit, the box will have a lower or upper limit of -inf or inf, respectively.
-            titles: Subplot titles.
             log_dims: Dimensions along which axes should be log-scaled
             plt_params: Additional library-specific parameters for plotting.
 
@@ -363,7 +361,7 @@ class PlottingLibrary:
         """
         raise NotImplementedError
 
-    def animate(self, fig, frame_count: int, plot_frame_function: Callable, interval: float, repeat: bool, interactive: bool):
+    def animate(self, fig, frame_count: int, plot_frame_function: Callable, interval: float, repeat: bool, interactive: bool, time_axis: Optional[str]):
         raise NotImplementedError
 
     def finalize(self, figure):
@@ -384,6 +382,11 @@ class PlottingLibrary:
                 recipe.plot(data, figure, subplot, space, *args, **kwargs)
                 return
         raise NotImplementedError(f"No {self.name} recipe found for {data}. Recipes: {self.recipes}")
+
+    def set_title(self, title: str, figure, subplot: Optional):
+        """Set the title of a subplot or the current frame.
+        If `subplot` is None, sets the title of the figure / the current frame."""
+        raise NotImplementedError
 
 
 class Recipe:
