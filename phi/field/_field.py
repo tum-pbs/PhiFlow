@@ -71,6 +71,12 @@ class Field:
         return self._geometry
 
     @property
+    def grid(self) -> UniformGrid:
+        """Cast `self.geometry` to a `phi.geom.UniformGrid`."""
+        assert isinstance(self._geometry, UniformGrid), f"Geometry is not a UniformGrid but {type(self._geometry)}"
+        return self._geometry
+
+    @property
     def mesh(self) -> Mesh:
         """Cast `self.geometry` to a `phi.geom.Mesh`."""
         assert isinstance(self._geometry, Mesh), f"Geometry is not a mesh but {type(self._geometry)}"
