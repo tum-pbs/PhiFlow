@@ -6,7 +6,7 @@ from math import log10
 from threading import Lock
 from typing import Tuple, Any, Optional, Dict, Callable, Union, Sequence
 
-from phi import field, math
+from phi import field, math, geom
 from phi.field import Field, Scene, PointCloud, CenteredGrid
 from phi.field._field_math import data_bounds
 from phi.geom import Box, Cuboid, Geometry, Point
@@ -548,6 +548,10 @@ def get_default_limits(f: Field, all_dims: Optional[Sequence[str]], log_dims: Tu
     is_log = wrap([dim in log_dims for dim in f_dims], channel(vector=f_dims))
     if math.equal(0, err):
         bounding_box = f.geometry.bounding_box()
+        if 'vector' in f.values.shape:
+            target_points = f.points + f.values.vector[list(f.geometry.shape.get_item_names('vector'))]
+            target_bounds = geom.bounding_box(target_points)
+            bounding_box = geom.union(bounding_box, target_bounds).largest('union')
         if value_axis:
             bounding_box *= Box(_=(math.finite_min(f.values), math.finite_max(f.values)))
         return _limits(bounding_box.center, bounding_box.half_size, is_log)
