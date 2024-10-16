@@ -317,6 +317,12 @@ For inexact SDFs, smaller step sizes prevent skipping over surfaces.</dd>
 <h2 id="returns">Returns</h2>
 <p><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code></p></div>
 </dd>
+<dt id="phi.geom.load_stl"><code class="name flex">
+<span>def <span class="ident">load_stl</span></span>(<span>file: str, face_dim=(facesⁱ=None))</span>
+</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="phi.geom.load_su2"><code class="name flex">
 <span>def <span class="ident">load_su2</span></span>(<span>file_or_mesh: str, cell_dim=(cellsⁱ=None), face_format: str = 'csc') ‑> phi.geom._mesh.Mesh</span>
 </code></dt>
@@ -363,7 +369,7 @@ The <code>boundaries</code> <code>dict</code> maps boundary names to a list of e
 <p><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code></p></div>
 </dd>
 <dt id="phi.geom.mesh_from_numpy"><code class="name flex">
-<span>def <span class="ident">mesh_from_numpy</span></span>(<span>points: Union[list, numpy.ndarray], polygons: list, boundaries: Union[str, Dict[str, List[Sequence]], ForwardRef(None)] = None, element_rank: int = None, build_faces=True, build_vertex_connectivity=True, build_normals=True, normals=None, cell_dim: phiml.math._shape.Shape = (cellsⁱ=None), face_format: str = 'csc') ‑> phi.geom._mesh.Mesh</span>
+<span>def <span class="ident">mesh_from_numpy</span></span>(<span>points: Sequence[Sequence], polygons: Sequence[Sequence], boundaries: Union[str, Dict[str, List[Sequence]], ForwardRef(None)] = None, element_rank: int = None, build_faces=True, build_vertex_connectivity=True, build_normals=True, normals=None, cell_dim: phiml.math._shape.Shape = (cellsⁱ=None), face_format: str = 'csc') ‑> phi.geom._mesh.Mesh</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Construct an unstructured mesh from vertices.</p>
@@ -8280,6 +8286,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.invert" href="#phi.geom.invert">invert</a></code></li>
 <li><code><a title="phi.geom.line_trace" href="#phi.geom.line_trace">line_trace</a></code></li>
 <li><code><a title="phi.geom.load_gmsh" href="#phi.geom.load_gmsh">load_gmsh</a></code></li>
+<li><code><a title="phi.geom.load_stl" href="#phi.geom.load_stl">load_stl</a></code></li>
 <li><code><a title="phi.geom.load_su2" href="#phi.geom.load_su2">load_su2</a></code></li>
 <li><code><a title="phi.geom.mesh" href="#phi.geom.mesh">mesh</a></code></li>
 <li><code><a title="phi.geom.mesh_from_numpy" href="#phi.geom.mesh_from_numpy">mesh_from_numpy</a></code></li>
