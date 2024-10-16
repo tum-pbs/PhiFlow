@@ -526,8 +526,18 @@ def load_gmsh(file: str, boundary_names: Sequence[str] = None, cell_dim=instance
     return mesh_from_numpy(points, elements, boundaries, cell_dim=cell_dim, face_format=face_format)
 
 
-def mesh_from_numpy(points: Union[list, np.ndarray],
-                    polygons: list,
+def load_stl(file: str, face_dim=instance('faces')):
+    import stl
+    model = stl.mesh.Mesh.from_file(file)
+    points = np.reshape(model.points, (-1, 3))
+    vertices, indices = np.unique(points, axis=0, return_inverse=True)
+    indices = np.reshape(indices, (-1, 3))
+    mesh = mesh_from_numpy(vertices, indices, element_rank=2, build_faces=False, cell_dim=face_dim)
+    return mesh
+
+
+def mesh_from_numpy(points: Sequence[Sequence],
+                    polygons: Sequence[Sequence],
                     boundaries: str | Dict[str, List[Sequence]] | None = None,
                     element_rank: int = None,
                     build_faces=True,
@@ -931,7 +941,7 @@ def face_curvature(mesh: Mesh):
     # vec_curvature = math.max(v_normals, dual) - math.min(v_normals, dual)  # positive / negative
 
 
-def save_tri_mesh(file: str, mesh: Mesh):
+def save_tri_mesh(file: str, mesh: Mesh, **extra_data):
     v = math.reshaped_numpy(mesh.vertices.center, [instance, 'vector'])
     if isinstance(mesh._elements, CompactSparseTensor):
         f = math.reshaped_numpy(mesh._elements._indices, [instance, dual])
@@ -939,17 +949,22 @@ def save_tri_mesh(file: str, mesh: Mesh):
         raise NotImplementedError
     print(f"Saving triangle mesh with {v.shape[0]} vertices and {f.shape[0]} faces to {file}")
     os.makedirs(os.path.dirname(file), exist_ok=True)
-    np.savez(file, vertices=v, faces=f, f_dim=instance(mesh).name, vertex_dim=instance(mesh.vertices).name, vector=mesh.vector.item_names)
+    np.savez(file, vertices=v, faces=f, f_dim=instance(mesh).name, vertex_dim=instance(mesh.vertices).name, vector=mesh.vector.item_names, has_extra_data=bool(extra_data), **extra_data)
 
 
-def load_tri_mesh(file: str, convert=False) -> Mesh:
-    data = np.load(file)
+def load_tri_mesh(file: str, convert=False, load_extra=()) -> Mesh | Tuple[Mesh, ...]:
+    data = np.load(file, allow_pickle=bool(load_extra))
     f_dim = instance(str(data['f_dim']))
     vertex_dim = instance(str(data['vertex_dim']))
     vector = channel(vector=[str(d) for d in data['vector']])
     faces = tensor(data['faces'], f_dim, spatial('vertex_list'), convert=convert)
     vertices = tensor(data['vertices'], vertex_dim, vector, convert=convert)
-    return mesh(vertices, faces, build_faces=False, build_vertex_connectivity=True, build_normals=True)
+    m = mesh(vertices, faces, build_faces=False, build_vertex_connectivity=True, build_normals=True)
+    if not load_extra:
+        return m
+    extra = [data[e] for e in load_extra]
+    extra = [e.tolist() if e.dtype == object else e for e in extra]
+    return m, *extra
 
 
 def decimate_tri_mesh(mesh: Mesh, factor=.1, target_max=10_000,):
