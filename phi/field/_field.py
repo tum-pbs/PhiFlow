@@ -205,7 +205,7 @@ class Field:
         * The batch dimensions match the batch dimensions of this Field
         * The channel dimensions match the channels of this Field
         """
-        if self.is_staggered and self.is_grid:
+        if self.is_grid and '~vector' in self._values.shape:
             return batch(self._geometry) & self.resolution & non_dual(self._values).without(self.resolution) & self._geometry.shape['vector']
         set_shape = self._geometry.sets[self.sampled_at]
         return batch(self._geometry) & (channel(self._geometry) - 'vector') & set_shape & self._values
