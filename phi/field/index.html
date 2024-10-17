@@ -325,7 +325,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None, implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f6568ac2de0></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field, order=2, implicit: phiml.math._optimize.Solve = None, upwind: phi.field._field.Field = None, implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7ff7ac40eca0></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -1678,7 +1678,7 @@ This is the case with rotating rigid bodies, for example.</p></div>
         * The batch dimensions match the batch dimensions of this Field
         * The channel dimensions match the channels of this Field
         &#34;&#34;&#34;
-        if self.is_staggered and self.is_grid:
+        if self.is_grid and &#39;~vector&#39; in self._values.shape:
             return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
         set_shape = self._geometry.sets[self.sampled_at]
         return batch(self._geometry) &amp; (channel(self._geometry) - &#39;vector&#39;) &amp; set_shape &amp; self._values
@@ -2766,7 +2766,7 @@ def shape(self) -&gt; Shape:
     * The batch dimensions match the batch dimensions of this Field
     * The channel dimensions match the channels of this Field
     &#34;&#34;&#34;
-    if self.is_staggered and self.is_grid:
+    if self.is_grid and &#39;~vector&#39; in self._values.shape:
         return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
     set_shape = self._geometry.sets[self.sampled_at]
     return batch(self._geometry) &amp; (channel(self._geometry) - &#39;vector&#39;) &amp; set_shape &amp; self._values</code></pre>
@@ -3302,7 +3302,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         * The batch dimensions match the batch dimensions of this Field
         * The channel dimensions match the channels of this Field
         &#34;&#34;&#34;
-        if self.is_staggered and self.is_grid:
+        if self.is_grid and &#39;~vector&#39; in self._values.shape:
             return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
         set_shape = self._geometry.sets[self.sampled_at]
         return batch(self._geometry) &amp; (channel(self._geometry) - &#39;vector&#39;) &amp; set_shape &amp; self._values
@@ -4390,7 +4390,7 @@ def shape(self) -&gt; Shape:
     * The batch dimensions match the batch dimensions of this Field
     * The channel dimensions match the channels of this Field
     &#34;&#34;&#34;
-    if self.is_staggered and self.is_grid:
+    if self.is_grid and &#39;~vector&#39; in self._values.shape:
         return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
     set_shape = self._geometry.sets[self.sampled_at]
     return batch(self._geometry) &amp; (channel(self._geometry) - &#39;vector&#39;) &amp; set_shape &amp; self._values</code></pre>
@@ -4925,7 +4925,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
         * The batch dimensions match the batch dimensions of this Field
         * The channel dimensions match the channels of this Field
         &#34;&#34;&#34;
-        if self.is_staggered and self.is_grid:
+        if self.is_grid and &#39;~vector&#39; in self._values.shape:
             return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
         set_shape = self._geometry.sets[self.sampled_at]
         return batch(self._geometry) &amp; (channel(self._geometry) - &#39;vector&#39;) &amp; set_shape &amp; self._values
@@ -6013,7 +6013,7 @@ def shape(self) -&gt; Shape:
     * The batch dimensions match the batch dimensions of this Field
     * The channel dimensions match the channels of this Field
     &#34;&#34;&#34;
-    if self.is_staggered and self.is_grid:
+    if self.is_grid and &#39;~vector&#39; in self._values.shape:
         return batch(self._geometry) &amp; self.resolution &amp; non_dual(self._values).without(self.resolution) &amp; self._geometry.shape[&#39;vector&#39;]
     set_shape = self._geometry.sets[self.sampled_at]
     return batch(self._geometry) &amp; (channel(self._geometry) - &#39;vector&#39;) &amp; set_shape &amp; self._values</code></pre>
