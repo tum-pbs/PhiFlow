@@ -34,6 +34,8 @@ class UniformGrid(BaseBox):
         self._resolution = resolution.only(bounds.vector.item_names, reorder=True)  # reorder only
         self._bounds = bounds
         self._shape = self._resolution & bounds.shape.non_spatial
+        staggered_shapes = [self._shape.spatial.with_dim_size(dim, self._shape.get_size(dim) + 1) for dim in self.vector.item_names]
+        self._face_shape = shape_stack(dual(vector=self.vector.item_names), *staggered_shapes)
 
     @property
     def resolution(self):
@@ -87,8 +89,7 @@ class UniformGrid(BaseBox):
 
     @property
     def face_shape(self) -> Shape:
-        shapes = [self._shape.spatial.with_dim_size(dim, self._shape.get_size(dim) + 1) for dim in self.vector.item_names]
-        return shape_stack(dual(vector=self.vector.item_names), *shapes)
+        return self._face_shape
 
     def interior(self) -> 'Geometry':
         raise GeometryException("Regular grid does not have an interior")
