@@ -490,8 +490,6 @@ class Geometry:
 
     def __getitem__(self, item):
         raise NotImplementedError
-        # assert isinstance(item, dict), "Index must be dict of type {dim: slice/int}."
-        # item = {dim: sel for dim, sel in item.items() if dim != 'vector'}
         # attrs = {a: getattr(self, a)[item] for a in variable_attributes(self)}
         # return copy_with(self, **attrs)
 
