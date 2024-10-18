@@ -450,8 +450,7 @@ class Cuboid(BaseBox):
 
     def __getitem__(self, item) -> 'Cuboid':
         item = _keep_vector(slicing_dict(self, item))
-        rotation = self._rotation_matrix[item] if self._rotation_matrix is not None else None
-        return Cuboid(self._center[item], self._half_size[item], rotation, size_variable=self._size_variable)
+        return Cuboid(self._center[item], self._half_size[item], math.slice(self._rotation_matrix, item), size_variable=self._size_variable)
 
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
