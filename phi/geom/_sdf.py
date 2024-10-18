@@ -1,9 +1,8 @@
 from typing import Union, Tuple, Dict, Any, Callable
 
 from phiml import math
-from phiml.math import Shape, Tensor, spatial, channel, instance
+from phiml.math import Shape, Tensor, channel, instance
 from phiml.math.magic import slicing_dict
-from . import UniformGrid
 from ._box import BaseBox
 from ._geom import Geometry
 
@@ -67,18 +66,6 @@ class SDF(Geometry):
     @property
     def size(self):
         return self._bounds.size
-
-    @property
-    def resolution(self):
-        return spatial(self._sdf)
-
-    @property
-    def points(self):
-        return UniformGrid(spatial(self._sdf), self._bounds).center
-
-    @property
-    def grid(self):
-        return UniformGrid(spatial(self._sdf), self._bounds)
 
     @property
     def center(self) -> Tensor:

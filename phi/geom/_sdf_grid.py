@@ -3,6 +3,7 @@ from typing import Union, Tuple, Dict, Any, Optional, Sequence
 
 from phiml import math
 from phiml.math import Shape, Tensor, spatial, channel, non_spatial, expand, non_channel, instance, stack, batch
+from phiml.math.magic import slicing_dict
 from . import UniformGrid
 from ._geom import Geometry
 from ._box import Box, BaseBox, Cuboid
@@ -12,7 +13,13 @@ class SDFGrid(Geometry):
     """
     Grid-based signed distance field.
     """
-    def __init__(self, sdf: Tensor, bounds: BaseBox, approximate_outside=True, gradient: Tensor = None, center: Tensor = None, volume: Tensor = None, bounding_radius: Tensor = None):
+    def __init__(self,
+                 sdf: Tensor,
+                 bounds: BaseBox,
+                 approximate_outside=True,
+                 gradient: Tensor = None,
+                 to_surface: Tensor = None, surf_normal: Tensor = None, surf_index: Tensor = None,
+                 center: Tensor = None, volume: Tensor = None, bounding_radius: Tensor = None):
         """
         Args:
             sdf: Signed distance values. `Tensor` with spatial dimensions corresponding to the physical space.
@@ -29,11 +36,14 @@ class SDFGrid(Geometry):
         self._bounds = bounds
         self._approximate_outside = approximate_outside
         dx = bounds.size / spatial(sdf)
-        if gradient is not None:
-            self._grad = gradient
-        else:
+        if gradient is True:
             grad = math.spatial_gradient(sdf, dx=dx, difference='forward', padding=math.extrapolation.ZERO_GRADIENT, stack_dim=channel('vector'))
             self._grad = grad[{dim: slice(0, -1) for dim in spatial(sdf).names}]
+        else:
+            self._grad = gradient
+        self._to_surface = to_surface
+        self._surf_normal = surf_normal
+        self._surf_index = surf_index
         if center is not None:
             self._center = center
         else:
@@ -51,6 +61,12 @@ class SDFGrid(Geometry):
             dist = math.vec_length(points - self._center)
             dist = math.where(self._sdf <= 0, dist, 0)
             self._bounding_radius = math.max(dist)
+
+    def __variable_attrs__(self):
+        return '_sdf', '_bounds', '_grad', '_to_surface', '_surf_normal', '_surf_index', '_center', '_volume', '_bounding_radius'
+
+    def __value_attrs__(self):
+        return '_sdf',
 
     @property
     def values(self):
@@ -82,6 +98,10 @@ class SDFGrid(Geometry):
         return UniformGrid(spatial(self._sdf), self._bounds).center
 
     @property
+    def grid(self):
+        return UniformGrid(spatial(self._sdf), self._bounds)
+
+    @property
     def center(self) -> Tensor:
         return self._center
 
@@ -92,12 +112,6 @@ class SDFGrid(Geometry):
     @property
     def volume(self) -> Tensor:
         return self._volume
-
-    def __variable_attrs__(self):
-        return '_sdf', '_bounds', '_grad', '_center', '_volume', '_bounding_radius'
-
-    def __value_attrs__(self):
-        return '_sdf',
 
     @property
     def faces(self) -> 'Geometry':
@@ -141,26 +155,29 @@ class SDFGrid(Geometry):
             return sdf_val <= 0
 
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
-        float_idx = (location - self._bounds.lower) / self.size * self.resolution
-        sdf_val = math.grid_sample(self._sdf, float_idx - .5, math.extrapolation.ZERO_GRADIENT)
-        sdf_grad = math.grid_sample(self._grad, float_idx - 1, math.extrapolation.ZERO_GRADIENT)
-        sdf_grad = math.vec_normalize(sdf_grad)  # theoretically not necessary
-        sgn_dist = sdf_val
         if self._approximate_outside:
-            within_bounds = self._bounds.lies_inside(location)
-            from_center = location - self._center
-            dist_from_center = math.vec_length(from_center) - self._bounding_radius
-            sgn_dist = math.where(within_bounds, sdf_val, dist_from_center)
-            sdf_grad = math.where(within_bounds, sdf_grad, math.vec_normalize(from_center))
-        delta = sgn_dist * -sdf_grad
-        surface_pos = location + delta
-        surf_float_idx = (surface_pos - self._bounds.lower) / self.size * self.resolution
-        normal = math.grid_sample(self._grad, surf_float_idx - 1, math.extrapolation.ZERO_GRADIENT)
-        normal = math.where(self._bounds.lies_inside(surface_pos), normal, sdf_grad)  # use current normal if surface point is outside SDF grid
-        normal = math.vec_normalize(normal)
-        face_index = expand(0, non_channel(location))
+            location = self._bounds.push(location, outward=False)
+        float_idx = (location - self._bounds.lower) / self.size * self.resolution
+        sgn_dist = math.grid_sample(self._sdf, float_idx - .5, math.extrapolation.ZERO_GRADIENT)
+        if self._to_surface is not None:
+            to_surf = math.grid_sample(self._to_surface, float_idx - .5, math.extrapolation.ZERO_GRADIENT)
+        else:
+            sdf_grad = math.grid_sample(self._grad, float_idx - 1, math.extrapolation.ZERO_GRADIENT)
+            sdf_grad = math.vec_normalize(sdf_grad)  # theoretically not necessary
+            to_surf = sgn_dist * -sdf_grad
+        surface_pos = location + to_surf
+        if self._surf_normal is not None:
+            normal = math.grid_sample(self._surf_normal, float_idx - .5, math.extrapolation.ZERO_GRADIENT)
+            int_index = math.to_int32(float_idx)
+            face_index = self._surf_index[int_index]
+        else:
+            surf_float_idx = (surface_pos - self._bounds.lower) / self.size * self.resolution
+            normal = math.grid_sample(self._grad, surf_float_idx - 1, math.extrapolation.ZERO_GRADIENT)
+            # normal = math.where(self._bounds.lies_inside(surface_pos), normal, sdf_grad)  # use current normal if surface point is outside SDF grid
+            normal = math.vec_normalize(normal)
+            face_index = None
         offset = normal.vector @ surface_pos.vector
-        return sgn_dist, delta, normal, offset, face_index
+        return sgn_dist, to_surf, normal, offset, face_index
 
     def approximate_signed_distance(self, location: Tensor) -> Tensor:
         float_idx = (location - self._bounds.lower) / self.size * self.resolution
@@ -182,7 +199,7 @@ class SDFGrid(Geometry):
         return self._bounds.half_size  # this could be too small if the center is not in the middle of the bounds
 
     def shifted(self, delta: Tensor) -> 'Geometry':
-        return SDFGrid(self._sdf, self._bounds.shifted(delta), self._approximate_outside, self._grad, self._center + delta, self._volume, self._bounding_radius)
+        return SDFGrid(self._sdf, self._bounds.shifted(delta), self._approximate_outside, self._grad, self._to_surface, self._surf_normal, self._surf_index, self._center + delta, self._volume, self._bounding_radius)
 
     def at(self, center: Tensor) -> 'Geometry':
         return self.shifted(center - self._center)
@@ -194,22 +211,24 @@ class SDFGrid(Geometry):
         off_center = self._center - self._bounds.center
         volume = self._volume * factor ** self.spatial_rank
         bounds = self._bounds.scaled(factor).shifted(off_center * (factor - 1)).corner_representation()
-        return SDFGrid(self._sdf, bounds, self._approximate_outside, self._grad, self._center, volume, self._bounding_radius * factor)
+        return SDFGrid(self._sdf, bounds, self._approximate_outside, self._grad, self._to_surface, self._surf_normal, self._surf_index, self._center, volume, self._bounding_radius * factor)
 
     def __getitem__(self, item):
+        item = slicing_dict(self, item)
         if 'vector' in item:
             raise NotImplementedError("SDF projection not yet supported")
-        return SDFGrid(self._sdf[item], self._bounds[item], self._approximate_outside, self._grad[item], self._center[item], self._volume[item], self._bounding_radius[item])
+        return SDFGrid(self._sdf[item], self._bounds[item], self._approximate_outside, math.slice(self._grad, item), math.slice(self._to_surface, item), math.slice(self._surf_normal, item), math.slice(self._surf_index, item), math.slice(self._center, item), math.slice(self._volume, item), math.slice(self._bounding_radius, item))
 
 
 def sample_sdf(geometry: Geometry,
-               bounds: BaseBox = None,
+               bounds: BaseBox | UniformGrid = None,
                resolution: Shape = math.EMPTY_SHAPE,
                approximate_outside=False,
                rebuild: Optional[str] = None,
                valid_dist=None,
                rel_margin=.1,
                abs_margin=0.,
+               cache_surface=False,
                **resolution_: int) -> SDFGrid:
     """
     Build a grid of signed distance values for a given `Geometry` object.
@@ -231,8 +250,11 @@ def sample_sdf(geometry: Geometry,
     if bounds is None:
         bounds: BaseBox = geometry.bounding_box()
         bounds = Cuboid(bounds.center, half_size=bounds.half_size * (1 + 2 * rel_margin) + 2 * abs_margin)
+    elif isinstance(bounds, UniformGrid):
+        assert not resolution, f"When specifying a UniformGrid, separate resolution values are not allowed."
+        resolution = bounds.resolution
+        bounds = bounds.bounds
     points = UniformGrid(resolution, bounds).center
-    sdf = geometry.approximate_signed_distance(points)
     reduce = instance(geometry) & spatial(geometry)
     if reduce:
         center = math.mean(geometry.center, reduce)
@@ -244,7 +266,12 @@ def sample_sdf(geometry: Geometry,
         volume = geometry.volume
         bounding_radius = geometry.bounding_radius()
         rebuild = None if rebuild == 'auto' else rebuild
-    approximate = SDFGrid(sdf, bounds, approximate_outside, center=center, volume=volume, bounding_radius=bounding_radius)
+    if cache_surface:
+        sdf, delta, normal, _, idx = geometry.approximate_closest_surface(points)
+        approximate = SDFGrid(sdf, bounds, approximate_outside, None, delta, normal, idx, center=center, volume=volume, bounding_radius=bounding_radius)
+    else:
+        sdf = geometry.approximate_signed_distance(points)
+        approximate = SDFGrid(sdf, bounds, approximate_outside, center=center, volume=volume, bounding_radius=bounding_radius)
     if rebuild is None:
         return approximate
     assert rebuild in ['from-surface']
