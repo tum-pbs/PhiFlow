@@ -23,6 +23,7 @@ class Sphere(Geometry):
         Args:
             center: Sphere center as `Tensor` with `vector` dimension.
                 The spatial dimension order should be specified in the `vector` dimension via item names.
+                Can be left empty to specify dimensions via kwargs.
             radius: Sphere radius as `float` or `Tensor`
             **center_: Specifies center when the `center` argument is not given. Center position by dimension, e.g. `x=0.5, y=0.2`.
         """
@@ -40,6 +41,15 @@ class Sphere(Geometry):
             self._radius = wrap(radius)
         self._radius_variable = radius_variable
         assert 'vector' not in self._radius.shape, f"Sphere radius must not vary along vector but got {radius}"
+
+    def __all_attrs__(self) -> tuple:
+        return ('_center', '_radius')
+
+    def __variable_attrs__(self) -> tuple:
+        return ('_center', '_radius') if self._radius_variable else ('_center',)
+
+    def __value_attrs__(self) -> tuple:
+        return ()
 
     @property
     def shape(self):
@@ -109,7 +119,7 @@ class Sphere(Geometry):
         center_dist = math.vec_length(center_delta)
         sgn_dist = center_dist - self_radius
         if instance(self):
-            self_center, self_radius, sgn_dist, center_delta, center_dist = math.at_min((self.center, self.radius, sgn_dist, center_delta, center_dist), key=abs(sgn_dist), dim=instance)
+            self_center, self_radius, sgn_dist, center_delta, center_dist = math.at_min((self.center, self.radius, sgn_dist, center_delta, center_dist), key=abs(sgn_dist), dim=instance(self))
         normal = math.safe_div(center_delta, center_dist)
         default_normal = wrap([1] + [0] * (self.spatial_rank-1), self.shape['vector'])
         normal = math.where(center_dist == 0, default_normal, normal)
@@ -145,18 +155,6 @@ class Sphere(Geometry):
 
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         return Sphere(self.center, self.radius * factor, radius_variable=self._radius_variable)
-
-    def __variable_attrs__(self):
-        return ('_center', '_radius') if self._radius_variable else ('_center',)
-
-    def __value_attrs__(self):
-        return '_center',
-
-    def __value_attrs__(self):
-        return '_center', '_radius'
-
-    def __value_attrs__(self):
-        return '_center', '_radius'
 
     def __getitem__(self, item):
         item = slicing_dict(self, item)

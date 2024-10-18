@@ -285,10 +285,7 @@ def _stack_geometries(geometries: Sequence[Geometry], set_op: str, dim=None) -> 
     elif len(geometries) == 1:
         return geometries[0]
     elif set_op == 'union' and all(type(g) == type(geometries[0]) and isinstance(g, PhiTreeNode) for g in geometries):
-        # ToDo look into using stacked attributes for intersection
-        attrs = variable_attributes(geometries[0])
-        values = {a: math.stack([getattr(g, a) for g in geometries], dim) for a in attrs}
-        return copy_with(geometries[0], **values)
+        return math.stack(tuple(geometries), dim, simplify=True)
     else:
         geos = math.layout(geometries, dim)
         return GeometryStack(geos, set_op=set_op)
