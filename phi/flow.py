@@ -22,7 +22,7 @@ from .physics import fluid, advect, diffuse
 
 # Classes
 from phiml.math import Shape, Tensor, DType, Solve
-from .geom import Geometry, Point, Sphere, Box, Cuboid, Cylinder, UniformGrid, Mesh, Graph
+from .geom import Geometry, Point, Sphere, Box, Cuboid, cylinder, UniformGrid, Mesh, Graph
 from .field import Field, Grid, CenteredGrid, StaggeredGrid, mask, Noise, PointCloud, Scene, resample, GeometryMask, SoftGeometryMask, HardGeometryMask
 from .physics.fluid import Obstacle
 
