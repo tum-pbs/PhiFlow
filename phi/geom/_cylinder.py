@@ -137,7 +137,7 @@ class Cylinder(Geometry):
 
     def __getitem__(self, item):
         item = slicing_dict(self, item)
-        return Cylinder(self._center[_keep_vector(item)], self.radius[item], self.depth[item], math.slice(self.rotation, item), self.axis, self._variables, self.values)
+        return Cylinder(self._center[_keep_vector(item)], self.radius[item], self.depth[item], math.slice(self.rotation, item), self.axis, self.variables, self.values)
 
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
