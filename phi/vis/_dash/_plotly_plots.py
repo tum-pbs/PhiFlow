@@ -21,7 +21,7 @@ import plotly.io as pio
 from phiml.math import reshaped_numpy, dual, instance, non_dual, merge_shapes
 from phi import math, field, geom
 from phi.field import Field
-from phi.geom import Sphere, BaseBox, Point, Box, SDF, SDFGrid
+from phi.geom import Sphere, BaseBox, Point, Box, SDF, SDFGrid, Cylinder
 from phi.geom._geom_ops import GeometryStack
 from phi.math import Tensor, spatial, channel, non_channel
 from phi.vis._dash.colormaps import COLORMAPS
@@ -425,6 +425,9 @@ class Object3D(Recipe):
             face_count = (v_count + 1) * (v_count * 2) / 2  # half as many tris as vertices
         elif isinstance(data.geometry, BaseBox):
             face_count = 12
+        elif isinstance(data.geometry, Cylinder):
+            v_count = self._sphere_vertex_count(data.geometry.radius, space)
+            face_count = 2 + v_count
         else:
             return False
         face_count *= non_dual(data.geometry).without('vector').volume
@@ -453,6 +456,11 @@ class Object3D(Recipe):
                 for inst in range(count):
                     xyz = np.vstack([x[inst].ravel(), y[inst].ravel(), z[inst].ravel()])
                     figure.add_trace(go.Mesh3d(x=xyz[0], y=xyz[1], z=xyz[2], flatshading=False, alphahull=0, color=color, opacity=alpha), row=row, col=col)
+            elif isinstance(data.geometry, Cylinder):
+                vertex_count = self._sphere_vertex_count(data.geometry.radius, space)
+                x, y, z = data.geometry.vertex_rings(dual(vertices=vertex_count)).numpy(['vector', instance, dual])
+                for inst in range(count):
+                    figure.add_trace(go.Mesh3d(x=x[inst], y=y[inst], z=z[inst], flatshading=False, alphahull=0, color=color, opacity=alpha), row=row, col=col)
             elif isinstance(data.geometry, BaseBox):
                 cx, cy, cz = reshaped_numpy(data.geometry.corners, ['vector', instance, *['~' + d for d in dims]])
                 x = cx.flatten()
@@ -515,8 +523,8 @@ class Scatter3D(Recipe):
                 symbol = None
                 marker_size = 4 / (size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5)
             else:
-                symbol = 'asterisk'
-                marker_size = data.geometry[idx].bounding_radius().numpy()
+                symbol = 'diamond-open'
+                marker_size = 20
             marker_size *= size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5
             marker = graph_objects.scatter3d.Marker(size=marker_size, color=color_i, colorscale='Viridis', sizemode='diameter', symbol=symbol)
             figure.add_scatter3d(mode='markers', x=x, y=y, z=z, marker=marker, row=row, col=col)
