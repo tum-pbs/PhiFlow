@@ -3,7 +3,7 @@ from functools import cached_property
 from typing import Union, Dict, Tuple, Optional, Sequence
 
 from phiml import math
-from phiml.math import Shape, dual, wrap, Tensor, expand, vec, where, ccat, clip, length, normalize, rotate_vector, minimum, vec_squared, rotation_matrix, channel, instance, stack, maximum
+from phiml.math import Shape, dual, wrap, Tensor, expand, vec, where, ccat, clip, length, normalize, rotate_vector, minimum, vec_squared, rotation_matrix, channel, instance, stack, maximum, PI, linspace, sin, cos
 from phiml.math._magic_ops import all_attributes
 from phiml.math.magic import slicing_dict
 from ._geom import Geometry, _keep_vector
@@ -196,6 +196,17 @@ class Cylinder(Geometry):
 
     def __eq__(self, other):
         return Geometry.__eq__(self, other)
+
+    def vertex_rings(self, count: Shape) -> Tensor:
+        if self.spatial_rank == 3:
+            angle = linspace(0, 2*PI, count)
+            h = stack({'bot': -.5 * self.depth, 'top': .5 * self.depth}, '~face')
+            s = sin(angle) * self.radius
+            c = cos(angle) * self.radius
+            r = stack([s, c], channel(vector=self.radial_axes))
+            x = ccat([h, r], self._center.shape['vector'], expand_values=True)
+            return math.rotate_vector(x, self.rotation) + self._center
+        raise NotImplementedError
 
 
 def cylinder(center: Tensor = None,
