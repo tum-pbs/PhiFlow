@@ -2,6 +2,7 @@ from typing import Tuple, Dict, Any, Optional, Union
 
 import numpy as np
 
+from phiml.math import rename_dims, wrap
 from ._box import BaseBox, Box, Cuboid
 from ._geom import Geometry, GeometryException
 from .. import math
@@ -54,6 +55,17 @@ class UniformGrid(BaseBox):
         local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
         points = self.bounds.local_to_global(local_coords)
         return points
+
+    def position_of(self, voxel_index: Tensor):
+        voxel_index = rename_dims(voxel_index, channel, 'vector')
+        return self._bounds.lower + (voxel_index+.5) / self.resolution * self._bounds.size
+
+    def voxel_at(self, location: Tensor, clamp=True):
+        float_idx = (location - self._bounds.lower) / self._bounds.size * self.resolution
+        index = math.to_int32(float_idx)
+        if clamp:
+            index = math.clip(index, 0, wrap(self.resolution, channel('vector'))-1)
+        return index
 
     @property
     def boundary_elements(self) -> Dict[Any, Dict[str, slice]]:
