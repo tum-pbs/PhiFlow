@@ -2,7 +2,7 @@ from numbers import Number
 from typing import Union, Tuple, Dict, Any, Optional, Sequence
 
 from phiml import math
-from phiml.math import Shape, Tensor, spatial, channel, non_spatial, expand, non_channel, instance, stack, batch
+from phiml.math import Shape, Tensor, spatial, channel, non_spatial, expand, non_channel, instance, stack, batch, dual
 from phiml.math.magic import slicing_dict
 from . import UniformGrid
 from ._geom import Geometry
@@ -218,6 +218,27 @@ class SDFGrid(Geometry):
         if 'vector' in item:
             raise NotImplementedError("SDF projection not yet supported")
         return SDFGrid(self._sdf[item], self._bounds[item], self._approximate_outside, math.slice(self._grad, item), math.slice(self._to_surface, item), math.slice(self._surf_normal, item), math.slice(self._surf_index, item), math.slice(self._center, item), math.slice(self._volume, item), math.slice(self._bounding_radius, item))
+
+    def approximate_occupancy(self):
+        assert self._surf_normal is not None
+        unit_corners = Cuboid(half_size=.5*self.dx).corners
+        surf_dist = self._surf_normal.vector @ self._to_surface.vector
+        corner_sdf = unit_corners.vector @ self._surf_normal.vector - surf_dist
+        total_dist = math.sum(abs(corner_sdf), dual)
+        neg_dist = math.sum(math.minimum(0, corner_sdf), dual)
+        occ_near_surf = -neg_dist / total_dist
+        occ_away = self._sdf <= 0
+        return math.where(abs(self._sdf) < .5*math.vec_length(self.dx), occ_near_surf, occ_away)
+
+    def approximate_fraction_inside(self, other_geometry: 'Geometry', balance: Union[Tensor, Number] = 0.5) -> Tensor:
+        if other_geometry == self.grid and math.always_close(balance, .5):
+            return self.approximate_occupancy()
+        else:
+            return Geometry.approximate_fraction_inside(self, other_geometry, balance)
+
+    def downsample2x(self):
+        s, g, t, n, i = [math.downsample2x(v) for v in (self._sdf, self._grad, self._to_surface, self._surf_normal, self._surf_index)]
+        return SDFGrid(s, self._bounds, self._approximate_outside, g, t, n, i, self._center, self._volume, self._bounding_radius)
 
 
 def sample_sdf(geometry: Geometry,
