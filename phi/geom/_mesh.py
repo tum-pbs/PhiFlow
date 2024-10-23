@@ -457,9 +457,10 @@ class Mesh(Geometry):
         s = math.slice
         return Mesh(vertices, polygons, self._element_rank, self._boundaries, self._center[item], self._volume[item], s(self._normals, item),
                     s(self._face_centers, item), s(self._face_normals, item), s(self._face_areas, item), s(self._face_vertices, item),
-                    s(self._vertex_normals, item), s(self._vertex_connectivity, item), None, self._max_cell_walk)
+                    s(self._vertex_normals, item), s(self._vertex_connectivity, item), self._element_connectivity[item], self._max_cell_walk)
 
 
+@math.broadcast
 def load_su2(file_or_mesh: str, cell_dim=instance('cells'), face_format: str = 'csc') -> Mesh:
     """
     Load an unstructured mesh from a `.su2` file.
@@ -488,6 +489,7 @@ def load_su2(file_or_mesh: str, cell_dim=instance('cells'), face_format: str = '
     return mesh_from_numpy(points, mesh.elements, boundaries, cell_dim=cell_dim, face_format=face_format)
 
 
+@math.broadcast
 def load_gmsh(file: str, boundary_names: Sequence[str] = None, cell_dim=instance('cells'), face_format: str = 'csc'):
     """
     Load an unstructured mesh from a `.msh` file.
@@ -526,6 +528,7 @@ def load_gmsh(file: str, boundary_names: Sequence[str] = None, cell_dim=instance
     return mesh_from_numpy(points, elements, boundaries, cell_dim=cell_dim, face_format=face_format)
 
 
+@math.broadcast
 def load_stl(file: str, face_dim=instance('faces')):
     import stl
     model = stl.mesh.Mesh.from_file(file)
@@ -952,6 +955,7 @@ def save_tri_mesh(file: str, mesh: Mesh, **extra_data):
     np.savez(file, vertices=v, faces=f, f_dim=instance(mesh).name, vertex_dim=instance(mesh.vertices).name, vector=mesh.vector.item_names, has_extra_data=bool(extra_data), **extra_data)
 
 
+@math.broadcast
 def load_tri_mesh(file: str, convert=False, load_extra=()) -> Mesh | Tuple[Mesh, ...]:
     data = np.load(file, allow_pickle=bool(load_extra))
     f_dim = instance(str(data['f_dim']))
