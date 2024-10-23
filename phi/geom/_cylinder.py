@@ -3,7 +3,8 @@ from functools import cached_property
 from typing import Union, Dict, Tuple, Optional, Sequence
 
 from phiml import math
-from phiml.math import Shape, dual, wrap, Tensor, expand, vec, where, ccat, clip, length, normalize, rotate_vector, minimum, vec_squared, rotation_matrix, channel, instance, stack, maximum, PI, linspace, sin, cos
+from phiml.math import Shape, dual, wrap, Tensor, expand, vec, where, ccat, clip, length, normalize, rotate_vector, minimum, vec_squared, rotation_matrix, channel, instance, stack, maximum, PI, linspace, sin, cos, \
+    rotation_matrix_from_directions
 from phiml.math._magic_ops import all_attributes
 from phiml.math.magic import slicing_dict
 from ._geom import Geometry, _keep_vector
@@ -25,8 +26,8 @@ class Cylinder(Geometry):
     rotation: Tensor  # rotation matrix
     axis: str
 
-    variables: Tuple[str, ...] = ('_center', 'radius', 'depth', 'rotation')
-    values: Tuple[str, ...] = ()
+    variable_attrs: Tuple[str, ...] = ('_center', 'radius', 'depth', 'rotation')
+    value_attrs: Tuple[str, ...] = ()
 
     @property
     def center(self) -> Tensor:
@@ -123,29 +124,29 @@ class Cylinder(Geometry):
         return ccat([.5*self.depth, expand(self.radius, channel(vector=self.radial_axes))], self._center.shape['vector'])
 
     def at(self, center: Tensor) -> 'Geometry':
-        return Cylinder(center, self.radius, self.depth, self.rotation, self.axis, self.variables, self.values)
+        return Cylinder(center, self.radius, self.depth, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
 
     def rotated(self, angle):
         if self.rotation is None:
-            return Cylinder(self._center, self.radius, self.depth, angle, self.axis, self.variables, self.values)
+            return Cylinder(self._center, self.radius, self.depth, angle, self.axis, self.variable_attrs, self.value_attrs)
         else:
             matrix = self.rotation @ (angle if dual(angle) else math.rotation_matrix(angle))
-            return Cylinder(self._center, self.radius, self.depth, matrix, self.axis, self.variables, self.values)
+            return Cylinder(self._center, self.radius, self.depth, matrix, self.axis, self.variable_attrs, self.value_attrs)
 
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
-        return Cylinder(self._center, self.radius * factor, self.depth * factor, self.rotation, self.axis, self.variables, self.values)
+        return Cylinder(self._center, self.radius * factor, self.depth * factor, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
 
     def __getitem__(self, item):
         item = slicing_dict(self, item)
-        return Cylinder(self._center[_keep_vector(item)], self.radius[item], self.depth[item], math.slice(self.rotation, item), self.axis, self.variables, self.values)
+        return Cylinder(self._center[_keep_vector(item)], self.radius[item], self.depth[item], math.slice(self.rotation, item), self.axis, self.variable_attrs, self.value_attrs)
 
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
         if all(isinstance(v, Cylinder) for v in values) and all(v.axis == values[0].axis for v in values):
             var_attrs = set()
-            var_attrs.update(*[set(v.variables) for v in values])
+            var_attrs.update(*[set(v.variable_attrs) for v in values])
             val_attrs = set()
-            val_attrs.update(*[set(v.values) for v in values])
+            val_attrs.update(*[set(v.value_attrs) for v in values])
             if any(v.rotation is not None for v in values):
                 matrices = [v.rotation for v in values]
                 if any(m is None for m in matrices):
@@ -213,7 +214,7 @@ def cylinder(center: Tensor = None,
              radius: Union[float, Tensor] = None,
              depth: Union[float, Tensor] = None,
              rotation: Optional[Tensor] = None,
-             axis=-1,
+             axis: int | str | Tensor = -1,
              variables=('center', 'radius', 'depth', 'rotation'),
              **center_: Union[float, Tensor]):
     """
@@ -225,6 +226,7 @@ def cylinder(center: Tensor = None,
         depth: Cylinder length as `float` or `Tensor`.
         rotation: Rotation angle(s) or rotation matrix.
         axis: The cylinder is aligned along this axis, perturbed by `rotation`.
+            Specified either as the dim along which the cylinder is aligned or as a vector.
         variables: Which properties of the cylinder are variable, i.e. traced and optimizable. All by default.
         **center_: Specifies center when the `center` argument is not given. Center position by dimension, e.g. `x=0.5, y=0.2`.
     """
@@ -234,11 +236,19 @@ def cylinder(center: Tensor = None,
         assert center.shape.get_item_names('vector') is not None, f"Vector dimension must list spatial dimensions as item names. Use the syntax Sphere(x=x, y=y) to assign names."
         center = center
     else:
-        center = wrap(tuple(center_.values()), channel(vector=tuple(center_.keys())))
+        center = wrap(tuple(center_.value_attrs()), channel(vector=tuple(center_.keys())))
     radius = wrap(radius)
     depth = wrap(depth)
-    rotation = rotation_matrix(rotation)
     axis = center.vector.item_names[axis] if isinstance(axis, int) else axis
+    if isinstance(axis, Tensor):  # specify cylinder axis as vector
+        assert 'vector' in axis.shape, f"When specifying axis a Tensor, it must have a 'vector' dimension."
+        assert rotation is None, f"When specifying axis as a "
+        axis_ = center.vector.item_names[-1]
+        unit_vec = vec(**{d: 1 if d == axis_ else 0 for d in center.vector.item_names})
+        rotation = rotation_matrix_from_directions(unit_vec, axis)
+        axis = axis_
+    else:
+        rotation = rotation_matrix(rotation)
     variables = [{'center': '_center'}.get(v, v) for v in variables]
     assert 'vector' not in radius.shape, f"Cylinder radius must not vary along vector but got {radius}"
     assert set(variables).issubset(set(all_attributes(Cylinder))), f"Invalid variables: {variables}"
