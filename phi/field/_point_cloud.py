@@ -3,13 +3,14 @@ from typing import Any, Union
 
 from phi import math, geom
 from phi.geom import Geometry, Box
+from phiml.math import shape
 from ._field import Field
 from ._resample import resample
 from ..math import Tensor, instance, Shape, dual
 from ..math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
 
 
-def PointCloud(elements: Union[Tensor, Geometry], values: Any = 1., extrapolation: Union[Extrapolation, float] = 0., bounds: Box = None) -> Field:
+def PointCloud(elements: Union[Tensor, Geometry, float], values: Any = 1., extrapolation: Union[Extrapolation, float] = 0., bounds: Box = None) -> Field:
     """
     A `PointCloud` comprises:
 
@@ -47,6 +48,9 @@ def PointCloud(elements: Union[Tensor, Geometry], values: Any = 1., extrapolatio
     #     indices = math.stored_indices(values)[non_dual_name]
     #     values = math.stored_values(values)
     #     elements = elements[{non_dual_name: indices}]
+    if isinstance(elements, (int, float)) and elements == 0:
+        assert 'vector' in shape(values), f"When constructing a PointCloud from the origin 0, values must have a 'vector' dimension"
+        elements = values * 0
     if isinstance(elements, Tensor):
         elements = geom.Point(elements)
     result = Field(elements, values, extrapolation)
