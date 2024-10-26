@@ -971,6 +971,7 @@ def load_tri_mesh(file: str, convert=False, load_extra=()) -> Mesh | Tuple[Mesh,
     return m, *extra
 
 
+@math.broadcast(dims=batch)
 def decimate_tri_mesh(mesh: Mesh, factor=.1, target_max=10_000,):
     if isinstance(mesh, NoGeometry):
         return mesh
