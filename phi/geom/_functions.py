@@ -1,6 +1,6 @@
 from typing import Sequence, Union
 
-from phiml.math import Tensor, channel, Shape, vec_normalize, vec, sqrt, maximum, clip, vec_squared, vec_length, where, stack, dual, argmin
+from phiml.math import Tensor, channel, Shape, vec_normalize, vec, sqrt, maximum, clip, vec_squared, vec_length, where, stack, dual, argmin, cross_product
 from phiml.math._shape import parse_dim_order
 
 # No dependence on Geometry
@@ -113,3 +113,19 @@ def closest_on_line(A, B, query):
     t = u.vector @ v.vector / vec_squared(v)
     t = clip(t, 0, 1)
     return A + t * v
+
+
+def closest_points_on_lines(p1, v1, p2, v2, eps=1e-10, can_be_parallel=True):
+    """Find the closest points between two infinite lines defined by point and direction."""
+    n = cross_product(v1, v2)
+    n_norm = vec_normalize(n)
+    diff = p2 - p1
+    t1 = cross_product(v2, n_norm).vector @ diff.vector
+    t2 = cross_product(v1, n_norm).vector @ diff.vector
+    c1, c2 = p1 + t1 * v1, p2 + t2 * v2
+    if can_be_parallel:
+        is_parallel = vec_squared(n) < eps
+        t = (p2-p1).vector @ v1.vector  # Project p2-p1 onto v1 to get the closest point on line 1
+        c1 = where(is_parallel, p1 + t * v1, c1)
+        c2 = where(is_parallel, p2, c2)
+    return c1, c2
