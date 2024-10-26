@@ -54,7 +54,7 @@ class PlotlyPlots(PlottingLibrary):
                 subplot.xaxis.update(title=bounds.vector.item_names[0], range=_get_range(bounds, 0))
                 subplot.yaxis.update(title=bounds.vector.item_names[1], range=_get_range(bounds, 1))
                 subplot.zaxis.update(title=bounds.vector.item_names[2], range=_get_range(bounds, 2))
-                subplot.aspectmode = 'data'
+                subplot.aspectmode = 'cube'
         fig._phi_size = size
         if size[0] is not None:
             fig.update_layout(width=size[0] * 70)
