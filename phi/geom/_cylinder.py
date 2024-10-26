@@ -113,7 +113,10 @@ class Cylinder(Geometry):
         return sgn_dist, delta, normal, None, None
 
     def sample_uniform(self, *shape: math.Shape):
-        raise NotImplementedError
+        r = Sphere(self._center[self.radial_axes], self.radius).sample_uniform(*shape)
+        h = math.random_uniform(*shape, -.5*self.depth, .5*self.depth)
+        rh = ccat([r, h], self._center.shape['vector'])
+        return rotate_vector(rh, self.rotation)
 
     def bounding_radius(self):
         return math.length(vec(rad=self.radius, dep=.5*self.depth))
@@ -127,11 +130,8 @@ class Cylinder(Geometry):
         return Cylinder(center, self.radius, self.depth, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
 
     def rotated(self, angle):
-        if self.rotation is None:
-            return Cylinder(self._center, self.radius, self.depth, angle, self.axis, self.variable_attrs, self.value_attrs)
-        else:
-            matrix = self.rotation @ (angle if dual(angle) else math.rotation_matrix(angle))
-            return Cylinder(self._center, self.radius, self.depth, matrix, self.axis, self.variable_attrs, self.value_attrs)
+        rot = self.rotation @ rotation_matrix(angle) if self.rotation is not None else rotation_matrix(angle)
+        return Cylinder(self.center, self.radius, self.depth, rot, self.axis, self.variable_attrs, self.value_attrs)
 
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         return Cylinder(self._center, self.radius * factor, self.depth * factor, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
