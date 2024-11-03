@@ -63,7 +63,7 @@ class Cylinder(Geometry):
         top_h = .5*self.depth
         bot_h = -.5*self.depth
         # --- Compute distances ---
-        radial_outward = normalize(r, epsilon=1e-5)
+        radial_outward = normalize(r, 'vector', epsilon=1e-5)
         surf_r = radial_outward * self.radius
         radial_dist2 = vec_squared(r)
         inside_cyl = radial_dist2 <= self.radius**2
@@ -71,7 +71,7 @@ class Cylinder(Geometry):
         # --- Closest point on bottom / top ---
         sgn_dist_side = abs(h) - top_h
         # --- Closest point on cylinder ---
-        sgn_dist_cyl = length(r) - self.radius
+        sgn_dist_cyl = length(r, 'vector') - self.radius
         # inside (all <= 0) -> largest SDF, outside (any > 0) -> largest positive SDF
         sgn_dist = maximum(sgn_dist_cyl, sgn_dist_side)
         return math.min(sgn_dist, instance(self))
@@ -83,7 +83,7 @@ class Cylinder(Geometry):
         top_h = .5*self.depth
         bot_h = -.5*self.depth
         # --- Compute distances ---
-        radial_outward = normalize(r, epsilon=1e-5)
+        radial_outward = normalize(r, 'vector', epsilon=1e-5)
         surf_r = radial_outward * self.radius
         radial_dist2 = vec_squared(r)
         inside_cyl = radial_dist2 <= self.radius**2
@@ -98,8 +98,8 @@ class Cylinder(Geometry):
         on_cyl = ccat([surf_r, clamped_h], self._center.shape['vector'])
         normal_cyl = ccat([radial_outward, 0], self._center.shape['vector'], expand_values=True)
         # --- Choose closest ---
-        d_flat = length(on_flat - location)
-        d_cyl = length(on_cyl - location)
+        d_flat = length(on_flat - location, 'vector')
+        d_cyl = length(on_cyl - location, 'vector')
         flat_closer = d_flat <= d_cyl
         surf_point = where(flat_closer, on_flat, on_cyl)
         inside = inside_cyl & (h >= bot_h) & (h <= top_h)
@@ -119,7 +119,7 @@ class Cylinder(Geometry):
         return rotate_vector(rh, self.rotation)
 
     def bounding_radius(self):
-        return math.length(vec(rad=self.radius, dep=.5*self.depth))
+        return length(vec(rad=self.radius, dep=.5*self.depth), 'vector')
 
     def bounding_half_extent(self):
         if self.rotation is not None:
