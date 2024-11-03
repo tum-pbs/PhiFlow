@@ -623,7 +623,7 @@ class SurfaceMesh3D(Recipe):
         # --- plot mesh ---
         cbar = None if not channel(data) or not channel(data).item_names[0] else channel(data).item_names[0][0]
         if math.is_nan(data.values).all:
-            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, flatshading=False, opacity=float(alpha))
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, flatshading=False, opacity=float(alpha), color=plotly_color(color.native()))
         elif data.sampled_at == 'center':
             values = reshaped_numpy(data.values, [instance(data.mesh)])
             mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='cell', flatshading=True, opacity=float(alpha))
@@ -656,12 +656,11 @@ class SDF3D(Recipe):
              alpha: Tensor,
              err: Tensor):
         def plot_single_material(data: Field, color, alpha: float):
-            color = plotly_color(color)
             with math.NUMPY:
                 surf_mesh = geom.surface_mesh(data.geometry)
             mesh_data = Field(surf_mesh, math.NAN, 0)
             SurfaceMesh3D().plot(mesh_data, figure, subplot, space, min_val, max_val, show_color_bar, color, alpha, err)
-        math.map(plot_single_material, data, color, alpha, dims=channel(data.geometry) - 'vector')
+        math.map(plot_single_material, data, color, alpha, dims=channel(data.geometry) - 'vector', unwrap_scalars=False)
 
 
 
