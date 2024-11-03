@@ -371,7 +371,7 @@ class Field:
 
     @property
     def sampled_at(self):
-        matching_sets = [s for s, s_shape in self._geometry.sets.items() if s_shape in self._values.shape]
+        matching_sets = [s for s, s_shape in self._geometry.sets.items() if s_shape.non_batch in self._values.shape]
         return matching_sets[-1]
 
     def at(self, representation: Union['Field', Geometry], keep_boundary=False, **kwargs) -> 'Field':
