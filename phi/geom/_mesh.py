@@ -413,7 +413,7 @@ class Mesh(Geometry):
         if instance(self._elements) in center.shape:
             raise NotImplementedError("Setting Mesh positions only supported for vertices, not elements")
         if dual(self._elements) in center.shape:
-            delta = rename_dims(center, dual, instance(self._vertices))
+            center = rename_dims(center, dual, instance(self._vertices))
         if instance(self._vertices) in center.shape:
             vertices = self._vertices.at(center)
             return mesh(vertices, self._elements, self._boundaries, build_faces=self._face_areas is not None)
