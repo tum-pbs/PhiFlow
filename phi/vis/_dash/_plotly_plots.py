@@ -54,7 +54,12 @@ class PlotlyPlots(PlottingLibrary):
                 subplot.xaxis.update(title=bounds.vector.item_names[0], range=_get_range(bounds, 0))
                 subplot.yaxis.update(title=bounds.vector.item_names[1], range=_get_range(bounds, 1))
                 subplot.zaxis.update(title=bounds.vector.item_names[2], range=_get_range(bounds, 2))
-                subplot.aspectmode = 'cube'
+                subplot.aspectmode = 'manual'
+                x_range = _get_range(bounds, 0)
+                y_range = _get_range(bounds, 1)
+                z_range = _get_range(bounds, 2)
+                n = float(math.length(bounds.size).max) * .5
+                subplot.aspectratio = dict(x=(x_range[1]-x_range[0])/n, y=(y_range[1]-y_range[0])/n, z=(z_range[1]-z_range[0])/n)
         fig._phi_size = size
         if size[0] is not None:
             fig.update_layout(width=size[0] * 70)
@@ -655,8 +660,8 @@ class SDF3D(Recipe):
 
 
 def _get_range(bounds: Box, index: int):
-    lower = bounds.lower.vector[index].numpy()
-    upper = bounds.upper.vector[index].numpy()
+    lower = float(bounds.lower.vector[index])
+    upper = float(bounds.upper.vector[index])
     return lower, upper
 
 
