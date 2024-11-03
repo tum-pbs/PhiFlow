@@ -457,7 +457,7 @@ class Mesh(Geometry):
         s = math.slice
         return Mesh(vertices, polygons, self._element_rank, self._boundaries, self._center[item], self._volume[item], s(self._normals, item),
                     s(self._face_centers, item), s(self._face_normals, item), s(self._face_areas, item), s(self._face_vertices, item),
-                    s(self._vertex_normals, item), s(self._vertex_connectivity, item), self._element_connectivity[item], self._max_cell_walk)
+                    s(self._vertex_normals, item), s(self._vertex_connectivity, item), s(self._element_connectivity, item), self._max_cell_walk)
 
 
 @math.broadcast
@@ -956,14 +956,14 @@ def save_tri_mesh(file: str, mesh: Mesh, **extra_data):
 
 
 @math.broadcast
-def load_tri_mesh(file: str, convert=False, load_extra=()) -> Mesh | Tuple[Mesh, ...]:
+def load_tri_mesh(file: str, convert=False, load_extra=(), build_vertex_connectivity=True, build_normals=True, build_element_connectivity=True) -> Mesh | Tuple[Mesh, ...]:
     data = np.load(file, allow_pickle=bool(load_extra))
     f_dim = instance(str(data['f_dim']))
     vertex_dim = instance(str(data['vertex_dim']))
     vector = channel(vector=[str(d) for d in data['vector']])
     faces = tensor(data['faces'], f_dim, spatial('vertex_list'), convert=convert)
     vertices = tensor(data['vertices'], vertex_dim, vector, convert=convert)
-    m = mesh(vertices, faces, build_faces=False, build_vertex_connectivity=True, build_normals=True)
+    m = mesh(vertices, faces, build_faces=False, build_vertex_connectivity=build_vertex_connectivity, build_normals=build_normals, build_element_connectivity=build_element_connectivity)
     if not load_extra:
         return m
     extra = [data[e] for e in load_extra]
