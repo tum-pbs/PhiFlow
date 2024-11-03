@@ -4,7 +4,7 @@ from typing import Union, Dict, Tuple, Optional, Sequence
 
 from phiml import math
 from phiml.math import Shape, dual, wrap, Tensor, expand, vec, where, ccat, clip, length, normalize, rotate_vector, minimum, vec_squared, rotation_matrix, channel, instance, stack, maximum, PI, linspace, sin, cos, \
-    rotation_matrix_from_directions
+    rotation_matrix_from_directions, sqrt
 from phiml.math._magic_ops import all_attributes
 from phiml.math.magic import slicing_dict
 from ._geom import Geometry, _keep_vector
@@ -123,7 +123,8 @@ class Cylinder(Geometry):
 
     def bounding_half_extent(self):
         if self.rotation is not None:
-            return expand(self.bounding_radius(), self._center.shape.only('vector'))
+            tip = abs(self.up) * .5 * self.depth
+            return tip + self.radius * sqrt(1 - self.up**2)
         return ccat([.5*self.depth, expand(self.radius, channel(vector=self.radial_axes))], self._center.shape['vector'])
 
     def at(self, center: Tensor) -> 'Geometry':
