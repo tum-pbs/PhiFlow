@@ -210,7 +210,7 @@ class Cylinder(Geometry):
         raise NotImplementedError
 
 
-def cylinder(center: Tensor = None,
+def cylinder(center: Union[Tensor, float] = None,
              radius: Union[float, Tensor] = None,
              depth: Union[float, Tensor] = None,
              rotation: Optional[Tensor] = None,
@@ -231,6 +231,9 @@ def cylinder(center: Tensor = None,
         **center_: Specifies center when the `center` argument is not given. Center position by dimension, e.g. `x=0.5, y=0.2`.
     """
     if center is not None:
+        if not isinstance(center, Tensor):
+            assert center == 0 and isinstance(axis, Tensor)
+            center = expand(0, axis.shape['vector'])
         assert isinstance(center, Tensor), f"center must be a Tensor but got {type(center).__name__}"
         assert 'vector' in center.shape, f"Sphere center must have a 'vector' dimension."
         assert center.shape.get_item_names('vector') is not None, f"Vector dimension must list spatial dimensions as item names. Use the syntax Sphere(x=x, y=y) to assign names."
@@ -238,7 +241,11 @@ def cylinder(center: Tensor = None,
     else:
         center = wrap(tuple(center_.value_attrs()), channel(vector=tuple(center_.keys())))
     radius = wrap(radius)
-    depth = wrap(depth)
+    if depth is None:
+        assert isinstance(axis, Tensor)
+        depth = 2 * length(axis, 'vector')
+    else:
+        depth = wrap(depth)
     axis = center.vector.item_names[axis] if isinstance(axis, int) else axis
     if isinstance(axis, Tensor):  # specify cylinder axis as vector
         assert 'vector' in axis.shape, f"When specifying axis a Tensor, it must have a 'vector' dimension."
