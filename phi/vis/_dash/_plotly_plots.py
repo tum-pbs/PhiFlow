@@ -481,9 +481,15 @@ class Object3D(Recipe):
         math.map(plot_one_material, data, color, alpha, dims=merge_shapes(color, alpha), unwrap_scalars=True)
 
     def _sphere_vertex_count(self, radius: Tensor, space: Box):
+        with math.NUMPY:
+            radius = math.convert(radius)
+            space = math.convert(space)
         size_in_fig = radius.max / space.size.max
-        vertex_count = np.clip(int(size_in_fig ** .5 * 50), 4, 64)
-        return vertex_count
+        def individual_vertex_count(size_in_fig):
+            if ~np.isfinite(size_in_fig):
+                return 0
+            return np.clip(int(abs(size_in_fig) ** .5 * 50), 4, 64)
+        return math.map(individual_vertex_count, size_in_fig)
 
 
 class Scatter3D(Recipe):
