@@ -4,7 +4,7 @@ from typing import Union, Dict, Tuple, Optional, Sequence
 
 from phiml import math
 from phiml.math import Shape, dual, wrap, Tensor, expand, vec, where, ccat, clip, length, normalize, rotate_vector, minimum, vec_squared, rotation_matrix, channel, instance, stack, maximum, PI, linspace, sin, cos, \
-    rotation_matrix_from_directions, sqrt
+    rotation_matrix_from_directions, sqrt, batch
 from phiml.math._magic_ops import all_attributes
 from phiml.math.magic import slicing_dict
 from ._geom import Geometry, _keep_vector
@@ -35,7 +35,7 @@ class Cylinder(Geometry):
 
     @cached_property
     def shape(self) -> Shape:
-        return self._center.shape & self.radius.shape & self.depth.shape
+        return self._center.shape & self.radius.shape & self.depth.shape & batch(self.rotation)
 
     @cached_property
     def radial_axes(self) -> Sequence[str]:
@@ -48,6 +48,12 @@ class Cylinder(Geometry):
     @cached_property
     def up(self):
         return math.rotate_vector(vec(**{d: 1 if d == self.axis else 0 for d in self._center.vector.item_names}), self.rotation)
+
+    def with_radius(self, radius: Tensor) -> 'Cylinder':
+        return Cylinder(self._center, radius, self.depth, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
+
+    def with_depth(self, depth: Tensor) -> 'Cylinder':
+        return Cylinder(self._center, self.radius, depth, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
 
     def lies_inside(self, location):
         pos = rotate_vector(location - self._center, self.rotation, invert=True)
