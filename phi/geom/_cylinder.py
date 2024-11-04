@@ -127,10 +127,10 @@ class Cylinder(Geometry):
     def bounding_radius(self):
         return length(vec(rad=self.radius, dep=.5*self.depth), 'vector')
 
-    def bounding_half_extent(self):
+    def bounding_half_extent(self, epsilon=1e-5):
         if self.rotation is not None:
             tip = abs(self.up) * .5 * self.depth
-            return tip + self.radius * sqrt(1 - self.up**2)
+            return tip + self.radius * sqrt(maximum(epsilon, 1 - self.up**2))
         return ccat([.5*self.depth, expand(self.radius, channel(vector=self.radial_axes))], self._center.shape['vector'])
 
     def at(self, center: Tensor) -> 'Geometry':
@@ -259,7 +259,7 @@ def cylinder(center: Union[Tensor, float] = None,
         assert rotation is None, f"When specifying axis as a "
         axis_ = center.vector.item_names[-1]
         unit_vec = vec(**{d: 1 if d == axis_ else 0 for d in center.vector.item_names})
-        rotation = rotation_matrix_from_directions(unit_vec, axis)
+        rotation = rotation_matrix_from_directions(unit_vec, axis, epsilon=1e-5)
         axis = axis_
     else:
         rotation = rotation_matrix(rotation)
