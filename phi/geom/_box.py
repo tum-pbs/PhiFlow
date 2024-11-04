@@ -533,19 +533,22 @@ class Cuboid(BaseBox):
         return bool_inside
 
 
-def bounding_box(geometry: Geometry | Tensor) -> Box:
+def bounding_box(geometry: Geometry | Tensor, reduce=non_batch) -> Box:
     """
     Builds a bounding box around `geometry` or a collection of points.
 
     Args:
         geometry: `Geometry` object or `Tensor` of points.
+        reduce: Which objects to includes in each bounding box. Non-reduced dims will be part of the returned box.
 
     Returns:
         Bounding `Box` containing only batch dims and `vector`.
     """
     if isinstance(geometry, Tensor):
         assert 'vector' in geometry.shape, f"When passing a Tensor to bounding_box, it needs to have a vector dimension but got {geometry.shape}"
-        return Box(math.min(geometry, non_batch(geometry) - 'vector'), math.max(geometry, non_batch(geometry) - 'vector'))
+        reduce = geometry.shape.only(reduce) - 'vector'
+        return Box(math.min(geometry, reduce), math.max(geometry, reduce))
     center = geometry.center
     extent = geometry.bounding_half_extent()
-    return Box(lower=center - extent, upper=center + extent)
+    boxes = Box(lower=center - extent, upper=center + extent)
+    return boxes.largest(boxes.shape.only(reduce)-'vector')
