@@ -3,7 +3,7 @@ from functools import cached_property
 from typing import Union, Dict, Tuple, Optional, Sequence
 
 from phiml import math
-from phiml.math import Shape, dual, wrap, Tensor, expand, vec, where, ccat, clip, length, normalize, rotate_vector, minimum, vec_squared, rotation_matrix, channel, instance, stack, maximum, PI, linspace, sin, cos, \
+from phiml.math import Shape, dual, wrap, Tensor, expand, vec, where, ncat, clip, length, normalize, rotate_vector, minimum, vec_squared, rotation_matrix, channel, instance, stack, maximum, PI, linspace, sin, cos, \
     rotation_matrix_from_directions, sqrt, batch
 from phiml.math._magic_ops import all_attributes
 from phiml.math.magic import slicing_dict
@@ -50,10 +50,10 @@ class Cylinder(Geometry):
         return math.rotate_vector(vec(**{d: 1 if d == self.axis else 0 for d in self._center.vector.item_names}), self.rotation)
 
     def with_radius(self, radius: Tensor) -> 'Cylinder':
-        return Cylinder(self._center, radius, self.depth, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
+        return Cylinder(self._center, wrap(radius), self.depth, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
 
     def with_depth(self, depth: Tensor) -> 'Cylinder':
-        return Cylinder(self._center, self.radius, depth, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
+        return Cylinder(self._center, self.radius, wrap(depth), self.rotation, self.axis, self.variable_attrs, self.value_attrs)
 
     def lies_inside(self, location):
         pos = rotate_vector(location - self._center, self.rotation, invert=True)
@@ -67,7 +67,7 @@ class Cylinder(Geometry):
         r = location.vector[self.radial_axes]
         h = location.vector[self.axis]
         top_h = .5*self.depth
-        bot_h = -.5*self.depth
+        # bot_h = -.5*self.depth
         # --- Compute distances ---
         radial_outward = normalize(r, 'vector', epsilon=1e-5)
         surf_r = radial_outward * self.radius
@@ -97,12 +97,12 @@ class Cylinder(Geometry):
         # --- Closest point on bottom / top ---
         above = h >= 0
         flat_h = where(above, top_h, bot_h)
-        on_flat = ccat([flat_h, clamped_r], self._center.shape['vector'])
+        on_flat = ncat([flat_h, clamped_r], self._center.shape['vector'])
         normal_flat = where(above, self.up, -self.up)
         # --- Closest point on cylinder ---
         clamped_h = clip(h, bot_h, top_h)
-        on_cyl = ccat([surf_r, clamped_h], self._center.shape['vector'])
-        normal_cyl = ccat([radial_outward, 0], self._center.shape['vector'], expand_values=True)
+        on_cyl = ncat([surf_r, clamped_h], self._center.shape['vector'])
+        normal_cyl = ncat([radial_outward, 0], self._center.shape['vector'], expand_values=True)
         # --- Choose closest ---
         d_flat = length(on_flat - location, 'vector')
         d_cyl = length(on_cyl - location, 'vector')
@@ -114,14 +114,15 @@ class Cylinder(Geometry):
         normal = where(flat_closer, normal_flat, normal_cyl)
         delta = rotate_vector(delta, self.rotation)
         normal = rotate_vector(normal, self.rotation)
+        idx = None
         if instance(self):
-            sgn_dist, delta, normal = math.at_min((sgn_dist, delta, normal), key=sgn_dist, dim=instance(self))
-        return sgn_dist, delta, normal, None, None
+            sgn_dist, delta, normal, idx = math.min((sgn_dist, delta, normal, range), instance(self), key=sgn_dist)
+        return sgn_dist, delta, normal, None, idx
 
     def sample_uniform(self, *shape: math.Shape):
         r = Sphere(self._center[self.radial_axes], self.radius).sample_uniform(*shape)
         h = math.random_uniform(*shape, -.5*self.depth, .5*self.depth)
-        rh = ccat([r, h], self._center.shape['vector'])
+        rh = ncat([r, h], self._center.shape['vector'])
         return rotate_vector(rh, self.rotation)
 
     def bounding_radius(self):
@@ -131,7 +132,7 @@ class Cylinder(Geometry):
         if self.rotation is not None:
             tip = abs(self.up) * .5 * self.depth
             return tip + self.radius * sqrt(maximum(epsilon, 1 - self.up**2))
-        return ccat([.5*self.depth, expand(self.radius, channel(vector=self.radial_axes))], self._center.shape['vector'])
+        return ncat([.5*self.depth, expand(self.radius, channel(vector=self.radial_axes))], self._center.shape['vector'])
 
     def at(self, center: Tensor) -> 'Geometry':
         return Cylinder(center, self.radius, self.depth, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
@@ -180,7 +181,9 @@ class Cylinder(Geometry):
 
     @property
     def face_areas(self) -> Tensor:
-        raise NotImplementedError
+        flat = Sphere.volume_from_radius(self.radius, self.spatial_rank - 1)
+        lateral = 2*PI*self.radius * self.depth
+        return stack({'bottom': flat, 'top': flat, 'lateral': lateral}, dual('shell'), expand_values=True)
 
     @property
     def face_normals(self) -> Tensor:
@@ -212,7 +215,7 @@ class Cylinder(Geometry):
             s = sin(angle) * self.radius
             c = cos(angle) * self.radius
             r = stack([s, c], channel(vector=self.radial_axes))
-            x = ccat([h, r], self._center.shape['vector'], expand_values=True)
+            x = ncat([h, r], self._center.shape['vector'], expand_values=True)
             return math.rotate_vector(x, self.rotation) + self._center
         raise NotImplementedError
 
