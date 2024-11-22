@@ -2,7 +2,7 @@ from numbers import Number
 from typing import Union, Tuple, Dict, Any, Optional, Sequence
 
 from phiml import math
-from phiml.math import Shape, Tensor, spatial, channel, non_spatial, expand, non_channel, instance, stack, batch, dual
+from phiml.math import Shape, Tensor, spatial, channel, non_spatial, expand, non_channel, instance, stack, batch, dual, clip, wrap
 from phiml.math.magic import slicing_dict
 from . import UniformGrid
 from ._geom import Geometry
@@ -78,27 +78,27 @@ class SDFGrid(Geometry):
         return SDFGrid(values, self._bounds, self._approximate_outside, self._grad, self._center, self._volume, self._bounding_radius)
 
     @property
-    def bounds(self):
+    def bounds(self) -> BaseBox:
         return self._bounds
 
     @property
-    def size(self):
+    def size(self) -> Tensor:
         return self._bounds.size
 
     @property
-    def resolution(self):
+    def resolution(self) -> Shape:
         return spatial(self._sdf)
 
     @property
-    def dx(self):
+    def dx(self) -> Tensor:
         return self._bounds.size / spatial(self._sdf)
 
     @property
-    def points(self):
+    def points(self) -> Tensor:
         return UniformGrid(spatial(self._sdf), self._bounds).center
 
     @property
-    def grid(self):
+    def grid(self) -> UniformGrid:
         return UniformGrid(spatial(self._sdf), self._bounds)
 
     @property
@@ -168,7 +168,7 @@ class SDFGrid(Geometry):
         surface_pos = location + to_surf
         if self._surf_normal is not None:
             normal = math.grid_sample(self._surf_normal, float_idx - .5, math.extrapolation.ZERO_GRADIENT)
-            int_index = math.to_int32(float_idx)
+            int_index = clip(math.to_int32(float_idx), 0, wrap(spatial(self._surf_index), '(x,y,z)')-1)
             face_index = self._surf_index[int_index]
         else:
             surf_float_idx = (surface_pos - self._bounds.lower) / self.size * self.resolution
