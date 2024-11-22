@@ -129,3 +129,11 @@ def closest_points_on_lines(p1, v1, p2, v2, eps=1e-10, can_be_parallel=True):
         c1 = where(is_parallel, p1 + t * v1, c1)
         c2 = where(is_parallel, p2, c2)
     return c1, c2
+
+
+def distance_line_point(line_offset: Tensor, line_direction: Tensor, point: Tensor, is_direction_normalized=False) -> Tensor:
+    to_point = point - line_offset
+    c = vec_length(cross_product(to_point, line_direction))
+    if not is_direction_normalized:
+        c /= vec_length(line_direction)
+    return c
