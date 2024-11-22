@@ -10,7 +10,7 @@ from ..math import Tensor, instance, Shape, dual
 from ..math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
 
 
-def PointCloud(elements: Union[Tensor, Geometry, float], values: Any = 1., extrapolation: Union[Extrapolation, float] = 0., bounds: Box = None) -> Field:
+def PointCloud(elements: Union[Tensor, Geometry, float], values: Any = 1., extrapolation: Union[Extrapolation, float] = 0., bounds: Box = None, variable_attrs=('values', 'geometry'), value_attrs=('values',)) -> Field:
     """
     A `PointCloud` comprises:
 
@@ -53,7 +53,7 @@ def PointCloud(elements: Union[Tensor, Geometry, float], values: Any = 1., extra
         elements = values * 0
     if isinstance(elements, Tensor):
         elements = geom.Point(elements)
-    result = Field(elements, values, extrapolation)
+    result = Field(elements, values, extrapolation, variable_attrs, value_attrs)
     assert result.boundary is PERIODIC or isinstance(result.boundary, ConstantExtrapolation), f"Unsupported extrapolation for PointCloud: {result._boundary}"
     return result
 

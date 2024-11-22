@@ -1,4 +1,5 @@
 import warnings
+from dataclasses import dataclass
 from numbers import Number
 from typing import Callable, Union, Tuple, Optional
 
@@ -19,93 +20,103 @@ class FieldInitializer:
         raise NotImplementedError(self)
 
 
-class Field:
+class _FieldType(type):
+    """Metaclass for the Field constructor."""
+    def __call__(cls,
+                 geometry: Union[Geometry, Tensor],
+                 values: Union[Tensor, Number, bool, Callable, FieldInitializer, Geometry, 'Field'],
+                 boundary: Union[Number, Extrapolation, 'Field', dict] = 0.,
+                 variable_attrs=('values',),
+                 value_attrs=('values',),
+                 **sampling_kwargs):
+        assert isinstance(geometry, Geometry), f"geometry must be a Geometry object but got {type(geometry).__name__}"
+        boundary = as_boundary(boundary, geometry)
+        if values is not None:
+            if isinstance(values, (Tensor, Number, bool)):
+                values = wrap(values)
+            else:
+                from ._resample import sample
+                values = sample(values, geometry, 'center', boundary, **sampling_kwargs)
+            matching_sets = [s for s, s_shape in geometry.sets.items() if s_shape in values.shape]
+            if not matching_sets:
+                values = expand(wrap(values), non_batch(geometry) - 'vector')
+        result = cls.__new__(cls, geometry, values, boundary, variable_attrs, value_attrs)
+        result.__init__(geometry, values, boundary, variable_attrs, value_attrs)  # also calls __post_init__()
+        return result
+
+
+@dataclass(frozen=True)
+class Field(metaclass=_FieldType):
     """
-    Base class for all fields.
-    
-    Important implementations:
-    
-    * CenteredGrid
-    * StaggeredGrid
-    * PointCloud
-    * Noise
-    
+    A `Field` represents a discretized physical quantity (like temperature field or velocity field).
+    The sample points and their relation are encoded in the `geometry` property and the corresponding values are stored as one `Tensor` in `values`.
+    The boundary conditions and values outside the geometry are determined by `boundary`.
+
+    Examples:
+        Create a periodic 2D grid, initialized via noise fluctuations.
+        >>> Field(UniformGrid(x=32, y=32), values=Noise(), boundary=PERIODIC)
+
+        Create a field on an unstructured mesh loaded from a .gmsh file
+        >>> mesh = phi.geom.load_gmsh('cylinder.msh', ('y-', 'x+', 'y+', 'x-', 'cyl+', 'cyl-'))
+        >>> Field(mesh, values=vec(x=1, y=0), boundary={'x': ZERO_GRADIENT, 'y': 0, 'cyl': 0})
+
+        Create two cubes and compute a scalar values for each.
+        >>> Field(Cuboid(vec(x=[0, 2], y=0), x=1, y=1), values=lambda x,y: x)
+
     See the `phi.field` module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
     """
 
-    def __init__(self,
-                 geometry: Union[Geometry, Tensor],
-                 values: Union[Tensor, Number, bool, Callable, FieldInitializer, Geometry, 'Field'],
-                 boundary: Union[Number, Extrapolation, 'Field', dict] = 0,
-                 **sampling_kwargs):
-        """
-        Args:
-          elements: Geometry object specifying the sample points and sizes
-          values: values corresponding to elements
-          extrapolation: values outside elements
-        """
-        assert isinstance(geometry, Geometry), f"geometry must be a Geometry object but got {type(geometry).__name__}"
-        self._boundary: Extrapolation = as_boundary(boundary, geometry)
-        self._geometry: Geometry = geometry
-        if isinstance(values, (Tensor, Number, bool)):
-            values = wrap(values)
-        else:
-            from ._resample import sample
-            values = sample(values, geometry, 'center', self._boundary, **sampling_kwargs)
-        matching_sets = [s for s, s_shape in geometry.sets.items() if s_shape in values.shape]
-        if not matching_sets:
-            values = expand(wrap(values), non_batch(geometry) - 'vector')
-        self._values: Tensor = values
-        math.merge_shapes(values, non_batch(self.sampled_elements).non_channel)  # shape check
+    geometry: Geometry
+    """ Discretization `Geometry`. This determines where in space the `values` are sampled as well as their relationship and interpretation. """
+    values: Tensor
+    """ The sampled values, matching some point set of `geometry`, e.g. center points, see `Geometry.sets`."""
+    boundary: Extrapolation = 0.
+    """ Boundary conditions describe the values outside of `geometry` and are used by numerical solvers to compute edge values. """
 
-    @property
-    def geometry(self) -> Geometry:
-        """
-        Returns a geometrical representation of the discrete volume elements.
-        The result is a tuple of Geometry objects, each of which can have additional spatial (but not batch) dimensions.
-        
-        For grids, the geometries are boxes while particle fields may be represented as spheres.
-        
-        If this Field has no discrete points, this method returns an empty geometry.
-        """
-        return self._geometry
+    variable_attrs: Tuple[str, ...] = ('values',)
+    """ Which of the three attributes (geometry,values,boundary) should be traced / optimized. See `phiml.math.magic.PhiTreeNode.__variable_attrs__`"""
+    value_attrs: Tuple[str, ...] = ('values',)
+    """ Which of the three attributes (geometry,values,boundary) are considered values. See `phiml.math.magic.PhiTreeNode.__value_attrs__`"""
+
+    def __post_init__(self):
+        math.merge_shapes(self.values, non_batch(self.sampled_elements).non_channel)  # shape check
 
     @property
     def grid(self) -> UniformGrid:
         """Cast `self.geometry` to a `phi.geom.UniformGrid`."""
-        assert isinstance(self._geometry, UniformGrid), f"Geometry is not a UniformGrid but {type(self._geometry)}"
-        return self._geometry
+        assert isinstance(self.geometry, UniformGrid), f"Geometry is not a UniformGrid but {type(self.geometry)}"
+        return self.geometry
 
     @property
     def mesh(self) -> Mesh:
         """Cast `self.geometry` to a `phi.geom.Mesh`."""
-        assert isinstance(self._geometry, Mesh), f"Geometry is not a mesh but {type(self._geometry)}"
-        return self._geometry
+        assert isinstance(self.geometry, Mesh), f"Geometry is not a mesh but {type(self.geometry)}"
+        return self.geometry
 
     @property
     def graph(self) -> Graph:
         """Cast `self.geometry` to a `phi.geom.Graph`."""
-        assert isinstance(self._geometry, Graph), f"Geometry is not a mesh but {type(self._geometry)}"
-        return self._geometry
+        assert isinstance(self.geometry, Graph), f"Geometry is not a mesh but {type(self.geometry)}"
+        return self.geometry
 
     @property
     def faces(self):
-        return get_faces(self._geometry, self._boundary)
+        return get_faces(self.geometry, self.boundary)
 
     @property
     def face_centers(self):
-        return self._geometry.face_centers
-        # return slice_off_constant_faces(self._geometry.face_centers, self._geometry.boundary_faces, self._boundary)
+        return self.geometry.face_centers
+        # return slice_off_constant_faces(self.geometry.face_centers, self.geometry.boundary_faces, self.boundary)
 
     @property
     def face_normals(self):
-        return self._geometry.face_normals
-        # return slice_off_constant_faces(self._geometry.face_normals, self._geometry.boundary_faces, self._boundary)
+        return self.geometry.face_normals
+        # return slice_off_constant_faces(self.geometry.face_normals, self.geometry.boundary_faces, self.boundary)
 
     @property
     def face_areas(self):
-        return self._geometry.face_areas
-        # return slice_off_constant_faces(self._geometry.face_areas, self._geometry.boundary_faces, self._boundary)
+        return self.geometry.face_areas
+        # return slice_off_constant_faces(self.geometry.face_areas, self.geometry.boundary_faces, self.boundary)
 
     @property
     def sampled_elements(self) -> Geometry:
@@ -113,13 +124,13 @@ class Field:
         If the values represent are sampled at the element centers or represent the whole element, returns `self.geometry`.
         If the values are sampled at the faces, returns `self.faces`.
         """
-        return get_faces(self._geometry, self._boundary) if is_staggered(self._values, self._geometry) else self._geometry
+        return get_faces(self.geometry, self.boundary) if is_staggered(self.values, self.geometry) else self.geometry
 
     @property
     def elements(self):
         # raise SyntaxError("Field.elements is deprecated. Use Field.geometry or Field.sampled_elements instead.")
         warnings.warn("Field.elements is deprecated. Use Field.geometry or Field.sampled_elements instead. Field.elements now defaults to Field.geometry.", DeprecationWarning, stacklevel=2)
-        return self._geometry
+        return self.geometry
 
     @property
     def is_centered(self):
@@ -127,13 +138,13 @@ class Field:
 
     @property
     def is_staggered(self):
-        return is_staggered(self._values, self._geometry)
+        return is_staggered(self.values, self.geometry)
 
     @property
     def center(self) -> Tensor:
         """ Returns the center points of the `elements` of this `Field`. """
-        all_points = self._geometry.get_points(self.sampled_at)
-        boundary = self._geometry.get_boundary(self.sampled_at)
+        all_points = self.geometry.get_points(self.sampled_at)
+        boundary = self.geometry.get_boundary(self.sampled_at)
         return slice_off_constant_faces(all_points, boundary, self.extrapolation)
 
     @property
@@ -141,11 +152,8 @@ class Field:
         return self.center
 
     @property
-    def values(self) -> Tensor:
-        """ Returns the `values` of this `Field`. """
-        return self._values
-
-    data = values
+    def data(self) -> Tensor:
+        return self.values
 
     def numpy(self, order: DimFilter = None):
         """
@@ -158,16 +166,16 @@ class Field:
             A single NumPy array for uniform values, else a list of NumPy arrays.
         """
         if order is None and self.is_grid:
-            axes = self._values.shape.only(self._geometry.vector.item_names, reorder=True)
-            order = concat_shapes(self._values.shape.dual, self._values.shape.batch, axes, self._values.shape.channel)
-        if self._values.shape.is_uniform:
-            return self._values.numpy(order)
+            axes = self.values.shape.only(self.geometry.vector.item_names, reorder=True)
+            order = concat_shapes(self.values.shape.dual, self.values.shape.batch, axes, self.values.shape.channel)
+        if self.values.shape.is_uniform:
+            return self.values.numpy(order)
         else:
             assert order is not None, f"order must be specified for non-uniform Field values"
-            order = self._values.shape.only(order, reorder=True)
+            order = self.values.shape.only(order, reorder=True)
             stack_dims = order.non_uniform_shape
             inner_order = order.without(stack_dims)
-            return [v.numpy(inner_order) for v in unstack(self._values, stack_dims)]
+            return [v.numpy(inner_order) for v in unstack(self.values, stack_dims)]
 
     def uniform_values(self):
         """
@@ -182,19 +190,9 @@ class Field:
             return self.staggered_tensor()
 
     @property
-    def boundary(self) -> Extrapolation:
-        """
-        Returns the boundary conditions set for this `Field`.
-
-        Returns:
-            Single `Extrapolation` instance that encodes the (varying) boundary conditions for all boundaries of this field's `elements`.
-        """
-        return self._boundary
-
-    @property
     def extrapolation(self) -> Extrapolation:
         """ Returns the `Extrapolation` of this `Field`. """
-        return self._boundary
+        return self.boundary
 
     @property
     def shape(self) -> Shape:
@@ -205,14 +203,14 @@ class Field:
         * The batch dimensions match the batch dimensions of this Field
         * The channel dimensions match the channels of this Field
         """
-        if self.is_grid and '~vector' in self._values.shape:
-            return batch(self._geometry) & self.resolution & non_dual(self._values).without(self.resolution) & self._geometry.shape['vector']
-        set_shape = self._geometry.sets[self.sampled_at]
-        return batch(self._geometry) & (channel(self._geometry) - 'vector') & set_shape & self._values
+        if self.is_grid and '~vector' in self.values.shape:
+            return batch(self.geometry) & self.resolution & non_dual(self.values).without(self.resolution) & self.geometry.shape['vector']
+        set_shape = self.geometry.sets[self.sampled_at]
+        return batch(self.geometry) & (channel(self.geometry) - 'vector') & set_shape & self.values
 
     @property
     def resolution(self):
-        return self._geometry.shape.non_channel.non_dual.non_batch
+        return self.geometry.shape.non_channel.non_dual.non_batch
 
     @property
     def spatial_rank(self) -> int:
@@ -220,7 +218,7 @@ class Field:
         Spatial rank of the field (1 for 1D, 2 for 2D, 3 for 3D).
         This is equal to the spatial rank of the `data`.
         """
-        return self._geometry.spatial_rank
+        return self.geometry.spatial_rank
 
     @property
     def bounds(self) -> BaseBox:
@@ -234,10 +232,10 @@ class Field:
 
         Fields whose spatial rank is determined only during sampling return an empty `Box`.
         """
-        if isinstance(self._geometry.bounds, BaseBox):
-            return self._geometry.bounds
-        extent = self._geometry.bounding_half_extent().vector.as_dual('_extent')
-        points = self._geometry.center + extent
+        if isinstance(self.geometry.bounds, BaseBox):
+            return self.geometry.bounds
+        extent = self.geometry.bounding_half_extent().vector.as_dual('_extent')
+        points = self.geometry.center + extent
         lower = math.min(points, dim=points.shape.non_batch.non_channel)
         upper = math.max(points, dim=points.shape.non_batch.non_channel)
         return Box(lower, upper)
@@ -247,36 +245,36 @@ class Field:
     @property
     def is_grid(self):
         """A Field represents grid data if its `geometry` is a `phi.geom.UniformGrid` instance."""
-        return isinstance(self._geometry, UniformGrid)
+        return isinstance(self.geometry, UniformGrid)
 
     @property
     def is_mesh(self):
         """A Field represents mesh data if its `geometry` is a `phi.geom.Mesh` instance."""
-        return isinstance(self._geometry, Mesh)
+        return isinstance(self.geometry, Mesh)
 
     @property
     def is_graph(self):
         """A Field represents graph data if its `geometry` is a `phi.geom.Graph` instance."""
-        return isinstance(self._geometry, Graph)
+        return isinstance(self.geometry, Graph)
 
     @property
     def is_point_cloud(self):
         """A Field represents graph data if its `geometry` is not a set of connected elements, but rather individual geometric objects."""
-        if isinstance(self._geometry, (UniformGrid, Mesh, Graph)):
+        if isinstance(self.geometry, (UniformGrid, Mesh, Graph)):
             return False
-        if isinstance(self._geometry, (BaseBox, Sphere, Point)):
+        if isinstance(self.geometry, (BaseBox, Sphere, Point)):
             return True
         return True
 
     @property
     def dx(self) -> Tensor:
-        assert spatial(self._geometry), f"dx is only defined for elements with spatial dims but Field has elements {self._geometry.shape}"
+        assert spatial(self.geometry), f"dx is only defined for elements with spatial dims but Field has elements {self.geometry.shape}"
         return self.bounds.size / self.resolution
 
     @property
     def cells(self):
-        assert isinstance(self._geometry, (UniformGrid, Mesh))
-        return self._geometry
+        assert isinstance(self.geometry, (UniformGrid, Mesh))
+        return self.geometry
 
     def to_grid(self, resolution=math.EMPTY_SHAPE, bounds=None, **resolution_):
         resolution = resolution.spatial & spatial(**resolution_)
@@ -284,11 +282,11 @@ class Field:
             return self
         bounds = self.bounds if bounds is None else bounds
         if not resolution:
-            half_sizes = self._geometry.bounding_half_extent()
+            half_sizes = self.geometry.bounding_half_extent()
             if (half_sizes > 0).all:
                 size = math.min(2 * half_sizes, non_batch(half_sizes).non_channel)
             else:
-                cell_count = non_batch(self._geometry).non_channel.non_dual.volume
+                cell_count = non_batch(self.geometry).non_channel.non_dual.volume
                 size = (bounds.volume / cell_count) ** (1 / self.spatial_rank)
             res = math.maximum(1, math.round(bounds.size / size))
             resolution = spatial(**res.vector)
@@ -310,12 +308,12 @@ class Field:
             `Field` with same values and boundaries but `Point` geometry.
         """
         points = self.sampled_elements.center
-        values = self._values
+        values = self.values
         if list_dim:
             dims = non_batch(points).non_channel & non_batch(points).non_channel
             points = pack_dims(points, dims, list_dim)
             values = pack_dims(values, dims, list_dim)
-        return Field(Point(points), values, self._boundary)
+        return Field(Point(points), values, self.boundary)
 
     def as_spheres(self, list_dim: Optional[Shape] = instance('elements')) -> 'Field':
         """
@@ -334,13 +332,13 @@ class Field:
         """
         points = self.sampled_elements.center
         volumes = self.sampled_elements.volume
-        values = self._values
+        values = self.values
         if list_dim:
             dims = non_batch(points).non_channel & non_batch(points).non_channel
             points = pack_dims(points, dims, list_dim)
             values = pack_dims(values, dims, list_dim)
             volumes = pack_dims(volumes, dims, list_dim)
-        return Field(Sphere(points, volume=volumes), values, self._boundary)
+        return Field(Sphere(points, volume=volumes), values, self.boundary)
 
     def at_centers(self, **kwargs) -> 'Field':
         """
@@ -358,20 +356,20 @@ class Field:
         if self.is_centered:
             return self
         from ._resample import sample
-        values = sample(self, self._geometry, at='center', boundary=self._boundary, **kwargs)
-        return Field(self._geometry, values, self._boundary)
+        values = sample(self, self.geometry, at='center', boundary=self.boundary, **kwargs)
+        return Field(self.geometry, values, self.boundary)
 
     def at_faces(self, boundary=None, **kwargs) -> 'Field':
         if self.is_staggered and not boundary:
             return self
-        boundary = as_boundary(boundary, self._geometry) if boundary else self._boundary
+        boundary = as_boundary(boundary, self.geometry) if boundary else self.boundary
         from ._resample import sample
-        values = sample(self, self._geometry, at='face', boundary=boundary, **kwargs)
-        return Field(self._geometry, values, boundary)
+        values = sample(self, self.geometry, at='face', boundary=boundary, **kwargs)
+        return Field(self.geometry, values, boundary)
 
     @property
     def sampled_at(self):
-        matching_sets = [s for s, s_shape in self._geometry.sets.items() if s_shape.non_batch in self._values.shape]
+        matching_sets = [s for s, s_shape in self.geometry.sets.items() if s_shape.non_batch in self.values.shape]
         return matching_sets[-1]
 
     def at(self, representation: Union['Field', Geometry], keep_boundary=False, **kwargs) -> 'Field':
@@ -435,52 +433,52 @@ class Field:
         """ Returns a copy of this field with `values` replaced. """
         if not isinstance(values, (Tensor, Number)):
             from ._resample import sample
-            values = sample(values, self._geometry, self.sampled_at, self._boundary, dot_face_normal=self._geometry if 'vector' not in self._values.shape else None, **sampling_kwargs)
+            values = sample(values, self.geometry, self.sampled_at, self.boundary, dot_face_normal=self.geometry if 'vector' not in self.values.shape else None, **sampling_kwargs)
         else:
             if not spatial(values):
-                geo_shape = self.sampled_elements.shape if self.is_staggered else self._geometry.shape
+                geo_shape = self.sampled_elements.shape if self.is_staggered else self.geometry.shape
                 if '~vector' in geo_shape and 'vector' in shape(values) and '~vector' not in shape(values):
                     values = values.vector.as_dual()
                 values = expand(wrap(values), geo_shape.non_batch.non_channel)
-        return Field(self._geometry, values, self._boundary)
+        return Field(self.geometry, values, self.boundary)
 
     def with_boundary(self, boundary):
         """ Returns a copy of this field with the `boundary` replaced. """
-        boundary = as_boundary(boundary, self._geometry)
+        boundary = as_boundary(boundary, self.geometry)
         boundary_elements = 'boundary_faces' if self.is_staggered else 'boundary_elements'
-        old_determined_slices = {k: s for k, s in getattr(self._geometry, boundary_elements).items() if self._boundary.determines_boundary_values(k)}
-        new_determined_slices = {k: s for k, s in getattr(self._geometry, boundary_elements).items() if boundary.determines_boundary_values(k)}
+        old_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if self.boundary.determines_boundary_values(k)}
+        new_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if boundary.determines_boundary_values(k)}
         if old_determined_slices.values() == new_determined_slices.values():
-            return Field(self._geometry, self._values, boundary)  # ToDo unnecessary once the rest is implemented
+            return Field(self.geometry, self.values, boundary)  # ToDo unnecessary once the rest is implemented
         to_add = {k: sl for k, sl in old_determined_slices.items() if sl not in new_determined_slices.values()}
         to_remove = [sl for sl in new_determined_slices.values() if sl not in old_determined_slices.values()]
-        values = math.slice_off(self._values, *to_remove)
+        values = math.slice_off(self.values, *to_remove)
         if to_add:
             if self.is_mesh:
-                values = self.mesh.pad_boundary(values, to_add, self._boundary)
+                values = self.mesh.pad_boundary(values, to_add, self.boundary)
             elif self.is_grid and self.is_staggered:
-                values = self._values.vector.dual.as_channel()
+                values = self.values.vector.dual.as_channel()
                 to_add = {k: {'vector' if dim == '~vector' else dim: v for dim, v in sl.items()} for k, sl in to_add.items()}
-                values = math.pad(values, list(to_add.values()), self._boundary, bounds=self.bounds)
+                values = math.pad(values, list(to_add.values()), self.boundary, bounds=self.bounds)
                 values = values.vector.as_dual()
             else:
-                values = math.pad(values, list(to_add.values()), self._boundary, bounds=self.bounds)
-        return Field(self._geometry, values, boundary)
+                values = math.pad(values, list(to_add.values()), self.boundary, bounds=self.bounds)
+        return Field(self.geometry, values, boundary)
 
     with_extrapolation = with_boundary
 
     def with_bounds(self, bounds: Box):
         """ Returns a copy of this field with `bounds` replaced. """
         order = list(bounds.vector.item_names)
-        geometry = self._geometry.vector[order]
-        new_shape = self._values.shape.without(order) & self._values.shape.only(order, reorder=True)
-        values = math.transpose(self._values, new_shape)
-        return Field(geometry, values, self._boundary)
+        geometry = self.geometry.vector[order]
+        new_shape = self.values.shape.without(order) & self.values.shape.only(order, reorder=True)
+        values = math.transpose(self.values, new_shape)
+        return Field(geometry, values, self.boundary)
 
     def with_geometry(self, elements: Geometry):
         """ Returns a copy of this field with `elements` replaced. """
-        assert non_batch(elements) == non_batch(self._geometry), f"Field.with_elements() only accepts elements with equal non-batch dimensions but got {elements.shape} for Field with shape {self._geometry.shape}"
-        return Field(elements, self._values, self._boundary)
+        assert non_batch(elements) == non_batch(self.geometry), f"Field.with_elements() only accepts elements with equal non-batch dimensions but got {elements.shape} for Field with shape {self.geometry.shape}"
+        return Field(elements, self.values, self.boundary)
 
     with_elements = with_geometry
 
@@ -497,7 +495,7 @@ class Field:
         Returns:
             New `Field` sampled at `geometry.center + delta`.
         """
-        return self.with_geometry(self._geometry.shifted(delta))
+        return self.with_geometry(self.geometry.shifted(delta))
 
     def shifted_to(self, position: Tensor) -> 'Field':
         """
@@ -512,7 +510,7 @@ class Field:
         Returns:
             New `Field` sampled at given positions.
         """
-        return self.with_geometry(self._geometry.at(position))
+        return self.with_geometry(self.geometry.at(position))
 
     def pad(self, widths: Union[int, tuple, list, dict]) -> 'Field':
         """
@@ -664,14 +662,14 @@ class Field:
         item = slicing_dict(self, item)
         if not item:
             return self
-        boundary = domain_slice(self._boundary, item, self.resolution)
+        boundary = domain_slice(self.boundary, item, self.resolution)
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != 'vector'}
-        geometry = self._geometry[item_without_vec]
+        geometry = self.geometry[item_without_vec]
         if self.is_staggered and 'vector' in item and '~vector' in self.geometry.face_shape:
-            assert isinstance(self._geometry, UniformGrid), f"Vector slicing is only supported for grids"
+            assert isinstance(self.geometry, UniformGrid), f"Vector slicing is only supported for grids"
             dims = item['vector']
-            dims_ = self._geometry.shape['vector'].after_gather({'vector': dims})
-            dims = dims_.item_names[0] if dims_ else [dims] if isinstance(dims, str) else [self._geometry.shape['vector'].item_names[0][dims]]
+            dims_ = self.geometry.shape['vector'].after_gather({'vector': dims})
+            dims = dims_.item_names[0] if dims_ else [dims] if isinstance(dims, str) else [self.geometry.shape['vector'].item_names[0][dims]]
             proj_dims = set(self.resolution.names) - set(dims)
             if any(dim not in item for dim in proj_dims):
                 # warnings.warn(f"Projecting a staggered grid (by slicing 'vector' without the corresponding spatial dims) will return a non-staggered grid. The projected dims {proj_dims} were not sliced off.\nFull slice: {item}")
@@ -681,7 +679,7 @@ class Field:
             else:
                 item['~vector'] = dims
                 del item['vector']
-        values = self._values[item]
+        values = self.values[item]
         return Field(geometry, values, boundary)
 
     def __getattr__(self, name: str) -> BoundDim:
@@ -706,32 +704,26 @@ class Field:
         """
         return BoundDim(self, name)
 
-    def __value_attrs__(self):
-        return '_values',
-
-    def __variable_attrs__(self):
-        return '_values', '_geometry', '_boundary'
-
     def __expand__(self, dims: Shape, **kwargs) -> 'Field':
         return self.with_values(expand(self.values, dims, **kwargs))
 
     def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'Field':
-        elements = math.rename_dims(self._geometry, dims, new_dims)
-        values = math.rename_dims(self._values, dims, new_dims)
-        extrapolation = math.rename_dims(self._boundary, dims, new_dims, **kwargs)
+        elements = math.rename_dims(self.geometry, dims, new_dims)
+        values = math.rename_dims(self.values, dims, new_dims)
+        extrapolation = math.rename_dims(self.boundary, dims, new_dims, **kwargs)
         return Field(elements, values, extrapolation)
 
     def __eq__(self, other):
         if not isinstance(other, Field):
             return False
-        if self._geometry != other._geometry:
+        if self.geometry != other.geometry:
             return False
-        if self._boundary != other.boundary:
+        if self.boundary != other.boundary:
             return False
-        return math.always_close(self._values, other._values)
+        return math.always_close(self.values, other.values)
 
     def __hash__(self):
-        return hash((self._geometry, self._boundary))
+        return hash((self.geometry, self.boundary))
 
     def __mul__(self, other):
         return self._op2(other, lambda d1, d2: d1 * d2)
@@ -787,35 +779,35 @@ class Field:
           Field of same type
         """
         values = operator(self.values)
-        extrapolation_ = operator(self._boundary)
+        extrapolation_ = operator(self.boundary)
         return self.with_values(values).with_extrapolation(extrapolation_)
 
     def _op2(self, other, operator) -> 'Field':
         if isinstance(other, Geometry):
             raise ValueError(f"Cannot combine {self.__class__.__name__} with a Geometry, got {type(other)}")
         if isinstance(other, Field):
-            if self._geometry == other._geometry:
-                values = operator(self._values, other.values)
-                extrapolation_ = operator(self._boundary, other.extrapolation)
-                return Field(self._geometry, values, extrapolation_)
+            if self.geometry == other.geometry:
+                values = operator(self.values, other.values)
+                extrapolation_ = operator(self.boundary, other.extrapolation)
+                return Field(self.geometry, values, extrapolation_)
             from ._resample import sample
-            other_values = sample(other, self._geometry, self.sampled_at, self.boundary, dot_face_normal=self._geometry)
-            values = operator(self._values, other_values)
-            boundary = operator(self._boundary, other.extrapolation)
-            return Field(self._geometry, values, boundary)
+            other_values = sample(other, self.geometry, self.sampled_at, self.boundary, dot_face_normal=self.geometry)
+            values = operator(self.values, other_values)
+            boundary = operator(self.boundary, other.extrapolation)
+            return Field(self.geometry, values, boundary)
         else:
             if isinstance(other, (tuple, list)) and len(other) == self.spatial_rank:
-                other = math.wrap(other, self._geometry.shape['vector'])
+                other = math.wrap(other, self.geometry.shape['vector'])
             else:
                 other = math.wrap(other)
             # try:
-            #     boundary = operator(self._boundary, as_boundary(other, self._geometry))
+            #     boundary = operator(self.boundary, as_boundary(other, self.geometry))
             # except TypeError:  # e.g. ZERO_GRADIENT + constant
-            boundary = self._boundary  # constants don't affect the boundary conditions (legacy reasons)
+            boundary = self.boundary  # constants don't affect the boundary conditions (legacy reasons)
             if 'vector' in self.shape and 'vector' not in self.values.shape and '~vector' in self.values.shape:
                 other = other.vector.as_dual()
-            values = operator(self._values, other)
-            return Field(self._geometry, values, boundary)
+            values = operator(self.values, other)
+            return Field(self.geometry, values, boundary)
 
     def __repr__(self):
         if self.is_grid:
@@ -828,10 +820,10 @@ class Field:
             type_name = "Graph" if self.is_centered else "Graph edges"
         else:
             type_name = self.__class__.__name__
-        if self._values is not None:
-            return f"{type_name}[{self.values}, ext={self._boundary}]"
+        if self.values is not None:
+            return f"{type_name}[{self.values}, ext={self.boundary}]"
         else:
-            return f"{type_name}[{self.resolution}, ext={self._boundary}]"
+            return f"{type_name}[{self.resolution}, ext={self.boundary}]"
 
     def grid_scatter(self, *args, **kwargs):
         """Deprecated. Use `sample` with `scatter=True` instead."""
