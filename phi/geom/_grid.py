@@ -134,6 +134,9 @@ class UniformGrid(BaseBox):
     def rotation_matrix(self) -> Optional[Tensor]:
         return None
 
+    def with_scaled_resolution(self, scale: float):
+        return UniformGrid(self._resolution * scale, self._bounds)
+
     def __getitem__(self, item):
         item = slicing_dict(self, item)
         resolution = self._resolution.after_gather(item)
