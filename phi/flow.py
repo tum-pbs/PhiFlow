@@ -32,12 +32,12 @@ from phiml.math.extrapolation import PERIODIC, ZERO_GRADIENT
 
 # Functions
 from phiml.math import (
-    wrap, tensor, vec, zeros, zeros_like, ones, ones_like, linspace,  # Tensor creation
+    wrap, tensor, vec, zeros, zeros_like, ones, ones_like, linspace, rand, randn,  # Tensor creation
     shape, spatial, channel, batch, instance, dual, primal,
     non_spatial, non_channel, non_batch, non_instance, non_dual, non_primal,  # Shape functions (magic)
-    unstack, stack, concat, expand, rename_dims, pack_dims, unpack_dim, flatten, cast,  # Magic Ops
-    b2i, c2b, c2d, i2b, s2b, si2d, d2i, d2s, map_s2b, map_i2b, map_c2b, map_d2c,  # dim type conversions
-    mean, median, sign, round, ceil, floor, sqrt, exp, erf, log, log2, log10, sigmoid, soft_plus,
+    unstack, stack, concat, tcat, expand, rename_dims, pack_dims, unpack_dim, flatten, cast,  # Magic Ops
+    b2i, c2b, c2d, i2b, s2b, si2d, d2i, d2s, map_s2b, map_i2b, map_c2b, map_d2b, map_d2c, map_c2d,  # dim type conversions
+    dsum, isum, ssum, csum, mean, dmean, imean, smean, cmean, median, sign, round, ceil, floor, sqrt, exp, erf, log, log2, log10, sigmoid, soft_plus,
     sin, cos, tan, sinh, cosh, tanh, arcsin, arccos, arctan, arcsinh, arccosh, arctanh, log_gamma, factorial, incomplete_gamma,
     scatter, gather, where, nonzero,
     rotate_vector as rotate, cross_product as cross, dot, convolve, vec_normalize as normalize, length, maximum, minimum, clip,  # vector math
