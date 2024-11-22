@@ -436,11 +436,12 @@ def layout_color(content: Dict[Tuple[int, int], List[Field]], indices: Dict[Tupl
                 idx = indices[pos][i]
                 if (color[idx] != None).all:  # user-specified color
                     result_pos.append(color[idx])
-                cmap = requires_color_map(f)
-                channels = channel(f).without('vector')
-                channel_colors = counter + math.range_tensor(channels)
-                result_pos.append(math.where(cmap, wrap('cmap'), channel_colors))
-                counter += channels.volume * math.any(~cmap, shape)
+                else:
+                    cmap = requires_color_map(f)
+                    channels = channel(f).without('vector')
+                    channel_colors = counter + math.range_tensor(channels)
+                    result_pos.append(math.where(cmap, wrap('cmap'), channel_colors))
+                    counter += channels.volume * math.any(~cmap, shape)
         return result
 
 

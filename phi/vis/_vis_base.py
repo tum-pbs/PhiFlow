@@ -607,7 +607,7 @@ def uniform_bound(shape: Shape):
 def requires_color_map(f: Field):
     if f.spatial_rank <= 1:
         return False
-    return math.is_finite(f.values).any
+    return bool(math.is_finite(f.values).any)
 
 
 def is_jupyter():
