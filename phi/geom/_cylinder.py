@@ -5,7 +5,7 @@ from typing import Union, Dict, Tuple, Optional, Sequence
 from phiml import math
 from phiml.math import Shape, dual, wrap, Tensor, expand, vec, where, ncat, clip, length, normalize, rotate_vector, minimum, vec_squared, rotation_matrix, channel, instance, stack, maximum, PI, linspace, sin, cos, \
     rotation_matrix_from_directions, sqrt, batch
-from phiml.math._magic_ops import all_attributes
+from phiml.math._magic_ops import all_attributes, getitem_dataclass
 from phiml.math.magic import slicing_dict
 from ._geom import Geometry, _keep_vector
 from ._sphere import Sphere
@@ -145,8 +145,7 @@ class Cylinder(Geometry):
         return Cylinder(self._center, self.radius * factor, self.depth * factor, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
 
     def __getitem__(self, item):
-        item = slicing_dict(self, item)
-        return Cylinder(self._center[_keep_vector(item)], self.radius[item], self.depth[item], math.slice(self.rotation, item), self.axis, self.variable_attrs, self.value_attrs)
+        return getitem_dataclass(self, item, keepdims='vector')
 
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
@@ -250,6 +249,7 @@ def cylinder(center: Union[Tensor, float] = None,
         center = center
     else:
         center = wrap(tuple(center_.value_attrs()), channel(vector=tuple(center_.keys())))
+    assert radius is not None, "radius must be specified"
     radius = wrap(radius)
     if depth is None:
         assert isinstance(axis, Tensor)
