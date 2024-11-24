@@ -196,16 +196,16 @@ def scatter_to_centers(self: Field, geometry: Geometry, soft=False, scatter=Fals
         assert not soft, "Cannot soft-sample when scatter=True"
         return grid_scatter(self, geometry.bounds, geometry.resolution, outside_handling)
     else:
-        assert not isinstance(self._geometry, Point), "Cannot sample Point-like elements with scatter=False"
-        if may_vary_along(self._values, instance(self._values) & spatial(self._values)):
+        assert not isinstance(self.geometry, Point), "Cannot sample Point-like elements with scatter=False"
+        if may_vary_along(self.values, instance(self.values) & spatial(self.values)):
             raise NotImplementedError("Non-scatter resampling not yet supported for varying values")
-        idx0 = (instance(self._values) & spatial(self._values)).first_index()
+        idx0 = (instance(self.values) & spatial(self.values)).first_index()
         outside = self.boundary.value if isinstance(self.boundary, ConstantExtrapolation) else 0
         if soft:
             frac_inside = self.geometry.approximate_fraction_inside(geometry, balance)
-            return frac_inside * self._values[idx0] + (1 - frac_inside) * outside
+            return frac_inside * self.values[idx0] + (1 - frac_inside) * outside
         else:
-            return math.where(self.geometry.lies_inside(geometry.center), self._values[idx0], outside)
+            return math.where(self.geometry.lies_inside(geometry.center), self.values[idx0], outside)
 
 
 def scatter_to_faces(field: Field, geometry: Geometry, extrapolation: Extrapolation, **kwargs) -> Tensor:

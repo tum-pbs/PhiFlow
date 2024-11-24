@@ -10,14 +10,15 @@ from scipy.sparse import csr_matrix, coo_matrix
 
 from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims, unstack, tensor, si2d, non_dual, nonzero, stored_indices, stored_values, scatter, \
     find_closest, sqrt, where, vec_normalize, argmax, broadcast, to_int32, cross_product, zeros, random_normal, EMPTY_SHAPE, meshgrid, mean, reshaped_numpy, range_tensor, convolve, \
-    assert_close, shift, pad, extrapolation, NUMPY, sum as sum_, with_diagonal, flatten, ones_like, dim_mask
+    assert_close, shift, pad, extrapolation, NUMPY, sum as sum_, with_diagonal, flatten, ones_like, dim_mask, math
 from phiml.math._magic_ops import getitem_dataclass
 from phiml.math._sparse import CompactSparseTensor
 from phiml.math.extrapolation import as_extrapolation, PERIODIC
 from phiml.math.magic import slicing_dict
 from . import bounding_box
 from ._functions import plane_sgn_dist
-from ._geom import Geometry, Point, scale, NoGeometry
+from ._geom import Geometry, Point, NoGeometry
+from ._transform import scale
 from ._box import Box, BaseBox
 from ._graph import Graph, graph
 from ..math import Tensor, Shape, channel, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, stack, vec_length, tensor_like, \
@@ -31,6 +32,8 @@ class _MeshType(type):
                  elements: Tensor,
                  element_rank: int,
                  boundaries: Dict[str, Dict[str, slice]],
+                 periodic: Sequence[str],
+                 face_format: str = 'csc',
                  max_cell_walk: int = None,
                  variables=('vertices',),
                  values=()):
@@ -42,8 +45,8 @@ class _MeshType(type):
             vertices = Point(vertices)
         if max_cell_walk is None:
             max_cell_walk = 2 if instance(elements).volume > 1 else 1
-        result = cls.__new__(cls, vertices, elements, element_rank, boundaries, max_cell_walk, variables, values)
-        result.__init__(vertices, elements, element_rank, boundaries, max_cell_walk, variables, values)  # also calls __post_init__()
+        result = cls.__new__(cls, vertices, elements, element_rank, boundaries, periodic, face_format, max_cell_walk, variables, values)
+        result.__init__(vertices, elements, element_rank, boundaries, periodic, face_format, max_cell_walk, variables, values)  # also calls __post_init__()
         return result
 
 
@@ -319,7 +322,7 @@ class Mesh(Geometry, metaclass=_MeshType):
         else:
             filtered_coo = coo_matrix((coo.data, (coo.row, new_index)), shape=(instance(self.elements).volume, instance(vertices).volume))  # ToDo keep sparse format
             elements = wrap(filtered_coo, self.elements.shape.without_sizes())
-        return Mesh(vertices, elements, self.element_rank, self.boundaries, self._center, self._volume, self._normals, self.face_centers, self.face_normals, self.face_areas, None, v_normals, vertex_connectivity, self._element_connectivity, self._max_cell_walk)
+        return Mesh(vertices, elements, self.element_rank, self.boundaries, self.center, self._volume, self.normals, self.face_centers, self.face_normals, self.face_areas, None, v_normals, vertex_connectivity, self._element_connectivity, self.max_cell_walk)
 
     @property
     def volume(self) -> Tensor:
@@ -358,37 +361,35 @@ class Mesh(Geometry, metaclass=_MeshType):
         return si2d(self.vertices.center)
 
     def lies_inside(self, location: Tensor) -> Tensor:
-        idx = find_closest(self._center, location)
-        for i in range(self._max_cell_walk):
-            idx, leaves_mesh, is_outside, *_ = self.cell_walk_towards(location, idx, allow_exit=i == self._max_cell_walk - 1)
+        idx = find_closest(self.center, location)
+        for i in range(self.max_cell_walk):
+            idx, leaves_mesh, is_outside, *_ = self.cell_walk_towards(location, idx, allow_exit=i == self.max_cell_walk - 1)
         return ~(leaves_mesh & is_outside)
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]) -> Tensor:
         if self.element_rank == 2 and self.spatial_rank == 3:
-            closest_elem = find_closest(self._center, location)
-            center = self._center[closest_elem]
-            normal = self._normals[closest_elem]
+            closest_elem = find_closest(self.center, location)
+            center = self.center[closest_elem]
+            normal = self.normals[closest_elem]
             return plane_sgn_dist(center, normal, location)
-        if self._center is None:
-            raise NotImplementedError("Mesh.approximate_signed_distance only available when faces are built.")
-        idx = find_closest(self._center, location)
-        for i in range(self._max_cell_walk):
+        idx = find_closest(self.center, location)
+        for i in range(self.max_cell_walk):
             idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
-        return max(distances, dual)
+        return math.max(distances, dual)
 
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         if self.element_rank == 2 and self.spatial_rank == 3:
-            closest_elem = find_closest(self._center, location)
-            center = self._center[closest_elem]
-            normal = self._normals[closest_elem]
+            closest_elem = find_closest(self.center, location)
+            center = self.center[closest_elem]
+            normal = self.normals[closest_elem]
             face_size = sqrt(self._volume) * 4
             size = face_size[closest_elem]
             sgn_dist = plane_sgn_dist(center, normal, location)
             delta = center - location  # this is not accurate...
             outward = where(abs(sgn_dist) < size, normal, vec_normalize(delta))
             return sgn_dist, delta, outward, None, closest_elem
-        # idx = find_closest(self._center, location)
-        # for i in range(self._max_cell_walk):
+        # idx = find_closest(self.center, location)
+        # for i in range(self.max_cell_walk):
         #     idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
         # sgn_dist = max(distances, dual)
         # cell_normals = self.face_normals[idx]
@@ -414,7 +415,7 @@ class Mesh(Geometry, metaclass=_MeshType):
         closest_face_centers = self.face_centers[start_cell_idx]
         offsets = closest_normals.vector @ closest_face_centers.vector  # this dot product could be cashed in the mesh
         distances = closest_normals.vector @ location.vector - offsets
-        is_outside = any(distances > 0, dual)
+        is_outside = math.any(distances > 0, dual)
         nb_idx = argmax(distances, dual).index[0]  # cell index or boundary face index
         leaves_mesh = nb_idx >= instance(self).volume
         next_idx = where(is_outside & (~leaves_mesh | allow_exit), nb_idx, start_cell_idx)
@@ -427,13 +428,13 @@ class Mesh(Geometry, metaclass=_MeshType):
         center = self.elements * self.center
         vert_pos = rename_dims(self.vertices.center, instance, dual)
         dist_to_vert = vec_length(vert_pos - center)
-        max_dist = max(dist_to_vert, dual)
+        max_dist = math.max(dist_to_vert, dual)
         return max_dist
 
     def bounding_half_extent(self) -> Tensor:
         center = self.elements * self.center
         vert_pos = rename_dims(self.vertices.center, instance, dual)
-        max_delta = max(abs(vert_pos - center), dual)
+        max_delta = math.max(abs(vert_pos - center), dual)
         return max_delta
 
     def bounding_box(self) -> 'BaseBox':
@@ -441,7 +442,7 @@ class Mesh(Geometry, metaclass=_MeshType):
 
     @property
     def bounds(self):
-        return Box(min(self.vertices.center, instance), max(self.vertices.center, instance))
+        return Box(math.min(self.vertices.center, instance), math.max(self.vertices.center, instance))
 
     def at(self, center: Tensor) -> 'Mesh':
         if instance(self.elements) in center.shape:
@@ -466,8 +467,8 @@ class Mesh(Geometry, metaclass=_MeshType):
         else:  # shift everything
             # ToDo transfer cached properties
             vertices = self.vertices.shifted(delta)
-            center = self._center + delta
-            return Mesh(vertices, self.elements, self.element_rank, self.boundaries, center, self._volume, self._normals, self.face_centers, self.face_normals, self.face_areas, self.face_vertices, self._vertex_normals, self._vertex_connectivity, self._element_connectivity, self._max_cell_walk)
+            center = self.center + delta
+            return Mesh(vertices, self.elements, self.element_rank, self.boundaries, center, self._volume, self.normals, self.face_centers, self.face_normals, self.face_areas, self.face_vertices, self._vertex_normals, self._vertex_connectivity, self._element_connectivity, self.max_cell_walk)
 
     def rotated(self, angle: Union[float, Tensor]) -> 'Geometry':
         raise NotImplementedError
@@ -475,10 +476,10 @@ class Mesh(Geometry, metaclass=_MeshType):
     def scaled(self, factor: float | Tensor) -> 'Geometry':
         pivot = self.bounds.center
         vertices = scale(self.vertices, factor, pivot)
-        center = scale(Point(self._center), factor, pivot).center
+        center = scale(Point(self.center), factor, pivot).center
         volume = self._volume * factor**self.element_rank if self._volume is not None else None
         face_areas = None
-        return Mesh(vertices, self.elements, self.element_rank, self.boundaries, center, volume, self._normals, self.face_centers, self.face_normals, face_areas, self.face_vertices, self._vertex_normals, self._vertex_connectivity, self._element_connectivity, self._max_cell_walk)
+        return Mesh(vertices, self.elements, self.element_rank, self.boundaries, center, volume, self.normals, self.face_centers, self.face_normals, face_areas, self.face_vertices, self._vertex_normals, self._vertex_connectivity, self._element_connectivity, self.max_cell_walk)
 
     def __getitem__(self, item):
         item: dict = slicing_dict(self, item)
@@ -657,7 +658,7 @@ def mesh(vertices: Geometry | Tensor,
         assert all(p in vertices.vector.item_names for p in periodic_dims), f"Periodic boundaries must be named after axes, e.g. {vertices.vector.item_names} but got {periodic}"
         for base in periodic_dims:
             assert base+'+' in boundaries and base+'-' in boundaries, f"Missing boundaries for periodicity '{base}'. Make sure '{base}+' and '{base}-' are keys in boundaries dict, got {tuple(boundaries)}"
-    return Mesh(vertices, elements, element_rank, boundaries, periodic_dims, face_format, max_cell_walk)
+    return Mesh(vertices, elements, element_rank, boundaries, periodic_dims, face_format=face_format, max_cell_walk=max_cell_walk)
 
 
 def build_faces_2d(vertices: Tensor,  # (vertices:i, vector)
@@ -717,12 +718,11 @@ def build_faces_2d(vertices: Tensor,  # (vertices:i, vector)
     bnd_el_coo_v_idx = coo_matrix((bnd_coo_vert+1, (bnd_coo_idx, bnd_coo_vert)), shape=(end, instance(vertices).size))
     ptr = np.cumsum(np.asarray(el_coo.sum(1)))
     first_ptr = np.pad(ptr, (1, 0))[:-1]
-    last_ptr = ptr - 1
     alt1 = np.arange(el_coo.data.size) % 2
     alt2 = (1 - alt1)
     alt2[first_ptr] = alt1[first_ptr]
     alt3 = (1 - alt1)
-    alt3[last_ptr] = alt1[last_ptr]
+    alt3[ptr - 1] = alt1[ptr - 1]
     v_indices = []
     for alt in [alt1, (1-alt1), alt2, alt3]:
         el_coo.data = alt + 1e-10
@@ -799,21 +799,21 @@ def build_mesh(bounds: Box = None,
             vert_pos = meshgrid(resolution + 1) / resolution * bounds.size + bounds.lower
             # centroids = UniformGrid(resolution, bounds).center
         dx = bounds.size / resolution
-        regular_size = min(dx, channel)
+        regular_size = math.min(dx, channel)
         vert_pos, polygons, boundaries = build_quadrilaterals(vert_pos, resolution, obstacles, bounds, regular_size * max_squish)
         if max_squish is not None:
             lin_vert_pos = pack_dims(vert_pos, spatial, instance('polygon'))
             corner_pos = lin_vert_pos[polygons]
-            min_pos = min(corner_pos, '~polygon')
-            max_pos = max(corner_pos, '~polygon')
-            cell_sizes = min(max_pos - min_pos, 'vector')
+            min_pos = math.min(corner_pos, '~polygon')
+            max_pos = math.max(corner_pos, '~polygon')
+            cell_sizes = math.min(max_pos - min_pos, 'vector')
             too_small = cell_sizes < regular_size * max_squish
             # --- remove too small cells ---
             removed = polygons[too_small]
             removed_centers = mean(lin_vert_pos[removed], '~polygon')
             kept_vert = removed[{'~polygon': 0}]
             vert_pos = scatter(lin_vert_pos, kept_vert, removed_centers)
-            vertex_map = range(non_channel(lin_vert_pos))
+            vertex_map = math.range(non_channel(lin_vert_pos))
             vertex_map = scatter(vertex_map, rename_dims(removed, '~polygon', instance('poly_list')), expand(kept_vert, instance(poly_list=4)))
             polygons = polygons[~too_small]
             polygons = vertex_map[polygons]
@@ -825,7 +825,7 @@ def build_mesh(bounds: Box = None,
             polygon_list = reshaped_numpy(polygons, [..., dual])
             boundaries = {b: edges.numpy('edges,~vert') for b, edges in boundaries.items()}
             return mesh_from_numpy(points_np, polygon_list, boundaries, cell_dim=cell_dim, face_format=face_format)
-        return map(build_single_mesh, vert_pos, polygons, boundaries, dims=batch)
+        return math.map(build_single_mesh, vert_pos, polygons, boundaries, dims=batch)
 
 
 def build_quadrilaterals(vert_pos, resolution: Shape, obstacles: Dict[str, Geometry], bounds: Box, min_size) -> Tuple[Tensor, Tensor, dict]:
@@ -904,7 +904,7 @@ def face_curvature(mesh: Mesh):
     curvature_tensor = .5 / mesh.volume * (e1 * dn1 + e2 * dn2 + e3 * dn3)
     scalar_curvature = sum_([curvature_tensor[{'vector': d, '~vector': d}] for d in mesh.vector.item_names], '0')
     return curvature_tensor, scalar_curvature
-    # vec_curvature = max(v_normals, dual) - min(v_normals, dual)  # positive / negative
+    # vec_curvature = math.max(v_normals, dual) - math.min(v_normals, dual)  # positive / negative
 
 
 def save_tri_mesh(file: str, mesh: Mesh, **extra_data):

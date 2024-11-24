@@ -11,7 +11,8 @@ from phiml.math._tensors import object_dims
 from phiml.math.magic import PhiTreeNode
 
 from ._box import bounding_box, Box
-from ._geom import Geometry, NoGeometry, rotate
+from ._geom import Geometry, NoGeometry
+from ._transform import rotate
 from ._geom import InvertedGeometry
 from ..math import Tensor, instance
 from ..math.magic import slicing_dict

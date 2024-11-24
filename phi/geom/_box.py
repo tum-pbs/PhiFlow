@@ -7,6 +7,7 @@ from phi import math
 from phi.math import DimFilter
 from phiml.math import rename_dims, vec, stack, expand, instance
 from phiml.math._shape import parse_dim_order, dual, non_channel, non_batch
+from . import rotate, rotation_matrix
 from ._geom import Geometry, _keep_vector
 from ..math import wrap, INF, Shape, channel, Tensor
 from ..math.magic import slicing_dict
@@ -74,7 +75,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         assert origin in ['lower', 'center', 'upper']
         origin_loc = getattr(self, origin)
         pos = global_position if math.always_close(origin_loc, 0) else global_position - origin_loc
-        pos = math.rotate_vector(pos, self.rotation_matrix, invert=True)
+        pos = rotate(pos, self.rotation_matrix, invert=True)
         if scale:
             pos /= (self.half_size if origin == 'center' else self.size)
         return pos
@@ -83,7 +84,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         assert origin in ['lower', 'center', 'upper']
         origin_loc = getattr(self, origin)
         pos = local_position * (self.half_size if origin == 'center' else self.size) if scale else local_position
-        return math.rotate_vector(pos, self.rotation_matrix) + origin_loc
+        return rotate(pos, self.rotation_matrix) + origin_loc
 
     def largest(self, dim: DimFilter) -> 'BaseBox':
         dim = self.shape.without('vector').only(dim)
@@ -137,7 +138,7 @@ class BaseBox(Geometry):  # not a Subwoofer
             if instance(self):
                 shift, loc_to_center, rotation_matrix = math.at_min((shift, loc_to_center, rotation_matrix), key=math.vec_length(shift), dim=instance)
             shift = math.where(abs(shift) > abs(loc_to_center), abs(loc_to_center), shift)  # ensure inward shift ends at center
-        shift = math.rotate_vector(shift, rotation_matrix)
+        shift = rotate(shift, rotation_matrix)
         return positions + math.where(loc_to_center < 0, 1, -1) * shift
 
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
@@ -221,7 +222,7 @@ class BaseBox(Geometry):  # not a Subwoofer
     @property
     def face_normals(self) -> Tensor:
         unit_vectors = math.to_float(math.range(self.shape['vector']) == math.range(dual(**self.shape['vector'].untyped_dict)))
-        vectors = math.rotate_vector(unit_vectors, self.rotation_matrix)
+        vectors = rotate(unit_vectors, self.rotation_matrix)
         return vectors * math.vec(dual('side'), lower=-1, upper=1)
 
     @property
@@ -442,7 +443,7 @@ class Cuboid(BaseBox):
         if 'vector' not in center.shape or center.shape.get_item_names('vector') is None:
             center = math.expand(center, channel(self._half_size))
         self._center = center
-        self._rotation_matrix = None if rotation is None else math.rotation_matrix(rotation)
+        self._rotation_matrix = None if rotation is None else rotation_matrix(rotation)
         self._size_variable = size_variable
 
     def __repr__(self):

@@ -137,3 +137,5 @@ def distance_line_point(line_offset: Tensor, line_direction: Tensor, point: Tens
     if not is_direction_normalized:
         c /= vec_length(line_direction)
     return c
+
+
