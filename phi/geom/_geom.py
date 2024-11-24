@@ -1,14 +1,12 @@
-import copy
 import warnings
 from numbers import Number
 from typing import Union, Dict, Any, Tuple, Callable
 
-from phiml.math import instance, non_batch
-
 from phi import math
-from phi.math import Tensor, Shape, EMPTY_SHAPE, non_channel, wrap, shape, Extrapolation
-from phiml.math._magic_ops import variable_attributes, expand, stack, find_differences
+from phi.math import Tensor, Shape, non_channel, wrap, shape, Extrapolation
 from phi.math.magic import BoundDim, slicing_dict
+from phiml.math import non_batch, tensor_like
+from phiml.math._magic_ops import variable_attributes, expand, find_differences
 
 
 class Geometry:
@@ -699,7 +697,7 @@ class Point(Geometry):
         return math.zeros()
 
     def bounding_half_extent(self) -> Tensor:
-        return expand(0, self._shape)
+        return tensor_like(self.center, 0)
 
     def at(self, center: Tensor) -> 'Geometry':
         return Point(center)
