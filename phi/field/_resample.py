@@ -364,7 +364,7 @@ def _shift_resample(self: Field, resolution: Shape, bounds: Box, threshold=1e-5,
 
 def centroid_to_faces(u: Field, boundary: Extrapolation, order=2, upwind: Field = None, ignore_skew=False, gradient: Field = None):
     assert isinstance(upwind, Field) or upwind is None, f"upwind must be a Field but got {type(upwind)}"
-    if u.mesh._nb in u.values.shape:
+    if u.mesh.face_shape.dual in u.values.shape:
         return u.values
     neighbor_val = u.mesh.pad_boundary(u.values, mode=u.boundary)
     upwind = upwind.at_faces(extrapolation.NONE, order=2, upwind=None) if upwind is not None else None
@@ -387,13 +387,13 @@ def centroid_to_faces(u: Field, boundary: Extrapolation, order=2, upwind: Field 
             relative_face_distance = slice_off_constant_faces(u.mesh.relative_face_distance, u.mesh.boundary_faces, boundary)
             return (1 - relative_face_distance) * u.values + relative_face_distance * neighbor_val
         else:  # skew correction
-            nb_center = math.replace_dims(u.mesh.center, 'cells', u.mesh._nb)
+            nb_center = math.replace_dims(u.mesh.center, 'cells', u.mesh.face_shape.dual)
             cell_deltas = math.pairwise_distances(u.mesh.center, format=u.mesh.cell_connectivity, default=None)  # x_N - x_P
             face_distance = nb_center - u.mesh.face_centers[u.mesh.interior_faces]  # x_N - x_f
             # face_distance = u.mesh.face_centers[u.mesh.interior_faces] - u.mesh.center  # x_f - x_P
             normals = u.mesh.face_normals[u.mesh.interior_faces]
             w_interior = (face_distance.vector @ normals.vector) / (cell_deltas.vector @ normals.vector)  # n·(x_N - x_f) / n·(x_N - x_P)
-            w = math.concat([w_interior, 0 * u.mesh.boundary_connectivity], u.mesh._nb)
+            w = math.concat([w_interior, 0 * u.mesh.boundary_connectivity], u.mesh.face_shape.dual)
             w = slice_off_constant_faces(w, u.mesh.boundary_faces, boundary)  # first padding, then slicing is inefficient, but usually we don't slice anything off (boundary=none)
             # w = u.mesh.pad_boundary(w_interior, {k: s for k, s in u.mesh.boundary_faces.items() if not boundary.determines_boundary_values(k)}, boundary) this is only for vectors
             # b0 = math.tensor_like(slice_off_constant_faces(u.mesh.connectivity, u.mesh.boundary_faces, boundary), 0)
@@ -407,7 +407,7 @@ def sample_mesh(f: Field,
                 gradient: Union[str, Field] = 'green-gauss',
                 order=2,
                 max_steps=None):  # at least 2 to resolve locations outside the mesh
-    max_steps = f.mesh._max_cell_walk if max_steps is None else max_steps
+    max_steps = f.mesh.max_cell_walk if max_steps is None else max_steps
     idx = math.find_closest(f.center, location)
     for i in range(max_steps):
         idx, leaves_mesh, is_outside, *_ = f.mesh.cell_walk_towards(location, idx, allow_exit=i == max_steps - 1)
