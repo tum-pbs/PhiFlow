@@ -11,7 +11,7 @@ from phi.field import Field, Scene, PointCloud, CenteredGrid
 from phi.field._field_math import data_bounds
 from phi.geom import Box, Cuboid, Geometry, Point
 from phi.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel, expand, non_batch
-from phiml.math import vec, concat
+from phiml.math import vec, concat, tensor_like
 
 Control = namedtuple('Control', [
     'name',
@@ -588,13 +588,18 @@ def _limits(center: Tensor, half: Tensor, is_log: Union[bool, Tensor]):
 
 
 def only_stored_elements(f: Field) -> Field:
-    if not math.is_sparse(f.points):
+    if not math.is_sparse(f.points) and not math.is_sparse(f.values):
         return f
-    elements = f.sampled_elements.at(f.points._values)
-    if math.is_sparse(f.values):
-        values = f.values._values
+    if math.is_sparse(f.points):
+        points = math.stored_values(f.points)
     else:
-        values = f.values[f.points._indices]
+        mat = tensor_like(f.values, True)
+        points = math.stored_values(f.points * mat)
+    elements = f.sampled_elements.at(points)
+    if math.is_sparse(f.values):
+        values = math.stored_values(f.values)
+    else:
+        values = f.values[math.stored_indices(f.points)]
     return Field(elements, values, math.extrapolation.NONE)
 
 
