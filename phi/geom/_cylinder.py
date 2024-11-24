@@ -3,11 +3,10 @@ from functools import cached_property
 from typing import Union, Dict, Tuple, Optional, Sequence
 
 from phiml import math
-from phiml.math import Shape, dual, wrap, Tensor, expand, vec, where, ncat, clip, length, normalize, rotate_vector, minimum, vec_squared, rotation_matrix, channel, instance, stack, maximum, PI, linspace, sin, cos, \
-    rotation_matrix_from_directions, sqrt, batch
+from phiml.math import (Shape, dual, wrap, Tensor, expand, vec, where, ncat, clip, length, normalize, minimum, vec_squared, channel, instance, stack, maximum, PI, linspace, sin, cos, sqrt, batch)
 from phiml.math._magic_ops import all_attributes, getitem_dataclass
-from phiml.math.magic import slicing_dict
-from ._geom import Geometry, _keep_vector
+from ._geom import Geometry
+from ._transform import rotate, rotation_matrix, rotation_matrix_from_directions, rotation_angles
 from ._sphere import Sphere
 
 
@@ -47,7 +46,7 @@ class Cylinder(Geometry):
 
     @cached_property
     def up(self):
-        return math.rotate_vector(vec(**{d: 1 if d == self.axis else 0 for d in self._center.vector.item_names}), self.rotation)
+        return rotate(vec(**{d: 1 if d == self.axis else 0 for d in self._center.vector.item_names}), self.rotation)
 
     def with_radius(self, radius: Tensor) -> 'Cylinder':
         return Cylinder(self._center, wrap(radius), self.depth, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
@@ -56,14 +55,14 @@ class Cylinder(Geometry):
         return Cylinder(self._center, self.radius, wrap(depth), self.rotation, self.axis, self.variable_attrs, self.value_attrs)
 
     def lies_inside(self, location):
-        pos = rotate_vector(location - self._center, self.rotation, invert=True)
+        pos = rotate(location - self._center, self.rotation, invert=True)
         r = pos.vector[self.radial_axes]
         h = pos.vector[self.axis]
         inside = (vec_squared(r) <= self.radius**2) & (h >= -.5*self.depth) & (h <= .5*self.depth)
         return math.any(inside, instance(self))  # union for instance dimensions
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]):
-        location = math.rotate_vector(location - self._center, self.rotation, invert=True)
+        location = rotate(location - self._center, self.rotation, invert=True)
         r = location.vector[self.radial_axes]
         h = location.vector[self.axis]
         top_h = .5*self.depth
@@ -83,7 +82,7 @@ class Cylinder(Geometry):
         return math.min(sgn_dist, instance(self))
 
     def approximate_closest_surface(self, location: Tensor):
-        location = math.rotate_vector(location - self._center, self.rotation, invert=True)
+        location = rotate(location - self._center, self.rotation, invert=True)
         r = location.vector[self.radial_axes]
         h = location.vector[self.axis]
         top_h = .5*self.depth
@@ -112,8 +111,8 @@ class Cylinder(Geometry):
         sgn_dist = minimum(d_flat, d_cyl) * where(inside, -1, 1)
         delta = surf_point - location
         normal = where(flat_closer, normal_flat, normal_cyl)
-        delta = rotate_vector(delta, self.rotation)
-        normal = rotate_vector(normal, self.rotation)
+        delta = rotate(delta, self.rotation)
+        normal = rotate(normal, self.rotation)
         idx = None
         if instance(self):
             sgn_dist, delta, normal, idx = math.min((sgn_dist, delta, normal, range), instance(self), key=sgn_dist)
@@ -123,7 +122,7 @@ class Cylinder(Geometry):
         r = Sphere(self._center[self.radial_axes], self.radius).sample_uniform(*shape)
         h = math.random_uniform(*shape, -.5*self.depth, .5*self.depth)
         rh = ncat([r, h], self._center.shape['vector'])
-        return rotate_vector(rh, self.rotation)
+        return rotate(rh, self.rotation)
 
     def bounding_radius(self):
         return length(vec(rad=self.radius, dep=.5*self.depth), 'vector')
@@ -157,8 +156,8 @@ class Cylinder(Geometry):
             if any(v.rotation is not None for v in values):
                 matrices = [v.rotation for v in values]
                 if any(m is None for m in matrices):
-                    any_angle = math.rotation_angles([m for m in matrices if m is not None][0])
-                    unit_matrix = math.rotation_matrix(any_angle * 0)
+                    any_angle = rotation_angles([m for m in matrices if m is not None][0])
+                    unit_matrix = rotation_matrix(any_angle * 0)
                     matrices = [unit_matrix if m is None else m for m in matrices]
                 rotation = stack(matrices, dim, **kwargs)
             else:
@@ -215,7 +214,7 @@ class Cylinder(Geometry):
             c = cos(angle) * self.radius
             r = stack([s, c], channel(vector=self.radial_axes))
             x = ncat([h, r], self._center.shape['vector'], expand_values=True)
-            return math.rotate_vector(x, self.rotation) + self._center
+            return rotate(x, self.rotation) + self._center
         raise NotImplementedError
 
 

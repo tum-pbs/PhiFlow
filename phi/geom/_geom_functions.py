@@ -2,9 +2,30 @@ import warnings
 from typing import Tuple, Optional
 
 from phiml import math
-from phiml.math import Tensor, stack, instance, wrap
+from phiml.math import Tensor, stack, instance, wrap, shape
+from . import Cylinder
 
 from ._geom import Geometry
+
+
+def length(obj: Geometry | Tensor, eps=1e-5) -> Tensor:
+    """
+    Returns the length of a vector `Tensor` or geometric object with a length-like property.
+
+    Args:
+        obj:
+        eps: Minimum valid vector length. Use to avoid `inf` gradients for zero-length vectors.
+            Lengths shorter than `eps` are set to 0.
+
+    Returns:
+        Length as `Tensor`
+    """
+    if isinstance(obj, Tensor):
+        assert 'vector' in obj.shape, f"length() requires 'vector' dim but got {type(obj)} with shape {shape(obj)}."
+        return math.length(obj, 'vector', eps)
+    elif isinstance(obj, Cylinder):
+        return obj.depth
+    raise ValueError(obj)
 
 
 def line_trace(geo: Geometry, origin: Tensor, direction: Tensor, side='both', tolerance=None, max_iter=64, step_size=.9, max_line_length=None) -> Tuple[Tensor, Tensor, Tensor, Tensor, Optional[Tensor]]:
