@@ -8,13 +8,13 @@ from . import Cylinder
 from ._geom import Geometry
 
 
-def length(obj: Geometry | Tensor, eps=1e-5) -> Tensor:
+def length(obj: Geometry | Tensor, epsilon=1e-5) -> Tensor:
     """
     Returns the length of a vector `Tensor` or geometric object with a length-like property.
 
     Args:
         obj:
-        eps: Minimum valid vector length. Use to avoid `inf` gradients for zero-length vectors.
+        epsilon: Minimum valid vector length. Use to avoid `inf` gradients for zero-length vectors.
             Lengths shorter than `eps` are set to 0.
 
     Returns:
@@ -22,10 +22,28 @@ def length(obj: Geometry | Tensor, eps=1e-5) -> Tensor:
     """
     if isinstance(obj, Tensor):
         assert 'vector' in obj.shape, f"length() requires 'vector' dim but got {type(obj)} with shape {shape(obj)}."
-        return math.length(obj, 'vector', eps)
+        return math.length(obj, 'vector', epsilon)
     elif isinstance(obj, Cylinder):
         return obj.depth
     raise ValueError(obj)
+
+
+def normalize(obj: Tensor, epsilon=1e-5, allow_infinite=False, allow_zero=True):
+    """
+    Normalize a vector `Tensor` along the 'vector' dim.
+
+    Args:
+        obj: `Tensor` with 'vector' dim.
+        epsilon: (Optional) Zero-length threshold. Vectors shorter than this length yield the unit vector (1, 0, 0, ...).
+            If not specified, the zero-vector yields `NaN` as it cannot be normalized.
+        allow_infinite: Allow infinite components in vectors. These vectors will then only points towards the infinite components.
+        allow_zero: Whether to return zero vectors for inputs smaller `epsilon` instead of a unit vector.
+
+    Returns:
+        `Tensor` of the same shape as `obj`.
+    """
+    assert 'vector' in obj.shape, f"normalize() requires 'vector' dim but got {type(obj)} with shape {shape(obj)}."
+    return math.normalize(obj, 'vector', epsilon, allow_infinite=allow_infinite, allow_zero=allow_zero)
 
 
 def line_trace(geo: Geometry, origin: Tensor, direction: Tensor, side='both', tolerance=None, max_iter=64, step_size=.9, max_line_length=None) -> Tuple[Tensor, Tensor, Tensor, Tensor, Optional[Tensor]]:
