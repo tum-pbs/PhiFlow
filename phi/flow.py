@@ -40,12 +40,13 @@ from phiml.math import (
     dsum, isum, ssum, csum, mean, dmean, imean, smean, cmean, median, sign, round, ceil, floor, sqrt, exp, erf, log, log2, log10, sigmoid, soft_plus,
     sin, cos, tan, sinh, cosh, tanh, arcsin, arccos, arctan, arcsinh, arccosh, arctanh, log_gamma, factorial, incomplete_gamma,
     scatter, gather, where, nonzero,
-    cross_product as cross, dot, convolve, maximum, minimum, clip,  # vector math
+    dot, convolve, maximum, minimum, clip,  # vector math
     safe_div, is_finite, is_nan, is_inf,  # Basic functions
     jit_compile, jit_compile_linear, minimize, gradient as functional_gradient, gradient, solve_linear, solve_nonlinear, iterate, identity,  # jacobian, hessian, custom_gradient # Functional magic
-    assert_close, always_close, equal, close
+    assert_close, always_close, equal, close,
+    l1_loss, l2_loss,
 )
-from .geom import union, rotate, scale, length, normalize
+from .geom import union, rotate, scale, length, normalize, cross
 from .vis import show, control, plot
 
 # Exceptions
