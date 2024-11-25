@@ -3,7 +3,7 @@ from typing import Callable, Union
 
 from phi import math
 from ._field import FieldInitializer, get_sample_points
-from ..geom import Geometry
+from ..geom import Geometry, cross
 from ..math import Shape, spatial, instance, Tensor, wrap, Extrapolation
 
 
@@ -36,6 +36,6 @@ class AngularVelocity(FieldInitializer):
         points = get_sample_points(geometry, at, boundaries)
         distances = points - self.location
         strength = self.strength if self.falloff is None else self.strength * self.falloff(distances)
-        velocity = math.cross_product(strength, distances)
+        velocity = cross(strength, distances)
         velocity = math.sum(velocity, self.location.shape.batch.without(points.shape))
         return velocity

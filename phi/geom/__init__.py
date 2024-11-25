@@ -13,7 +13,7 @@ from ..math import stack, concat, pack_dims  # for compatibility
 
 # --- Low-level functions ---
 from ._geom import Geometry, GeometryException, Point, assert_same_rank, invert, sample_function
-from ._functions import normal_from_slope
+from ._functions import normal_from_slope, clip_length, cross
 from ._transform import scale, rotate, rotation_matrix, rotation_angles, rotation_matrix_from_axis_and_angle, rotation_matrix_from_directions
 
 # --- Geometry types ---

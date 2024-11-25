@@ -1,9 +1,10 @@
 from typing import Optional
 
 from phiml import math
-from phiml.math import Tensor, channel, rename_dims, wrap, shape, normalize, cross_product, dual, stack, length
+from phiml.math import Tensor, channel, rename_dims, wrap, shape, normalize, dual, stack, length
 
 from ._geom import Geometry, GeometricType
+from ._functions import cross
 
 
 def scale(obj: GeometricType, scale: float | Tensor, pivot: Tensor = None, dim='vector') -> GeometricType:
@@ -155,7 +156,7 @@ def rotation_matrix_from_directions(source_dir: Tensor, target_dir: Tensor, vec_
     if source_dir.vector.size == 3:
         source_dir = normalize(source_dir, vec_dim, epsilon=epsilon)
         target_dir = normalize(target_dir, vec_dim, epsilon=epsilon)
-        axis = cross_product(source_dir, target_dir)
+        axis = cross(source_dir, target_dir)
         lim = 1-epsilon if epsilon is not None else 1
         angle = math.arccos(math.clip(source_dir.vector @ target_dir.vector, -lim, lim))
         return rotation_matrix_from_axis_and_angle(axis, angle, is_axis_normalized=False, epsilon=epsilon)

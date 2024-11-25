@@ -2,11 +2,12 @@ from numbers import Number
 from typing import Union, Tuple, Dict, Any, Optional, Sequence
 
 from phiml import math
-from phiml.math import Shape, Tensor, spatial, channel, non_spatial, expand, non_channel, instance, stack, batch, dual, clip, wrap
+from phiml.math import Shape, Tensor, spatial, channel, non_spatial, expand, instance, dual, clip, wrap
 from phiml.math.magic import slicing_dict
-from . import UniformGrid
 from ._geom import Geometry
-from ._box import Box, BaseBox, Cuboid
+from ._functions import clip_length
+from ._grid import UniformGrid
+from ._box import BaseBox, Cuboid
 
 
 class SDFGrid(Geometry):
@@ -287,7 +288,7 @@ def sample_sdf(geometry: Geometry,
         volume = geometry.volume
         bounding_radius = geometry.bounding_radius()
         rebuild = None if rebuild == 'auto' else rebuild
-    if cache_surface:
+    if cache_surface or rebuild is not None:
         sdf, delta, normal, _, idx = geometry.approximate_closest_surface(points)
         approximate = SDFGrid(sdf, bounds, approximate_outside, None, delta, normal, idx, center=center, volume=volume, bounding_radius=bounding_radius)
     else:
@@ -326,7 +327,7 @@ def refine_closest(sample_points, closest, refine: Geometry, max_step, steps=10)
     for ref_step in range(steps):
         sgn_dist, delta, normal, offset, _ = refine.approximate_closest_surface(closest)
         tang_proj = sample_points - normal * (normal.vector @ sample_points.vector - offset)
-        walk_on_surface = math.clip_length(tang_proj - closest, 0, max_step * min(1, .5 ** (ref_step - steps / 2)))
+        walk_on_surface = clip_length(tang_proj - closest, 0, max_step * min(1, .5 ** (ref_step - steps / 2)))
         better_closest = (closest + delta) + walk_on_surface
         closest = math.where(refine.lies_inside(better_closest), closest, better_closest)  # don't walk into negative SDF
         # trj.append(closest)

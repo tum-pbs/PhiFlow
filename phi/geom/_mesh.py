@@ -9,20 +9,18 @@ from scipy.sparse import csr_matrix, coo_matrix
 
 from phiml import math
 from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims, unstack, tensor, si2d, non_dual, nonzero, stored_indices, stored_values, scatter, \
-    find_closest, sqrt, where, vec_normalize, argmax, broadcast, cross_product, zeros, EMPTY_SHAPE, meshgrid, mean, reshaped_numpy, range_tensor, convolve, \
-    assert_close, shift, pad, extrapolation, sum as sum_, flatten, dim_mask, math, cumulative_sum, arange
+    find_closest, sqrt, where, vec_normalize, argmax, broadcast, zeros, EMPTY_SHAPE, meshgrid, mean, reshaped_numpy, range_tensor, convolve, \
+    assert_close, shift, pad, extrapolation, sum as sum_, flatten, dim_mask, math, Tensor, Shape, channel, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, stack, vec_length, tensor_like, pairwise_distances, concat, Extrapolation
 from phiml.math._magic_ops import getitem_dataclass
 from phiml.math._sparse import CompactSparseTensor
 from phiml.math.extrapolation import as_extrapolation, PERIODIC
 from phiml.math.magic import slicing_dict
-from . import bounding_box
-from ._box import Box, BaseBox
-from ._functions import plane_sgn_dist
+
 from ._geom import Geometry, Point, NoGeometry
+from ._box import Box, BaseBox, bounding_box
+from ._functions import plane_sgn_dist, cross
 from ._graph import Graph, graph
 from ._transform import scale
-from ..math import Tensor, Shape, channel, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, stack, vec_length, tensor_like, \
-    pairwise_distances, concat, Extrapolation
 
 
 @dataclass(frozen=True)
@@ -309,7 +307,7 @@ class Mesh(Geometry):
         if isinstance(self.elements, CompactSparseTensor) and self.element_rank == 2:
             if instance(self.vertices).volume > 0:
                 A, B, C, *_ = unstack(self.vertices.center[self.elements._indices], dual)
-                cross_area = vec_length(cross_product(B - A, C - A))
+                cross_area = vec_length(cross(B - A, C - A))
                 fac = {3: 0.5, 4: 1}[dual(self.elements._indices).size]  # tri, quad, ...
                 return fac * cross_area
             else:
@@ -328,7 +326,7 @@ class Mesh(Geometry):
             corners = self.vertices.center[{instance: three_vertices}]
             assert dual(corners).size == 3, f"signed distance currently only supports triangles"
             v1, v2, v3 = unstack(corners, dual)
-            return vec_normalize(cross_product(v2 - v1, v3 - v1))
+            return vec_normalize(cross(v2 - v1, v3 - v1))
         raise NotImplementedError
 
     @property
