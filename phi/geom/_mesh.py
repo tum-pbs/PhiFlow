@@ -1,5 +1,4 @@
 import os
-import warnings
 from dataclasses import dataclass
 from functools import cached_property
 from numbers import Number
@@ -8,50 +7,26 @@ from typing import Dict, List, Sequence, Union, Any, Tuple, Optional
 import numpy as np
 from scipy.sparse import csr_matrix, coo_matrix
 
+from phiml import math
 from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims, unstack, tensor, si2d, non_dual, nonzero, stored_indices, stored_values, scatter, \
-    find_closest, sqrt, where, vec_normalize, argmax, broadcast, to_int32, cross_product, zeros, random_normal, EMPTY_SHAPE, meshgrid, mean, reshaped_numpy, range_tensor, convolve, \
-    assert_close, shift, pad, extrapolation, NUMPY, sum as sum_, with_diagonal, flatten, ones_like, dim_mask, math
+    find_closest, sqrt, where, vec_normalize, argmax, broadcast, cross_product, zeros, EMPTY_SHAPE, meshgrid, mean, reshaped_numpy, range_tensor, convolve, \
+    assert_close, shift, pad, extrapolation, sum as sum_, flatten, dim_mask, math, cumulative_sum, arange
 from phiml.math._magic_ops import getitem_dataclass
 from phiml.math._sparse import CompactSparseTensor
 from phiml.math.extrapolation import as_extrapolation, PERIODIC
 from phiml.math.magic import slicing_dict
 from . import bounding_box
+from ._box import Box, BaseBox
 from ._functions import plane_sgn_dist
 from ._geom import Geometry, Point, NoGeometry
-from ._transform import scale
-from ._box import Box, BaseBox
 from ._graph import Graph, graph
+from ._transform import scale
 from ..math import Tensor, Shape, channel, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, stack, vec_length, tensor_like, \
     pairwise_distances, concat, Extrapolation
 
 
-class _MeshType(type):
-    """Metaclass containing the user-friendly (legacy) Mesh constructor."""
-    def __call__(cls,
-                 vertices: Union[Geometry, Tensor],
-                 elements: Tensor,
-                 element_rank: int,
-                 boundaries: Dict[str, Dict[str, slice]],
-                 periodic: Sequence[str],
-                 face_format: str = 'csc',
-                 max_cell_walk: int = None,
-                 variables=('vertices',),
-                 values=()):
-        if spatial(elements):
-            assert elements.dtype.kind == int, f"elements listing vertices must be integer lists but got dtype {elements.dtype}"
-        else:
-            assert elements.dtype.kind == bool, f"element matrices must be of type bool but got {elements.dtype}"
-        if not isinstance(vertices, Geometry):
-            vertices = Point(vertices)
-        if max_cell_walk is None:
-            max_cell_walk = 2 if instance(elements).volume > 1 else 1
-        result = cls.__new__(cls, vertices, elements, element_rank, boundaries, periodic, face_format, max_cell_walk, variables, values)
-        result.__init__(vertices, elements, element_rank, boundaries, periodic, face_format, max_cell_walk, variables, values)  # also calls __post_init__()
-        return result
-
-
 @dataclass(frozen=True)
-class Mesh(Geometry, metaclass=_MeshType):
+class Mesh(Geometry):
     """
     Unstructured mesh, consisting of vertices and elements.
     
@@ -73,9 +48,16 @@ class Mesh(Geometry, metaclass=_MeshType):
     face_format: str = 'csc'
     """Sparse matrix format for storing quantities that depend on a pair of neighboring elements, e.g. `face_area`, `face_normal`, `face_center`."""
     max_cell_walk: int = None
+    """ Maximum number of steps to walk along the element connectivity in order to find a cell, e.g. for sampling at an arbitrary point."""
 
-    variable_attrs: Tuple[str, ...] = ('vertices',)
-    value_attrs: Tuple[str, ...] = ()
+    variable_attrs: Tuple[str, ...] = ('vertices',)  # PhiML keyword
+    value_attrs: Tuple[str, ...] = ()  # PhiML keyword
+
+    def __post_init__(self):
+        if spatial(self.elements):
+            assert self.elements.dtype.kind == int, f"elements listing vertices must be integer lists but got dtype {self.elements.dtype}"
+        else:
+            assert self.elements.dtype.kind == bool, f"element matrices must be of type bool but got {self.elements.dtype}"
 
     @cached_property
     def shape(self) -> Shape:
@@ -117,15 +99,14 @@ class Mesh(Geometry, metaclass=_MeshType):
         raise NotImplementedError
 
     @cached_property
-    def _faces(self) -> Dict[str, Tensor]:
+    def _faces(self) -> Dict[str, Any]:
         if self.element_rank == 2:
-            centers, normals, areas, boundary_slices, vertex_connectivity = build_faces_2d(self.vertices.center, self.elements, self.boundaries, self.periodic, self._vertex_mean, self.face_format)
+            centers, normals, areas, boundary_slices = build_faces_2d(self.vertices.center, self.elements, self.boundaries, self.periodic, self._vertex_mean, self.face_format)
             return {
                 'center': centers,
                 'normal': normals,
                 'area': areas,
                 'boundary_slices': boundary_slices,
-                'vertex_connectivity': vertex_connectivity,
             }
         return None
 
@@ -283,46 +264,45 @@ class Mesh(Geometry, metaclass=_MeshType):
     def vertex_connectivity(self) -> Tensor:
         if isinstance(self.vertices, Graph):
             return self.vertices.connectivity
-        if self.element_rank == self.spatial_rank:
-            return self._faces['vertex_connectivity']
         elif self.element_rank <= 2:
-            coo = to_format(self.elements, 'coo').numpy()
-            connected_points = coo.T @ coo  # ToDo this also counts vertices not connected by a single line/face as long as they are part of the same element
-            if not np.all(connected_points.sum_(axis=1) > 0):
-                warnings.warn("some vertices have no element connection at all", RuntimeWarning)
-            connected_points.data = np.ones_like(connected_points.data)
-            vertex_connectivity = wrap(connected_points, instance(self.vertices), dual(self.elements))
-            return vertex_connectivity
+            def single_vertex_connectivity(elements: Tensor):
+                indices = stored_indices(elements).index[dual(elements).name]
+                idx1 = indices.numpy()
+                v_count = sum_(elements, dual).numpy()
+                ptr_end = np.cumsum(v_count)
+                roll = np.arange(idx1.size) + 1
+                roll[ptr_end-1] = ptr_end - v_count
+                idx2 = idx1[roll]
+                v_conn = coo_matrix((np.ones(idx1.size, dtype=bool), (idx1, idx2)), shape=(dual(elements).size,)*2).tocsr()
+                return wrap(v_conn, dual(elements).as_instance(), dual(elements))
+            return math.map(single_vertex_connectivity, self.elements, dims=batch)
         raise NotImplementedError
 
-    @property
+    @cached_property
     def vertex_graph(self) -> Graph:
-        if isinstance(self.vertices, Graph):
-            return self.vertices
-        assert self._vertex_connectivity is not None, f"vertex_graph not available because vertex_connectivity has not been computed"
-        return graph(self.vertices, self._vertex_connectivity)
+        return self.vertices if isinstance(self.vertices, Graph) else graph(self.vertices, self.vertex_connectivity)
 
     def filter_unused_vertices(self) -> 'Mesh':
         coo = to_format(self.elements, 'coo').numpy()
-        has_element = np.asarray(coo.sum_(0) > 0)[0]
-        new_index = np.cumsum_(has_element) - 1
+        has_element = np.asarray(coo.sum(0) > 0)[0]
+        new_index = np.cumsum(has_element) - 1
         new_index_t = wrap(new_index, dual(self.elements))
         has_element = wrap(has_element, instance(self.vertices))
         has_element_d = si2d(has_element)
         vertices = self.vertices[has_element]
-        v_normals = self._vertex_normals[has_element_d]
+        v_normals = self.vertex_normals[has_element_d]
         vertex_connectivity = None
-        if self._vertex_connectivity is not None:
-            vertex_connectivity = stored_indices(self._vertex_connectivity).index.as_batch()
-            vertex_connectivity = new_index_t[{dual: vertex_connectivity}].index.as_channel()
-            vertex_connectivity = sparse_tensor(vertex_connectivity, stored_values(self._vertex_connectivity), non_batch(self._vertex_connectivity).with_sizes(instance(vertices).size), False)
+        # if self._vertex_connectivity is not None:
+        #     vertex_connectivity = stored_indices(self._vertex_connectivity).index.as_batch()
+        #     vertex_connectivity = new_index_t[{dual: vertex_connectivity}].index.as_channel()
+        #     vertex_connectivity = sparse_tensor(vertex_connectivity, stored_values(self._vertex_connectivity), non_batch(self._vertex_connectivity).with_sizes(instance(vertices).size), False)
         if isinstance(self.elements, CompactSparseTensor):
             indices = new_index_t[{dual: self.elements._indices}]
             elements = CompactSparseTensor(indices, self.elements._values, self.elements._compressed_dims.with_size(instance(vertices).volume), self.elements._indices_constant, self.elements._matrix_rank)
         else:
             filtered_coo = coo_matrix((coo.data, (coo.row, new_index)), shape=(instance(self.elements).volume, instance(vertices).volume))  # ToDo keep sparse format
             elements = wrap(filtered_coo, self.elements.shape.without_sizes())
-        return Mesh(vertices, elements, self.element_rank, self.boundaries, self.center, self._volume, self.normals, self.face_centers, self.face_normals, self.face_areas, None, v_normals, vertex_connectivity, self._element_connectivity, self.max_cell_walk)
+        return Mesh(vertices, elements, self.element_rank, self.boundaries, self.periodic, self.face_format, self.max_cell_walk, self.variable_attrs, self.value_attrs)
 
     @property
     def volume(self) -> Tensor:
@@ -343,8 +323,9 @@ class Mesh(Geometry, metaclass=_MeshType):
     @property
     def normals(self) -> Tensor:
         """Extrinsic element normal space. This is a 0D vector for solid elements and 1D for surface elements."""
-        if isinstance(self.elements, CompactSparseTensor) and self.element_rank == 2:
-            corners = self.vertices[self.elements._indices]
+        if self.element_rank == 2:
+            three_vertices = nonzero(self.elements, 3, list_dims=dual)
+            corners = self.vertices.center[{instance: three_vertices}]
             assert dual(corners).size == 3, f"signed distance currently only supports triangles"
             v1, v2, v3 = unstack(corners, dual)
             return vec_normalize(cross_product(v2 - v1, v3 - v1))
@@ -382,7 +363,7 @@ class Mesh(Geometry, metaclass=_MeshType):
             closest_elem = find_closest(self.center, location)
             center = self.center[closest_elem]
             normal = self.normals[closest_elem]
-            face_size = sqrt(self._volume) * 4
+            face_size = sqrt(self.volume) * 4
             size = face_size[closest_elem]
             sgn_dist = plane_sgn_dist(center, normal, location)
             delta = center - location  # this is not accurate...
@@ -451,10 +432,9 @@ class Mesh(Geometry, metaclass=_MeshType):
             center = rename_dims(center, dual, instance(self.vertices))
         if instance(self.vertices) in center.shape:
             vertices = self.vertices.at(center)
-            return mesh(vertices, self.elements, self.boundaries)
+            return Mesh(vertices, self.elements, self.element_rank, self.boundaries, self.periodic, self.face_format, self.max_cell_walk, self.variable_attrs, self.value_attrs)
         else:
-            shift = center - self.bounds.center
-            return self.shifted(shift)
+            return self.shifted(center - self.bounds.center)
 
     def shifted(self, delta: Tensor) -> 'Mesh':
         if instance(self.elements) in delta.shape:
@@ -463,12 +443,12 @@ class Mesh(Geometry, metaclass=_MeshType):
             delta = rename_dims(delta, dual, instance(self.vertices))
         if instance(self.vertices) in delta.shape:
             vertices = self.vertices.shifted(delta)
-            return mesh(vertices, self.elements, self.boundaries)
+            return Mesh(vertices, self.elements, self.element_rank, self.boundaries, self.periodic, self.face_format, self.max_cell_walk, self.variable_attrs, self.value_attrs)
         else:  # shift everything
             # ToDo transfer cached properties
+            # copy: center+delta, normals, volume, face_centers+delta, face_areas, face_normals, vertex_normals, vertex_connectivity, element_connectivity
             vertices = self.vertices.shifted(delta)
-            center = self.center + delta
-            return Mesh(vertices, self.elements, self.element_rank, self.boundaries, center, self._volume, self.normals, self.face_centers, self.face_normals, self.face_areas, self.face_vertices, self._vertex_normals, self._vertex_connectivity, self._element_connectivity, self.max_cell_walk)
+            return Mesh(vertices, self.elements, self.element_rank, self.boundaries, self.periodic, self.face_format, self.max_cell_walk, self.variable_attrs, self.value_attrs)
 
     def rotated(self, angle: Union[float, Tensor]) -> 'Geometry':
         raise NotImplementedError
@@ -477,7 +457,7 @@ class Mesh(Geometry, metaclass=_MeshType):
         pivot = self.bounds.center
         vertices = scale(self.vertices, factor, pivot)
         center = scale(Point(self.center), factor, pivot).center
-        volume = self._volume * factor**self.element_rank if self._volume is not None else None
+        volume = self.volume * factor**self.element_rank if self.volume is not None else None
         face_areas = None
         return Mesh(vertices, self.elements, self.element_rank, self.boundaries, center, volume, self.normals, self.face_centers, self.face_normals, face_areas, self.face_vertices, self._vertex_normals, self._vertex_connectivity, self._element_connectivity, self.max_cell_walk)
 
@@ -651,6 +631,8 @@ def mesh(vertices: Geometry | Tensor,
             element_rank = 2 if min_vertices <= 4 else 3  # assume tri or quad mesh
         else:
             raise ValueError(vertices.vector.size)
+    if max_cell_walk is None:
+        max_cell_walk = 2 if instance(elements).volume > 1 else 1
     # --- build faces ---
     periodic_dims = []
     if periodic is not None:
@@ -751,8 +733,7 @@ def build_faces_2d(vertices: Tensor,  # (vertices:i, vector)
     edge_len = sparse_tensor(indices, edge_len, element_connectivity.shape, format='coo' if face_format == 'dense' else face_format, indices_constant=True)
     normal = tensor_like(edge_len, normal, value_order='original')
     edge_center = tensor_like(edge_len, edge_center, value_order='original')
-    vertex_connectivity = None
-    return edge_center, normal, edge_len, boundary_slices, vertex_connectivity
+    return edge_center, normal, edge_len, boundary_slices
 
 
 def build_mesh(bounds: Box = None,

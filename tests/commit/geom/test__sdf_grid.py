@@ -38,7 +38,7 @@ class TestSDFGrid(TestCase):
 
     def test_closest_surface(self):
         sphere = Sphere(x=1, y=1, radius=.8)
-        sdf = sample_sdf(sphere, Box(x=(2, 3), y=3), x=100, y=100)
+        sdf = sample_sdf(sphere, Box(x=(2, 3), y=3), x=100, y=100, cache_surface=True)
         sgn_dist_sph, delta_sph, normal_sph, offset_sph, _ = sphere.approximate_closest_surface(sdf.points)
         sgn_dist_sdf, delta_sdf, normal_sdf, offset_sdf, _ = sdf.approximate_closest_surface(sdf.points)
         math.assert_close(sgn_dist_sph, sgn_dist_sdf, abs_tolerance=.1)
