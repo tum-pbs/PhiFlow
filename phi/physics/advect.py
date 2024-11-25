@@ -200,7 +200,7 @@ def mac_cormack(field: Field,
     Returns:
         Advected field of type `type(field)`
     """
-    v0 = resample(velocity, to=field).values
+    v0 = sample(velocity, field.geometry, at=field.sampled_at, boundary=field.boundary)
     points_bwd = integrator(field, velocity, -dt, v0=v0)
     points_fwd = integrator(field, velocity, dt, v0=v0)
     # --- forward+backward semi-Lagrangian advection ---
