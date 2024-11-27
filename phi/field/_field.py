@@ -472,7 +472,7 @@ class Field(metaclass=_FieldType):
         order = list(bounds.vector.item_names)
         geometry = self.geometry.vector[order]
         new_shape = self.values.shape.without(order) & self.values.shape.only(order, reorder=True)
-        values = math.transpose(self.values, new_shape)
+        values = math.swap_axes(self.values, new_shape)
         return Field(geometry, values, self.boundary)
 
     def with_geometry(self, elements: Geometry):
