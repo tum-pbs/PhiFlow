@@ -539,7 +539,17 @@ def load_gmsh(file: str, boundary_names: Sequence[str] = None, periodic: str = N
 
 
 @broadcast
-def load_stl(file: str, face_dim=instance('faces')):
+def load_stl(file: str, face_dim=instance('faces')) -> Mesh:
+    """
+    Load a triangle `Mesh` from an STL file.
+
+    Args:
+        file: File path to `.stl` file.
+        face_dim: Instance dim along which to list the triangles.
+
+    Returns:
+        `Mesh` with `spatial_rank=3` and `element_rank=2`.
+    """
     import stl
     model = stl.mesh.Mesh.from_file(file)
     points = np.reshape(model.points, (-1, 3))
