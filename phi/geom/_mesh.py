@@ -10,7 +10,8 @@ from scipy.sparse import csr_matrix, coo_matrix
 from phiml import math
 from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims, unstack, tensor, si2d, non_dual, nonzero, stored_indices, stored_values, scatter, \
     find_closest, sqrt, where, vec_normalize, argmax, broadcast, zeros, EMPTY_SHAPE, meshgrid, mean, reshaped_numpy, range_tensor, convolve, \
-    assert_close, shift, pad, extrapolation, sum as sum_, flatten, dim_mask, math, Tensor, Shape, channel, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, stack, vec_length, tensor_like, pairwise_distances, concat, Extrapolation
+    assert_close, shift, pad, extrapolation, sum as sum_, dim_mask, math, Tensor, Shape, channel, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, \
+    stack, vec_length, tensor_like, pairwise_distances, concat, Extrapolation, dsum, reshaped_tensor, dmean
 from phiml.math._magic_ops import getitem_dataclass
 from phiml.math._sparse import CompactSparseTensor
 from phiml.math.extrapolation import as_extrapolation, PERIODIC
@@ -99,7 +100,7 @@ class Mesh(Geometry):
     @cached_property
     def _faces(self) -> Dict[str, Any]:
         if self.element_rank == 2:
-            centers, normals, areas, boundary_slices = build_faces_2d(self.vertices.center, self.elements, self.boundaries, self.periodic, self._vertex_mean, self.face_format)
+            centers, normals, areas, boundary_slices = build_faces(self.vertices.center, self.elements, self.boundaries, self.element_rank, self.periodic, self._vertex_mean, self.face_format)
             return {
                 'center': centers,
                 'normal': normals,
@@ -651,12 +652,13 @@ def mesh(vertices: Geometry | Tensor,
     return Mesh(vertices, elements, element_rank, boundaries, periodic_dims, face_format=face_format, max_cell_walk=max_cell_walk)
 
 
-def build_faces_2d(vertices: Tensor,  # (vertices:i, vector)
-                   elements: Tensor,  # (elements:i, ~vertices)
-                   boundaries: Dict[str, Sequence],  # vertex pairs
-                   periodic: Sequence[str],  # periodic dim names
-                   vertex_mean: Tensor,
-                   face_format: str):
+def build_faces(vertices: Tensor,  # (vertices:i, vector)
+                elements: Tensor,  # (elements:i, ~vertices)
+                boundaries: Dict[str, Sequence],  # vertex pairs
+                element_rank: int,
+                periodic: Sequence[str],  # periodic dim names
+                vertex_mean: Tensor,
+                face_format: str):
     """
     Given a list of vertices, elements and boundary edges, computes the element connectivity matrix  and corresponding edge properties.
 
@@ -664,84 +666,82 @@ def build_faces_2d(vertices: Tensor,  # (vertices:i, vector)
         vertices: `Tensor` representing list (instance) of vectors (channel)
         elements: Sparse matrix listing all elements (instance). Each entry represents a vertex (dual) belonging to an element.
         boundaries: Named sequences of edges (vertex pairs).
+        element_rank: Spatial rank of the elements (currently only 2 is supported)
         periodic: Which dims are periodic.
         vertex_mean: Mean vertex position for each element.
         face_format: Sparse matrix format to use for the element-element matrices.
     """
-    cell_dim = instance(elements).name
-    nb_dim = instance(elements).as_dual().name
-    boundaries = {k: wrap(v, 'line:i,vert:i=(start,end)') for k, v in boundaries.items()}
-    # --- Periodic: map duplicate vertices to the same index ---
+    n_v = instance(vertices).size
+    n_e = instance(elements).size
+    # --- Periodic: map vertices of boundary+ to the corresponding vertex in boundary- ---
     vertex_id = np.arange(instance(vertices).size)
     for dim in periodic:
-        lo_idx, up_idx = boundaries[dim+'-'], boundaries[dim+'+']
-        for lo_i, up_i in zip(set(flatten(lo_idx)), set(flatten(up_idx))):
-            vertex_id[up_i] = lo_i  # map periodic vertices to one index
-    el_coo = to_format(elements, 'coo').numpy().astype(np.int32)
-    el_coo.col = vertex_id[el_coo.col]
-    # --- Add virtual boundary elements for non-periodic boundaries ---
+        vertex_id[np.concatenate(boundaries[dim+'+'])] = np.concatenate(boundaries[dim+'-'])
+    is_periodic = dim_mask(vertices.vector.item_names, periodic)
+    # --- element-facet and facet-vertex matrix. A facet describes a single oriented face of an element, i.e. shared faces get two entries. ---
+    if element_rank == 2:  # edges are the lines between neighbor vertices in the vertex lists + the edge last-to-first
+        v1 = stored_indices(elements).index[dual(elements).name].numpy()
+        v1 = vertex_id[v1]
+        n_f = v1.size  # total number of facets (excluding boundaries)
+        f_count = dsum(elements).numpy()  # #facets per element
+        ptr = np.cumsum(f_count)
+        roll = np.arange(v1.size) + 1
+        roll[ptr - 1] = ptr - f_count
+        v12 = np.stack([v1, v1[roll]], -1).flatten()
+        f_idx = np.arange(v1.size, dtype=v1.dtype)
+        f_idx2 = f_idx.repeat(2)
+        f_v = coo_matrix((np.ones(n_f*2, np.int32), (f_idx2, v12)), shape=(n_f, n_v))  # facet-vertex matrix
+        e_idx = np.arange(instance(elements).size).repeat(f_count)
+        e_f = coo_matrix((np.ones(n_f, bool), (e_idx, f_idx)), shape=(n_e, n_f))  # element-facet matrix
+        # --- Compute facet properties: center, normal, area ---
+        f_v_pos = vertices[reshaped_tensor(v12, [instance('facets') + dual(pair=2)])]  # vertex positions of every (inner) facet
+        if periodic:  # map v_pos: closest to cell_center
+            cell_center = vertex_mean[wrap(e_idx, 'facets:i')]
+            bounds = bounding_box(vertices)
+            delta = PERIODIC.shortest_distance(cell_center - bounds.lower, f_v_pos - bounds.lower, bounds.size)
+            f_v_pos = where(is_periodic, cell_center + delta, f_v_pos)
+        edge_center = dmean(f_v_pos)
+        edge_dir = f_v_pos.pair.dual[1] - f_v_pos.pair.dual[0]
+        edge_len = vec_length(edge_dir)
+        normal = vec_normalize(stack([-edge_dir[1], edge_dir[0]], channel(edge_dir)))
+    else:
+        raise NotImplementedError("Only 2D Mesh faces are currently supported")
+        # e_v = to_format(elements, 'coo').numpy().astype(np.int32)
+        # e_v.col = vertex_id[e_v.col]
+        # e_f = coo_matrix(...)
+        # f_v = coo_matrix(...)
+        # f_v_pos = vertices[...]
+    # --- Add virtual boundary elements to f_v for non-periodic boundaries ---
     boundary_slices = {}
-    end = instance(elements).size
-    bnd_coo_idx, bnd_coo_vert = [el_coo.row], [el_coo.col]
+    e_end, f_end = e_f.shape
+    b_idx_f, b_idx_v = [f_v.row], [f_v.col]
     for bnd_key, bnd_vertices in boundaries.items():
         if bnd_key[:-1] in periodic:
             continue
-        bnd_vert = bnd_vertices.numpy(['line,vert'])
-        bnd_idx = np.arange(bnd_vertices.line.size).repeat(2) + end
-        bnd_coo_idx.append(bnd_idx)
-        bnd_coo_vert.append(bnd_vert)
-        boundary_slices[bnd_key] = {nb_dim: slice(end, end+bnd_vertices.line.size)}
-        end += bnd_vertices.line.size
-    bnd_coo_idx = np.concatenate(bnd_coo_idx)
-    bnd_coo_vert = vertex_id[np.concatenate(bnd_coo_vert)]
-    bnd_el_coo = coo_matrix((np.ones((bnd_coo_idx.size,), dtype=bool), (bnd_coo_idx, bnd_coo_vert)), shape=(end, instance(vertices).size))
-    # --- Compute neighbor elements ---
-    num_shared_vertices: csr_matrix = el_coo @ bnd_el_coo.T
-    neighbor_filter, = np.where(num_shared_vertices.data == 2)
-    src_cell, nb_cell = num_shared_vertices.nonzero()
-    src_cell = src_cell[neighbor_filter]
-    nb_cell = nb_cell[neighbor_filter]
-    connected_elements_coo = coo_matrix((np.ones(src_cell.size, dtype=bool), (src_cell, nb_cell)), shape=num_shared_vertices.shape)
-    element_connectivity = wrap(connected_elements_coo, instance(elements).without_sizes() & dual)
-    element_connectivity = to_format(element_connectivity, face_format)
-    # --- Find vertices for each face pair using 4 alternating patterns: [0101...], [1010...], ["]+[010...], [101...]+["] ---
-    bnd_el_coo_v_idx = coo_matrix((bnd_coo_vert+1, (bnd_coo_idx, bnd_coo_vert)), shape=(end, instance(vertices).size))
-    ptr = np.cumsum(np.asarray(el_coo.sum(1)))
-    first_ptr = np.pad(ptr, (1, 0))[:-1]
-    alt1 = np.arange(el_coo.data.size) % 2
-    alt2 = (1 - alt1)
-    alt2[first_ptr] = alt1[first_ptr]
-    alt3 = (1 - alt1)
-    alt3[ptr - 1] = alt1[ptr - 1]
-    v_indices = []
-    for alt in [alt1, (1-alt1), alt2, alt3]:
-        el_coo.data = alt + 1e-10
-        alt_v_idx = (el_coo @ bnd_el_coo_v_idx.T)
-        v_indices.append(alt_v_idx.data[neighbor_filter].astype(np.int32))
-    v_indices = np.sort(np.stack(v_indices, -1), axis=1) - 1
-    # Cases: 0,i1,i2  |  i1,i1,i2  |  i1,i2,i2  |  i1,i2,i1+i2   (0 is invalid, doubles are invalid)
-    # For [1-3]: If self > left and left != 0 and it is the first -> this is the second element.
-    first_index = np.argmax((v_indices[:, 1:] > v_indices[:, :-1]) & (v_indices[:, :-1] >= 0), 1)
-    v_indices = v_indices[np.arange(v_indices.shape[0]), np.stack([first_index, first_index+1])]
-    v_indices = wrap(v_indices, 'vert:i=(start,end),edge:i')
-    v_pos = vertices[v_indices]
-    if periodic:  # map v_pos: closest to cell_center
-        cell_center = vertex_mean[wrap(src_cell, 'edge:i')]
-        bounds = bounding_box(vertices)
-        delta = PERIODIC.shortest_distance(cell_center - bounds.lower, v_pos - bounds.lower, bounds.size)
-        is_periodic = dim_mask(vertices.vector.item_names, periodic)
-        v_pos = where(is_periodic, cell_center + delta, v_pos)
-    # --- Compute face information ---
-    edge_dir = v_pos.vert['end'] - v_pos.vert['start']
-    edge_center = .5 * (v_pos.vert['end'] + v_pos.vert['start'])
-    edge_len = vec_length(edge_dir)
-    normal = vec_normalize(stack([-edge_dir[1], edge_dir[0]], channel(edge_dir)))
-    # --- Wrap in sparse matrices ---
-    indices = wrap(np.stack([src_cell, nb_cell]), channel(index=(cell_dim, nb_dim)), 'edge:i')
-    edge_len = sparse_tensor(indices, edge_len, element_connectivity.shape, format='coo' if face_format == 'dense' else face_format, indices_constant=True)
-    normal = tensor_like(edge_len, normal, value_order='original')
-    edge_center = tensor_like(edge_len, edge_center, value_order='original')
-    return edge_center, normal, edge_len, boundary_slices
+        v_count = np.asarray([len(vs) for vs in bnd_vertices])
+        v_idx = np.concatenate(bnd_vertices)
+        f_idx = np.arange(len(bnd_vertices)).repeat(v_count) + f_end
+        b_idx_f.append(f_idx)
+        b_idx_v.append(v_idx)
+        boundary_slices[bnd_key] = {instance(elements).as_dual().name: slice(e_end, e_end+len(bnd_vertices))}
+        f_end += len(bnd_vertices)
+        e_end += len(bnd_vertices)
+    b_idx_f = np.concatenate(b_idx_f)
+    b_idx_v = vertex_id[np.concatenate(b_idx_v)]
+    f_v_b = coo_matrix((np.ones(b_idx_f.size, bool), (b_idx_f, b_idx_v)), shape=(f_end, n_v))
+    # --- Add virtual boundary facets to e_f ---
+    e_f_be = np.concatenate([e_f.row, np.arange(n_e, e_end)])
+    e_f_bf = np.arange(e_f_be.size)  # every face assigned to exactly one element. Identical to np.concatenate([e_f.col, np.arange(n_f, f_end)])
+    e_f_b = coo_matrix((np.ones(e_f_bf.size, bool), (e_f_be, e_f_bf)), shape=(e_end, f_end))
+    # --- Compute connectivity and return element-pair facet properties ---
+    f_f: csr_matrix = f_v @ f_v_b.T >= element_rank  # symmetric
+    f_f.setdiag(0)
+    f_f.eliminate_zeros()
+    f_f.data = np.arange(1, n_f+1)  # equal to f_f.nonzero()[0]
+    e_e = e_f @ f_f @ e_f_b.T  # stores the outgoing facet_index+1 for each element pair
+    shared_edge = wrap(e_e, instance(elements).without_sizes() & dual) - 1
+    shared_edge = to_format(shared_edge, face_format)
+    return edge_center[shared_edge], normal[shared_edge], edge_len[shared_edge], boundary_slices
 
 
 def build_mesh(bounds: Box = None,
