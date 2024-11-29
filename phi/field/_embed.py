@@ -53,7 +53,7 @@ class FieldEmbedding(Extrapolation):
         return False
 
     def pad_values(self, value: Tensor, width: int, dim: str, upper_edge: bool, bounds: Box = None, already_padded: dict = None, **kwargs) -> Tensor:
-        assert bounds is not None, f"{type(self)}.pad() requires 'bounds' argument"
+        assert bounds is not None or (already_padded and not value.shape.is_non_uniform), f"{type(self)}.pad() requires 'bounds' argument"
         if value.shape.is_non_uniform:
             unstacked = unstack(value, value.shape.non_uniform_shape)
             indices = value.shape.non_uniform_shape.meshgrid(names=True)
