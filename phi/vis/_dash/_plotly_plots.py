@@ -770,8 +770,10 @@ def get_color_interpolation(val, cm_arr):
         center = cm_arr[cm_arr[:, 0] == val][-1]
     else:
         offset_positions = cm_arr[:, 0] - val
-        color1 = cm_arr[numpy.argmax(offset_positions[offset_positions < 0])]  # largest value smaller than control
-        color2 = cm_arr[numpy.argmin(offset_positions[offset_positions > 0])]  # smallest value larger than control
+        below = offset_positions[offset_positions < 0]
+        color1 = cm_arr[numpy.argmax(below)] if below.size > 0 else cm_arr[0]  # largest value smaller than control
+        above = offset_positions[offset_positions > 0]
+        color2 = cm_arr[numpy.argmin(above)] if above.size > 0 else cm_arr[-1]  # smallest value larger than control
         if color1[0] == color2[0]:
             center = color1
         else:
