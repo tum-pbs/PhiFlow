@@ -15122,12 +15122,13 @@ We set a fluid inflow on the left side and add a cylinder to the domain.</p>
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[1]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[&nbsp;]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-python"><pre><span></span><span class="o">%</span><span class="n">pip</span> <span class="n">install</span> <span class="n">phiflow</span>
-<span class="kn">from</span> <span class="nn">phi.jax.flow</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">phi.torch.flow</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="c1"># from phi.flow import *  # If JAX is not installed. You can use phi.torch or phi.tf as well.</span>
+<span class="kn">from</span> <span class="nn">tqdm.notebook</span> <span class="kn">import</span> <span class="n">trange</span>
 </pre></div>
 
      </div>
@@ -15220,7 +15221,7 @@ We then run the simulation for 200 time steps with $\Delta t=1$.</p>
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[18]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[&nbsp;]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-python"><pre><span></span><span class="nd">@jit_compile</span>
@@ -15230,7 +15231,8 @@ We then run the simulation for 200 time steps with $\Delta t=1$.</p>
 
 <span class="n">boundary</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;x-&#39;</span><span class="p">:</span> <span class="n">vec</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="s1">&#39;x+&#39;</span><span class="p">:</span> <span class="n">ZERO_GRADIENT</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">PERIODIC</span><span class="p">,</span> <span class="s1">&#39;z&#39;</span><span class="p">:</span> <span class="n">PERIODIC</span><span class="p">}</span>
 <span class="n">v0</span> <span class="o">=</span> <span class="n">StaggeredGrid</span><span class="p">((</span><span class="mf">8.</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">boundary</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">Box</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">z</span><span class="o">=</span><span class="mi">5</span><span class="p">))</span>
-<span class="n">v_trj</span><span class="p">,</span> <span class="n">p_trj</span> <span class="o">=</span> <span class="n">iterate</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">batch</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="mi">200</span><span class="p">),</span> <span class="n">v0</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<span class="n">v0</span><span class="p">,</span> <span class="n">p0</span> <span class="o">=</span> <span class="n">fluid</span><span class="o">.</span><span class="n">make_incompressible</span><span class="p">(</span><span class="n">v0</span><span class="p">,</span> <span class="n">cylinder</span><span class="p">,</span> <span class="n">Solve</span><span class="p">(</span><span class="s1">&#39;scipy-direct&#39;</span><span class="p">))</span>
+<span class="n">v_trj</span><span class="p">,</span> <span class="n">p_trj</span> <span class="o">=</span> <span class="n">iterate</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="n">batch</span><span class="p">(</span><span class="n">time</span><span class="o">=</span><span class="mi">200</span><span class="p">),</span> <span class="n">v0</span><span class="p">,</span> <span class="n">p0</span><span class="p">,</span> <span class="nb">range</span><span class="o">=</span><span class="n">trange</span><span class="p">)</span>
 </pre></div>
 
      </div>
