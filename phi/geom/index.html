@@ -5278,7 +5278,7 @@ class Mesh(Geometry):
     @cached_property
     def _faces(self) -&gt; Dict[str, Any]:
         if self.element_rank == 2:
-            centers, normals, areas, boundary_slices = build_faces_2d(self.vertices.center, self.elements, self.boundaries, self.periodic, self._vertex_mean, self.face_format)
+            centers, normals, areas, boundary_slices = build_faces(self.vertices.center, self.elements, self.boundaries, self.element_rank, self.periodic, self._vertex_mean, self.face_format)
             return {
                 &#39;center&#39;: centers,
                 &#39;normal&#39;: normals,
