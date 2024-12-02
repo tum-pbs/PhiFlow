@@ -325,7 +325,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f99dc463380></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fede4663380></span>
 </code></dt>
 <dd>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -2287,10 +2287,6 @@ class Field(metaclass=_FieldType):
         from ._embed import FieldEmbedding
         return FieldEmbedding(self)</code></pre>
 </details>
-<h3>Subclasses</h3>
-<ul class="hlist">
-<li>phi.field._mask.HardGeometryMask</li>
-</ul>
 <h3>Class variables</h3>
 <dl>
 <dt id="phi.field.Field.boundary"><code class="name">var <span class="ident">boundary</span> : phiml.math.extrapolation.Extrapolation</code></dt>
@@ -3840,10 +3836,6 @@ class Field(metaclass=_FieldType):
         from ._embed import FieldEmbedding
         return FieldEmbedding(self)</code></pre>
 </details>
-<h3>Subclasses</h3>
-<ul class="hlist">
-<li>phi.field._mask.HardGeometryMask</li>
-</ul>
 <h3>Class variables</h3>
 <dl>
 <dt id="phi.field.Field.boundary"><code class="name">var <span class="ident">boundary</span> : phiml.math.extrapolation.Extrapolation</code></dt>
@@ -5392,10 +5384,6 @@ class Field(metaclass=_FieldType):
         from ._embed import FieldEmbedding
         return FieldEmbedding(self)</code></pre>
 </details>
-<h3>Subclasses</h3>
-<ul class="hlist">
-<li>phi.field._mask.HardGeometryMask</li>
-</ul>
 <h3>Class variables</h3>
 <dl>
 <dt id="phi.field.Field.boundary"><code class="name">var <span class="ident">boundary</span> : phiml.math.extrapolation.Extrapolation</code></dt>
@@ -6128,25 +6116,24 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
 <span>(</span><span>geometry: phi.geom._geom.Geometry)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Deprecated since version 1.3. Use <code><a title="phi.field.mask" href="#phi.field.mask">mask()</a></code> or <code><a title="phi.field.resample" href="#phi.field.resample">resample()</a></code> instead.</p></div>
+<div class="desc"><p>Deprecated since version 2.3. Use <code><a title="phi.field.mask" href="#phi.field.mask">mask()</a></code> or <code><a title="phi.field.resample" href="#phi.field.resample">resample()</a></code> instead.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class HardGeometryMask(Field):
+<pre><code class="python">class HardGeometryMask(FieldInitializer):
     &#34;&#34;&#34;
-    Deprecated since version 1.3. Use `phi.field.mask()` or `phi.field.resample()` instead.
+    Deprecated since version 2.3. Use `phi.field.mask()` or `phi.field.resample()` instead.
     &#34;&#34;&#34;
-
     def __init__(self, geometry: Geometry):
-        super().__init__(geometry, 1, 0)
+        self.geometry = geometry
         warnings.warn(&#34;HardGeometryMask and SoftGeometryMask are deprecated. Use field.mask or field.resample instead.&#34;, DeprecationWarning, stacklevel=2)
 
     @property
     def shape(self):
         return self.geometry.shape.non_channel
 
-    def _sample(self, geometry: Geometry, **kwargs) -&gt; Tensor:
+    def _sample(self, geometry: Geometry, at: str, boundaries: Extrapolation, **kwargs) -&gt; math.Tensor:
         return math.to_float(self.geometry.lies_inside(geometry.center))
 
     def __getitem__(self, item: dict):
@@ -6154,7 +6141,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
 </details>
 <h3>Ancestors</h3>
 <ul class="hlist">
-<li>phi.field._field.Field</li>
+<li>phi.field._field.FieldInitializer</li>
 </ul>
 <h3>Subclasses</h3>
 <ul class="hlist">
@@ -6164,12 +6151,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
 <dl>
 <dt id="phi.field.HardGeometryMask.shape"><code class="name">prop <span class="ident">shape</span></code></dt>
 <dd>
-<div class="desc"><p>Returns a shape with the following properties</p>
-<ul>
-<li>The spatial dimension names match the dimensions of this Field</li>
-<li>The batch dimensions match the batch dimensions of this Field</li>
-<li>The channel dimensions match the channels of this Field</li>
-</ul></div>
+<div class="desc"></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
@@ -7129,21 +7111,21 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <span>(</span><span>geometry: phi.geom._geom.Geometry,<br>balance: phiml.math._tensors.Tensor | float = 0.5)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Deprecated since version 1.3. Use <code><a title="phi.field.mask" href="#phi.field.mask">mask()</a></code> or <code><a title="phi.field.resample" href="#phi.field.resample">resample()</a></code> instead.</p></div>
+<div class="desc"><p>Deprecated since version 2.3. Use <code><a title="phi.field.mask" href="#phi.field.mask">mask()</a></code> or <code><a title="phi.field.resample" href="#phi.field.resample">resample()</a></code> instead.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class SoftGeometryMask(HardGeometryMask):
     &#34;&#34;&#34;
-    Deprecated since version 1.3. Use `phi.field.mask()` or `phi.field.resample()` instead.
+    Deprecated since version 2.3. Use `phi.field.mask()` or `phi.field.resample()` instead.
     &#34;&#34;&#34;
     def __init__(self, geometry: Geometry, balance: Union[Tensor, float] = 0.5):
         warnings.warn(&#34;HardGeometryMask and SoftGeometryMask are deprecated. Use field.mask or field.resample instead.&#34;, DeprecationWarning, stacklevel=2)
         super().__init__(geometry)
         self.balance = balance
 
-    def _sample(self, geometry: Geometry, **kwargs) -&gt; Tensor:
+    def _sample(self, geometry: Geometry, at: str, boundaries: Extrapolation, **kwargs) -&gt; math.Tensor:
         return self.geometry.approximate_fraction_inside(geometry, self.balance)
 
     def __getitem__(self, item: dict):
@@ -7152,7 +7134,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.field._mask.HardGeometryMask</li>
-<li>phi.field._field.Field</li>
+<li>phi.field._field.FieldInitializer</li>
 </ul>
 </dd>
 <dt id="phi.field.SoftGeometryMask"><code class="flex name class">
@@ -7160,21 +7142,21 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <span>(</span><span>geometry: phi.geom._geom.Geometry,<br>balance: phiml.math._tensors.Tensor | float = 0.5)</span>
 </code></dt>
 <dd>
-<div class="desc"><p>Deprecated since version 1.3. Use <code><a title="phi.field.mask" href="#phi.field.mask">mask()</a></code> or <code><a title="phi.field.resample" href="#phi.field.resample">resample()</a></code> instead.</p></div>
+<div class="desc"><p>Deprecated since version 2.3. Use <code><a title="phi.field.mask" href="#phi.field.mask">mask()</a></code> or <code><a title="phi.field.resample" href="#phi.field.resample">resample()</a></code> instead.</p></div>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">class SoftGeometryMask(HardGeometryMask):
     &#34;&#34;&#34;
-    Deprecated since version 1.3. Use `phi.field.mask()` or `phi.field.resample()` instead.
+    Deprecated since version 2.3. Use `phi.field.mask()` or `phi.field.resample()` instead.
     &#34;&#34;&#34;
     def __init__(self, geometry: Geometry, balance: Union[Tensor, float] = 0.5):
         warnings.warn(&#34;HardGeometryMask and SoftGeometryMask are deprecated. Use field.mask or field.resample instead.&#34;, DeprecationWarning, stacklevel=2)
         super().__init__(geometry)
         self.balance = balance
 
-    def _sample(self, geometry: Geometry, **kwargs) -&gt; Tensor:
+    def _sample(self, geometry: Geometry, at: str, boundaries: Extrapolation, **kwargs) -&gt; math.Tensor:
         return self.geometry.approximate_fraction_inside(geometry, self.balance)
 
     def __getitem__(self, item: dict):
@@ -7183,7 +7165,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.field._mask.HardGeometryMask</li>
-<li>phi.field._field.Field</li>
+<li>phi.field._field.FieldInitializer</li>
 </ul>
 </dd>
 </dl>
