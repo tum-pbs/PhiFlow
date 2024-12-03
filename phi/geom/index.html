@@ -2200,7 +2200,7 @@ class Cylinder(Geometry):
 
     @cached_property
     def up(self):
-        return math.rotate(vec(**{d: 1 if d == self.axis else 0 for d in self._center.vector.item_names}), self.rotation)
+        return rotate(vec(**{d: 1 if d == self.axis else 0 for d in self._center.vector.item_names}), self.rotation)
 
     def with_radius(self, radius: Tensor) -&gt; &#39;Cylinder&#39;:
         return Cylinder(self._center, wrap(radius), self.depth, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
@@ -2216,7 +2216,7 @@ class Cylinder(Geometry):
         return math.any(inside, instance(self))  # union for instance dimensions
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]):
-        location = math.rotate(location - self._center, self.rotation, invert=True)
+        location = rotate(location - self._center, self.rotation, invert=True)
         r = location.vector[self.radial_axes]
         h = location.vector[self.axis]
         top_h = .5*self.depth
@@ -2236,7 +2236,7 @@ class Cylinder(Geometry):
         return math.min(sgn_dist, instance(self))
 
     def approximate_closest_surface(self, location: Tensor):
-        location = math.rotate(location - self._center, self.rotation, invert=True)
+        location = rotate(location - self._center, self.rotation, invert=True)
         r = location.vector[self.radial_axes]
         h = location.vector[self.axis]
         top_h = .5*self.depth
@@ -2310,8 +2310,8 @@ class Cylinder(Geometry):
             if any(v.rotation is not None for v in values):
                 matrices = [v.rotation for v in values]
                 if any(m is None for m in matrices):
-                    any_angle = math.rotation_angles([m for m in matrices if m is not None][0])
-                    unit_matrix = math.rotation_matrix(any_angle * 0)
+                    any_angle = rotation_angles([m for m in matrices if m is not None][0])
+                    unit_matrix = rotation_matrix(any_angle * 0)
                     matrices = [unit_matrix if m is None else m for m in matrices]
                 rotation = stack(matrices, dim, **kwargs)
             else:
@@ -2368,7 +2368,7 @@ class Cylinder(Geometry):
             c = cos(angle) * self.radius
             r = stack([s, c], channel(vector=self.radial_axes))
             x = ncat([h, r], self._center.shape[&#39;vector&#39;], expand_values=True)
-            return math.rotate(x, self.rotation) + self._center
+            return rotate(x, self.rotation) + self._center
         raise NotImplementedError</code></pre>
 </details>
 <h3>Ancestors</h3>
@@ -5461,25 +5461,25 @@ class Mesh(Geometry):
 
     def filter_unused_vertices(self) -&gt; &#39;Mesh&#39;:
         coo = to_format(self.elements, &#39;coo&#39;).numpy()
-        has_element = np.asarray(coo.sum_(0) &gt; 0)[0]
-        new_index = np.cumsum_(has_element) - 1
+        has_element = np.asarray(coo.sum(0) &gt; 0)[0]
+        new_index = np.cumsum(has_element) - 1
         new_index_t = wrap(new_index, dual(self.elements))
         has_element = wrap(has_element, instance(self.vertices))
         has_element_d = si2d(has_element)
         vertices = self.vertices[has_element]
-        v_normals = self._vertex_normals[has_element_d]
+        v_normals = self.vertex_normals[has_element_d]
         vertex_connectivity = None
-        if self._vertex_connectivity is not None:
-            vertex_connectivity = stored_indices(self._vertex_connectivity).index.as_batch()
-            vertex_connectivity = new_index_t[{dual: vertex_connectivity}].index.as_channel()
-            vertex_connectivity = sparse_tensor(vertex_connectivity, stored_values(self._vertex_connectivity), non_batch(self._vertex_connectivity).with_sizes(instance(vertices).size), False)
+        # if self._vertex_connectivity is not None:
+        #     vertex_connectivity = stored_indices(self._vertex_connectivity).index.as_batch()
+        #     vertex_connectivity = new_index_t[{dual: vertex_connectivity}].index.as_channel()
+        #     vertex_connectivity = sparse_tensor(vertex_connectivity, stored_values(self._vertex_connectivity), non_batch(self._vertex_connectivity).with_sizes(instance(vertices).size), False)
         if isinstance(self.elements, CompactSparseTensor):
             indices = new_index_t[{dual: self.elements._indices}]
             elements = CompactSparseTensor(indices, self.elements._values, self.elements._compressed_dims.with_size(instance(vertices).volume), self.elements._indices_constant, self.elements._matrix_rank)
         else:
             filtered_coo = coo_matrix((coo.data, (coo.row, new_index)), shape=(instance(self.elements).volume, instance(vertices).volume))  # ToDo keep sparse format
             elements = wrap(filtered_coo, self.elements.shape.without_sizes())
-        return Mesh(vertices, elements, self.element_rank, self.boundaries, self.center, self.volume, self.normals, self.face_centers, self.face_normals, self.face_areas, None, v_normals, vertex_connectivity, self._element_connectivity, self.max_cell_walk)
+        return Mesh(vertices, elements, self.element_rank, self.boundaries, self.periodic, self.face_format, self.max_cell_walk, self.variable_attrs, self.value_attrs)
 
     @property
     def volume(self) -&gt; Tensor:
