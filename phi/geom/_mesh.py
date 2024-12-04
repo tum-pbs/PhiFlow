@@ -305,11 +305,13 @@ class Mesh(Geometry):
 
     @property
     def volume(self) -> Tensor:
-        if isinstance(self.elements, CompactSparseTensor) and self.element_rank == 2:
-            if instance(self.vertices).volume > 0:
-                A, B, C, *_ = unstack(self.vertices.center[self.elements._indices], dual)
-                cross_area = vec_length(cross(B - A, C - A))
-                fac = {3: 0.5, 4: 1}[dual(self.elements._indices).size]  # tri, quad, ...
+        if self.element_rank == 2:
+            if instance(self.elements).volume > 0:
+                three_vertices = nonzero(self.elements, 3, list_dims=dual)
+                v1, v2, v3 = unstack(self.vertices.center[{instance: three_vertices}], dual)
+                cross_area = vec_length(cross(v2-v1, v3-v1))
+                vertex_count = math.sum(self.elements, dual)
+                fac = where(vertex_count == 3, 0.5, 1)  # tri, quad, ...
                 return fac * cross_area
             else:
                 return zeros(instance(self.vertices))  # empty mesh
@@ -324,9 +326,7 @@ class Mesh(Geometry):
         """Extrinsic element normal space. This is a 0D vector for solid elements and 1D for surface elements."""
         if self.element_rank == 2:
             three_vertices = nonzero(self.elements, 3, list_dims=dual)
-            corners = self.vertices.center[{instance: three_vertices}]
-            assert dual(corners).size == 3, f"signed distance currently only supports triangles"
-            v1, v2, v3 = unstack(corners, dual)
+            v1, v2, v3 = unstack(self.vertices.center[{instance: three_vertices}], dual)
             return vec_normalize(cross(v2 - v1, v3 - v1))
         raise NotImplementedError
 
