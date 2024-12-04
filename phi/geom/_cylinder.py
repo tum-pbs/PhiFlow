@@ -131,7 +131,7 @@ class Cylinder(Geometry):
         if self.rotation is not None:
             tip = abs(self.up) * .5 * self.depth
             return tip + self.radius * sqrt(maximum(epsilon, 1 - self.up**2))
-        return ncat([.5*self.depth, expand(self.radius, channel(vector=self.radial_axes))], self._center.shape['vector'])
+        return ncat([.5*self.depth, expand(self.radius, channel(vector=self.radial_axes))], self._center.shape['vector'], expand_values=True)
 
     def at(self, center: Tensor) -> 'Geometry':
         return Cylinder(center, self.radius, self.depth, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
