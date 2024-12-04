@@ -152,6 +152,8 @@ class BaseBox(Geometry):  # not a Subwoofer
         max_sgn_dist = math.max(sgn_surf_delta, 'vector')
         normal_axis = max_sgn_dist == sgn_surf_delta  # ToDo only one if inside
         normal = math.vec_normalize(normal_axis * math.sign(loc_to_center))
+        if self.rotation_matrix is not None:
+            normal = rotate(normal, self.rotation_matrix)
         surf_to_center = math.where(normal_axis, math.sign(loc_to_center) * self.half_size, loc_to_center)
         closest_to_center = math.clip(surf_to_center, -self.half_size, self.half_size)
         surface_pos = self.local_to_global(closest_to_center, scale=False, origin='center')
@@ -443,7 +445,7 @@ class Cuboid(BaseBox):
         if 'vector' not in center.shape or center.shape.get_item_names('vector') is None:
             center = math.expand(center, channel(self._half_size))
         self._center = center
-        self._rotation_matrix = None if rotation is None else rotation_matrix(rotation)
+        self._rotation_matrix = None if rotation is None else rotation_matrix(rotation, matrix_dim=center.shape['vector'])
         self._size_variable = size_variable
 
     def __repr__(self):
