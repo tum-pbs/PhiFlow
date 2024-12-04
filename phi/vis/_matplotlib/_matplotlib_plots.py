@@ -16,7 +16,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from phi import math
 from phi.field import StaggeredGrid, Field, CenteredGrid
-from phi.geom import Sphere, BaseBox, Point, Box, Mesh, Graph, SDFGrid, SDF, UniformGrid, rotate
+from phi.geom import Sphere, BaseBox, Point, Box, Mesh, Graph, SDFGrid, SDF, UniformGrid, rotate, rotation_angles
 from phi.geom._heightmap import Heightmap
 from phi.geom._geom_ops import GeometryStack
 from phi.geom._embed import _EmbeddedGeometry
@@ -661,7 +661,7 @@ class PointCloud2D(Recipe):
                     lower_x = x - w2
                     lower_y = y - h2
                 else:
-                    angles = reshaped_numpy(math.rotation_angles(data.geometry.rotation_matrix), [data.shape.non_channel])
+                    angles = reshaped_numpy(rotation_angles(data.geometry.rotation_matrix), [data.shape.non_channel])
                     lower_x, lower_y = reshaped_numpy(data.geometry.center - rotate(data.geometry.half_size, data.geometry.rotation_matrix), ['vector', data.shape.non_channel])
                 shapes = [plt.Rectangle((lxi, lyi), w2i * 2, h2i * 2, angle=ang*180/np.pi, linewidth=1, edgecolor='white', alpha=a, facecolor=ci) for lxi, lyi, w2i, h2i, ang, ci, a in zip(lower_x, lower_y, w2, h2, angles, mpl_colors, alphas)]
                 axis.add_collection(matplotlib.collections.PatchCollection(shapes, match_original=True))

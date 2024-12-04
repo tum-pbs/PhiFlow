@@ -549,7 +549,7 @@ def get_default_limits(f: Field, all_dims: Optional[Sequence[str]], log_dims: Tu
     if math.equal(0, err):
         bounding_box = f.geometry.bounding_box()
         if 'vector' in f.values.shape:
-            target_points = f.points + f.values.vector[list(f.geometry.shape.get_item_names('vector'))]
+            target_points = f.points + f.values.vector[list(f.geometry.vector.item_names)]
             target_bounds = geom.bounding_box(target_points)
             bounding_box = geom.union(bounding_box, target_bounds).largest('union')
         if value_axis:
