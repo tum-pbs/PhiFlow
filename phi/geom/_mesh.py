@@ -679,7 +679,7 @@ def build_faces(vertices: Tensor,  # (vertices:i, vector)
     vertex_id = np.arange(instance(vertices).size)
     periodic = {dim[:-len('[::-1]')] if dim.endswith('[::-1]') else dim: dim.endswith('[::-1]') for dim in periodic}
     for dim, is_flipped in periodic.items():
-        vertex_id[np.concatenate(boundaries[dim+'+'])] = np.concatenate(boundaries[dim+'-'])[::-1] if is_flipped else np.concatenate(boundaries[dim+'-'])
+        vertex_id[np.concatenate(boundaries[dim+'+'])] = vertex_id[np.concatenate(boundaries[dim+'-'])[::-1] if is_flipped else np.concatenate(boundaries[dim+'-'])]
     is_periodic = dim_mask(vertices.vector.item_names, tuple(periodic))
     # --- element-facet and facet-vertex matrix. A facet describes a single oriented face of an element, i.e. shared faces get two entries. ---
     if element_rank == 2:  # edges are the lines between neighbor vertices in the vertex lists + the edge last-to-first
@@ -740,6 +740,7 @@ def build_faces(vertices: Tensor,  # (vertices:i, vector)
     f_f: csr_matrix = f_v @ f_v_b.T >= element_rank  # symmetric
     f_f.setdiag(0)
     f_f.eliminate_zeros()
+    assert np.all((f_f > 0).sum(1) == 1), f"Each facet should have one backside but got {(f_f > 0).sum(1)}"
     f_f.data = f_f.nonzero()[0] + 1
     e_e = e_f @ f_f @ e_f_b.T  # stores the outgoing facet_index+1 for each element pair
     shared_edge = wrap(e_e, instance(elements).without_sizes() & dual) - 1
