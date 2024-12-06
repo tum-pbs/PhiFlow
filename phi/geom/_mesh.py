@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from functools import cached_property
+from functools import cached_property, lru_cache
 from numbers import Number
 from typing import Dict, List, Sequence, Union, Any, Tuple, Optional
 
@@ -99,15 +99,13 @@ class Mesh(Geometry):
 
     @cached_property
     def _faces(self) -> Dict[str, Any]:
-        if self.element_rank == 2:
-            centers, normals, areas, boundary_slices = build_faces(self.vertices.center, self.elements, self.boundaries, self.element_rank, self.periodic, self._vertex_mean, self.face_format)
-            return {
-                'center': centers,
-                'normal': normals,
-                'area': areas,
-                'boundary_slices': boundary_slices,
-            }
-        return None
+        centers, normals, areas, boundary_slices = build_faces(self.vertices.center, self.elements, self.boundaries, self.element_rank, self.periodic, self._vertex_mean, self.face_format)
+        return {
+            'center': centers,
+            'normal': normals,
+            'area': areas,
+            'boundary_slices': boundary_slices,
+        }
 
     @property
     def face_shape(self) -> Shape:
@@ -682,19 +680,19 @@ def build_faces(vertices: Tensor,  # (vertices:i, vector)
         vertex_id[np.concatenate(boundaries[dim+'+'])] = vertex_id[np.concatenate(boundaries[dim+'-'])[::-1] if is_flipped else np.concatenate(boundaries[dim+'-'])]
     is_periodic = dim_mask(vertices.vector.item_names, tuple(periodic))
     # --- element-facet and facet-vertex matrix. A facet describes a single oriented face of an element, i.e. shared faces get two entries. ---
+    v_count = dsum(elements).numpy()  # number of vertices per element
+    v1 = stored_indices(elements).index[dual(elements).name].numpy()
     if element_rank == 2:  # edges are the lines between neighbor vertices in the vertex lists + the edge last-to-first
-        v1 = stored_indices(elements).index[dual(elements).name].numpy()
         v1 = vertex_id[v1]
         n_f = v1.size  # total number of facets (excluding boundaries)
-        f_count = dsum(elements).numpy()  # #facets per element
-        ptr = np.cumsum(f_count)
+        ptr = np.cumsum(v_count)
         roll = np.arange(v1.size) + 1
-        roll[ptr - 1] = ptr - f_count
+        roll[ptr - 1] = ptr - v_count
         v12 = np.stack([v1, v1[roll]], -1).flatten()
         f_idx = np.arange(v1.size, dtype=v1.dtype)
         f_idx2 = f_idx.repeat(2)
         f_v = coo_matrix((np.ones(n_f*2, np.int32), (f_idx2, v12)), shape=(n_f, n_v))  # facet-vertex matrix
-        e_idx = np.arange(instance(elements).size).repeat(f_count)
+        e_idx = np.arange(instance(elements).size).repeat(v_count)
         e_f = coo_matrix((np.ones(n_f, bool), (e_idx, f_idx)), shape=(n_e, n_f))  # element-facet matrix
         # --- Compute facet properties: center, normal, area ---
         f_v_pos = vertices[reshaped_tensor(v12, [instance('facets') + dual(pair=2)])]  # vertex positions of every (inner) facet
@@ -703,29 +701,54 @@ def build_faces(vertices: Tensor,  # (vertices:i, vector)
             bounds = bounding_box(vertices)
             delta = PERIODIC.shortest_distance(cell_center - bounds.lower, f_v_pos - bounds.lower, bounds.size)
             f_v_pos = where(is_periodic, cell_center + delta, f_v_pos)
-        edge_center = dmean(f_v_pos)
+        f_center = dmean(f_v_pos)
         edge_dir = f_v_pos.pair.dual[1] - f_v_pos.pair.dual[0]
-        edge_len = vec_length(edge_dir)
+        area = vec_length(edge_dir)
         normal = vec_normalize(stack([-edge_dir[1], edge_dir[0]], channel(edge_dir)))
+    elif element_rank == 3:
+        v3d, c3d = element_types_3d()
+        n_v_per_f = [c3d[v] for v in v_count]
+        n_f_per_e = [len(v) for v in n_v_per_f]
+        n_fv_per_e = [sum(v) for v in n_v_per_f]
+        n_v_per_f = np.concatenate(n_v_per_f)
+        n_f = sum(n_f_per_e)
+        f_ptr = np.pad(np.cumsum(n_v_per_f), (1, 0))
+        v_idx0 = np.concatenate([v3d[v] for v in v_count])  # here vertex indices start at 0 for each element
+        v_idx = v1[v_idx0 + np.pad(np.cumsum(n_f_per_e), (1, 0))[:-1].repeat(n_fv_per_e)]
+        f_v = csr_matrix((np.ones(v_idx.size, np.int32), v_idx, f_ptr), shape=(n_f, n_v))
+        f_idx = np.arange(n_f)
+        e_ptr = np.pad(np.cumsum(n_f_per_e), (1, 0))
+        e_f = csr_matrix((np. ones(n_f, bool), f_idx, e_ptr), shape=(n_e, n_f))
+        # --- Compute facet properties: center, normal, area ---
+        facet_vertices = wrap(f_v, 'facets:i', instance(vertices).as_dual())
+        f_v_pos = facet_vertices * vertices.Ti
+        if periodic:  # map v_pos: closest to cell_center
+            e_idx = np.arange(n_e).repeat(n_f_per_e)
+            cell_center = vertex_mean[wrap(e_idx, 'facets:i')]
+            bounds = bounding_box(vertices)
+            delta = PERIODIC.shortest_distance(cell_center - bounds.lower, f_v_pos - bounds.lower, bounds.size)
+            f_v_pos = where(is_periodic, cell_center + delta, f_v_pos)
+        f_center = dmean(f_v_pos)
+        fv123 = wrap(v_idx[f_ptr[:-1] + np.arange(3)[:, None]], 'v:s=(v1,v2,v3),facets:i')
+        fv_pos = vertices[fv123]
+        cross_prod = cross(fv_pos.v['v2']-fv_pos.v['v1'], fv_pos.v['v3']-fv_pos.v['v1'])
+        area_fac = np.where(n_v_per_f == 3, 0.5, 1)
+        area = vec_length(cross_prod) * area_fac
+        normal = vec_normalize(cross_prod)
     else:
-        raise NotImplementedError("Only 2D Mesh faces are currently supported")
-        # e_v = to_format(elements, 'coo').numpy().astype(np.int32)
-        # e_v.col = vertex_id[e_v.col]
-        # e_f = coo_matrix(...)
-        # f_v = coo_matrix(...)
-        # f_v_pos = vertices[...]
+        raise ValueError(f"element_rank must be 2 or 3 but got {element_rank}")
     # --- Add virtual boundary elements to f_v for non-periodic boundaries ---
     boundary_slices = {}
     e_end, f_end = e_f.shape
-    b_idx_f, b_idx_v = [f_v.row], [f_v.col]
+    b_idx_f, b_idx_v = [[i] for i in f_v.nonzero()]
     for bnd_key, bnd_vertices in boundaries.items():
         if bnd_key[:-1] in periodic:
             continue
-        v_count = np.asarray([len(vs) for vs in bnd_vertices])
-        v_idx = np.concatenate(bnd_vertices)
-        f_idx = np.arange(len(bnd_vertices)).repeat(v_count) + f_end
+        bv_count = np.asarray([len(vs) for vs in bnd_vertices])
+        bv_idx = np.concatenate(bnd_vertices)
+        f_idx = np.arange(len(bnd_vertices)).repeat(bv_count) + f_end
         b_idx_f.append(f_idx)
-        b_idx_v.append(v_idx)
+        b_idx_v.append(bv_idx)
         boundary_slices[bnd_key] = {instance(elements).as_dual().name: slice(e_end, e_end+len(bnd_vertices))}
         f_end += len(bnd_vertices)
         e_end += len(bnd_vertices)
@@ -733,7 +756,7 @@ def build_faces(vertices: Tensor,  # (vertices:i, vector)
     b_idx_v = vertex_id[np.concatenate(b_idx_v)]
     f_v_b = coo_matrix((np.ones(b_idx_f.size, bool), (b_idx_f, b_idx_v)), shape=(f_end, n_v))
     # --- Add virtual boundary facets to e_f ---
-    e_f_be = np.concatenate([e_f.row, np.arange(n_e, e_end)])
+    e_f_be = np.concatenate([e_f.nonzero()[0], np.arange(n_e, e_end)])
     e_f_bf = np.arange(e_f_be.size)  # every face assigned to exactly one element. Identical to np.concatenate([e_f.col, np.arange(n_f, f_end)])
     e_f_b = coo_matrix((np.ones(e_f_bf.size, bool), (e_f_be, e_f_bf)), shape=(e_end, f_end))
     # --- Compute connectivity and return element-pair facet properties ---
@@ -743,9 +766,9 @@ def build_faces(vertices: Tensor,  # (vertices:i, vector)
     assert np.all((f_f > 0).sum(1) == 1), f"Each facet should have one backside but got {(f_f > 0).sum(1)}"
     f_f.data = f_f.nonzero()[0] + 1
     e_e = e_f @ f_f @ e_f_b.T  # stores the outgoing facet_index+1 for each element pair
-    shared_edge = wrap(e_e, instance(elements).without_sizes() & dual) - 1
-    shared_edge = to_format(shared_edge, face_format)
-    return edge_center[shared_edge], normal[shared_edge], edge_len[shared_edge], boundary_slices
+    shared_f_idx = wrap(e_e, instance(elements).without_sizes() & dual) - 1
+    shared_f_idx = to_format(shared_f_idx, face_format)
+    return f_center[shared_f_idx], normal[shared_f_idx], area[shared_f_idx], boundary_slices
 
 
 def build_mesh(bounds: Box = None,
@@ -942,3 +965,16 @@ def decimate_tri_mesh(mesh: Mesh, factor=.1, target_max=10_000,):
     mesh_simplifier.simplify_mesh(target_count=target_count, aggressiveness=7, preserve_border=False)
     vertices, faces, normals = mesh_simplifier.getMesh()
     return mesh_from_numpy(vertices, faces, cell_dim=instance(mesh))
+
+
+@lru_cache
+def element_types_3d():
+    # Conventions from https://wiki.freecad.org/FEM_Element_Types
+    tetra = [(1, 2, 3), (1, 4, 2), (2, 4, 3), (3, 4, 1)]
+    pyramid = [(1, 2, 3, 4), (1, 5, 2), (2, 5, 3), (3, 5, 4), (4, 5, 1)]
+    prism = [(1, 2, 3), (4, 6, 5), (1, 4, 5, 2), (2, 5, 6, 3), (3, 6, 4, 1, 3)]
+    hexa = [(1, 2, 3, 4), (5, 8, 7, 6), (1, 5, 6, 2), (2, 6, 7, 3), (3, 7, 8, 4), (4, 8, 5, 1)]
+    elements = {4: tetra, 5: pyramid, 6: prism, 8: hexa}
+    vertices = {k: np.concatenate(v) - 1 for k, v in elements.items()}
+    v_count = {k: np.asarray([len(v) for v in e]) for k, e in elements.items()}
+    return vertices, v_count
