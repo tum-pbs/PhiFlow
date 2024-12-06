@@ -718,7 +718,7 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
 <p>Rotated <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></p></div>
 </dd>
 <dt id="phi.geom.stack"><code class="name flex">
-<span>def <span class="ident">stack</span></span>(<span>values: Sequence[~PhiTreeNodeType] | Dict[str, ~PhiTreeNodeType],<br>dim: phiml.math._shape.Shape | str,<br>expand_values=False,<br>simplify=False,<br>**kwargs) ‑> ~PhiTreeNodeType</span>
+<span>def <span class="ident">stack</span></span>(<span>values: Sequence[~PhiTreeNodeType] | Dict[str, ~PhiTreeNodeType],<br>dim: phiml.math._shape.Shape | str,<br>expand_values=False,<br>simplify=False,<br>layout_non_matching=False,<br>**kwargs) ‑> ~PhiTreeNodeType</span>
 </code></dt>
 <dd>
 <div class="desc"><p>Stacks <code>values</code> along the new dimension <code>dim</code>.
@@ -742,6 +742,8 @@ The resulting tensor will have all dimensions that are present in <code>values</
 If <code>False</code>, this may return a non-numeric object instead.</dd>
 <dt><strong><code>simplify</code></strong></dt>
 <dd>If <code>True</code> and all values are equal, returns one value without adding the dimension.</dd>
+<dt><strong><code>layout_non_matching</code></strong></dt>
+<dd>If non-matching values should be stacked using a Layout object, i.e. should be put into a named list instead.</dd>
 <dt><strong><code>**kwargs</code></strong></dt>
 <dd>Additional keyword arguments required by specific implementations.
 Adding spatial dimensions to fields requires the <code>bounds: Box</code> argument specifying the physical extent of the new dimensions.
@@ -948,6 +950,8 @@ A point lies inside the union if it lies within at least one of the geometries.<
         max_sgn_dist = math.max(sgn_surf_delta, &#39;vector&#39;)
         normal_axis = max_sgn_dist == sgn_surf_delta  # ToDo only one if inside
         normal = math.vec_normalize(normal_axis * math.sign(loc_to_center))
+        if self.rotation_matrix is not None:
+            normal = rotate(normal, self.rotation_matrix)
         surf_to_center = math.where(normal_axis, math.sign(loc_to_center) * self.half_size, loc_to_center)
         closest_to_center = math.clip(surf_to_center, -self.half_size, self.half_size)
         surface_pos = self.local_to_global(closest_to_center, scale=False, origin=&#39;center&#39;)
@@ -1884,7 +1888,7 @@ Either</p>
         if &#39;vector&#39; not in center.shape or center.shape.get_item_names(&#39;vector&#39;) is None:
             center = math.expand(center, channel(self._half_size))
         self._center = center
-        self._rotation_matrix = None if rotation is None else rotation_matrix(rotation)
+        self._rotation_matrix = None if rotation is None else rotation_matrix(rotation, matrix_dim=center.shape[&#39;vector&#39;])
         self._size_variable = size_variable
 
     def __repr__(self):
@@ -2285,7 +2289,7 @@ class Cylinder(Geometry):
         if self.rotation is not None:
             tip = abs(self.up) * .5 * self.depth
             return tip + self.radius * sqrt(maximum(epsilon, 1 - self.up**2))
-        return ncat([.5*self.depth, expand(self.radius, channel(vector=self.radial_axes))], self._center.shape[&#39;vector&#39;])
+        return ncat([.5*self.depth, expand(self.radius, channel(vector=self.radial_axes))], self._center.shape[&#39;vector&#39;], expand_values=True)
 
     def at(self, center: Tensor) -&gt; &#39;Geometry&#39;:
         return Cylinder(center, self.radius, self.depth, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
@@ -5277,15 +5281,13 @@ class Mesh(Geometry):
 
     @cached_property
     def _faces(self) -&gt; Dict[str, Any]:
-        if self.element_rank == 2:
-            centers, normals, areas, boundary_slices = build_faces(self.vertices.center, self.elements, self.boundaries, self.element_rank, self.periodic, self._vertex_mean, self.face_format)
-            return {
-                &#39;center&#39;: centers,
-                &#39;normal&#39;: normals,
-                &#39;area&#39;: areas,
-                &#39;boundary_slices&#39;: boundary_slices,
-            }
-        return None
+        centers, normals, areas, boundary_slices = build_faces(self.vertices.center, self.elements, self.boundaries, self.element_rank, self.periodic, self._vertex_mean, self.face_format)
+        return {
+            &#39;center&#39;: centers,
+            &#39;normal&#39;: normals,
+            &#39;area&#39;: areas,
+            &#39;boundary_slices&#39;: boundary_slices,
+        }
 
     @property
     def face_shape(self) -&gt; Shape:
@@ -5380,7 +5382,8 @@ class Mesh(Geometry):
     @cached_property
     def _cell_deltas(self):
         bounds = bounding_box(self.vertices)
-        is_periodic = dim_mask(self.vector.item_names, self.periodic)
+        periodic = {dim[:-len(&#39;[::-1]&#39;)] if dim.endswith(&#39;[::-1]&#39;) else dim: dim.endswith(&#39;[::-1]&#39;) for dim in self.periodic}
+        is_periodic = dim_mask(self.vector.item_names, tuple(periodic))
         return pairwise_distances(self.center, format=self.cell_connectivity, periodic=is_periodic, domain=(bounds.lower, bounds.upper))
 
     @cached_property
@@ -5483,11 +5486,13 @@ class Mesh(Geometry):
 
     @property
     def volume(self) -&gt; Tensor:
-        if isinstance(self.elements, CompactSparseTensor) and self.element_rank == 2:
-            if instance(self.vertices).volume &gt; 0:
-                A, B, C, *_ = unstack(self.vertices.center[self.elements._indices], dual)
-                cross_area = vec_length(cross(B - A, C - A))
-                fac = {3: 0.5, 4: 1}[dual(self.elements._indices).size]  # tri, quad, ...
+        if self.element_rank == 2:
+            if instance(self.elements).volume &gt; 0:
+                three_vertices = nonzero(self.elements, 3, list_dims=dual)
+                v1, v2, v3 = unstack(self.vertices.center[{instance: three_vertices}], dual)
+                cross_area = vec_length(cross(v2-v1, v3-v1))
+                vertex_count = math.sum(self.elements, dual)
+                fac = where(vertex_count == 3, 0.5, 1)  # tri, quad, ...
                 return fac * cross_area
             else:
                 return zeros(instance(self.vertices))  # empty mesh
@@ -5502,9 +5507,7 @@ class Mesh(Geometry):
         &#34;&#34;&#34;Extrinsic element normal space. This is a 0D vector for solid elements and 1D for surface elements.&#34;&#34;&#34;
         if self.element_rank == 2:
             three_vertices = nonzero(self.elements, 3, list_dims=dual)
-            corners = self.vertices.center[{instance: three_vertices}]
-            assert dual(corners).size == 3, f&#34;signed distance currently only supports triangles&#34;
-            v1, v2, v3 = unstack(corners, dual)
+            v1, v2, v3 = unstack(self.vertices.center[{instance: three_vertices}], dual)
             return vec_normalize(cross(v2 - v1, v3 - v1))
         raise NotImplementedError
 
@@ -6206,9 +6209,7 @@ def normals(self) -&gt; Tensor:
     &#34;&#34;&#34;Extrinsic element normal space. This is a 0D vector for solid elements and 1D for surface elements.&#34;&#34;&#34;
     if self.element_rank == 2:
         three_vertices = nonzero(self.elements, 3, list_dims=dual)
-        corners = self.vertices.center[{instance: three_vertices}]
-        assert dual(corners).size == 3, f&#34;signed distance currently only supports triangles&#34;
-        v1, v2, v3 = unstack(corners, dual)
+        v1, v2, v3 = unstack(self.vertices.center[{instance: three_vertices}], dual)
         return vec_normalize(cross(v2 - v1, v3 - v1))
     raise NotImplementedError</code></pre>
 </details>
@@ -6405,11 +6406,13 @@ The result retains batch, spatial and instance dimensions.</p></div>
 </summary>
 <pre><code class="python">@property
 def volume(self) -&gt; Tensor:
-    if isinstance(self.elements, CompactSparseTensor) and self.element_rank == 2:
-        if instance(self.vertices).volume &gt; 0:
-            A, B, C, *_ = unstack(self.vertices.center[self.elements._indices], dual)
-            cross_area = vec_length(cross(B - A, C - A))
-            fac = {3: 0.5, 4: 1}[dual(self.elements._indices).size]  # tri, quad, ...
+    if self.element_rank == 2:
+        if instance(self.elements).volume &gt; 0:
+            three_vertices = nonzero(self.elements, 3, list_dims=dual)
+            v1, v2, v3 = unstack(self.vertices.center[{instance: three_vertices}], dual)
+            cross_area = vec_length(cross(v2-v1, v3-v1))
+            vertex_count = math.sum(self.elements, dual)
+            fac = where(vertex_count == 3, 0.5, 1)  # tri, quad, ...
             return fac * cross_area
         else:
             return zeros(instance(self.vertices))  # empty mesh
