@@ -1,7 +1,7 @@
-from typing import Optional
+from typing import Optional, Sequence
 
 from phiml import math
-from phiml.math import Tensor, channel, rename_dims, wrap, shape, normalize, dual, stack, length
+from phiml.math import Tensor, channel, rename_dims, wrap, shape, normalize, dual, stack, length, arange, to_float
 
 from ._geom import Geometry, GeometricType
 from ._functions import cross
@@ -65,7 +65,7 @@ def rotate(obj: GeometricType, rot: float | Tensor | None, invert=False, pivot: 
         return math.dot(matrix, '~vector', obj, 'vector')
 
 
-def rotation_matrix(x: float | math.Tensor | None, matrix_dim=channel('vector')) -> Optional[Tensor]:
+def rotation_matrix(x: float | math.Tensor | None, matrix_dim=channel('vector'), none_to_unit=False) -> Optional[Tensor]:
     """
     Create a 2D or 3D rotation matrix from the corresponding angle(s).
 
@@ -81,8 +81,12 @@ def rotation_matrix(x: float | math.Tensor | None, matrix_dim=channel('vector'))
     Returns:
         Matrix containing `matrix_dim` in primal and dual form as well as all non-channel dimensions of `x`.
     """
-    if x is None:
+    if x is None and not none_to_unit:
         return None
+    elif x is None:
+        return to_float(arange(matrix_dim) == arange(matrix_dim.as_dual()))
+    if isinstance(x, Tensor) and x.dtype == object:  # possibly None in matrices
+        return math.map(rotation_matrix, x, dims=object, matrix_dim=matrix_dim, none_to_unit=none_to_unit)
     if isinstance(x, Tensor) and '~vector' in x.shape and 'vector' in x.shape.channel and x.shape.get_size('~vector') == x.shape.get_size('vector'):
         return x  # already a rotation matrix
     elif 'angle' in shape(x) and shape(x).get_size('angle') == 3:  # 3D Euler angles
@@ -187,3 +191,14 @@ def rotation_matrix_from_axis_and_angle(axis: Tensor, angle: float | Tensor, vec
             (  -ky*s + c*(kx*kz),    kx*s + c*(ky * kz),  1 - c*(kx*kx+ky*ky)),
         ], axis.shape['vector'], axis.shape['vector'].as_dual())
     raise NotImplementedError
+
+
+def matching_rotations(*matrices: Optional[Tensor]) -> Sequence[Tensor]:
+    """
+    Replaces `None` rotations with unit matrices if any of `matrices` is not `None`.
+    """
+    if all(m is None for m in matrices) or all(m is not None for m in matrices):
+        return matrices
+    some = [m for m in matrices if m is not None][0]
+    unit_matrix = arange(some.shape.primal) == arange(some.shape.dual)
+    return [unit_matrix if m is None else m for m in matrices]
