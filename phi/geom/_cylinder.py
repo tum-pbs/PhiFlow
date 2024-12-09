@@ -4,12 +4,14 @@ from typing import Union, Dict, Tuple, Optional, Sequence
 
 from phiml import math
 from phiml.math import (Shape, dual, wrap, Tensor, expand, vec, where, ncat, clip, length, normalize, minimum, vec_squared, channel, instance, stack, maximum, PI, linspace, sin, cos, sqrt, batch)
-from phiml.math._magic_ops import all_attributes, getitem_dataclass
+from phiml.math._magic_ops import all_attributes
+from phiml.dataclasses import replace, sliceable
 from ._geom import Geometry
-from ._transform import rotate, rotation_matrix, rotation_matrix_from_directions, rotation_angles
+from ._transform import rotate, rotation_matrix, rotation_matrix_from_directions
 from ._sphere import Sphere
 
 
+@sliceable(keepdims='vector')
 @dataclass(frozen=True)
 class Cylinder(Geometry):
     """
@@ -38,7 +40,7 @@ class Cylinder(Geometry):
 
     @cached_property
     def radial_axes(self) -> Sequence[str]:
-        return [d for d in self._center.vector.item_names if d != self.axis]
+        return [d for d in self.shape.get_item_names('vector') if d != self.axis]
 
     @cached_property
     def volume(self) -> math.Tensor:
@@ -46,23 +48,31 @@ class Cylinder(Geometry):
 
     @cached_property
     def up(self):
-        return rotate(vec(**{d: 1 if d == self.axis else 0 for d in self._center.vector.item_names}), self.rotation)
+        return rotate(vec(**{d: 1 if d == self.axis else 0 for d in self.shape.get_item_names('vector')}), self._rot_or_none)
+
+    @cached_property
+    def rotation_matrix(self):
+        return rotation_matrix(self.rotation, self.shape['vector'], none_to_unit=True)
+
+    @property
+    def _rot_or_none(self):
+        return None if self.rotation is None else self.rotation_matrix
 
     def with_radius(self, radius: Tensor) -> 'Cylinder':
-        return Cylinder(self._center, wrap(radius), self.depth, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
+        return replace(self, radius=wrap(radius))
 
     def with_depth(self, depth: Tensor) -> 'Cylinder':
-        return Cylinder(self._center, self.radius, wrap(depth), self.rotation, self.axis, self.variable_attrs, self.value_attrs)
+        return replace(self, depth=wrap(depth))
 
     def lies_inside(self, location):
-        pos = rotate(location - self._center, self.rotation, invert=True)
+        pos = rotate(location - self._center, self._rot_or_none, invert=True)
         r = pos.vector[self.radial_axes]
         h = pos.vector[self.axis]
         inside = (vec_squared(r) <= self.radius**2) & (h >= -.5*self.depth) & (h <= .5*self.depth)
         return math.any(inside, instance(self))  # union for instance dimensions
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]):
-        location = rotate(location - self._center, self.rotation, invert=True)
+        location = rotate(location - self._center, self._rot_or_none, invert=True)
         r = location.vector[self.radial_axes]
         h = location.vector[self.axis]
         top_h = .5*self.depth
@@ -82,7 +92,7 @@ class Cylinder(Geometry):
         return math.min(sgn_dist, instance(self))
 
     def approximate_closest_surface(self, location: Tensor):
-        location = rotate(location - self._center, self.rotation, invert=True)
+        location = rotate(location - self._center, self._rot_or_none, invert=True)
         r = location.vector[self.radial_axes]
         h = location.vector[self.axis]
         top_h = .5*self.depth
@@ -111,8 +121,8 @@ class Cylinder(Geometry):
         sgn_dist = minimum(d_flat, d_cyl) * where(inside, -1, 1)
         delta = surf_point - location
         normal = where(flat_closer, normal_flat, normal_cyl)
-        delta = rotate(delta, self.rotation)
-        normal = rotate(normal, self.rotation)
+        delta = rotate(delta, self._rot_or_none)
+        normal = rotate(normal, self._rot_or_none)
         idx = None
         if instance(self):
             sgn_dist, delta, normal, idx = math.min((sgn_dist, delta, normal, range), instance(self), key=sgn_dist)
@@ -122,7 +132,7 @@ class Cylinder(Geometry):
         r = Sphere(self._center[self.radial_axes], self.radius).sample_uniform(*shape)
         h = math.random_uniform(*shape, -.5*self.depth, .5*self.depth)
         rh = ncat([r, h], self._center.shape['vector'])
-        return rotate(rh, self.rotation)
+        return rotate(rh, self._rot_or_none)
 
     def bounding_radius(self):
         return length(vec(rad=self.radius, dep=.5*self.depth), 'vector')
@@ -134,40 +144,14 @@ class Cylinder(Geometry):
         return ncat([.5*self.depth, expand(self.radius, channel(vector=self.radial_axes))], self._center.shape['vector'], expand_values=True)
 
     def at(self, center: Tensor) -> 'Geometry':
-        return Cylinder(center, self.radius, self.depth, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
+        return replace(self, _center=center)
 
     def rotated(self, angle):
-        rot = self.rotation @ rotation_matrix(angle) if self.rotation is not None else rotation_matrix(angle)
-        return Cylinder(self.center, self.radius, self.depth, rot, self.axis, self.variable_attrs, self.value_attrs)
+        rot = self.rotation_matrix @ rotation_matrix(angle) if self.rotation is not None else rotation_matrix(angle)
+        return replace(self, rotation=rot)
 
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
-        return Cylinder(self._center, self.radius * factor, self.depth * factor, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
-
-    def __getitem__(self, item):
-        return getitem_dataclass(self, item, keepdims='vector')
-
-    @staticmethod
-    def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
-        if all(isinstance(v, Cylinder) for v in values) and all(v.axis == values[0].axis for v in values):
-            var_attrs = set()
-            var_attrs.update(*[set(v.variable_attrs) for v in values])
-            val_attrs = set()
-            val_attrs.update(*[set(v.value_attrs) for v in values])
-            if any(v.rotation is not None for v in values):
-                matrices = [v.rotation for v in values]
-                if any(m is None for m in matrices):
-                    any_angle = rotation_angles([m for m in matrices if m is not None][0])
-                    unit_matrix = rotation_matrix(any_angle * 0)
-                    matrices = [unit_matrix if m is None else m for m in matrices]
-                rotation = stack(matrices, dim, **kwargs)
-            else:
-                rotation = None
-            center = stack([v.center for v in values], dim, simplify=True, **kwargs)
-            radius = stack([v.radius for v in values], dim, simplify=True, **kwargs)
-            depth = stack([v.depth for v in values], dim, simplify=True, **kwargs)
-            return Cylinder(center, radius, depth, rotation, values[0].axis, tuple(var_attrs), tuple(val_attrs))
-        else:
-            return Geometry.__stack__(values, dim, **kwargs)
+        return replace(self, radius=self.radius * factor, depth=self.depth * factor)
 
     @property
     def faces(self) -> 'Geometry':
@@ -214,7 +198,7 @@ class Cylinder(Geometry):
             c = cos(angle) * self.radius
             r = stack([s, c], channel(vector=self.radial_axes))
             x = ncat([h, r], self._center.shape['vector'], expand_values=True)
-            return rotate(x, self.rotation) + self._center
+            return rotate(x, self._rot_or_none) + self._center
         raise NotImplementedError
 
 
@@ -224,7 +208,7 @@ def cylinder(center: Union[Tensor, float] = None,
              rotation: Optional[Tensor] = None,
              axis: int | str | Tensor = -1,
              variables=('center', 'radius', 'depth', 'rotation'),
-             **center_: Union[float, Tensor]):
+             **center_: Union[float, Tensor]) -> Cylinder:
     """
     Args:
         center: Cylinder center as `Tensor` with `vector` dimension.
@@ -247,7 +231,7 @@ def cylinder(center: Union[Tensor, float] = None,
         assert center.shape.get_item_names('vector') is not None, f"Vector dimension must list spatial dimensions as item names. Use the syntax Sphere(x=x, y=y) to assign names."
         center = center
     else:
-        center = wrap(tuple(center_.value_attrs()), channel(vector=tuple(center_.keys())))
+        center = wrap(tuple(center_.values()), channel(vector=tuple(center_.keys())))
     assert radius is not None, "radius must be specified"
     radius = wrap(radius)
     if depth is None:

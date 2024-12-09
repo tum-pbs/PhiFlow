@@ -12,7 +12,7 @@ from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack
     find_closest, sqrt, where, vec_normalize, argmax, broadcast, zeros, EMPTY_SHAPE, meshgrid, mean, reshaped_numpy, range_tensor, convolve, \
     assert_close, shift, pad, extrapolation, sum as sum_, dim_mask, math, Tensor, Shape, channel, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, \
     stack, vec_length, tensor_like, pairwise_distances, concat, Extrapolation, dsum, reshaped_tensor, dmean
-from phiml.math._magic_ops import getitem_dataclass
+from phiml.dataclasses import getitem, replace
 from phiml.math._sparse import CompactSparseTensor
 from phiml.math.extrapolation import as_extrapolation, PERIODIC
 from phiml.math.magic import slicing_dict
@@ -300,7 +300,7 @@ class Mesh(Geometry):
         else:
             filtered_coo = coo_matrix((coo.data, (coo.row, new_index)), shape=(instance(self.elements).volume, instance(vertices).volume))  # ToDo keep sparse format
             elements = wrap(filtered_coo, self.elements.shape.without_sizes())
-        return Mesh(vertices, elements, self.element_rank, self.boundaries, self.periodic, self.face_format, self.max_cell_walk, self.variable_attrs, self.value_attrs)
+        return replace(self, vertices=vertices, elements=elements)
 
     @property
     def volume(self) -> Tensor:
@@ -430,7 +430,7 @@ class Mesh(Geometry):
             center = rename_dims(center, dual, instance(self.vertices))
         if instance(self.vertices) in center.shape:
             vertices = self.vertices.at(center)
-            return Mesh(vertices, self.elements, self.element_rank, self.boundaries, self.periodic, self.face_format, self.max_cell_walk, self.variable_attrs, self.value_attrs)
+            return replace(self, vertices=vertices)
         else:
             return self.shifted(center - self.bounds.center)
 
@@ -441,12 +441,12 @@ class Mesh(Geometry):
             delta = rename_dims(delta, dual, instance(self.vertices))
         if instance(self.vertices) in delta.shape:
             vertices = self.vertices.shifted(delta)
-            return Mesh(vertices, self.elements, self.element_rank, self.boundaries, self.periodic, self.face_format, self.max_cell_walk, self.variable_attrs, self.value_attrs)
+            return replace(self, vertices=vertices)
         else:  # shift everything
             # ToDo transfer cached properties
             # copy: center+delta, normals, volume, face_centers+delta, face_areas, face_normals, vertex_normals, vertex_connectivity, element_connectivity
             vertices = self.vertices.shifted(delta)
-            return Mesh(vertices, self.elements, self.element_rank, self.boundaries, self.periodic, self.face_format, self.max_cell_walk, self.variable_attrs, self.value_attrs)
+            return replace(self, vertices=vertices)
 
     def rotated(self, angle: Union[float, Tensor]) -> 'Geometry':
         raise NotImplementedError
@@ -454,16 +454,14 @@ class Mesh(Geometry):
     def scaled(self, factor: float | Tensor) -> 'Geometry':
         pivot = self.bounds.center
         vertices = scale(self.vertices, factor, pivot)
-        center = scale(Point(self.center), factor, pivot).center
-        volume = self.volume * factor**self.element_rank if self.volume is not None else None
-        face_areas = None
-        return Mesh(vertices, self.elements, self.element_rank, self.boundaries, center, volume, self.normals, self.face_centers, self.face_normals, face_areas, self.face_vertices, self._vertex_normals, self._vertex_connectivity, self._element_connectivity, self.max_cell_walk)
+        # center = scale(Point(self.center), factor, pivot).center
+        # volume = self.volume * factor**self.element_rank if self.volume is not None else None
+        return replace(self, vertices=vertices)
 
     def __getitem__(self, item):
         item: dict = slicing_dict(self, item)
-        assert not spatial(self.elements).only(tuple(item)), f"Cannot slice vertex lists ('{spatial(self.elements)}') but got slicing dict {item}"
-        assert not instance(self.vertices).only(tuple(item)), f"Slicing by vertex indices ('{instance(self.vertices)}') not supported but got slicing dict {item}"
-        return getitem_dataclass(self, item, keepdims=[self.shape.instance.name, 'vector'])
+        assert not dual(self.elements).only(tuple(item)), f"Cannot slice vertex lists ('{spatial(self.elements)}') but got slicing dict {item}"
+        return getitem(self, item, keepdims=[self.shape.instance.name, 'vector'])
 
     def __repr__(self):
         return Geometry.__repr__(self)
