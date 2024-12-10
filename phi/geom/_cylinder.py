@@ -159,7 +159,8 @@ class Cylinder(Geometry):
 
     @property
     def face_centers(self) -> Tensor:
-        raise NotImplementedError
+        fac = wrap([-.5, 0, .5], dual(shell='bottom,top,lateral'))
+        return self.center + fac * self.up
 
     @property
     def face_areas(self) -> Tensor:
