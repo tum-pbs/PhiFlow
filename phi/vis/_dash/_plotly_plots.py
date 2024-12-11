@@ -510,13 +510,13 @@ class Scatter3D(Recipe):
             else:
                 color_i = plotly_color(color[idx].native())
             if spatial(data.geometry):
-                assert spatial(data.geometry).rank == 1
-                xyz = math.reshaped_numpy(data[idx].points.vector[dims], [vector, data.shape.non_channel.non_spatial, spatial])
-                xyz_padded = [[i.tolist() + [None] for i in c] for c in xyz]
-                x, y, z = [sum(c, []) for c in xyz_padded]
-                mode = 'markers+lines' if data.shape.non_channel.volume <= 100 else 'lines'
-                figure.add_scatter3d(mode=mode, x=x, y=y, z=z, row=row, col=col, line=dict(color=color_i, width=2), opacity=float(alpha))
-                return
+                for sdim in spatial(data.geometry):
+                    xyz = math.reshaped_numpy(data[idx].points.vector[dims], [vector, ..., sdim])
+                    xyz_padded = [[i.tolist() + [None] for i in c] for c in xyz]
+                    x, y, z = [sum(c, []) for c in xyz_padded]
+                    mode = 'markers+lines' if data.shape.non_channel.volume <= 100 else 'lines'
+                    figure.add_scatter3d(mode=mode, x=x, y=y, z=z, row=row, col=col, line=dict(color=color_i, width=2), opacity=float(alpha))
+                continue
             # if data.points.shape.non_channel.rank > 1:
             #     data_list = field.unstack(data, data.points.shape.non_channel[0].name)
             #     for d in data_list:
