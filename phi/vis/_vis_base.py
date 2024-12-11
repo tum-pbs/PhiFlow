@@ -509,8 +509,10 @@ def to_field(obj) -> Field:
             if math.get_format(obj) != 'dense':
                 obj = math.stored_values(obj)
             return PointCloud(obj, math.NAN)
-        elif spatial(obj):
+        elif spatial(obj) and 'vector' not in channel(obj):
             return CenteredGrid(obj, 0, bounds=Box(math.const_vec(-0.5, spatial(obj)), wrap(spatial(obj), channel('vector')) - 0.5))
+        elif spatial(obj):
+            return PointCloud(obj, math.NAN)
         elif 'vector' in obj.shape:
             return PointCloud(math.expand(obj, instance(points=1)), math.NAN)
         elif instance(obj) and not spatial(obj):
