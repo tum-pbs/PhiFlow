@@ -593,9 +593,12 @@ class SurfaceMesh3D(Recipe):
             polygons = data.mesh.elements._indices
             math.assert_close(1, data.mesh.elements._values)
             if dual(polygons).size == 3:  # triangles
-                v1, v2, v3 = reshaped_numpy(polygons, [dual, instance])
+                v1, v2, v3 = polygons.numpy([dual, instance])
             else:
-                raise NotImplementedError
+                q1, q2, q3, q4 = polygons.numpy([dual, instance])
+                v1 = np.concatenate([q1, q1])
+                v2 = np.concatenate([q2, q3])
+                v3 = np.concatenate([q3, q4])
         else:
             elements: csr_matrix = data.mesh.elements.numpy().tocsr()
             indices = elements.indices
@@ -614,7 +617,7 @@ class SurfaceMesh3D(Recipe):
             v1.extend(indices[quad_pointers])
             v2.extend(indices[quad_pointers+1])
             v3.extend(indices[quad_pointers+2])
-            v1.extend(indices[quad_pointers+1])
+            v1.extend(indices[quad_pointers])
             v2.extend(indices[quad_pointers+2])
             v3.extend(indices[quad_pointers+3])
             # --- polygons with > 4 vertices ---
