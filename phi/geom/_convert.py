@@ -1,7 +1,7 @@
 import numpy as np
 
 from phiml import math
-from phiml.math import wrap, instance, batch, DimFilter, Tensor, spatial, pack_dims, dual, stack
+from phiml.math import wrap, instance, batch, DimFilter, Tensor, spatial, pack_dims, dual, stack, to_int32, maximum
 from ._box import Cuboid, BaseBox
 from ._sphere import Sphere
 from ._functions import plane_sgn_dist
@@ -100,6 +100,12 @@ def surface_mesh(geo: Geometry,
         raise NotImplementedError("Only 3D SDF currently supported")
     if isinstance(geo, NoGeometry):
         return mesh_from_numpy([], [], element_rank=2)
+    # --- Determine resolution ---
+    if rel_dx is None and abs_dx is None:
+        rel_dx = 0.005
+    rel_dx = None if rel_dx is None else rel_dx * geo.bounding_box().size.max
+    dx = math.minimum(rel_dx, abs_dx, allow_none=True)
+    # --- Check special cases ---
     if method == 'auto' and isinstance(geo, BaseBox):
         assert rel_dx is None and abs_dx is None, f"When method='auto', boxes will always use their corners as vertices. Leave rel_dx,abs_dx unspecified or pass 'lewiner' or 'lorensen' as method"
         vertices = pack_dims(geo.corners, dual, instance('vertices'))
@@ -114,19 +120,16 @@ def surface_mesh(geo: Geometry,
         return mesh(vertices, faces, element_rank=2)
     elif method == 'auto' and isinstance(geo, Sphere):
         pass  # ToDo analytic solution
+    # --- Build mesh from SDF ---
     if isinstance(geo, SDFGrid):
         assert rel_dx is None and abs_dx is None, f"When creating a surface mesh from an SDF grid, rel_dx and abs_dx are determined from the grid and must be specified as None"
         sdf_grid = geo
     else:
-        if rel_dx is None and abs_dx is None:
-            rel_dx = 0.005
-        rel_dx = None if rel_dx is None else rel_dx * geo.bounding_radius() * 2
-        dx = math.minimum(rel_dx, abs_dx, allow_none=True)
         if isinstance(geo, SDF):
             sdf = geo
         else:
             sdf = as_sdf(geo, rel_margin=0, abs_margin=dx)
-        resolution = math.to_int32(math.round(sdf.bounds.size / dx))
+        resolution = maximum(1, to_int32(math.round(sdf.bounds.size / dx)))
         resolution = spatial(**resolution.vector)
         sdf_grid = sample_sdf(sdf, sdf.bounds, resolution)
     from skimage.measure import marching_cubes

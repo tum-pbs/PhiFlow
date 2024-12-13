@@ -1,11 +1,28 @@
-from typing import Sequence, Union
+from typing import Sequence, Union, Optional
 
 from phiml import math
-from phiml.math import Tensor, channel, Shape, vec_normalize, vec, sqrt, maximum, clip, vec_squared, vec_length, where, stack, dual, argmin, safe_div
-from phiml.math._shape import parse_dim_order, DimFilter
+from phiml.math import Tensor, channel, Shape, normalize, vec, sqrt, maximum, clip, vec_squared, norm, where, stack, dual, argmin, safe_div, arange, wrap, to_float, rename_dims
+from phiml.math._shape import parse_dim_order, DimFilter, shape
 
 
 # No dependence on Geometry
+
+
+def vec_normalize(x, epsilon=None, allow_infinite=False, allow_zero=False):
+    return normalize(x, 'vector', epsilon, allow_infinite=allow_infinite, allow_zero=allow_zero)
+
+
+def vec_length(x, eps=None):
+    return norm(x, 'vector', eps)
+
+
+def rotate_vector(x, rot, invert=False):
+    assert 'vector' in x.shape, f"vector must have exactly a channel dimension named 'vector'"
+    matrix = rotation_matrix(rot)
+    if invert:
+        matrix = rename_dims(matrix, '~vector,vector', matrix.shape['vector'] + matrix.shape['~vector'])
+    assert matrix.vector.dual.size == x.vector.size, f"Rotation matrix from {rot.shape} is {matrix.vector.dual.size}D but vector {x.shape} is {x.vector.size}D."
+    return math.dot(matrix, '~vector', x, 'vector')
 
 
 def cross(vec1: Tensor, vec2: Tensor) -> Tensor:
@@ -197,3 +214,189 @@ def distance_line_point(line_offset: Tensor, line_direction: Tensor, point: Tens
     return c
 
 
+def closest_normal_vector(target: Tensor, normal: Tensor, eps=1e-10):
+    """Finds a vector orthogonal to `normal` that approximately points along `target`."""
+    target_normal = normal * (target.vector @ normal.vector)
+    target_ortho = target - target_normal
+    return vec_normalize(target_ortho, 'vector', eps)
+
+
+def orthogonal_vector(vector: Tensor):
+    if vector.vector.size == 3:
+        x_not_parallel = (vector.vector[0] != 0)
+        ref = where(x_not_parallel, (0, 0, 1), (1, 0, 0))
+        return vec_normalize(cross(vector, ref))
+    raise NotImplementedError
+
+
+def rotation_matrix(x: float | math.Tensor | None, matrix_dim=channel('vector'), none_to_unit=False) -> Optional[Tensor]:
+    """
+    Create a 2D or 3D rotation matrix from the corresponding angle(s).
+
+    Args:
+        x:
+            2D: scalar angle
+            3D: Either vector pointing along the rotation axis with rotation angle as length or Euler angles.
+            Euler angles need to be laid out along a `angle` channel dimension with dimension names listing the spatial dimensions.
+            E.g. a 90° rotation about the z-axis is represented by `vec('angles', x=0, y=0, z=PI/2)`.
+            If a rotation matrix is passed for `angle`, it is returned without modification.
+        matrix_dim: Matrix dimension for 2D rotations. In 3D, the channel dimension of angle is used.
+
+    Returns:
+        Matrix containing `matrix_dim` in primal and dual form as well as all non-channel dimensions of `x`.
+    """
+    if x is None and not none_to_unit:
+        return None
+    elif x is None:
+        return to_float(arange(matrix_dim) == arange(matrix_dim.as_dual()))
+    if isinstance(x, Tensor) and x.dtype == object:  # possibly None in matrices
+        return math.map(rotation_matrix, x, dims=object, matrix_dim=matrix_dim, none_to_unit=none_to_unit)
+    if isinstance(x, Tensor) and '~vector' in x.shape and 'vector' in x.shape.channel and x.shape.get_size('~vector') == x.shape.get_size('vector'):
+        return x  # already a rotation matrix
+    elif 'angle' in shape(x) and shape(x).get_size('angle') == 3:  # 3D Euler angles
+        assert channel(x).rank == 1 and channel(x).size == 3, f"x for 3D rotations needs to be a 3-vector but got {x}"
+        s1, s2, s3 = math.sin(x).angle  # x, y, z
+        c1, c2, c3 = math.cos(x).angle
+        matrix_dim = matrix_dim.with_size(shape(x).get_item_names('angle'))
+        return wrap([[c3 * c2, c3 * s2 * s1 - s3 * c1, c3 * s2 * c1 + s3 * s1],
+                     [s3 * c2, s3 * s2 * s1 + c3 * c1, s3 * s2 * c1 - c3 * s1],
+                     [-s2, c2 * s1, c2 * c1]], matrix_dim, matrix_dim.as_dual())  # Rz * Ry * Rx  (1. rotate about X by first angle)
+    elif 'vector' in shape(x) and shape(x).get_size('vector') == 3:  # 3D axis + x
+        angle = vec_length(x)
+        s, c = math.sin(angle), math.cos(angle)
+        t = 1 - c
+        k1, k2, k3 = normalize(x, epsilon=1e-12).vector
+        matrix_dim = matrix_dim.with_size(shape(x).get_item_names('vector'))
+        return wrap([[c + k1**2 * t, k1 * k2 * t - k3 * s, k1 * k3 * t + k2 * s],
+                     [k2 * k1 * t + k3 * s, c + k2**2 * t, k2 * k3 * t - k1 * s],
+                     [k3 * k1 * t - k2 * s, k3 * k2 * t + k1 * s, c + k3**2 * t]], matrix_dim, matrix_dim.as_dual())
+    else:  # 2D rotation
+        sin = wrap(math.sin(x))
+        cos = wrap(math.cos(x))
+        return wrap([[cos, -sin], [sin, cos]], matrix_dim, matrix_dim.as_dual())
+
+
+def rotation_angles(rot: Tensor):
+    """
+    Compute the scalar x in 2D or the Euler angles in 3D from a given rotation matrix.
+    This function returns one valid solution but often, there are multiple solutions.
+
+    Args:
+        rot: Rotation matrix as created by `phi.math.rotation_matrix()`.
+            Must have exactly one channel and one dual dimension with equally-ordered elements.
+
+    Returns:
+        Scalar x in 2D, Euler angles
+    """
+    assert channel(rot).rank == 1 and dual(rot).rank == 1, f"Rotation matrix must have one channel and one dual dimension but got {rot.shape}"
+    if channel(rot).size == 2:
+        cos = rot[{channel: 0, dual: 0}]
+        sin = rot[{channel: 1, dual: 0}]
+        return math.arctan(sin, divide_by=cos)
+    elif channel(rot).size == 3:
+        a2 = -math.arcsin(rot[{channel: 2, dual: 0}])  # ToDo handle [2, 0] == 1 (i.e. cos_theta == 0)
+        cos2 = math.cos(a2)
+        a1 = math.arctan(rot[{channel: 2, dual: 1}] / cos2, divide_by=rot[{channel: 2, dual: 2}] / cos2)
+        a3 = math.arctan(rot[{channel: 1, dual: 0}] / cos2, divide_by=rot[{channel: 0, dual: 0}] / cos2)
+        regular_sol = stack([a1, a2, a3], channel(angle=channel(rot).item_names[0]))
+        # --- pole case cos(theta) == 1 ---
+        a3_pole = 0  # unconstrained
+        bottom_pole = rot[{channel: 2, dual: 0}] < 0
+        a2_pole = math.where(bottom_pole, 1.57079632679, -1.57079632679)
+        a1_pole = math.where(bottom_pole, math.arctan(rot[{channel: 0, dual: 1}], divide_by=rot[{channel: 0, dual: 2}]), math.arctan(-rot[{channel: 0, dual: 1}], divide_by=-rot[{channel: 0, dual: 2}]))
+        pole_sol = stack([a1_pole, a2_pole, a3_pole], channel(regular_sol))
+        return math.where(abs(rot[{channel: 2, dual: 0}]) >= 1, pole_sol, regular_sol)
+    else:
+        raise ValueError(f"")
+
+
+def rotation_matrix_from_directions(source_dir: Tensor, target_dir: Tensor, vec_dim: str = 'vector', epsilon=None) -> Tensor:
+    """
+    Computes a rotation matrix A, such that `target_dir = A @ source_dir`
+
+    Args:
+        source_dir: Two or three-dimensional vector. `Tensor` with channel dim called 'vector'.
+        target_dir: Two or three-dimensional vector. `Tensor` with channel dim called 'vector'.
+
+    Returns:
+        Rotation matrix as `Tensor` with 'vector' dim and its dual counterpart.
+    """
+    if source_dir.vector.size == 3:
+        axis, angle = axis_angle_from_directions(source_dir, target_dir, vec_dim, epsilon=epsilon)
+        return rotation_matrix_from_axis_and_angle(axis, angle, is_axis_normalized=False, epsilon=epsilon)
+    raise NotImplementedError
+
+
+def axis_angle_from_directions(source_dir: Tensor, target_dir: Tensor, vec_dim: str = 'vector', epsilon=None) -> tuple[Tensor, Tensor]:
+    if source_dir.vector.size == 3:
+        source_dir = normalize(source_dir, vec_dim, epsilon=epsilon)
+        target_dir = normalize(target_dir, vec_dim, epsilon=epsilon)
+        axis = cross(source_dir, target_dir)
+        lim = 1-epsilon if epsilon is not None else 1
+        angle = math.arccos(math.clip(source_dir.vector @ target_dir.vector, -lim, lim))
+        return axis, angle
+    raise NotImplementedError
+
+
+def rotation_matrix_from_axis_and_angle(axis: Tensor, angle: float | Tensor, vec_dim='vector', is_axis_normalized=False, epsilon=1e-5) -> Tensor:
+    """
+    Computes a rotation matrix that rotates by `angle` around `axis`.
+
+    Args:
+        axis: 3D vector. `Tensor` with channel dim called 'vector'.
+        angle: Rotation angle.
+        is_axis_normalized: Whether `axis` has length 1.
+        epsilon: Minimum axis length. For shorter axes, the unit matrix is returned.
+
+    Returns:
+        Rotation matrix as `Tensor` with 'vector' dim and its dual counterpart.
+    """
+    if axis.vector.size == 3:  # Rodrigues' rotation formula
+        axis = normalize(axis, vec_dim, epsilon=epsilon, allow_zero=False) if not is_axis_normalized else axis
+        kx, ky, kz = axis.vector
+        s = math.sin(angle)
+        c = 1 - math.cos(angle)
+        return wrap([
+            (1 - c*(ky*ky+kz*kz),    -kz*s + c*(kx*ky),     ky*s + c*(kx*kz)),
+            (   kz*s + c*(kx*ky),  1 - c*(kx*kx+kz*kz),     -kx*s + c*(ky * kz)),
+            (  -ky*s + c*(kx*kz),    kx*s + c*(ky * kz),  1 - c*(kx*kx+ky*ky)),
+        ], axis.shape['vector'], axis.shape['vector'].as_dual())
+    raise NotImplementedError
+
+
+def matching_rotations(*matrices: Optional[Tensor]) -> Sequence[Tensor]:
+    """
+    Replaces `None` rotations with unit matrices if any of `matrices` is not `None`.
+    """
+    if all(m is None for m in matrices) or all(m is not None for m in matrices):
+        return matrices
+    some = [m for m in matrices if m is not None][0]
+    unit_matrix = arange(some.shape.primal) == arange(some.shape.dual)
+    return [unit_matrix if m is None else m for m in matrices]
+
+
+def sample_helix(offset: Tensor, axis: Tensor, start: Tensor, end: Tensor, t: Tensor):
+    start -= offset
+    end -= offset
+    # --- Component along axis (h) ---
+    h_start = start.vector @ axis.vector
+    h_end = end.vector @ axis.vector
+    h = t * h_end + (1-t) * h_start
+    start = start - h_start * axis
+    end = end - h_end * axis
+    # --- Radius ---
+    r_start = math.norm(start, 'vector')
+    r_end = math.norm(end, 'vector')
+    r = t * r_end + (1-t) * r_start
+    # --- Angle ---
+    rot_axis, angle = axis_angle_from_directions(start, end)
+    a = angle * t
+    # --- Combine ---
+    return offset + h * axis + r/r_start * rotate_vector(start, rot_axis * a)
+
+
+def solve2x2(a, b, c, d, y1, y2):
+    denom = (a*d - b*c)
+    x1 = (d*y1 - b*y2) / denom
+    x2 = (a*y2 - c*y1) / denom
+    return x1, x2

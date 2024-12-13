@@ -7,7 +7,7 @@ from phiml.math import (Shape, dual, wrap, Tensor, expand, vec, where, ncat, cli
 from phiml.math._magic_ops import all_attributes
 from phiml.dataclasses import replace, sliceable
 from ._geom import Geometry
-from ._transform import rotate, rotation_matrix, rotation_matrix_from_directions
+from ._functions import rotate_vector as rotate, rotation_matrix, rotation_matrix_from_directions
 from ._sphere import Sphere
 
 
