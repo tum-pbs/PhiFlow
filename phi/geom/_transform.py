@@ -1,7 +1,7 @@
 from typing import Optional, Sequence
 
 from phiml import math
-from phiml.math import Tensor, channel, rename_dims, wrap, shape, normalize, dual, stack, length, arange, to_float
+from phiml.math import Tensor, channel, rename_dims, wrap, shape, normalize, dual, stack, length, arange, to_float, Shape
 
 from ._geom import Geometry, GeometricType
 from ._functions import cross
@@ -158,12 +158,19 @@ def rotation_matrix_from_directions(source_dir: Tensor, target_dir: Tensor, vec_
         Rotation matrix as `Tensor` with 'vector' dim and its dual counterpart.
     """
     if source_dir.vector.size == 3:
+        axis, angle = axis_angle_from_directions(source_dir, target_dir, vec_dim, epsilon=epsilon)
+        return rotation_matrix_from_axis_and_angle(axis, angle, is_axis_normalized=False, epsilon=epsilon)
+    raise NotImplementedError
+
+
+def axis_angle_from_directions(source_dir: Tensor, target_dir: Tensor, vec_dim: str = 'vector', epsilon=None) -> tuple[Tensor, Tensor]:
+    if source_dir.vector.size == 3:
         source_dir = normalize(source_dir, vec_dim, epsilon=epsilon)
         target_dir = normalize(target_dir, vec_dim, epsilon=epsilon)
         axis = cross(source_dir, target_dir)
         lim = 1-epsilon if epsilon is not None else 1
         angle = math.arccos(math.clip(source_dir.vector @ target_dir.vector, -lim, lim))
-        return rotation_matrix_from_axis_and_angle(axis, angle, is_axis_normalized=False, epsilon=epsilon)
+        return axis, angle
     raise NotImplementedError
 
 
