@@ -363,6 +363,12 @@ class Geometry:
         from ._box import Box
         return Box(min_vec, max_vec)
 
+    def bounding_sphere(self):
+        center = self.bounding_box().center
+        dist = length(self.center - center) + self.bounding_radius()
+        from ._sphere import Sphere
+        return Sphere(center, dist)
+
     def shifted(self, delta: Tensor) -> 'Geometry':
         """
         Returns a translated version of this geometry.
