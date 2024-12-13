@@ -563,7 +563,8 @@ def mesh_from_numpy(points: Sequence[Sequence],
                     element_rank: int = None,
                     periodic: str = None,
                     cell_dim: Shape = instance('cells'),
-                    face_format: str = 'csc') -> Mesh:
+                    face_format: str = 'csc',
+                    axes=('x', 'y', 'z')) -> Mesh:
     """
     Construct an unstructured mesh from vertices.
 
@@ -582,7 +583,7 @@ def mesh_from_numpy(points: Sequence[Sequence],
     """
     cell_dim = cell_dim.with_size(len(polygons))
     points = np.asarray(points)
-    xyz = tuple('xyz'[:points.shape[-1]])
+    xyz = tuple(axes[:points.shape[-1]])
     vertices = wrap(points, instance('vertices'), channel(vector=xyz))
     try:  # if all elements have the same vertex count, we stack them
         elements_np = np.stack(polygons).astype(np.int32)
