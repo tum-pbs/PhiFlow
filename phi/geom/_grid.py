@@ -131,7 +131,7 @@ class UniformGrid(BaseBox):
         return self.bounds.size / self.resolution.sizes / 2
 
     @property
-    def rotation_matrix(self) -> Optional[Tensor]:
+    def _rot_or_none(self) -> Optional[Tensor]:
         return None
 
     def with_scaled_resolution(self, scale: float):

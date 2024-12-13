@@ -46,8 +46,8 @@ class BaseBox(Geometry):  # not a Subwoofer
         raise NotImplementedError(self)
 
     @property
-    def rotation_matrix(self) -> Optional[Tensor]:
-        raise NotImplementedError(self)
+    def rotation_matrix(self) -> Tensor:
+        return rotation_matrix(self._rot_or_none, self.shape['vector'], none_to_unit=True)
 
     @property
     def is_size_variable(self):
@@ -75,7 +75,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         assert origin in ['lower', 'center', 'upper']
         origin_loc = getattr(self, origin)
         pos = global_position if math.always_close(origin_loc, 0) else global_position - origin_loc
-        pos = rotate(pos, self.rotation_matrix, invert=True)
+        pos = rotate(pos, self._rot_or_none, invert=True)
         if scale:
             pos /= (self.half_size if origin == 'center' else self.size)
         return pos
@@ -84,7 +84,11 @@ class BaseBox(Geometry):  # not a Subwoofer
         assert origin in ['lower', 'center', 'upper']
         origin_loc = getattr(self, origin)
         pos = local_position * (self.half_size if origin == 'center' else self.size) if scale else local_position
-        return rotate(pos, self.rotation_matrix) + origin_loc
+        return rotate(pos, self._rot_or_none) + origin_loc
+
+    @property
+    def _rot_or_none(self) -> Optional[Tensor]:
+        raise NotImplementedError
 
     def largest(self, dim: DimFilter) -> 'BaseBox':
         dim = self.shape.without('vector').only(dim)
@@ -99,7 +103,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         return Box(math.max(self.lower, dim), math.min(self.upper, dim))
 
     def lies_inside(self, location: Tensor):
-        assert self.rotation_matrix is None, f"Please override lies_inside() for rotated boxes"
+        assert self._rot_or_none is None, f"Please override lies_inside() for rotated boxes"
         bool_inside = (location >= self.lower) & (location <= self.upper)
         bool_inside = math.all(bool_inside, 'vector')
         bool_inside = math.any(bool_inside, self.shape.instance - instance(location))  # union for instance dimensions
@@ -118,6 +122,7 @@ class BaseBox(Geometry):  # not a Subwoofer
           float tensor of shape (*location.shape[:-1], 1).
 
         """
+        # ToDo this underestimates diagonally outside points
         location = self.global_to_local(location, scale=False, origin='center')
         distance = math.abs(location) - self.half_size
         distance = math.max(distance, 'vector')
@@ -152,8 +157,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         max_sgn_dist = math.max(sgn_surf_delta, 'vector')
         normal_axis = max_sgn_dist == sgn_surf_delta  # ToDo only one if inside
         normal = math.vec_normalize(normal_axis * math.sign(loc_to_center))
-        if self.rotation_matrix is not None:
-            normal = rotate(normal, self.rotation_matrix)
+        normal = rotate(normal, self._rot_or_none)
         surf_to_center = math.where(normal_axis, math.sign(loc_to_center) * self.half_size, loc_to_center)
         closest_to_center = math.clip(surf_to_center, -self.half_size, self.half_size)
         surface_pos = self.local_to_global(closest_to_center, scale=False, origin='center')
@@ -190,13 +194,15 @@ class BaseBox(Geometry):  # not a Subwoofer
         return samples
 
     def corner_representation(self) -> 'Box':
-        assert self.rotation_matrix is None, f"corner_representation does not support rotations"
+        assert self._rot_or_none is None, f"corner_representation does not support rotations"
         return Box(self.lower, self.upper)
 
     box = corner_representation
 
     def center_representation(self, size_variable=True) -> 'Cuboid':
         return Cuboid(self.center, self.half_size, size_variable=size_variable)
+
+    cuboid = center_representation
 
     def contains(self, other: 'BaseBox'):
         """ Tests if the other box lies fully inside this box. """
@@ -215,7 +221,7 @@ class BaseBox(Geometry):  # not a Subwoofer
 
     @property
     def faces(self) -> 'Geometry':
-        return Cuboid(self.face_centers, self._half_size, self._rotation_matrix, size_variable=False)
+        return Cuboid(self.face_centers, self.half_size, self._rot_or_none, size_variable=False)
 
     @property
     def face_centers(self) -> Tensor:
@@ -224,7 +230,7 @@ class BaseBox(Geometry):  # not a Subwoofer
     @property
     def face_normals(self) -> Tensor:
         unit_vectors = math.to_float(math.range(self.shape['vector']) == math.range(dual(**self.shape['vector'].untyped_dict)))
-        vectors = rotate(unit_vectors, self.rotation_matrix)
+        vectors = rotate(unit_vectors, self._rot_or_none)
         return vectors * math.vec(dual('side'), lower=-1, upper=1)
 
     @property
@@ -238,7 +244,7 @@ class BaseBox(Geometry):  # not a Subwoofer
         return self.shape.without('vector') & dual(side='lower,upper') & dual(**self.shape['vector'].untyped_dict)
 
     @property
-    def corners(self):
+    def corners(self) -> Tensor:
         to_face = self.face_normals[{'~side': 'upper'}] * math.rename_dims(self.half_size, 'vector', dual)
         lower_upper = math.meshgrid(math.dual, **{dim: [-1, 1] for dim in self.vector.item_names}, stack_dim=dual('vector'))  # (x=2, y=2, ... vector=x,y,...)
         to_corner = math.sum(lower_upper * to_face, '~vector')
@@ -350,6 +356,10 @@ class Box(BaseBox, metaclass=BoxType):
         return '_lower', '_upper'
 
     @property
+    def _rot_or_none(self):
+        return None
+
+    @property
     def shape(self):
         if self._lower is None or self._upper is None:
             return self._shape
@@ -376,15 +386,11 @@ class Box(BaseBox, metaclass=BoxType):
         return self.size * 0.5
 
     @property
-    def rotation_matrix(self) -> Optional[Tensor]:
-        return None
-
-    @property
     def is_size_variable(self):
-        raise False
+        return False
 
     def at(self, center: Tensor) -> 'BaseBox':
-        return Cuboid(center, self.half_size, self.rotation_matrix)
+        return Cuboid(center, self.half_size, None)
 
     def shifted(self, delta, **delta_by_dim) -> 'Box':
         return Box(self.lower + delta, self.upper + delta)
@@ -505,7 +511,7 @@ class Cuboid(BaseBox):
         return self._center + self._half_size
 
     @property
-    def rotation_matrix(self) -> Optional[Tensor]:
+    def _rot_or_none(self):
         return self._rotation_matrix
 
     @property
@@ -513,7 +519,7 @@ class Cuboid(BaseBox):
         return self._size_variable
 
     def at(self, center: Tensor) -> 'Cuboid':
-        return Cuboid(center, self.half_size, self.rotation_matrix, size_variable=self._size_variable)
+        return Cuboid(center, self.half_size, self._rotation_matrix, size_variable=self._size_variable)
 
     def rotated(self, angle) -> 'Cuboid':
         if self._rotation_matrix is None:

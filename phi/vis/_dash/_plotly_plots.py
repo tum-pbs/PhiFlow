@@ -9,6 +9,7 @@ from typing import Tuple, Any, Dict, List, Callable, Union, Optional
 import numpy
 import numpy as np
 import plotly.graph_objs
+
 from phiml.math._sparse import CompactSparseTensor
 from scipy.sparse import csr_matrix, coo_matrix
 
@@ -16,12 +17,11 @@ from plotly import graph_objects, figure_factory
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
-import plotly.io as pio
 
 from phiml.math import reshaped_numpy, dual, instance, non_dual, merge_shapes
-from phi import math, field, geom
+from phi import math, geom
 from phi.field import Field
-from phi.geom import Sphere, BaseBox, Point, Box, SDF, SDFGrid, Cylinder
+from phi.geom import Sphere, BaseBox, Point, Box, SDF, SDFGrid, Cylinder, Mesh
 from phi.geom._geom_ops import GeometryStack
 from phi.math import Tensor, spatial, channel, non_channel
 from phi.vis._dash.colormaps import COLORMAPS
@@ -664,7 +664,6 @@ class SDF3D(Recipe):
             mesh_data = Field(surf_mesh, math.NAN, 0)
             SurfaceMesh3D().plot(mesh_data, figure, subplot, space, min_val, max_val, show_color_bar, color, alpha, err)
         math.map(plot_single_material, data, color, alpha, dims=channel(data.geometry) - 'vector', unwrap_scalars=False)
-
 
 
 def _get_range(bounds: Box, index: int):
