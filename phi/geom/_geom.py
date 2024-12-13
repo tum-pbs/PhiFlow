@@ -491,13 +491,14 @@ class Geometry:
     def __repr__(self):
         return f"{self.__class__.__name__}{self.shape}"
 
-    def __getitem__(self, item):
-        raise NotImplementedError
-        # attrs = {a: getattr(self, a)[item] for a in variable_attributes(self)}
-        # return copy_with(self, **attrs)
-
     def __getattr__(self, name: str) -> BoundDim:
-        return BoundDim(self, name)
+        if name == '__setstate__':
+            raise AttributeError
+        if name in self.shape:
+            return BoundDim(self, name)
+        if hasattr(self.__class__, name):
+            raise RuntimeError(f"Evaluating {self.__class__.__name__}.{name} failed with an error.")
+        raise AttributeError(f"{self.__class__.__name__}.{name}")
 
 
 class InvertedGeometry(Geometry):
