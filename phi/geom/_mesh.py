@@ -694,7 +694,7 @@ def build_faces(vertices: Tensor,  # (vertices:i, vector)
         e_idx = np.arange(instance(elements).size).repeat(v_count)
         e_f = coo_matrix((np.ones(n_f, bool), (e_idx, f_idx)), shape=(n_e, n_f))  # element-facet matrix
         # --- Compute facet properties: center, normal, area ---
-        f_v_pos = vertices[reshaped_tensor(v12, [instance('facets') + dual(pair=2)])]  # vertex positions of every (inner) facet
+        f_v_pos = vertices[reshaped_tensor(v12, [instance('facets') + dual(pair=2)], convert=False)]  # vertex positions of every (inner) facet
         if periodic:  # map v_pos: closest to cell_center
             cell_center = vertex_mean[wrap(e_idx, 'facets:i')]
             bounds = bounding_box(vertices)
