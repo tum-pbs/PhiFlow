@@ -662,7 +662,7 @@ class Field(metaclass=_FieldType):
         item = slicing_dict(self, item)
         if not item:
             return self
-        boundary = domain_slice(self.boundary, item, self.resolution)
+        boundary = domain_slice(self.boundary, item, tuple(self.geometry.boundary_faces))
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != 'vector'}
         geometry = self.geometry[item_without_vec]
         if self.is_staggered and 'vector' in item and '~vector' in self.geometry.face_shape:
