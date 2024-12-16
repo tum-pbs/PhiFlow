@@ -492,9 +492,15 @@ class Geometry:
         return f"{self.__class__.__name__}{self.shape}"
 
     def __getattr__(self, name: str) -> BoundDim:
-        if name == '__setstate__':
+        if name in ('shape', '__setstate__', '__all_attrs__', '__variable_attrs__', '__value_attrs__'):
             raise AttributeError
-        if name in self.shape:
+        try:
+            self_shape = self.shape
+            if self_shape is None:
+                raise AttributeError(f"Invalid object of type {self.__class__.__name__}. Failed to get attribute {name} because it has no shape.")
+        except BaseException as err:  # invalid object, probably None
+            raise AttributeError(err)
+        if name in self_shape:
             return BoundDim(self, name)
         if hasattr(self.__class__, name):
             raise RuntimeError(f"Evaluating {self.__class__.__name__}.{name} failed with an error.")
