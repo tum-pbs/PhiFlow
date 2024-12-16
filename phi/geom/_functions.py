@@ -214,11 +214,13 @@ def distance_line_point(line_offset: Tensor, line_direction: Tensor, point: Tens
     return c
 
 
-def closest_normal_vector(target: Tensor, normal: Tensor, eps=1e-10):
+def closest_normal_vector(target: Tensor, normal: Tensor, is_normalized=False, eps=1e-10):
     """Finds a vector orthogonal to `normal` that approximately points along `target`."""
+    if not is_normalized:
+        normal = vec_normalize(normal)
     target_normal = normal * (target.vector @ normal.vector)
     target_ortho = target - target_normal
-    return vec_normalize(target_ortho, 'vector', eps)
+    return vec_normalize(target_ortho, eps)
 
 
 def orthogonal_vector(vector: Tensor):
