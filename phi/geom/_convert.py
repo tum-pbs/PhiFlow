@@ -101,6 +101,8 @@ def surface_mesh(geo: Geometry,
     if isinstance(geo, NoGeometry):
         return mesh_from_numpy([], [], element_rank=2)
     # --- Determine resolution ---
+    if isinstance(geo, SDFGrid):
+        assert rel_dx is None and abs_dx is None, f"When creating a surface mesh from an SDF grid, rel_dx and abs_dx are determined from the grid and must be specified as None"
     if rel_dx is None and abs_dx is None:
         rel_dx = 0.005
     rel_dx = None if rel_dx is None else rel_dx * geo.bounding_box().size.max
@@ -122,7 +124,6 @@ def surface_mesh(geo: Geometry,
         pass  # ToDo analytic solution
     # --- Build mesh from SDF ---
     if isinstance(geo, SDFGrid):
-        assert rel_dx is None and abs_dx is None, f"When creating a surface mesh from an SDF grid, rel_dx and abs_dx are determined from the grid and must be specified as None"
         sdf_grid = geo
     else:
         if isinstance(geo, SDF):
