@@ -3,19 +3,30 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
-<meta name="generator" content="pdoc3 0.11.3">
+<meta name="generator" content="pdoc3 0.11.5">
 <title>phi.vis API documentation</title>
 <meta name="description" content="Visualization: plotting, interactive user interfaces …">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
-<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source > summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible;min-width:max-content}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
 <style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
 <style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
 <script>window.addEventListener('DOMContentLoaded', () => {
 hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
 hljs.highlightAll();
+/* Collapse source docstrings */
+setTimeout(() => {
+[...document.querySelectorAll('.hljs.language-python > .hljs-string')]
+.filter(el => el.innerHTML.length > 200 && ['"""', "'''"].includes(el.innerHTML.substring(0, 3)))
+.forEach(el => {
+let d = document.createElement('details');
+d.classList.add('hljs-string');
+d.innerHTML = '<summary>"""</summary>' + el.innerHTML.substring(3);
+el.replaceWith(d);
+});
+}, 100);
 })</script>
 </head>
 <body>
@@ -41,12 +52,42 @@ hljs.highlightAll();
 <span>def <span class="ident">action</span></span>(<span>fun)</span>
 </code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def action(fun):
+    doc = inspect.getdoc(fun)
+    ACTIONS[Action(fun.__name__, doc)] = fun
+    return fun</code></pre>
+</details>
 <div class="desc"></div>
 </dd>
 <dt id="phi.vis.close"><code class="name flex">
 <span>def <span class="ident">close</span></span>(<span>figure=None)</span>
 </code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def close(figure=None):
+    &#34;&#34;&#34;
+    Close and destroy a figure.
+
+    Args:
+        figure: (Optional) A figure that was created using `plot()`.
+            If not specified, closes the figure created most recently.
+    &#34;&#34;&#34;
+    if figure is None:
+        figure = LAST_FIGURE[0]
+    if isinstance(figure, Tensor):
+        for fig in figure:
+            close(fig)
+    else:
+        plots = get_plots_by_figure(figure)
+        plots.close(figure)</code></pre>
+</details>
 <div class="desc"><p>Close and destroy a figure.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -59,6 +100,43 @@ If not specified, closes the figure created most recently.</dd>
 <span>def <span class="ident">control</span></span>(<span>value, range: tuple = None, description='', **kwargs)</span>
 </code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def control(value, range: tuple = None, description=&#34;&#34;, **kwargs):
+    &#34;&#34;&#34;
+    Mark a variable as controllable by any GUI created via `view()`.
+
+    Example:
+    &gt;&gt;&gt; dt = control(1.0, (0.1, 10), name=&#34;Time increment (dt)&#34;)
+
+    This will cause a control component (slider, checkbox, text field, drop-down, etc.) to be generated in the user interface.
+    Changes to that component will immediately be reflected in the Python variable assigned to the control.
+    The Python variable will always hold a primitive type, such as `int`, `float´, `bool` or `str`.
+
+    Args:
+        value: Initial value. Must be either `int`, `float`, `bool` or `str`.
+        range: (Optional) Specify range of possible values as `(min, max)`. Only for `int`, `float` and `str` values.
+        description: Human-readable description.
+        **kwargs: Additional arguments to determine the appearance of the GUI component,
+            e.g. `rows` for text fields or `log=False` for float sliders.
+
+    Returns:
+        `value`
+    &#34;&#34;&#34;
+    assert type(value) in (int, float, bool, str), f&#34;Value must be one of (int, float, bool, str) but {type(value)}&#34;
+    calling_code = inspect.stack()[1].code_context[0]
+    assert &#39;control&#39; in calling_code and &#39;=&#39; in calling_code, f&#34;control() must be used in a variable assignment statement but context is: {calling_code}&#34;
+    calling_code = calling_code[:calling_code.index(&#39;control&#39;)]
+    var_names = [var.strip() for var in calling_code.split(&#39;=&#39;)[:-1]]
+    var_names = [n for n in var_names if n]
+    for var_name in var_names:
+        ctrl = Control(var_name, type(value), value, range, description, kwargs)
+        value_range(ctrl)  # checks if valid
+        CONTROL_VARS[var_name] = ctrl
+    return value</code></pre>
+</details>
 <div class="desc"><p>Mark a variable as controllable by any GUI created via <code>view()</code>.</p>
 <p>Example:</p>
 <pre><code class="language-python-repl">&gt;&gt;&gt; dt = control(1.0, (0.1, 10), name=&quot;Time increment (dt)&quot;)
@@ -85,6 +163,61 @@ e.g. <code>rows</code> for text fields or <code>log=False</code> for float slide
 <span>def <span class="ident">load_scalars</span></span>(<span>scene: phi.field._scene.Scene,<br>name: str,<br>prefix='log_',<br>suffix='.txt',<br>x: str | None = 'steps',<br>entries_dim=(iterationˢ=None),<br>batch_dim=(batchᵇ=None))</span>
 </code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@math.broadcast
+def load_scalars(scene: Scene or str,
+                 name: str,
+                 prefix=&#39;log_&#39;,
+                 suffix=&#39;.txt&#39;,
+                 x: Optional[str]=&#39;steps&#39;,
+                 entries_dim=spatial(&#39;iteration&#39;),
+                 batch_dim=batch(&#39;batch&#39;)):
+    &#34;&#34;&#34;
+    Read one or a `Tensor` of scalar logs as curves.
+
+    Args:
+        scene: `Scene` or `str`. Directory containing the log files.
+        name: Log file base name.
+        prefix: Log file prefix.
+        suffix: Log file suffix.
+        x: &#39;steps&#39;  or &#39;time&#39;
+        entries_dim: Curve dimension.
+
+    Returns:
+        `Tensor` containing `entries_dim` and `vector`.
+    &#34;&#34;&#34;
+    assert x in (None, &#39;steps&#39;, &#39;time&#39;)
+    if isinstance(scene, str):
+        scene = Scene.at(scene)
+    assert isinstance(scene, Scene), f&#34;scene must be a Scene or str but got {type(scene)}&#34;
+    assert shape(scene).rank == 0, f&#34;Use math.map(load_scalars, ...) to load data from multiple scenes&#34;
+    ML_LOGGER.debug(f&#34;Reading {os.path.join(scene.path, f&#39;{prefix}{name}{suffix}&#39;)}&#34;)
+    curve = numpy.loadtxt(os.path.join(scene.path, f&#34;log_{name}.txt&#34;))
+    if curve.ndim == 2:
+        x_values = curve[:, 0]
+        values = curve[:, 1:]
+    elif curve.ndim == 1 and numpy.floor(curve[0]) == curve[0]:  # new format but only one entry
+        x_values = curve[None, 0]
+        values = curve[None, 1:]
+    else:
+        values = curve[:, None]
+        x_values = numpy.arange(len(values))
+    if x == &#39;time&#39;:
+        assert x == &#39;time&#39;, f&#34;x must be &#39;steps&#39; or &#39;time&#39; but got {x}&#34;
+        ML_LOGGER.debug(f&#34;Reading {os.path.join(scene.path, &#39;log_step_time.txt&#39;)}&#34;)
+        _, x_values, *_ = numpy.loadtxt(os.path.join(scene.path, &#34;log_step_time.txt&#34;)).T
+        values = values[:len(x_values + 1)]
+        x_values = numpy.cumsum(x_values[:len(values) - 1])
+        x_values = numpy.concatenate([[0.], x_values])
+    x_values = wrap(x_values, entries_dim)
+    values = wrap(values, entries_dim, batch_dim)
+    if x is not None:
+        return math.stack([x_values, values], channel(vector=[x, name]))
+    return values</code></pre>
+</details>
 <div class="desc"><p>Read one or a <code>Tensor</code> of scalar logs as curves.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -109,6 +242,25 @@ or 'time'</dd>
 <span>def <span class="ident">overlay</span></span>(<span>*fields: phi.field._field.Field | phi.geom._geom.Geometry | phiml.math._tensors.Tensor) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def overlay(*fields: Union[Field, Tensor, Geometry]) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Specify that multiple fields should be drawn on top of one another in the same figure.
+    The fields will be plotted in the order they are given, i.e. the last field on top.
+
+    &gt;&gt;&gt; plot(vis.overlay(heatmap, points, velocity))
+
+    Args:
+        *fields: `Field` or `Tensor` instances
+
+    Returns:
+        Plottable object
+    &#34;&#34;&#34;
+    return layout(fields, math.channel(&#39;overlay&#39;))</code></pre>
+</details>
 <div class="desc"><p>Specify that multiple fields should be drawn on top of one another in the same figure.
 The fields will be plotted in the order they are given, i.e. the last field on top.</p>
 <pre><code class="language-python-repl">&gt;&gt;&gt; plot(vis.overlay(heatmap, points, velocity))
@@ -125,6 +277,163 @@ The fields will be plotted in the order they are given, i.e. the last field on t
 <span>def <span class="ident">plot</span></span>(<span>*fields: phi.field._field.Field | phiml.math._tensors.Tensor | phi.geom._geom.Geometry | list | tuple | dict,<br>lib: str | phi.vis._vis_base.PlottingLibrary = None,<br>row_dims: str | Sequence | set | ForwardRef('Shape') | Callable | None = None,<br>col_dims: str | Sequence | set | ForwardRef('Shape') | Callable | None = &lt;function batch&gt;,<br>animate: str | Sequence | set | ForwardRef('Shape') | Callable | None = None,<br>overlay: str | Sequence | set | ForwardRef('Shape') | Callable | None = 'overlay',<br>title: str | phiml.math._tensors.Tensor | list | tuple = None,<br>size=None,<br>same_scale: bool | phiml.math._shape.Shape | tuple | list | str = True,<br>log_dims: str | phiml.math._shape.Shape | tuple | list = '',<br>show_color_bar=True,<br>color: str | int | phiml.math._tensors.Tensor | list | tuple = None,<br>alpha: float | phiml.math._tensors.Tensor | list | tuple = 1.0,<br>err: float | phiml.math._tensors.Tensor | list | tuple = 0.0,<br>frame_time=100,<br>repeat=True,<br>plt_params: Dict = None,<br>max_subfigures=20)</span>
 </code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
+         lib: Union[str, PlottingLibrary] = None,
+         row_dims: DimFilter = None,
+         col_dims: DimFilter = batch,
+         animate: DimFilter = None,
+         overlay: DimFilter = &#39;overlay&#39;,
+         title: Union[str, Tensor, list, tuple] = None,
+         size=None,  # (12, 5),
+         same_scale: Union[bool, Shape, tuple, list, str] = True,
+         log_dims: Union[str, tuple, list, Shape] = &#39;&#39;,
+         show_color_bar=True,
+         color: Union[str, int, Tensor, list, tuple] = None,
+         alpha: Union[float, Tensor, list, tuple] = 1.,
+         err: Union[Tensor, tuple, list, float] = 0.,
+         frame_time=100,
+         repeat=True,
+         plt_params: Dict = None,
+         max_subfigures=20):
+    &#34;&#34;&#34;
+    Creates one or multiple figures and sub-figures and plots the given fields.
+
+    To show the figures, use `show()`.
+
+    The arguments `row_dims`, `col_dims`, `animate` and `overlay` control how data is presented.
+    Each accepts dimensions as a `str`, `Shape`, tuple, list or type function.
+    In addition to the dimensions present on the data to be plotted, the dimensions `args` is created if multiple arguments are passed,
+    and `tuple`, `list`, `dict` are generated for corresponding objects to be plotted.
+
+    Args:
+        fields: Fields or Tensors to plot.
+        lib: Plotting library name or reference. Valid names are `&#39;matplotlib&#39;`, `&#39;plotly&#39;` and `&#39;console&#39;`.
+        row_dims: Batch dimensions along which sub-figures should be laid out vertically.
+            `Shape` or comma-separated names as `str`, `tuple` or `list`.
+        col_dims: Batch dimensions along which sub-figures should be laid out horizontally.
+            `Shape` or comma-separated names as `str`, `tuple` or `list`.
+        title: `str` for figures with a single subplot.
+            For subplots, pass a string `Tensor` matching the content dimensions, i.e. `row_dims` and `col_dims`.
+            Passing a `tuple`, `list` or `dict`, will create a tensor with these names internally.
+        size: Figure size in inches, `(width, height)`.
+        same_scale: Whether to use the same axis limits for all sub-figures.
+        log_dims: Dimensions for which the plot axes should be scaled logarithmically.
+            Can be given as a comma-separated `str`, a sequence of dimension names or a `Shape`.
+            Use `&#39;_&#39;` to scale unnamed axes logarithmically, e.g. the y-axis of scalar functions.
+        show_color_bar: Whether to display color bars for heat maps.
+        color: `Tensor` of line / marker colors.
+            The color can be specified either as a cycle index (int tensor) or as a hex code (str tensor).
+            The color of different lines and markers can vary.
+        alpha: Opacity as `float` or `Tensor`.
+            This affects all elements, not only line plots.
+            Opacity can vary between lines and markers.
+        err: Expected deviation from the value given in `fields`.
+            For supported plots, adds error bars of size *2·err*.
+            If the plotted data is the mean of some distribution, a good choice for `err` is the standard deviation along the mean dims.
+        animate: Time dimension to animate.
+            If not present in the data, will produce a regular plot instead.
+        overlay: Dimensions along which elements should be overlaid in the same subplot.
+            The default is only the `overlay` dimension which is created by `overlay()`.
+        frame_time: Interval between frames in the animation.
+        repeat: Whether the animation should loop.
+
+    Returns:
+        `Tensor` of figure objects.
+        The tensor contains those dimensions of `fields` that were not reduced by `row_dims`, `col_dims` or `animate`.
+        Currently, only single-figure plots are supported.
+
+        In case of an animation, a displayable animation object will be returned instead of a `Tensor`.
+    &#34;&#34;&#34;
+    data = layout([layout_pytree_node(f) for f in fields], batch(&#39;args&#39;))
+    overlay = data.shape.only(overlay)
+    animate = data.shape.only(animate).without(overlay)
+    row_dims: Shape = data.shape.only(row_dims).without(animate).without(overlay)
+    col_dims = data.shape.only(col_dims).without(row_dims).without(animate).without(overlay)
+    fig_shape = batch(data).without(row_dims).without(col_dims).without(animate).without(overlay)
+    reduced_shape = row_dims &amp; col_dims &amp; animate &amp; overlay
+    nrows = uniform_bound(row_dims).volume
+    ncols = uniform_bound(col_dims).volume
+    assert nrows * ncols &lt;= max_subfigures, f&#34;Too many subfigures ({nrows * ncols}) for max_subfigures={max_subfigures}. If you want to plot this many subfigures, increase the limit.&#34;
+    positioning, indices = layout_sub_figures(data, row_dims, col_dims, animate, overlay, 0, 0)
+    # --- Process arguments ---
+    plots = default_plots(positioning) if lib is None else get_plots(lib)
+    plt_params = {} if plt_params is None else dict(**plt_params)
+    size = (None, None) if size is None else size
+    if title is None:
+        title_by_subplot = {pos: title_label(common_index(*i, exclude=reduced_shape.singleton)) for pos, i in indices.items()}
+    elif isinstance(title, Tensor) and (&#39;rows&#39; in title.shape or &#39;cols&#39; in title.shape):
+        title_by_subplot = {(row, col): title.rows[row].cols[col].native() for (row, col) in positioning}
+    else:
+        title = layout_pytree_node(title, wrap_leaf=True)
+        title_by_subplot = {pos: _title(title, i[0]) for pos, i in indices.items()}
+    log_dims = parse_dim_order(log_dims) or ()
+    color = layout_pytree_node(color, wrap_leaf=True)
+    color = layout_color(positioning, indices, color)
+    alpha = layout_pytree_node(alpha, wrap_leaf=True)
+    alpha = tree_map(lambda x: 1 if x is None else x, alpha)
+    err = layout_pytree_node(err, wrap_leaf=True)
+    if same_scale is True:
+        same_scale = &#39;_&#39;
+    elif same_scale is False or same_scale is None:
+        same_scale = &#39;&#39;
+    same_scale = parse_dim_order(same_scale)
+    if &#39;_&#39; in same_scale:
+        if any([f.values.dtype.kind == complex for l in positioning.values() for f in l]):
+            min_val = 0
+            max_val = max([float(abs(f.values).finite_max) for l in positioning.values() for f in l] or [0])
+        else:
+            fin_min = lambda t: float(math.map(lambda f: math.finite_min(f.values, shape), t, dims=object).finite_min)
+            fin_max = lambda t: float(math.map(lambda f: math.finite_max(f.values, shape), t, dims=object).finite_max)
+            min_val = min([fin_min(f) for l in positioning.values() for f in l] or [0])
+            max_val = max([fin_max(f) for l in positioning.values() for f in l] or [0])
+            if min_val != min_val:  # NaN
+                min_val = None
+            if max_val != max_val:  # NaN
+                max_val = None
+    else:
+        min_val = max_val = None
+    # --- Layout ---
+    subplots = {pos: _space(*fields, ignore_dims=animate, log_dims=log_dims, errs=[err[i] for i in indices[pos]]) for pos, fields in positioning.items()}
+    subplots = {pos: _insert_value_dim(space, pos, subplots, min_val, max_val) for pos, space in subplots.items()}
+    if same_scale:
+        shared_lim: Box = share_axes(*subplots.values(), axes=same_scale)
+        subplots = {pos: replace_bounds(lim, shared_lim) for pos, lim in subplots.items()}
+    # --- animate or plot ---
+    figures = []
+    for plot_idx in fig_shape.meshgrid():
+        figure, axes = plots.create_figure(size, nrows, ncols, subplots, log_dims, plt_params)
+        if animate:
+            def plot_frame(figure, frame: int):
+                for pos, fields in positioning.items():
+                    plots.set_title(title_by_subplot[pos], figure, axes[pos])
+                    plots.set_title(display_name(animate.item_names[0][frame]) if animate.item_names[0] else None, figure, None)
+                    for i, f in enumerate(fields):
+                        idx = indices[pos][i]
+                        f = f[{animate.name: frame}]
+                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[pos][i], alpha[idx], err[idx])
+                plots.finalize(figure)
+            anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat, interactive=True, time_axis=animate.name)
+            if is_jupyter():
+                plots.close(figure)
+            LAST_FIGURE[0] = anim
+            if fig_shape.volume == 1:
+                return anim
+            figures.append(anim)
+        else:  # non-animated plot
+            for pos, fields in positioning.items():
+                plots.set_title(title_by_subplot[pos], figure, axes[pos])
+                for i, f in enumerate(fields):
+                    idx = indices[pos][i]
+                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[pos][i], alpha[idx], err[idx])
+            plots.finalize(figure)
+            LAST_FIGURE[0] = figure
+            figures.append(figure)
+    return stack([layout(f) for f in figures], fig_shape) if fig_shape else figures[0]</code></pre>
+</details>
 <div class="desc"><p>Creates one or multiple figures and sub-figures and plots the given fields.</p>
 <p>To show the figures, use <code><a title="phi.vis.show" href="#phi.vis.show">show()</a></code>.</p>
 <p>The arguments <code>row_dims</code>, <code>col_dims</code>, <code>animate</code> and <code><a title="phi.vis.overlay" href="#phi.vis.overlay">overlay()</a></code> control how data is presented.
@@ -190,12 +499,48 @@ Currently, only single-figure plots are supported.</p>
 <span>def <span class="ident">plot_scalars</span></span>(<span>*args, **kwargs)</span>
 </code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def plot_scalars(*args, **kwargs):
+    from ._matplotlib import plot_scalars
+    return plot_scalars(*args, **kwargs)</code></pre>
+</details>
 <div class="desc"></div>
 </dd>
 <dt id="phi.vis.savefig"><code class="name flex">
 <span>def <span class="ident">savefig</span></span>(<span>path: str, figure=None, dpi=120.0, close=False, transparent=True)</span>
 </code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def write_image(path: str, figure=None, dpi=120., close=False, transparent=True):
+    &#34;&#34;&#34;
+    Save a figure to an image file.
+
+    Args:
+        figure: Matplotlib or Plotly figure or text.
+        path: File path.
+        dpi: Pixels per inch.
+        close: Whether to close the figure after saving it.
+        transparent: Whether to save the figure with transparent background.
+    &#34;&#34;&#34;
+    figure = figure or LAST_FIGURE[0]
+    if figure is None:
+        warnings.warn(&#34;No plot yet created with phi.vis; nothing to save.&#34;, RuntimeWarning)
+        return
+    assert figure is not None, &#34;No figure to save.&#34;
+    lib = get_plots_by_figure(figure)
+    path = os.path.expanduser(path)
+    directory = os.path.abspath(os.path.dirname(path))
+    os.path.isdir(directory) or os.makedirs(directory)
+    lib.save(figure, path, dpi, transparent)
+    if close:
+        close_(figure=figure)</code></pre>
+</details>
 <div class="desc"><p>Save a figure to an image file.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -215,6 +560,52 @@ Currently, only single-figure plots are supported.</p>
 <span>def <span class="ident">show</span></span>(<span>*fields: phi.field._field.Field | phiml.math._tensors.Tensor | phi.geom._geom.Geometry | list | tuple | dict,<br>lib: str | phi.vis._vis_base.PlottingLibrary = None,<br>row_dims: str | Sequence | set | ForwardRef('Shape') | Callable | None = None,<br>col_dims: str | Sequence | set | ForwardRef('Shape') | Callable | None = &lt;function batch&gt;,<br>animate: str | Sequence | set | ForwardRef('Shape') | Callable | None = None,<br>overlay: str | Sequence | set | ForwardRef('Shape') | Callable | None = 'overlay',<br>title: str | phiml.math._tensors.Tensor | list | tuple = None,<br>size=None,<br>same_scale: bool | phiml.math._shape.Shape | tuple | list | str = True,<br>log_dims: str | phiml.math._shape.Shape | tuple | list = '',<br>show_color_bar=True,<br>color: str | int | phiml.math._tensors.Tensor | list | tuple = None,<br>alpha: float | phiml.math._tensors.Tensor | list | tuple = 1.0,<br>err: float | phiml.math._tensors.Tensor | list | tuple = 0.0,<br>frame_time=100,<br>repeat=True,<br>plt_params: Dict = None,<br>max_subfigures=20)</span>
 </code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def show(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
+         lib: Union[str, PlottingLibrary] = None,
+         row_dims: DimFilter = None,
+         col_dims: DimFilter = batch,
+         animate: DimFilter = None,
+         overlay: DimFilter = &#39;overlay&#39;,
+         title: Union[str, Tensor, list, tuple] = None,
+         size=None,  # (12, 5),
+         same_scale: Union[bool, Shape, tuple, list, str] = True,
+         log_dims: Union[str, tuple, list, Shape] = &#39;&#39;,
+         show_color_bar=True,
+         color: Union[str, int, Tensor, list, tuple] = None,
+         alpha: Union[float, Tensor, list, tuple] = 1.,
+         err: Union[Tensor, tuple, list, float] = 0.,
+         frame_time=100,
+         repeat=True,
+         plt_params: Dict = None,
+         max_subfigures=20):
+    &#34;&#34;&#34;
+    Args:
+        See `plot()`.
+    &#34;&#34;&#34;
+    if not fields:  # only show, no plot
+        if lib is not None:
+            plots = get_plots(lib)
+        else:
+            if not LAST_FIGURE:
+                warnings.warn(&#34;No plot yet created with phi.vis; nothing to show.&#34;, RuntimeWarning)
+                return
+            plots = get_plots_by_figure(LAST_FIGURE[0])
+        return plots.show(plots.current_figure)
+    else:
+        kwargs = locals()
+        del kwargs[&#39;fields&#39;]
+        fig = plot(*fields, **kwargs)
+        plots = get_plots_by_figure(fig)
+        if isinstance(fig, Tensor):
+            for fig in fig:
+                plots.show(fig)
+        else:
+            return plots.show(fig)</code></pre>
+</details>
 <div class="desc"><h2 id="args">Args</h2>
 <p>See <code><a title="phi.vis.plot" href="#phi.vis.plot">plot()</a></code>.</p></div>
 </dd>
@@ -222,12 +613,43 @@ Currently, only single-figure plots are supported.</p>
 <span>def <span class="ident">show_hist</span></span>(<span>data: phiml.math._tensors.Tensor,<br>bins=(binsⁱ=20),<br>weights=1,<br>same_bins: str | Sequence | set | ForwardRef('Shape') | Callable | None = None)</span>
 </code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def show_hist(data: Tensor, bins=math.instance(bins=20), weights=1, same_bins: DimFilter = None):
+    hist, edges, center = math.histogram(data, bins, weights, same_bins)
+    show(PointCloud(center, hist))</code></pre>
+</details>
 <div class="desc"></div>
 </dd>
 <dt id="phi.vis.smooth"><code class="name flex">
 <span>def <span class="ident">smooth</span></span>(<span>curves: phiml.math._tensors.Tensor,<br>n: int,<br>ext: phiml.math.extrapolation.Extrapolation = &lt;phiml.math.extrapolation._SymmetricGradientExtrapolation object&gt;) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@map_c2b
+def smooth(curves: Tensor, n: int, ext: extrapolation.Extrapolation = extrapolation.SYMMETRIC_GRADIENT) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Applies a smoothing kernel to curves, all channels independently.
+
+    Args:
+        curves: `Tensor` containing at least one spatial dimension
+        n: Kernel size, i.e. number of values to average.
+
+    Returns:
+        Smoothed curves as `Tensor`
+    &#34;&#34;&#34;
+    assert isinstance(n, int), f&#34;n must be an int but got {n}&#34;
+    assert n &gt;= 1, f&#34;n must be at least 1 but got {n}&#34;
+    if n == 1:
+        return curves
+    kernel = ones(spatial(curves).with_sizes(n)) / n ** spatial(curves).rank
+    return convolve(curves, kernel, extrapolation=ext)</code></pre>
+</details>
 <div class="desc"><p>Applies a smoothing kernel to curves, all channels independently.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -243,6 +665,34 @@ Currently, only single-figure plots are supported.</p>
 <span>def <span class="ident">write_image</span></span>(<span>path: str, figure=None, dpi=120.0, close=False, transparent=True)</span>
 </code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def write_image(path: str, figure=None, dpi=120., close=False, transparent=True):
+    &#34;&#34;&#34;
+    Save a figure to an image file.
+
+    Args:
+        figure: Matplotlib or Plotly figure or text.
+        path: File path.
+        dpi: Pixels per inch.
+        close: Whether to close the figure after saving it.
+        transparent: Whether to save the figure with transparent background.
+    &#34;&#34;&#34;
+    figure = figure or LAST_FIGURE[0]
+    if figure is None:
+        warnings.warn(&#34;No plot yet created with phi.vis; nothing to save.&#34;, RuntimeWarning)
+        return
+    assert figure is not None, &#34;No figure to save.&#34;
+    lib = get_plots_by_figure(figure)
+    path = os.path.expanduser(path)
+    directory = os.path.abspath(os.path.dirname(path))
+    os.path.isdir(directory) or os.makedirs(directory)
+    lib.save(figure, path, dpi, transparent)
+    if close:
+        close_(figure=figure)</code></pre>
+</details>
 <div class="desc"><p>Save a figure to an image file.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -293,7 +743,7 @@ Currently, only single-figure plots are supported.</p>
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.3</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.5</a>.</p>
 </footer>
 </body>
 </html>

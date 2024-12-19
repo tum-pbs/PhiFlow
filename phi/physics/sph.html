@@ -3,19 +3,30 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
-<meta name="generator" content="pdoc3 0.11.3">
+<meta name="generator" content="pdoc3 0.11.5">
 <title>phi.physics.sph API documentation</title>
 <meta name="description" content="Tools for running Smoothed Particle Hydrodynamics (SPH) simulations …">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/sanitize.min.css" integrity="sha512-y1dtMcuvtTMJc1yPgEqF0ZjQbhnc/bFhyvIyVNb9Zk5mIGtqVaAB1Ttl28su8AvFMOY0EwRbAe+HCLqj6W7/KA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/10up-sanitize.css/13.0.0/typography.min.css" integrity="sha512-Y1DYSb995BAfxobCkKepB1BqJJTPrOp3zPL74AWFugHHmmdcvO+C48WLrUOlhGMc0QG7AE3f7gmvvcrmX2fDoA==" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css" crossorigin>
-<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
+<style>:root{--highlight-color:#fe9}.flex{display:flex !important}body{line-height:1.5em}#content{padding:20px}#sidebar{padding:1.5em;overflow:hidden}#sidebar > *:last-child{margin-bottom:2cm}.http-server-breadcrumbs{font-size:130%;margin:0 0 15px 0}#footer{font-size:.75em;padding:5px 30px;border-top:1px solid #ddd;text-align:right}#footer p{margin:0 0 0 1em;display:inline-block}#footer p:last-child{margin-right:30px}h1,h2,h3,h4,h5{font-weight:300}h1{font-size:2.5em;line-height:1.1em}h2{font-size:1.75em;margin:2em 0 .50em 0}h3{font-size:1.4em;margin:1.6em 0 .7em 0}h4{margin:0;font-size:105%}h1:target,h2:target,h3:target,h4:target,h5:target,h6:target{background:var(--highlight-color);padding:.2em 0}a{color:#058;text-decoration:none;transition:color .2s ease-in-out}a:visited{color:#503}a:hover{color:#b62}.title code{font-weight:bold}h2[id^="header-"]{margin-top:2em}.ident{color:#900;font-weight:bold}pre code{font-size:.8em;line-height:1.4em;padding:1em;display:block}code{background:#f3f3f3;font-family:"DejaVu Sans Mono",monospace;padding:1px 4px;overflow-wrap:break-word}h1 code{background:transparent}pre{border-top:1px solid #ccc;border-bottom:1px solid #ccc;margin:1em 0}#http-server-module-list{display:flex;flex-flow:column}#http-server-module-list div{display:flex}#http-server-module-list dt{min-width:10%}#http-server-module-list p{margin-top:0}.toc ul,#index{list-style-type:none;margin:0;padding:0}#index code{background:transparent}#index h3{border-bottom:1px solid #ddd}#index ul{padding:0}#index h4{margin-top:.6em;font-weight:bold}@media (min-width:200ex){#index .two-column{column-count:2}}@media (min-width:300ex){#index .two-column{column-count:3}}dl{margin-bottom:2em}dl dl:last-child{margin-bottom:4em}dd{margin:0 0 1em 3em}#header-classes + dl > dd{margin-bottom:3em}dd dd{margin-left:2em}dd p{margin:10px 0}.name{background:#eee;font-size:.85em;padding:5px 10px;display:inline-block;min-width:40%}.name:hover{background:#e0e0e0}dt:target .name{background:var(--highlight-color)}.name > span:first-child{white-space:nowrap}.name.class > span:nth-child(2){margin-left:.4em}.inherited{color:#999;border-left:5px solid #eee;padding-left:1em}.inheritance em{font-style:normal;font-weight:bold}.desc h2{font-weight:400;font-size:1.25em}.desc h3{font-size:1em}.desc dt code{background:inherit}.source > summary,.git-link-div{color:#666;text-align:right;font-weight:400;font-size:.8em;text-transform:uppercase}.source summary > *{white-space:nowrap;cursor:pointer}.git-link{color:inherit;margin-left:1em}.source pre{max-height:500px;overflow:auto;margin:0}.source pre code{font-size:12px;overflow:visible;min-width:max-content}.hlist{list-style:none}.hlist li{display:inline}.hlist li:after{content:',\2002'}.hlist li:last-child:after{content:none}.hlist .hlist{display:inline;padding-left:1em}img{max-width:100%}td{padding:0 .5em}.admonition{padding:.1em 1em;margin:1em 0}.admonition-title{font-weight:bold}.admonition.note,.admonition.info,.admonition.important{background:#aef}.admonition.todo,.admonition.versionadded,.admonition.tip,.admonition.hint{background:#dfd}.admonition.warning,.admonition.versionchanged,.admonition.deprecated{background:#fd4}.admonition.error,.admonition.danger,.admonition.caution{background:lightpink}</style>
 <style media="screen and (min-width: 700px)">@media screen and (min-width:700px){#sidebar{width:30%;height:100vh;overflow:auto;position:sticky;top:0}#content{width:70%;max-width:100ch;padding:3em 4em;border-left:1px solid #ddd}pre code{font-size:1em}.name{font-size:1em}main{display:flex;flex-direction:row-reverse;justify-content:flex-end}.toc ul ul,#index ul ul{padding-left:1em}.toc > ul > li{margin-top:.5em}}</style>
 <style media="print">@media print{#sidebar h1{page-break-before:always}.source{display:none}}@media print{*{background:transparent !important;color:#000 !important;box-shadow:none !important;text-shadow:none !important}a[href]:after{content:" (" attr(href) ")";font-size:90%}a[href][title]:after{content:none}abbr[title]:after{content:" (" attr(title) ")"}.ir a:after,a[href^="javascript:"]:after,a[href^="#"]:after{content:""}pre,blockquote{border:1px solid #999;page-break-inside:avoid}thead{display:table-header-group}tr,img{page-break-inside:avoid}img{max-width:100% !important}@page{margin:0.5cm}p,h2,h3{orphans:3;widows:3}h1,h2,h3,h4,h5,h6{page-break-after:avoid}}</style>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" integrity="sha512-D9gUyxqja7hBtkWpPWGt9wfbfaMGVt9gnyCvYa+jojwwPHLCzUm5i8rpk7vD7wNee9bA35eYIjobYPaQuKS1MQ==" crossorigin></script>
 <script>window.addEventListener('DOMContentLoaded', () => {
 hljs.configure({languages: ['bash', 'css', 'diff', 'graphql', 'ini', 'javascript', 'json', 'plaintext', 'python', 'python-repl', 'rust', 'shell', 'sql', 'typescript', 'xml', 'yaml']});
 hljs.highlightAll();
+/* Collapse source docstrings */
+setTimeout(() => {
+[...document.querySelectorAll('.hljs.language-python > .hljs-string')]
+.filter(el => el.innerHTML.length > 200 && ['"""', "'''"].includes(el.innerHTML.substring(0, 3)))
+.forEach(el => {
+let d = document.createElement('details');
+d.classList.add('hljs-string');
+d.innerHTML = '<summary>"""</summary>' + el.innerHTML.substring(3);
+el.replaceWith(d);
+});
+}, 100);
 })</script>
 </head>
 <body>
@@ -43,6 +54,74 @@ hljs.highlightAll();
 <span>def <span class="ident">evaluate_kernel</span></span>(<span>delta,<br>distance,<br>h,<br>spatial_rank: int,<br>kernel: str,<br>types: Sequence[str] = ('kernel',)) ‑> Dict[str, phiml.math._tensors.Tensor]</span>
 </code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def evaluate_kernel(delta, distance, h, spatial_rank: int, kernel: str, types: Sequence[str] = (&#39;kernel&#39;,)) -&gt; Dict[str, Tensor]:
+    &#34;&#34;&#34;
+    Compute the SPH kernel value or a derivative of the kernel function.
+
+    For kernels that only depends on the squared distance, such as `poly6`, the `distance` variable is not used.
+    Instead, the squared distance is derived from `delta`.
+
+    Args:
+        delta: Vectors to neighbors, i.e. position differences.
+        distance: Scalar distance to neighbors.
+        h: Support radius / smoothing length / maximum distance / cutoff.
+        spatial_rank: Dimensionality of the simulation.
+        kernel: Which kernel to use, one of `&#39;quintic-spline&#39;`, `&#39;wendland-c2&#39;`, `&#39;poly6&#39;`.
+        types: Ordered `tuple` of derivatives to compute, `&#39;kernel&#39;`, `&#39;grad&#39;`, `&#39;laplace&#39;`.
+
+    Returns:
+        `phi.math.Tensor`
+    &#34;&#34;&#34;
+    # SPH kernels must be divided by h^d for the kernel and h^(d+1) for the gradient
+    assert all(d in [&#39;kernel&#39;, &#39;grad&#39;, &#39;laplace&#39;] for d in types), f&#34;Only derivative=0 and 1 are supported but got {types}&#34;
+    d = spatial_rank
+    result = {}
+    # --- Quintic spline ---
+    if kernel == &#39;quintic-spline&#39;:
+        const = 3**5 / 40 if d == 1 else 3**7 * 7 / 478 / PI if d == 2 else 3**7 / 40 / PI
+        q = distance / h
+        if &#39;kernel&#39; in types:
+            k = clip(1-q)**5 - 6 * clip(2/3-q)**5 + 15 * clip(1/3-q)**5
+            result[&#39;kernel&#39;] = const / h**d * k
+        if &#39;grad&#39; in types:
+            dk = -5 * clip(1-q)**4 + 30 * clip(2/3-q)**4 - 75 * clip(1/3-q)**4
+            result[&#39;grad&#39;] = const / h**(d+1) * dk * math.safe_div(delta, distance)
+        if &#39;laplace&#39; in types:
+            d2k = 20 * clip(1-q)**3 - 120 * clip(2/3-q)**3 + 300 * clip(1/3-q)**3
+            result[&#39;laplace&#39;] = const / h**(d+2) * d2k
+    # --- Wendland C2 ---
+    elif kernel == &#39;wendland-c2&#39;:
+        const = 3 / 2 if d == 1 else 7 / PI if d == 2 else 21 / 2 / PI
+        q = distance / h
+        if &#39;kernel&#39; in types:
+            k = (1-q) ** 4 * (4*q + 1)
+            result[&#39;kernel&#39;] = const / h**d * k
+        if &#39;grad&#39; in types:
+            dk = -20 * q * (1-q)**3
+            result[&#39;grad&#39;] = const / h**(d+1) * dk * math.safe_div(delta, distance)
+        if &#39;laplace&#39; in types:
+            d2k = 20 * (4*q - 1) * (1-q)**2
+            result[&#39;laplace&#39;] = const / h**(d+2) * d2k
+    # --- poly6 from Müller et al., Particle-based fluid simulation for interactive applications ---
+    elif kernel == &#39;poly6&#39;:
+        const = 35 / 32 if d == 1 else 4 / PI if d == 2 else 315 / 64 / PI
+        norm = const / h**(d+6)
+        r2 = math.vec_squared(delta)
+        diff = h**2 - r2
+        if &#39;kernel&#39; in types:
+            result[&#39;kernel&#39;] = norm * diff ** 3
+        if &#39;grad&#39; in types:
+            result[&#39;grad&#39;] = -6 * norm * diff**2 * delta
+        if &#39;laplace&#39; in types:
+            result[&#39;laplace&#39;] = -6 * norm * (5*r2**2 - 6*r2*h**2 + h**4)
+    else:
+        raise ValueError(kernel)
+    return {t: result[t] for t in types}  # re-order output to match input</code></pre>
+</details>
 <div class="desc"><p>Compute the SPH kernel value or a derivative of the kernel function.</p>
 <p>For kernels that only depends on the squared distance, such as <code>poly6</code>, the <code>distance</code> variable is not used.
 Instead, the squared distance is derived from <code>delta</code>.</p>
@@ -68,6 +147,24 @@ Instead, the squared distance is derived from <code>delta</code>.</p>
 <span>def <span class="ident">expected_neighbors</span></span>(<span>volume: phiml.math._tensors.Tensor, support_radius, spatial_rank: int)</span>
 </code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def expected_neighbors(volume: Tensor, support_radius, spatial_rank: int):
+    &#34;&#34;&#34;
+    Given the average element volume and support radius, returns the average number of neighbors for a region filled with particles.
+
+    Args:
+        volume: Average particle volume.
+        support_radius: Other elements are considered neighbors if their center lies within a sphere of this radius around a particle.
+        spatial_rank: Spatial rank of the simulation.
+
+    Returns:
+        Number of expected neighbors.
+    &#34;&#34;&#34;
+    return Sphere.volume_from_radius(support_radius, spatial_rank) / volume</code></pre>
+</details>
 <div class="desc"><p>Given the average element volume and support radius, returns the average number of neighbors for a region filled with particles.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -85,6 +182,57 @@ Instead, the squared distance is derived from <code>delta</code>.</p>
 <span>def <span class="ident">neighbor_graph</span></span>(<span>nodes: phi.geom._geom.Geometry,<br>kernel: str,<br>boundary: Dict[str, Dict[str, slice]] = None,<br>desired_neighbors: float = None,<br>compute: str = 'kernel,grad',<br>format='sparse',<br>search_method='auto',<br>domain: phi.geom._box.Box = None,<br>periodic: bool | phiml.math._tensors.Tensor = False) ‑> phi.geom._graph.Graph</span>
 </code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def neighbor_graph(nodes: Geometry,
+                   kernel: str,
+                   boundary: Dict[str, Dict[str, slice]] = None,
+                   desired_neighbors: float = None,
+                   compute: str = &#39;kernel,grad&#39;,
+                   format=&#39;sparse&#39;,
+                   search_method=&#39;auto&#39;,
+                   domain: Box = None,
+                   periodic: Union[bool, Tensor] = False) -&gt; Graph:
+    &#34;&#34;&#34;
+    Build a `phi.geom.Graph` based on proximity of `nodes` and evaluates the kernel function.
+
+    Args:
+        nodes: Particles including obstacle particles as `Geometry` collection.
+        kernel: Kernel function to evaluate.
+        boundary: Marks ranges of nodes as boundary particles, see `phi.geom.Graph`.
+        desired_neighbors: Target average number of neighbors per particle. This determines the support radius (cutoff) used.
+        compute: Comma-separated `str` of kernel properties to compute on the graph edges. Can contain `&#39;kernel&#39;`, `&#39;grad&#39;`, `&#39;laplace&#39;`.
+            If no kernel property is given, the edge values will be set to the inverse distance between nodes instead.
+        format: Sparse format in which store neighborhood information. Allowed strings are `&#39;dense&#39;, `&#39;csr&#39;`, `&#39;coo&#39;`, `&#39;csc&#39;`.
+        search_method: Neighborhood search method, see `phi.math.pairwise_differences`.
+        domain: (Optional) Specify a fixed domain size in which the centers of all nodes must be located.
+            This is required for periodic domains.
+        periodic: Which domain boundaries should be treated as periodic, i.e. particles on opposite sides are neighbors.
+            Can be specified as a `bool` for all sides or as a vector-valued boolean `Tensor` to specify periodicity by direction.
+
+    Returns:
+        `phi.geom.Graph` with edge values storing the kernel values, i.e. the interaction strength between particles.
+    &#34;&#34;&#34;
+    assert isinstance(nodes, Geometry), f&#34;nodes must be a Geometry instance but got {type(nodes)}&#34;
+    boundary = {} if boundary is None else boundary
+    desired_neighbors = _DEFAULT_DESIRED_NEIGHBORS[kernel] if desired_neighbors is None else desired_neighbors
+    # --- neighbor search ---
+    domain = (domain.lower, domain.upper) if domain is not None else None
+    support = _get_support_radius(nodes.volume, desired_neighbors, nodes.spatial_rank)
+    deltas = math.pairwise_differences(nodes.center, max_distance=support, format=format, method=search_method, domain=domain, periodic=periodic, avg_neighbors=desired_neighbors)
+    distances = math.vec_length(deltas, eps=1e-5)
+    # --- evaluate kernel and derivatives ---
+    compute = [s.strip() for s in compute.split(&#39;,&#39;) if s.strip()]
+    if compute:
+        kernel = evaluate_kernel(deltas, distances, support, nodes.spatial_rank, kernel, types=compute)
+        kernel = [v if &#39;vector&#39; in v.shape else expand(v, channel(vector=k)) for k, v in kernel.items()]
+        edges = concat(kernel, &#39;vector&#39;)
+    else:
+        edges = math.safe_div(1, distances)
+    return Graph(nodes, edges, boundary, deltas=deltas, distances=distances, bounding_distance=support)</code></pre>
+</details>
 <div class="desc"><p>Build a <code><a title="phi.geom.Graph" href="../geom/index.html#phi.geom.Graph">Graph</a></code> based on proximity of <code>nodes</code> and evaluates the kernel function.</p>
 <h2 id="args">Args</h2>
 <dl>
@@ -139,7 +287,7 @@ Can be specified as a <code>bool</code> for all sides or as a vector-valued bool
 </nav>
 </main>
 <footer id="footer">
-<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.3</a>.</p>
+<p>Generated by <a href="https://pdoc3.github.io/pdoc" title="pdoc: Python API documentation generator"><cite>pdoc</cite> 0.11.5</a>.</p>
 </footer>
 </body>
 </html>
