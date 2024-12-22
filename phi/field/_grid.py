@@ -158,7 +158,7 @@ def StaggeredGrid(values: Any = 0.,
             values = sample(values, elements, at='face', boundary=extrapolation, dot_face_normal=elements)
         elif callable(values):
             values = sample_function(values, elements, 'face', extrapolation)
-            if elements.shape.shape.rank > 1:  # Different number of X and Y faces
+            if elements.shape.is_non_uniform:  # Different number of X and Y faces
                 assert isinstance(values, TensorStack), f"values function must return a staggered Tensor but returned {type(values)}"
             assert '~vector' in values.shape
             if 'vector' in values.shape:
@@ -203,7 +203,7 @@ def resolution_from_staggered_tensor(values: Tensor, extrapolation: Extrapolatio
     x_shape = values.shape.after_gather({'vector': any_dim, '~vector': any_dim})
     ext_lower, ext_upper = extrapolation.valid_outer_faces(any_dim)
     delta = int(ext_lower) + int(ext_upper) - 1
-    resolution = x_shape.spatial._replace_single_size(any_dim, x_shape.get_size(any_dim) - delta)
+    resolution = x_shape.spatial.with_dim_size(any_dim, x_shape.get_size(any_dim) - delta)
     return resolution
 
 
