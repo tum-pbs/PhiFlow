@@ -174,7 +174,7 @@ class Field(metaclass=_FieldType):
             assert order is not None, f"order must be specified for non-uniform Field values"
             order = self.values.shape.only(order, reorder=True)
             stack_dims = order.non_uniform_shape
-            inner_order = order.without(stack_dims)
+            inner_order = order.without(stack_dims).names
             return [v.numpy(inner_order) for v in unstack(self.values, stack_dims)]
 
     def uniform_values(self):
@@ -206,7 +206,7 @@ class Field(metaclass=_FieldType):
         if self.is_grid and '~vector' in self.values.shape:
             return batch(self.geometry) & self.resolution & non_dual(self.values).without(self.resolution) & self.geometry.shape['vector']
         set_shape = self.geometry.sets[self.sampled_at]
-        return batch(self.geometry) & (channel(self.geometry) - 'vector') & set_shape & self.values
+        return batch(self.geometry) & (channel(self.geometry) - 'vector') & set_shape & self.values.shape
 
     @property
     def resolution(self):

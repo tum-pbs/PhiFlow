@@ -3,6 +3,7 @@ from typing import Union
 import numpy as np
 
 from phi import geom, math
+from phiml.math._shape import from_dict
 from ._field import Field
 from ._grid import unstack_staggered_tensor, CenteredGrid, StaggeredGrid
 from ._field_math import stack
@@ -55,7 +56,7 @@ def write_single_field(field: Field, file: str):
         field_type = 'StaggeredGrid' if field.is_staggered else 'CenteredGrid'
         np.savez_compressed(file,
                             dim_names=dim_names,
-                            dim_types=field.shape.types,
+                            dim_types=field.shape.dim_types,
                             dim_item_names=np.asarray(field.shape.item_names, dtype=object),
                             field_type=field_type,
                             lower=lower,
@@ -103,7 +104,8 @@ def read_single_field(file: str, convert_to_backend=True) -> Field:
         raise NotImplementedError(f"{ftype} not implemented")
     data_arr = stored['data']
     dim_item_names = stored.get('dim_item_names', (None,) * len(data_arr.shape))
-    data = tensor(data_arr, Shape(data_arr.shape, tuple(stored['dim_names']), tuple(stored['dim_types']), tuple(dim_item_names)), convert=convert_to_backend)
+    shape_spec = {'names': tuple(stored['dim_names']), 'sizes': data_arr.shape, 'types': tuple(stored['dim_types']), 'item_names': tuple(dim_item_names)}
+    data = tensor(data_arr, from_dict(shape_spec), convert=convert_to_backend)
     bounds_item_names = stored.get('bounds_item_names', None)
     if bounds_item_names is None or bounds_item_names.shape == ():  # None or empty array
         bounds_item_names = spatial(data).names
