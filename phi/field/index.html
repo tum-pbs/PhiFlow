@@ -833,7 +833,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fe3745509a0></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fedc4e3c9a0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4083,7 +4083,7 @@ class Field(metaclass=_FieldType):
         if self.is_grid and &#39;~vector&#39; in self.values.shape:
             return batch(self.geometry) &amp; self.resolution &amp; non_dual(self.values).without(self.resolution) &amp; self.geometry.shape[&#39;vector&#39;]
         set_shape = self.geometry.sets[self.sampled_at]
-        return batch(self.geometry) &amp; (channel(self.geometry) - &#39;vector&#39;) &amp; set_shape &amp; self.values
+        return batch(self.geometry) &amp; (channel(self.geometry) - &#39;vector&#39;) &amp; set_shape &amp; self.values.shape
 
     @property
     def resolution(self):
@@ -5149,7 +5149,7 @@ def shape(self) -&gt; Shape:
     if self.is_grid and &#39;~vector&#39; in self.values.shape:
         return batch(self.geometry) &amp; self.resolution &amp; non_dual(self.values).without(self.resolution) &amp; self.geometry.shape[&#39;vector&#39;]
     set_shape = self.geometry.sets[self.sampled_at]
-    return batch(self.geometry) &amp; (channel(self.geometry) - &#39;vector&#39;) &amp; set_shape &amp; self.values</code></pre>
+    return batch(self.geometry) &amp; (channel(self.geometry) - &#39;vector&#39;) &amp; set_shape &amp; self.values.shape</code></pre>
 </details>
 <div class="desc"><p>Returns a shape with the following properties</p>
 <ul>
@@ -6155,7 +6155,7 @@ class Field(metaclass=_FieldType):
         if self.is_grid and &#39;~vector&#39; in self.values.shape:
             return batch(self.geometry) &amp; self.resolution &amp; non_dual(self.values).without(self.resolution) &amp; self.geometry.shape[&#39;vector&#39;]
         set_shape = self.geometry.sets[self.sampled_at]
-        return batch(self.geometry) &amp; (channel(self.geometry) - &#39;vector&#39;) &amp; set_shape &amp; self.values
+        return batch(self.geometry) &amp; (channel(self.geometry) - &#39;vector&#39;) &amp; set_shape &amp; self.values.shape
 
     @property
     def resolution(self):
@@ -7221,7 +7221,7 @@ def shape(self) -&gt; Shape:
     if self.is_grid and &#39;~vector&#39; in self.values.shape:
         return batch(self.geometry) &amp; self.resolution &amp; non_dual(self.values).without(self.resolution) &amp; self.geometry.shape[&#39;vector&#39;]
     set_shape = self.geometry.sets[self.sampled_at]
-    return batch(self.geometry) &amp; (channel(self.geometry) - &#39;vector&#39;) &amp; set_shape &amp; self.values</code></pre>
+    return batch(self.geometry) &amp; (channel(self.geometry) - &#39;vector&#39;) &amp; set_shape &amp; self.values.shape</code></pre>
 </details>
 <div class="desc"><p>Returns a shape with the following properties</p>
 <ul>
@@ -8226,7 +8226,7 @@ class Field(metaclass=_FieldType):
         if self.is_grid and &#39;~vector&#39; in self.values.shape:
             return batch(self.geometry) &amp; self.resolution &amp; non_dual(self.values).without(self.resolution) &amp; self.geometry.shape[&#39;vector&#39;]
         set_shape = self.geometry.sets[self.sampled_at]
-        return batch(self.geometry) &amp; (channel(self.geometry) - &#39;vector&#39;) &amp; set_shape &amp; self.values
+        return batch(self.geometry) &amp; (channel(self.geometry) - &#39;vector&#39;) &amp; set_shape &amp; self.values.shape
 
     @property
     def resolution(self):
@@ -9292,7 +9292,7 @@ def shape(self) -&gt; Shape:
     if self.is_grid and &#39;~vector&#39; in self.values.shape:
         return batch(self.geometry) &amp; self.resolution &amp; non_dual(self.values).without(self.resolution) &amp; self.geometry.shape[&#39;vector&#39;]
     set_shape = self.geometry.sets[self.sampled_at]
-    return batch(self.geometry) &amp; (channel(self.geometry) - &#39;vector&#39;) &amp; set_shape &amp; self.values</code></pre>
+    return batch(self.geometry) &amp; (channel(self.geometry) - &#39;vector&#39;) &amp; set_shape &amp; self.values.shape</code></pre>
 </details>
 <div class="desc"><p>Returns a shape with the following properties</p>
 <ul>
