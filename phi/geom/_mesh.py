@@ -107,6 +107,9 @@ class Mesh(Geometry):
             'boundary_slices': boundary_slices,
         }
 
+    def _build_faces(self):
+        return build_faces(self.vertices.center, self.elements, self.boundaries, self.element_rank, self.periodic, self._vertex_mean, self.face_format)
+
     @property
     def face_shape(self) -> Shape:
         return instance(self.elements) & dual
@@ -149,6 +152,8 @@ class Mesh(Geometry):
         return {self.face_shape.dual.name: slice(0, instance(self).volume)}
 
     def pad_boundary(self, value: Tensor, widths: Dict[str, Dict[str, slice]] = None, mode: Extrapolation or Tensor or Number = 0, **kwargs) -> Tensor:
+        if isinstance(widths, dict) and len(widths) == 0:
+            return value
         mode = as_extrapolation(mode)
         if self.face_shape.dual.name not in value.shape:
             value = rename_dims(value, instance, self.face_shape.dual)
