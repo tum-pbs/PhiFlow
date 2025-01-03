@@ -551,13 +551,30 @@ def load_stl(file: str, face_dim=instance('faces')) -> Mesh:
     Returns:
         `Mesh` with `spatial_rank=3` and `element_rank=2`.
     """
-    import stl
-    model = stl.mesh.Mesh.from_file(file)
-    points = np.reshape(model.points, (-1, 3))
-    vertices, indices = np.unique(points, axis=0, return_inverse=True)
-    indices = np.reshape(indices, (-1, 3))
-    mesh = mesh_from_numpy(vertices, indices, element_rank=2, cell_dim=face_dim)
-    return mesh
+    import trimesh
+    mesh = trimesh.load(file)
+    if isinstance(mesh, trimesh.Scene):  # STL contains multiple parts -> merge
+        vertices = []
+        v_count = 0
+        faces = []
+        for geometry in mesh.geometry.values():
+            assert isinstance(geometry, trimesh.Trimesh)
+            vertices.append(geometry.vertices)
+            faces.append(geometry.faces + v_count)
+            v_count += geometry.vertices.shape[0]
+        vertices = np.concatenate(vertices)
+        faces = np.concatenate(faces)
+    else:
+        assert isinstance(mesh, trimesh.Trimesh), f"Unexpected content of STL: {mesh}"
+        vertices, faces = mesh.vertices, mesh.faces
+    return mesh_from_numpy(vertices, faces, None, 2, None, face_dim)
+    # import stl  # this only loads the first part of multi-part STL files
+    # model = stl.mesh.Mesh.from_file(file, calculate_normals=False, )
+    # points = np.reshape(model.points, (-1, 3))
+    # vertices, indices = np.unique(points, axis=0, return_inverse=True)
+    # indices = np.reshape(indices, (-1, 3))
+    # mesh = mesh_from_numpy(vertices, indices, element_rank=2, cell_dim=face_dim)
+    # return mesh
 
 
 def mesh_from_numpy(points: Sequence[Sequence],
