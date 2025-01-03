@@ -246,6 +246,7 @@ class Mesh(Geometry):
 
     @cached_property
     def element_connectivity(self) -> Tensor:
+        """Neighbor element connectivity, excluding diagonal."""
         if self.element_rank == self.spatial_rank:
             if is_sparse(self.face_areas):
                 return tensor_like(self.face_areas, True)
@@ -254,6 +255,8 @@ class Mesh(Geometry):
         else:  # fallback with no boundaries
             coo = to_format(self.elements, 'coo').numpy()
             connected_elements = coo @ coo.T
+            connected_elements.setdiag(0)
+            connected_elements.eliminate_zeros()
             connected_elements.data = np.ones_like(connected_elements.data)
             element_connectivity = wrap(connected_elements, instance(self.elements), instance(self.elements).as_dual())
             return element_connectivity
