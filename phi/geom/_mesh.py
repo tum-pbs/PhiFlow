@@ -11,7 +11,7 @@ from phiml import math
 from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims, unstack, tensor, si2d, non_dual, nonzero, stored_indices, stored_values, scatter, \
     find_closest, sqrt, where, vec_normalize, argmax, broadcast, zeros, EMPTY_SHAPE, meshgrid, mean, reshaped_numpy, range_tensor, convolve, \
     assert_close, shift, pad, extrapolation, sum as sum_, dim_mask, math, Tensor, Shape, channel, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, \
-    stack, vec_length, tensor_like, pairwise_distances, concat, Extrapolation, dsum, reshaped_tensor, dmean
+    stack, tensor_like, pairwise_distances, concat, Extrapolation, dsum, reshaped_tensor, dmean
 from phiml.dataclasses import getitem, replace
 from phiml.math._sparse import CompactSparseTensor
 from phiml.math.extrapolation import as_extrapolation, PERIODIC
@@ -19,7 +19,7 @@ from phiml.math.magic import slicing_dict
 
 from ._geom import Geometry, Point, NoGeometry
 from ._box import Box, BaseBox, bounding_box
-from ._functions import plane_sgn_dist, cross
+from ._functions import plane_sgn_dist, cross, vec_length
 from ._graph import Graph, graph
 from ._transform import scale
 
