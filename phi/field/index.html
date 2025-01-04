@@ -833,7 +833,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fb9c1408360></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f79f81b82c0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -2006,7 +2006,10 @@ If both are <code>Fields</code> but have different points, <code>f1</code> takes
     Returns:
         `phi.Tensor`
     &#34;&#34;&#34;
-    result = math.mean(field.values, dim=dim)
+    if field.is_grid:
+        result = math.mean(field.values, dim=dim)
+    else:
+        result = math.mean(field.values, dim=dim, weight=field.geometry.volume)
     if (instance(field.geometry) &amp; spatial(field.geometry)) in result.shape:
         return field.with_values(result)
     return result</code></pre>
