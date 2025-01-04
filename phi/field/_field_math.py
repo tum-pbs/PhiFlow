@@ -762,7 +762,10 @@ def mean(field: Field, dim=lambda s: s.non_channel.non_batch) -> Tensor:
     Returns:
         `phi.Tensor`
     """
-    result = math.mean(field.values, dim=dim)
+    if field.is_grid:
+        result = math.mean(field.values, dim=dim)
+    else:
+        result = math.mean(field.values, dim=dim, weight=field.geometry.volume)
     if (instance(field.geometry) & spatial(field.geometry)) in result.shape:
         return field.with_values(result)
     return result
