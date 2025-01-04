@@ -1112,13 +1112,30 @@ def load_stl(file: str, face_dim=instance(&#39;faces&#39;)) -&gt; Mesh:
     Returns:
         `Mesh` with `spatial_rank=3` and `element_rank=2`.
     &#34;&#34;&#34;
-    import stl
-    model = stl.mesh.Mesh.from_file(file)
-    points = np.reshape(model.points, (-1, 3))
-    vertices, indices = np.unique(points, axis=0, return_inverse=True)
-    indices = np.reshape(indices, (-1, 3))
-    mesh = mesh_from_numpy(vertices, indices, element_rank=2, cell_dim=face_dim)
-    return mesh</code></pre>
+    import trimesh
+    mesh = trimesh.load(file)
+    if isinstance(mesh, trimesh.Scene):  # STL contains multiple parts -&gt; merge
+        vertices = []
+        v_count = 0
+        faces = []
+        for geometry in mesh.geometry.values():
+            assert isinstance(geometry, trimesh.Trimesh)
+            vertices.append(geometry.vertices)
+            faces.append(geometry.faces + v_count)
+            v_count += geometry.vertices.shape[0]
+        vertices = np.concatenate(vertices)
+        faces = np.concatenate(faces)
+    else:
+        assert isinstance(mesh, trimesh.Trimesh), f&#34;Unexpected content of STL: {mesh}&#34;
+        vertices, faces = mesh.vertices, mesh.faces
+    return mesh_from_numpy(vertices, faces, None, 2, None, face_dim)
+    # import stl  # this only loads the first part of multi-part STL files
+    # model = stl.mesh.Mesh.from_file(file, calculate_normals=False, )
+    # points = np.reshape(model.points, (-1, 3))
+    # vertices, indices = np.unique(points, axis=0, return_inverse=True)
+    # indices = np.reshape(indices, (-1, 3))
+    # mesh = mesh_from_numpy(vertices, indices, element_rank=2, cell_dim=face_dim)
+    # return mesh</code></pre>
 </details>
 <div class="desc"><p>Load a triangle <code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code> from an STL file.</p>
 <h2 id="args">Args</h2>
@@ -7896,6 +7913,7 @@ class Mesh(Geometry):
 
     @cached_property
     def element_connectivity(self) -&gt; Tensor:
+        &#34;&#34;&#34;Neighbor element connectivity, excluding diagonal.&#34;&#34;&#34;
         if self.element_rank == self.spatial_rank:
             if is_sparse(self.face_areas):
                 return tensor_like(self.face_areas, True)
@@ -7904,6 +7922,8 @@ class Mesh(Geometry):
         else:  # fallback with no boundaries
             coo = to_format(self.elements, &#39;coo&#39;).numpy()
             connected_elements = coo @ coo.T
+            connected_elements.setdiag(0)
+            connected_elements.eliminate_zeros()
             connected_elements.data = np.ones_like(connected_elements.data)
             element_connectivity = wrap(connected_elements, instance(self.elements), instance(self.elements).as_dual())
             return element_connectivity
@@ -8315,6 +8335,7 @@ def distance_matrix(self):
 </summary>
 <pre><code class="python">@cached_property
 def element_connectivity(self) -&gt; Tensor:
+    &#34;&#34;&#34;Neighbor element connectivity, excluding diagonal.&#34;&#34;&#34;
     if self.element_rank == self.spatial_rank:
         if is_sparse(self.face_areas):
             return tensor_like(self.face_areas, True)
@@ -8323,11 +8344,13 @@ def element_connectivity(self) -&gt; Tensor:
     else:  # fallback with no boundaries
         coo = to_format(self.elements, &#39;coo&#39;).numpy()
         connected_elements = coo @ coo.T
+        connected_elements.setdiag(0)
+        connected_elements.eliminate_zeros()
         connected_elements.data = np.ones_like(connected_elements.data)
         element_connectivity = wrap(connected_elements, instance(self.elements), instance(self.elements).as_dual())
         return element_connectivity</code></pre>
 </details>
-<div class="desc"></div>
+<div class="desc"><p>Neighbor element connectivity, excluding diagonal.</p></div>
 </dd>
 <dt id="phi.geom.Mesh.face_areas"><code class="name">prop <span class="ident">face_areas</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -11188,6 +11211,17 @@ Returns:</p></div>
         else:
             raise NotImplementedError(f&#34;spatial_rank&gt;3 not supported, got {spatial_rank}&#34;)
 
+    @staticmethod
+    def area_from_radius(radius: Union[float, Tensor], spatial_rank: int):
+        if spatial_rank == 1:
+            return 0
+        elif spatial_rank == 2:
+            return 2*PI * radius
+        elif spatial_rank == 3:
+            return 4*PI * radius**2
+        else:
+            raise NotImplementedError(f&#34;spatial_rank&gt;3 not supported, got {spatial_rank}&#34;)
+
     def lies_inside(self, location):
         distance_squared = math.sum((location - self.center) ** 2, dim=&#39;vector&#39;)
         return math.any(distance_squared &lt;= self.radius ** 2, self.shape.instance)  # union for instance dimensions
@@ -11265,7 +11299,7 @@ Returns:</p></div>
 
     @property
     def face_areas(self) -&gt; Tensor:
-        return math.zeros(self.face_shape)
+        return expand(Sphere.area_from_radius(self._radius, self.spatial_rank), instance(self) + dual(shell=1))
 
     @property
     def face_normals(self) -&gt; Tensor:
@@ -11281,7 +11315,7 @@ Returns:</p></div>
 
     @property
     def face_shape(self) -&gt; Shape:
-        return self.shape.without(&#39;vector&#39;) &amp; dual(shell=0)
+        return self.shape.without(&#39;vector&#39;) &amp; dual(shell=1)
 
     @property
     def corners(self) -&gt; Tensor:
@@ -11306,6 +11340,27 @@ Can be left empty to specify dimensions via kwargs.</dd>
 </ul>
 <h3>Static methods</h3>
 <dl>
+<dt id="phi.geom.Sphere.area_from_radius"><code class="name flex">
+<span>def <span class="ident">area_from_radius</span></span>(<span>radius: phiml.math._tensors.Tensor | float, spatial_rank: int)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@staticmethod
+def area_from_radius(radius: Union[float, Tensor], spatial_rank: int):
+    if spatial_rank == 1:
+        return 0
+    elif spatial_rank == 2:
+        return 2*PI * radius
+    elif spatial_rank == 3:
+        return 4*PI * radius**2
+    else:
+        raise NotImplementedError(f&#34;spatial_rank&gt;3 not supported, got {spatial_rank}&#34;)</code></pre>
+</details>
+<div class="desc"></div>
+</dd>
 <dt id="phi.geom.Sphere.radius_from_volume"><code class="name flex">
 <span>def <span class="ident">radius_from_volume</span></span>(<span>volume: phiml.math._tensors.Tensor | float, spatial_rank: int)</span>
 </code></dt>
@@ -11421,7 +11476,7 @@ If the object has no corners, a size-0 tensor with the correct vector and instan
 </summary>
 <pre><code class="python">@property
 def face_areas(self) -&gt; Tensor:
-    return math.zeros(self.face_shape)</code></pre>
+    return expand(Sphere.area_from_radius(self._radius, self.spatial_rank), instance(self) + dual(shell=1))</code></pre>
 </details>
 <div class="desc"><p>Area of face connecting a pair of cells. Shape <code>(elements, ~)</code>.
 Returns 0 for unconnected cells.</p></div>
@@ -11462,7 +11517,7 @@ For meshes, The vectors point out of the primal cells and into the dual cells.</
 </summary>
 <pre><code class="python">@property
 def face_shape(self) -&gt; Shape:
-    return self.shape.without(&#39;vector&#39;) &amp; dual(shell=0)</code></pre>
+    return self.shape.without(&#39;vector&#39;) &amp; dual(shell=1)</code></pre>
 </details>
 <div class="desc"><h2 id="returns">Returns</h2>
 <p>Full Shape to identify each face of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>, including instance/spatial dimensions for the elements and dual dimensions listing the faces per element.
@@ -12922,6 +12977,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <ul class="">
 <li><code><a title="phi.geom.Sphere.approximate_closest_surface" href="#phi.geom.Sphere.approximate_closest_surface">approximate_closest_surface</a></code></li>
 <li><code><a title="phi.geom.Sphere.approximate_signed_distance" href="#phi.geom.Sphere.approximate_signed_distance">approximate_signed_distance</a></code></li>
+<li><code><a title="phi.geom.Sphere.area_from_radius" href="#phi.geom.Sphere.area_from_radius">area_from_radius</a></code></li>
 <li><code><a title="phi.geom.Sphere.at" href="#phi.geom.Sphere.at">at</a></code></li>
 <li><code><a title="phi.geom.Sphere.boundary_elements" href="#phi.geom.Sphere.boundary_elements">boundary_elements</a></code></li>
 <li><code><a title="phi.geom.Sphere.boundary_faces" href="#phi.geom.Sphere.boundary_faces">boundary_faces</a></code></li>
