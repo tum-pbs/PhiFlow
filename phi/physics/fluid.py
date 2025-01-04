@@ -163,6 +163,8 @@ def make_incompressible(velocity: Field,
         div = field.where(field.is_finite(div), div, 0)
     if not input_velocity.extrapolation.is_flexible and all_active:
         solve = solve.with_preprocessing(_balance_divergence, active)
+        if solve.rank_deficiency is None and not div.is_grid:
+            solve = copy_with(solve, rank_deficiency=1)
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
         solve = copy_with(solve, x0=Field(div.geometry, 0, pressure_extrapolation))  # convert=False
