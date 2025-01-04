@@ -93,6 +93,17 @@ class Sphere(Geometry):
         else:
             raise NotImplementedError(f"spatial_rank>3 not supported, got {spatial_rank}")
 
+    @staticmethod
+    def area_from_radius(radius: Union[float, Tensor], spatial_rank: int):
+        if spatial_rank == 1:
+            return 0
+        elif spatial_rank == 2:
+            return 2*PI * radius
+        elif spatial_rank == 3:
+            return 4*PI * radius**2
+        else:
+            raise NotImplementedError(f"spatial_rank>3 not supported, got {spatial_rank}")
+
     def lies_inside(self, location):
         distance_squared = math.sum((location - self.center) ** 2, dim='vector')
         return math.any(distance_squared <= self.radius ** 2, self.shape.instance)  # union for instance dimensions
@@ -170,7 +181,7 @@ class Sphere(Geometry):
 
     @property
     def face_areas(self) -> Tensor:
-        return math.zeros(self.face_shape)
+        return expand(Sphere.area_from_radius(self._radius, self.spatial_rank), instance(self) + dual(shell=1))
 
     @property
     def face_normals(self) -> Tensor:
@@ -186,7 +197,7 @@ class Sphere(Geometry):
 
     @property
     def face_shape(self) -> Shape:
-        return self.shape.without('vector') & dual(shell=0)
+        return self.shape.without('vector') & dual(shell=1)
 
     @property
     def corners(self) -> Tensor:
