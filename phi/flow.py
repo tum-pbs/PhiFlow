@@ -35,10 +35,10 @@ from phiml.math import (
     wrap, tensor, vec, zeros, zeros_like, ones, ones_like, linspace, rand, randn, arange, meshgrid,  # Tensor creation
     shape, spatial, channel, batch, instance, dual, primal,
     non_spatial, non_channel, non_batch, non_instance, non_dual, non_primal,  # Shape functions (magic)
-    unstack, stack, concat, tcat, expand, rename_dims, pack_dims, dpack, ipack, spack, cpack, unpack_dim, flatten, cast,  # Magic Ops
-    b2i, c2b, c2d, i2b, s2b, si2d, d2i, d2s, map_s2b, map_i2b, map_c2b, map_d2b, map_d2c, map_c2d,  # dim type conversions
-    dsum, isum, ssum, csum, mean, dmean, imean, smean, cmean, median, sign, round, ceil, floor, sqrt, exp, erf, log, log2, log10, sigmoid, soft_plus,
-    dprod, sprod, iprod, cprod, dmin, smin, imin, cmin, finite_min, dmax, smax, imax, cmax, finite_max,
+    unstack, stack, concat, tcat, dcat, icat, scat, ccat, expand, rename_dims, pack_dims, dpack, ipack, spack, cpack, unpack_dim, flatten, cast,  # Magic Ops
+    b2i, c2b, c2d, i2b, s2b, si2d, p2d, d2i, d2s, map_s2b, map_i2b, map_c2b, map_d2b, map_d2c, map_c2d,  # dim type conversions
+    dsum, psum, isum, ssum, csum, mean, dmean, pmean, imean, smean, cmean, median, sign, round, ceil, floor, sqrt, exp, erf, log, log2, log10, sigmoid, soft_plus,
+    dprod, pprod, sprod, iprod, cprod, dmin, pmin, smin, imin, cmin, finite_min, dmax, pmax, smax, imax, cmax, finite_max,
 
     sin, cos, tan, sinh, cosh, tanh, arcsin, arccos, arctan, arcsinh, arccosh, arctanh, log_gamma, factorial, incomplete_gamma,
     scatter, gather, where, nonzero,
