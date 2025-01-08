@@ -9,6 +9,7 @@ from phi.geom._geom import slice_off_constant_faces
 from phi.math import Shape, Tensor, channel, non_batch, expand, instance, spatial, wrap, dual, non_dual
 from phi.math.extrapolation import Extrapolation
 from phi.math.magic import BoundDim, slicing_dict
+from phiml.dataclasses import sliceable
 from phiml.math import batch, Solve, DimFilter, unstack, concat_shapes, pack_dims, shape
 from phiml.math.extrapolation import domain_slice
 
@@ -45,6 +46,7 @@ class _FieldType(type):
         return result
 
 
+@sliceable
 @dataclass(frozen=True)
 class Field(metaclass=_FieldType):
     """
@@ -232,7 +234,7 @@ class Field(metaclass=_FieldType):
 
         Fields whose spatial rank is determined only during sampling return an empty `Box`.
         """
-        if isinstance(self.geometry.bounds, BaseBox):
+        if hasattr(self.geometry, 'bounds') and isinstance(self.geometry.bounds, BaseBox):
             return self.geometry.bounds
         extent = self.geometry.bounding_half_extent().vector.as_dual('_extent')
         points = self.geometry.center + extent
@@ -681,9 +683,6 @@ class Field(metaclass=_FieldType):
                 del item['vector']
         values = self.values[item]
         return Field(geometry, values, boundary)
-
-    def __getattr__(self, name: str) -> BoundDim:
-        return BoundDim(self, name)
 
     def dimension(self, name: str):
         """
