@@ -152,8 +152,6 @@ class Mesh(Geometry):
         return {self.face_shape.dual.name: slice(0, instance(self).volume)}
 
     def pad_boundary(self, value: Tensor, widths: Dict[str, Dict[str, slice]] = None, mode: Extrapolation or Tensor or Number = 0, **kwargs) -> Tensor:
-        if isinstance(widths, dict) and len(widths) == 0:
-            return value
         mode = as_extrapolation(mode)
         if self.face_shape.dual.name not in value.shape:
             value = rename_dims(value, instance, self.face_shape.dual)
@@ -161,6 +159,8 @@ class Mesh(Geometry):
             raise NotImplementedError
         if widths is None:
             widths = self.boundary_faces
+        if isinstance(widths, dict) and len(widths) == 0:
+            return value
         if isinstance(widths, (tuple, list)):
             if len(widths) == 0 or isinstance(widths[0], dict):  # add sliced-off slices
                 pass
