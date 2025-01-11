@@ -145,8 +145,10 @@ class Mesh(Geometry):
 
     @property
     def all_boundary_faces(self) -> Dict[str, slice]:
+        if self.face_shape.dual.size == self.elements.shape.instance.size:
+            return {}
         return {self.face_shape.dual.name: slice(instance(self).volume, None)}
-    
+
     @property
     def interior_faces(self) -> Dict[str, slice]:
         return {self.face_shape.dual.name: slice(0, instance(self).volume)}
@@ -189,6 +191,9 @@ class Mesh(Geometry):
 
     @cached_property
     def boundary_connectivity(self) -> Tensor:
+        if not self.all_boundary_faces:
+            dual_dim = instance(self).as_dual().with_size(0)
+            return zeros(instance(self) & dual_dim)
         return self.connectivity[self.all_boundary_faces]
 
     @cached_property
@@ -220,6 +225,8 @@ class Mesh(Geometry):
     @cached_property
     def neighbor_offsets(self):
         """Returns shift vector to neighbor centroids and boundary faces."""
+        if not self.all_boundary_faces:
+            return self._cell_deltas
         boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
         assert (vec_length(boundary_deltas) > 0).all, f"All boundary faces must be separated from the cell centers but 0 distance at the following {channel(stored_indices(boundary_deltas)).item_names[0]}:\n{nonzero(vec_length(boundary_deltas) == 0):full}"
         return concat([self._cell_deltas, boundary_deltas], self.face_shape.dual)
