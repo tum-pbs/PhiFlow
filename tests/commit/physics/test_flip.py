@@ -38,6 +38,6 @@ class FlipTest(TestCase):
         assert math.any(OBSTACLE.lies_inside(particles.points))
         assert math.any((~particles.bounds).lies_inside(particles.points))
         particles = pp = fluid.boundary_push(particles, [OBSTACLE, ~DOMAIN], separation=0.5)
-        show(expand(OBSTACLE, batch(list=3)), [p0['x'], pa['x'], pp['x']], overlay='args')
+        # show(expand(OBSTACLE, batch(list=3)), [p0['x'], pa['x'], pp['x']], overlay='args')
         assert math.all(~OBSTACLE.lies_inside(particles.points))
         assert math.all(DOMAIN.lies_inside(particles.center))
