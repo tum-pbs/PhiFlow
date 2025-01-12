@@ -52,7 +52,9 @@ def rotate(obj: GeometricType, rot: float | Tensor | None, invert=False, pivot: 
     if isinstance(obj, Geometry):
         if pivot is None:
             pivot = obj.bounding_box().center
-        center = pivot + rotate(obj.center - pivot, rot)
+        center = pivot + rotate(obj.center - pivot, rot, invert=invert)
+        if invert:
+            raise NotImplementedError
         return obj.rotated(rot).at(center)
     elif isinstance(obj, Tensor):
         if isinstance(pivot, Tensor):
