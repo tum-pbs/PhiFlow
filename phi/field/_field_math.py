@@ -115,7 +115,7 @@ def laplace(u: Field,
     laplace_ext = u.extrapolation.spatial_gradient().spatial_gradient()
     laplace_dims = u.shape.only(axes).names
 
-    if u.vector.exists and (u.is_centered or order > 2):
+    if 'vector' in u.shape and (u.is_centered or order > 2):
         fields = [f for f in u.vector]
     else:
         fields = [u]
@@ -136,7 +136,7 @@ def laplace(u: Field,
 
             result.append(sum(result_components))
 
-    if u.vector.exists and (u.is_centered or order > 2):
+    if 'vector' in u.shape and (u.is_centered or order > 2):
         if u.is_staggered:
             result = math.stack(result, dual(vector=u.vector.item_names))
         else:
@@ -205,16 +205,13 @@ def spatial_gradient(field: Field,
             return least_squares_gradient(field, stack_dim=stack_dim, boundary=boundary)
         raise NotImplementedError(scheme)
 
-
-    if field.vector.exists:
+    if 'vector' in field.shape:
         assert stack_dim.name != 'vector', "`stack_dim=vector` is inadmissible if the input is a vector grid"
         if field == StaggeredGrid:
             assert at == 'faces', "for a `StaggeredGrid` input only `type == StaggeredGrid` is possible"
 
     if at == 'faces':
         assert stack_dim.name == 'vector', f"spatial_gradient with type=StaggeredGrid requires stack_dim.name == 'vector' but got '{stack_dim.name}'"
-
-
 
     if gradient_extrapolation is None:
         gradient_extrapolation = field.extrapolation.spatial_gradient()

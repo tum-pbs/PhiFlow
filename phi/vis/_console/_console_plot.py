@@ -20,7 +20,7 @@ class ConsolePlots(PlottingLibrary):
     #          show_color_bar=True,
     #          figure=None,
     #          **plt_args):
-    #     if v.vector.exists:
+    #     if 'vector' in v.shape:
     #         plt_lines = quiver(v, plt_width, plt_height, name, threshold=0.1, basic_chars=True)
     #     else:
     #         plt_lines = heatmap(v, plt_width, plt_height, name)

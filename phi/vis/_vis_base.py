@@ -481,7 +481,7 @@ def select_channel(value: Union[Field, Tensor, tuple, list], channel: Union[str,
     if channel is None:
         return value
     elif channel == 'abs':
-        if value.vector.exists:
+        if 'vector' in value.shape:
             return field.vec_abs(value) if isinstance(value, Field) else math.vec_length(value)
         else:
             return value

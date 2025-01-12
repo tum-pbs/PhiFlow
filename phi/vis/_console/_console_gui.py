@@ -144,7 +144,7 @@ class ConsoleGui(Gui):
         lines = [""] * plt_height
         for name, v, ch_sel in zip(field_names, values, channel_sel):
             v = select_channel(v, ch_sel)
-            if v.vector.exists:
+            if 'vector' in v.shape:
                 plt_lines = quiver(v, plt_width, plt_height, name, threshold=0.1, basic_chars=True)
             else:
                 plt_lines = heatmap(v, plt_width, plt_height, name)
