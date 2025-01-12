@@ -245,6 +245,10 @@ class Field(metaclass=_FieldType):
     box = bounds
 
     @property
+    def boundary_names(self):
+        return tuple(self.geometry.boundary_faces)
+
+    @property
     def is_grid(self):
         """A Field represents grid data if its `geometry` is a `phi.geom.UniformGrid` instance."""
         return isinstance(self.geometry, UniformGrid)
@@ -664,7 +668,7 @@ class Field(metaclass=_FieldType):
         item = slicing_dict(self, item)
         if not item:
             return self
-        boundary = domain_slice(self.boundary, item, tuple(self.geometry.boundary_faces if self.sampled_at == 'face' else self.geometry.boundary_elements))
+        boundary = domain_slice(self.boundary, item, domain_dims=self.boundary_names)
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != 'vector'}
         geometry = self.geometry[item_without_vec]
         if self.is_staggered and 'vector' in item and '~vector' in self.geometry.face_shape:
