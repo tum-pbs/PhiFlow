@@ -18,7 +18,7 @@ def vec_length(x, eps=None):
 
 def rotate_vector(x, rot, invert=False):
     assert 'vector' in x.shape, f"vector must have exactly a channel dimension named 'vector'"
-    matrix = rotation_matrix(rot)
+    matrix = rotation_matrix(rot, matrix_dim=x.shape['vector'])
     if invert:
         matrix = rename_dims(matrix, '~vector,vector', matrix.shape['vector'] + matrix.shape['~vector'])
     assert matrix.vector.dual.size == x.vector.size, f"Rotation matrix from {rot.shape} is {matrix.vector.dual.size}D but vector {x.shape} is {x.vector.size}D."
