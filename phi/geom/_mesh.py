@@ -112,7 +112,11 @@ class Mesh(Geometry):
 
     @property
     def face_shape(self) -> Shape:
-        return instance(self.elements) & dual
+        if not self.boundary_faces:
+            return instance(self) & dual
+        dual_len = max([next(iter(sl.values())).stop for sl in self.boundary_faces.values()])
+        dim = instance(self)
+        return dim.as_dual().with_size(dual_len) + dim
 
     @property
     def sets(self):
@@ -156,7 +160,7 @@ class Mesh(Geometry):
     def pad_boundary(self, value: Tensor, widths: Dict[str, Dict[str, slice]] = None, mode: Extrapolation or Tensor or Number = 0, **kwargs) -> Tensor:
         mode = as_extrapolation(mode)
         if self.face_shape.dual.name not in value.shape:
-            value = rename_dims(value, instance, self.face_shape.dual)
+            value = rename_dims(value, instance, self.face_shape.dual.without_sizes())
         else:
             raise NotImplementedError
         if widths is None:
