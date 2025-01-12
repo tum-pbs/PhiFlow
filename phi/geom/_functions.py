@@ -40,8 +40,8 @@ def cross(vec1: Tensor, vec2: Tensor) -> Tensor:
     vec2 = math.tensor(vec2)
     spatial_rank = vec1.vector.size if 'vector' in vec1.shape else vec2.vector.size
     if spatial_rank == 2:  # Curl in 2D
-        assert vec2.vector.exists
-        if vec1.vector.exists:
+        assert 'vector' in vec2.shape
+        if 'vector' in vec1.shape:
             v1_x, v1_y = vec1.vector
             v2_x, v2_y = vec2.vector
             return v1_x * v2_y - v1_y * v2_x
@@ -49,7 +49,7 @@ def cross(vec1: Tensor, vec2: Tensor) -> Tensor:
             v2_x, v2_y = vec2.vector
             return vec1 * stack([-v2_y, v2_x], channel(vec2))
     elif spatial_rank == 3:  # Curl in 3D
-        assert vec1.vector.exists and vec2.vector.exists, f"Both vectors must have a 'vector' dimension but got shapes {vec1.shape}, {vec2.shape}"
+        assert 'vector' in vec1.shape and 'vector' in vec2.shape, f"Both vectors must have a 'vector' dimension but got shapes {vec1.shape}, {vec2.shape}"
         v1_x, v1_y, v1_z = vec1.vector
         v2_x, v2_y, v2_z = vec2.vector
         return math.stack([
