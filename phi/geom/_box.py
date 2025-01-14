@@ -542,7 +542,7 @@ class Cuboid(BaseBox):
         return bool_inside
 
 
-def bounding_box(geometry: Geometry | Tensor, reduce=non_batch) -> Box:
+def bounding_box(geometry: Union[Geometry, Tensor], reduce=non_batch) -> Box:
     """
     Builds a bounding box around `geometry` or a collection of points.
 

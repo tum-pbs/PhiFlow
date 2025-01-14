@@ -1,4 +1,4 @@
-from typing import Sequence, Union
+from typing import Sequence, Union, Dict
 
 from phiml import math
 from phiml.math import Tensor, spatial, dual, stack, clip, channel, to_int32, meshgrid, unstack, cpack
@@ -32,7 +32,7 @@ def spline_eval(order, points, uv: Tensor, get: Sequence[str] = ('position', 'ta
     return [result[t] for t in get]  # re-order output to match input+
 
 
-def closest_param(order: Union[int, dict[str, int]], points, location: Tensor, dist_iter=3):
+def closest_param(order: Union[int, Dict[str, int]], points, location: Tensor, dist_iter=3):
     assert order == 1 or isinstance(order, dict) and all(v == 1 for v in order.values())
     assert dist_iter > 0
     idx = to_int32(math.find_closest(points, location, index_dim=channel('spline')))

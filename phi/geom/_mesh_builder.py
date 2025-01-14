@@ -1,3 +1,5 @@
+from typing import Union, Dict
+
 import numpy as np
 
 from phiml.math import Tensor, range_tensor, non_spatial, spatial, instance
@@ -9,8 +11,8 @@ class MeshBuilder:
         self.element_rank = element_rank
         self.axes = None
         self.v_buffer = np.empty((0, 3))
-        self.v_positions = dict[str, Tensor]()
-        self.v_indices = dict[str, Tensor]()
+        self.v_positions: Dict[str, Tensor] = {}
+        self.v_indices: Dict[str, Tensor] = {}
         self.elements = []
 
     def build_mesh(self, element_dim=instance('elements')) -> Mesh:
@@ -32,12 +34,12 @@ class MeshBuilder:
     def vertex_indices(self, name: str) -> Tensor:
         return self.v_indices[name]
 
-    def new_quads(self, name: str, points: Tensor, /, flip: Tensor | bool = False):
+    def new_quads(self, name: str, points: Tensor, /, flip: Union[Tensor, bool] = False):
         indices = self.add_vertices(name, points)
         self.add_quads(indices, flip=flip)
         return indices
 
-    def add_quads(self, indices2d: Tensor, /, flip: Tensor | bool = False):
+    def add_quads(self, indices2d: Tensor, /, flip: Union[Tensor, bool] = False):
         if self.element_rank is None:
             self.element_rank = 2
         result = []
@@ -53,7 +55,7 @@ class MeshBuilder:
         self.elements.extend(result)
         return result
 
-    def add_tris(self, index0: Tensor, indices1d: Tensor, /, flip: Tensor | bool = False):
+    def add_tris(self, index0: Tensor, indices1d: Tensor, /, flip: Union[Tensor, bool] = False):
         if self.element_rank is None:
             self.element_rank = 2
         result = []

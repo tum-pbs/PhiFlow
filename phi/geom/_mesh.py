@@ -470,7 +470,7 @@ class Mesh(Geometry):
     def rotated(self, angle: Union[float, Tensor]) -> 'Geometry':
         raise NotImplementedError
 
-    def scaled(self, factor: float | Tensor) -> 'Geometry':
+    def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         pivot = self.bounds.center
         vertices = scale(self.vertices, factor, pivot)
         # center = scale(Point(self.center), factor, pivot).center
@@ -595,7 +595,7 @@ def load_stl(file: str, face_dim=instance('faces')) -> Mesh:
 
 def mesh_from_numpy(points: Sequence[Sequence],
                     polygons: Sequence[Sequence],
-                    boundaries: str | Dict[str, List[Sequence]] | None = None,
+                    boundaries: Union[str, Dict[str, List[Sequence]], None] = None,
                     element_rank: int = None,
                     periodic: str = None,
                     cell_dim: Shape = instance('cells'),
@@ -634,9 +634,9 @@ def mesh_from_numpy(points: Sequence[Sequence],
 
 
 @broadcast(dims=batch)
-def mesh(vertices: Geometry | Tensor,
+def mesh(vertices: Union[Geometry, Tensor],
          elements: Tensor,
-         boundaries: str | Dict[str, List[Sequence]] | None = None,
+         boundaries: Union[str, Dict[str, List[Sequence]], None] = None,
          element_rank: int = None,
          periodic: str = None,
          face_format: str = 'csc',
@@ -970,7 +970,7 @@ def save_tri_mesh(file: str, mesh: Mesh, **extra_data):
 
 
 @broadcast
-def load_tri_mesh(file: str, convert=False, load_extra=()) -> Mesh | Tuple[Mesh, ...]:
+def load_tri_mesh(file: str, convert=False, load_extra=()) -> Union[Mesh, Tuple[Mesh, ...]]:
     data = np.load(file, allow_pickle=bool(load_extra))
     f_dim = instance(str(data['f_dim']))
     vertex_dim = instance(str(data['vertex_dim']))

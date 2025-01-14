@@ -1,5 +1,5 @@
 import warnings
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Union
 
 from phiml import math
 from phiml.math import Tensor, stack, instance, wrap, shape
@@ -8,7 +8,7 @@ from . import Cylinder
 from ._geom import Geometry
 
 
-def length(obj: Geometry | Tensor, epsilon=1e-5) -> Tensor:
+def length(obj: Union[Geometry, Tensor], epsilon=1e-5) -> Tensor:
     """
     Returns the length of a vector `Tensor` or geometric object with a length-like property.
 

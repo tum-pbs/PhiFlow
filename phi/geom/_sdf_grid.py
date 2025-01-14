@@ -243,7 +243,7 @@ class SDFGrid(Geometry):
 
 
 def sample_sdf(geometry: Geometry,
-               bounds: BaseBox | UniformGrid = None,
+               bounds: Union[BaseBox, UniformGrid] = None,
                resolution: Shape = math.EMPTY_SHAPE,
                approximate_outside=False,
                rebuild: Optional[str] = None,

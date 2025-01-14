@@ -154,7 +154,7 @@ class GeometryStack(Geometry):
         if self._set_op == 'intersection':
             return math.max(dist, instance(self._geometries))
 
-    def approximate_fraction_inside(self, other_geometry: Geometry, balance: Tensor | Number = 0.5) -> Tensor:
+    def approximate_fraction_inside(self, other_geometry: Geometry, balance: Union[Tensor, float] = 0.5) -> Tensor:
         if self._set_op == 'intersection':
             assert isinstance(other_geometry, Geometry)
             radius = other_geometry.bounding_radius()

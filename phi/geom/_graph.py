@@ -20,7 +20,7 @@ class Graph(Geometry):
                  boundary: Dict[str, Dict[str, slice]],
                  deltas: Optional[Tensor] = None,
                  distances: Optional[Tensor] = None,
-                 bounding_distance: Tensor | float | None = None):
+                 bounding_distance: Union[Tensor, float, None] = None):
         """
         Create a graph where `nodes` are connected by `edges`.
 
