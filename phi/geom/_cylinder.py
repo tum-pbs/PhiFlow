@@ -207,7 +207,7 @@ def cylinder(center: Union[Tensor, float] = None,
              radius: Union[float, Tensor] = None,
              depth: Union[float, Tensor] = None,
              rotation: Optional[Tensor] = None,
-             axis: int | str | Tensor = -1,
+             axis: Union[int, str, Tensor] = -1,
              variables=('center', 'radius', 'depth', 'rotation'),
              **center_: Union[float, Tensor]) -> Cylinder:
     """

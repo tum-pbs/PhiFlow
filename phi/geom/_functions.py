@@ -1,4 +1,4 @@
-from typing import Sequence, Union, Optional
+from typing import Sequence, Union, Optional, Tuple
 
 from phiml import math
 from phiml.math import Tensor, channel, Shape, normalize, vec, sqrt, maximum, clip, vec_squared, norm, where, stack, dual, argmin, safe_div, arange, wrap, to_float, rename_dims
@@ -231,7 +231,7 @@ def orthogonal_vector(vector: Tensor):
     raise NotImplementedError
 
 
-def rotation_matrix(x: float | math.Tensor | None, matrix_dim=channel('vector'), none_to_unit=False) -> Optional[Tensor]:
+def rotation_matrix(x: Union[float, math.Tensor, None], matrix_dim=channel('vector'), none_to_unit=False) -> Optional[Tensor]:
     """
     Create a 2D or 3D rotation matrix from the corresponding angle(s).
 
@@ -329,7 +329,7 @@ def rotation_matrix_from_directions(source_dir: Tensor, target_dir: Tensor, vec_
     raise NotImplementedError
 
 
-def axis_angle_from_directions(source_dir: Tensor, target_dir: Tensor, vec_dim: str = 'vector', epsilon=None) -> tuple[Tensor, Tensor]:
+def axis_angle_from_directions(source_dir: Tensor, target_dir: Tensor, vec_dim: str = 'vector', epsilon=None) -> Tuple[Tensor, Tensor]:
     if source_dir.vector.size == 3:
         source_dir = normalize(source_dir, vec_dim, epsilon=epsilon)
         target_dir = normalize(target_dir, vec_dim, epsilon=epsilon)
@@ -340,7 +340,7 @@ def axis_angle_from_directions(source_dir: Tensor, target_dir: Tensor, vec_dim: 
     raise NotImplementedError
 
 
-def rotation_matrix_from_axis_and_angle(axis: Tensor, angle: float | Tensor, vec_dim='vector', is_axis_normalized=False, epsilon=1e-5) -> Tensor:
+def rotation_matrix_from_axis_and_angle(axis: Tensor, angle: Union[float, Tensor], vec_dim='vector', is_axis_normalized=False, epsilon=1e-5) -> Tensor:
     """
     Computes a rotation matrix that rotates by `angle` around `axis`.
 

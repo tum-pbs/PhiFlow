@@ -1,3 +1,5 @@
+from typing import Union
+
 from phiml.math import Tensor
 
 from phiml.math import Tensor
@@ -5,7 +7,7 @@ from ._functions import rotate_vector
 from ._geom import Geometry, GeometricType
 
 
-def scale(obj: GeometricType, scale: float | Tensor, pivot: Tensor = None, dim='vector') -> GeometricType:
+def scale(obj: GeometricType, scale: Union[float, Tensor], pivot: Tensor = None, dim='vector') -> GeometricType:
     """
     Scale a `Geometry` or vector `Tensor` about a pivot point.
 
@@ -32,7 +34,7 @@ def scale(obj: GeometricType, scale: float | Tensor, pivot: Tensor = None, dim='
     raise ValueError(obj)
 
 
-def rotate(obj: GeometricType, rot: float | Tensor | None, invert=False, pivot: Tensor | str = 'bounds') -> GeometricType:
+def rotate(obj: GeometricType, rot: Union[float, Tensor, None], invert=False, pivot: Union[Tensor, str] = 'bounds') -> GeometricType:
     """
     Rotate a vector or `Geometry` about the `pivot`.
 
