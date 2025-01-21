@@ -2,8 +2,9 @@ from numbers import Number
 from typing import Callable, List, Tuple, Optional, Union, Sequence
 
 import numpy as np
-from phiml.math import Tensor, spatial, instance, tensor, channel, batch, Shape, unstack, solve_linear, jit_compile_linear, \
-    shape, Solve, extrapolation, dual, wrap, rename_dims, factorial, concat, zeros, ones
+from phiml.math import Tensor, spatial, instance, tensor, channel, batch, Shape, unstack, solve_linear, \
+    jit_compile_linear, \
+    shape, Solve, extrapolation, dual, wrap, rename_dims, factorial, concat, zeros, ones, neighbor_mean
 from phi import geom
 from phi import math
 from phi.geom import Box, Geometry, UniformGrid
@@ -654,8 +655,8 @@ def curl(field: Field, at='corner'):
     if field.is_grid and field.is_staggered and field.spatial_rank == 2 and at == 'corner':
         x, y = field.vector.item_names
         values = field.with_boundary(None).values
-        vx = math.pad(values.vector.dual[x], {y: (1, 1)}, field.extrapolation[{'vector': y}])
-        vy = math.pad(values.vector.dual[y], {x: (1, 1)}, field.extrapolation[{'vector': x}])
+        vx = math.pad(values.vector.dual[x], {y: (1, 1)}, field.boundary[{'vector': y}])
+        vy = math.pad(values.vector.dual[y], {x: (1, 1)}, field.boundary[{'vector': x}])
         vy_dx = math.spatial_gradient(vy, dims=x, dx=field.dx[x], padding=None, stack_dim=None, difference='forward')
         vx_dy = math.spatial_gradient(vx, dims=y, dx=field.dx[y], padding=None, stack_dim=None, difference='forward')
         curl_val = vy_dx - vx_dy
@@ -696,6 +697,36 @@ def curl(field: Field, at='corner'):
     #         vy_dx = math.spatial_gradient(y_padded, field.dx, 'forward', None, dims='x', stack_dim=None)
     #         result = vy_dx - vx_dy
     #         return CenteredGrid(result, field.extrapolation.spatial_gradient(), field.bounds)
+    elif field.is_grid and field.is_staggered and field.spatial_rank == 3 and at == 'corner':
+        x, y, z = field.vector.item_names
+        values = field.with_boundary(None).values
+        vx = math.pad(values.vector.dual[x], {y: (1, 1), z: (1, 1)}, field.boundary[{'vector': y}])
+        vy = math.pad(values.vector.dual[y], {x: (1, 1), z: (1, 1)}, field.boundary[{'vector': x}])
+        vz = math.pad(values.vector.dual[z], {x: (1, 1), y: (1, 1)}, field.boundary[{'vector': z}])
+        vx_dy = neighbor_mean(math.spatial_gradient(vx, dims=y, dx=field.dx[y], padding=None, stack_dim=None, difference='forward'), z)
+        vx_dz = neighbor_mean(math.spatial_gradient(vx, dims=z, dx=field.dx[z], padding=None, stack_dim=None, difference='forward'), y)
+        vy_dx = neighbor_mean(math.spatial_gradient(vy, dims=x, dx=field.dx[x], padding=None, stack_dim=None, difference='forward'), z)
+        vy_dz = neighbor_mean(math.spatial_gradient(vy, dims=z, dx=field.dx[z], padding=None, stack_dim=None, difference='forward'), x)
+        vz_dx = neighbor_mean(math.spatial_gradient(vz, dims=x, dx=field.dx[x], padding=None, stack_dim=None, difference='forward'), y)
+        vz_dy = neighbor_mean(math.spatial_gradient(vz, dims=y, dx=field.dx[y], padding=None, stack_dim=None, difference='forward'), x)
+        curl_val = math.stack([vz_dy-vy_dz, vx_dz-vz_dx, vy_dx-vx_dy], field.shape['vector'])
+        corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx / 2, field.bounds.upper + field.dx / 2))
+        return Field(corners, curl_val, field.boundary.spatial_gradient())
+    elif field.is_grid and field.is_centered and field.spatial_rank == 3 and at == 'corner':
+        raise NotImplementedError
+        x, y, z = field.vector.item_names
+        values = pad(field, 1).values
+        # ToDo 8 diag offset vectors, account for cell stretching
+        # Then sum (offset x v) / |offset|^2 ??
+        diag_basis = wrap([(1, 1), (1, -1)], channel(diag='pos,neg'), dual(vector=[x, y]))
+        diag_comp = diag_basis @ values
+        ll = diag_comp[{x: slice(-1), y: slice(-1), 'diag': 'neg'}]
+        ul = diag_comp[{x: slice(-1), y: slice(1, None), 'diag': 'pos'}]
+        lr = diag_comp[{x: slice(1, None), y: slice(-1), 'diag': 'pos'}]
+        ur = diag_comp[{x: slice(1, None), y: slice(1, None), 'diag': 'neg'}]
+        curl_val = ll - ul + lr - ur
+        corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx / 2, field.bounds.upper + field.dx / 2))
+        return Field(corners, curl_val, field.boundary.spatial_gradient())
     raise NotImplementedError("Only 2D curl at corner currently supported")
 
 
