@@ -292,7 +292,7 @@ def _stack_geometries(geometries: Sequence[Geometry], set_op: str, dim=None) -> 
         return GeometryStack(geos, set_op=set_op)
 
 
-def union(*geometries, dim=instance('union')) -> Geometry:
+def union(*geometries, dim=instance('union')):
     """
     Union of the given geometries.
     A point lies inside the union if it lies within at least one of the geometries.
