@@ -145,6 +145,8 @@ class Mesh(Geometry):
 
     @property
     def boundary_faces(self) -> Dict[str, Dict[str, slice]]:
+        if self.boundaries is None:
+            return {}
         return self._faces['boundary_slices']
 
     @property
