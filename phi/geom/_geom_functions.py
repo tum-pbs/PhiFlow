@@ -8,7 +8,7 @@ from . import Cylinder
 from ._geom import Geometry
 
 
-def length(obj: Union[Geometry, Tensor], epsilon=1e-5) -> Tensor:
+def length(obj: Union[Geometry, Tensor], epsilon=None) -> Tensor:
     """
     Returns the length of a vector `Tensor` or geometric object with a length-like property.
 
@@ -22,7 +22,7 @@ def length(obj: Union[Geometry, Tensor], epsilon=1e-5) -> Tensor:
     """
     if isinstance(obj, Tensor):
         assert 'vector' in obj.shape, f"length() requires 'vector' dim but got {type(obj)} with shape {shape(obj)}."
-        return math.length(obj, 'vector', epsilon)
+        return math.norm(obj, 'vector', epsilon)
     elif isinstance(obj, Cylinder):
         return obj.depth
     raise ValueError(obj)
