@@ -2,30 +2,36 @@ from typing import Union, Dict
 
 import numpy as np
 
-from phiml.math import Tensor, range_tensor, non_spatial, spatial, instance
+from phiml.math import Tensor, range_tensor, non_spatial, spatial, instance, Shape, EMPTY_SHAPE, math, stack
 from ._mesh import Mesh, mesh_from_numpy
 
 
 class MeshBuilder:
-    def __init__(self, element_rank: int = None):
+    def __init__(self, element_rank: int = None, batch_dims: Shape = None):
         self.element_rank = element_rank
+        self.batch_dims = batch_dims or EMPTY_SHAPE
         self.axes = None
-        self.v_buffer = np.empty((0, 3))
+        self.v_buffer = np.empty((batch_dims.volume, 0, 3))
         self.v_positions: Dict[str, Tensor] = {}
         self.v_indices: Dict[str, Tensor] = {}
         self.elements = []
 
     def build_mesh(self, element_dim=instance('elements')) -> Mesh:
-        return mesh_from_numpy(self.v_buffer, self.elements, {}, self.element_rank, axes=self.axes, cell_dim=element_dim)
+        meshes = []
+        for i in range(self.batch_dims.volume):
+            elements = [e[i] for e in self.elements]
+            mesh = mesh_from_numpy(self.v_buffer[i], elements, {}, self.element_rank, axes=self.axes, cell_dim=element_dim)
+            meshes.append(mesh)
+        return stack(meshes, self.batch_dims)
 
     def add_vertices(self, name: str, points: Tensor):
         if self.axes is None:
             self.axes = points.vector.item_names
         s = points.shape - 'vector'
-        idx = self.v_buffer.shape[0] + range_tensor(s)
+        idx = self.v_buffer.shape[1] + range_tensor(s - self.batch_dims)
         self.v_indices[name] = idx
         self.v_positions[name] = points
-        self.v_buffer = np.concatenate([self.v_buffer, points.numpy([s, 'vector'])])
+        self.v_buffer = np.concatenate([self.v_buffer, points.numpy([self.batch_dims, s-self.batch_dims, 'vector'])], -2)
         return idx
 
     def vertices(self, name: str) -> Tensor:
@@ -43,15 +49,15 @@ class MeshBuilder:
         if self.element_rank is None:
             self.element_rank = 2
         result = []
-        for strip in non_spatial(indices2d).meshgrid():
-            indices_np = indices2d[strip].numpy(spatial(indices2d))
-            v00 = indices_np[:-1, :-1]
-            v01 = indices_np[:-1, 1:]
-            v10 = indices_np[1:, :-1]
-            v11 = indices_np[1:, 1:]
+        for strip in (non_spatial(indices2d) - self.batch_dims).meshgrid():
+            indices_np = indices2d[strip].numpy([*spatial(indices2d), self.batch_dims])
+            v00 = indices_np[:-1, :-1, :]
+            v01 = indices_np[:-1, 1:, :]
+            v10 = indices_np[1:, :-1, :]
+            v11 = indices_np[1:, 1:, :]
             flip_strip = flip[strip] if isinstance(flip, Tensor) else flip
             lists = np.stack((v00, v01, v11, v10) if flip_strip else (v00, v10, v11, v01), axis=-1)
-            result.extend(lists.reshape((-1, 4)))
+            result.extend(lists.reshape((-1, self.batch_dims.volume, 4)))
         self.elements.extend(result)
         return result
 
@@ -59,14 +65,14 @@ class MeshBuilder:
         if self.element_rank is None:
             self.element_rank = 2
         result = []
-        for tri in index0.shape.meshgrid():
-            idx_np = indices1d[tri].numpy()
-            v1 = idx_np[:-1]
-            v2 = idx_np[1:]
-            v0_ = index0[tri].numpy()[None].repeat(v1.size)
+        for tri in (index0.shape - self.batch_dims).meshgrid():
+            idx_np = indices1d[tri].numpy([spatial, self.batch_dims])
+            v1 = idx_np[:-1, :]
+            v2 = idx_np[1:, :]
+            v0_ = index0[tri].numpy([self.batch_dims])[None, :].repeat(v1.shape[0], axis=0)
             flip_tri = flip[tri] if isinstance(flip, Tensor) else flip
             lists = np.stack((v0_, v1, v2) if flip_tri else (v0_, v2, v1), axis=-1)
-            result.extend(lists.reshape((-1, 3)))
+            result.extend(lists.reshape((-1, self.batch_dims.volume, 3)))
         self.elements.extend(result)
         return result
 
