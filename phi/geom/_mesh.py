@@ -482,7 +482,7 @@ class Mesh(Geometry):
     def __getitem__(self, item):
         item: dict = slicing_dict(self, item)
         assert not dual(self.elements).only(tuple(item)), f"Cannot slice vertex lists ('{spatial(self.elements)}') but got slicing dict {item}"
-        return getitem(self, item, keepdims=[self.shape.instance.name, 'vector'])
+        return getitem(self, item, keepdims=[(self.shape.instance - instance(self.vertices)).name, 'vector'])
 
     def __repr__(self):
         return Geometry.__repr__(self)
@@ -623,6 +623,9 @@ def mesh_from_numpy(points: Sequence[Sequence],
     points = np.asarray(points)
     xyz = tuple(axes[:points.shape[-1]])
     vertices = wrap(points, instance('vertices'), channel(vector=xyz))
+    if not polygons:
+        elements = math.ones(cell_dim, instance(vertices).as_dual(), dtype=bool)
+        return mesh(vertices, elements, boundaries, element_rank, periodic, face_format)
     try:  # if all elements have the same vertex count, we stack them
         elements_np = np.stack(polygons).astype(np.int32)
         elements = wrap(elements_np, cell_dim, spatial('vertex_index'))
