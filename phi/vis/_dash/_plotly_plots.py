@@ -18,7 +18,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
 
-from phiml.math import reshaped_numpy, dual, instance, non_dual, merge_shapes
+from phiml.math import reshaped_numpy, dual, instance, non_dual, merge_shapes, pack_dims, dsum
 from phi import math, geom
 from phi.field import Field
 from phi.geom import Sphere, BaseBox, Point, Box, SDF, SDFGrid, Cylinder, Mesh
@@ -589,46 +589,65 @@ class SurfaceMesh3D(Recipe):
         dims = space.vector.item_names
         row, col = subplot
         x, y, z = reshaped_numpy(data.mesh.vertices.center.vector[dims], ['vector', instance])
-        if isinstance(data.mesh.elements, CompactSparseTensor):
-            polygons = data.mesh.elements._indices
-            math.assert_close(1, data.mesh.elements._values)
-            if dual(polygons).size == 3:  # triangles
-                v1, v2, v3 = polygons.numpy([dual, instance])
+        batch_dims = data.mesh.elements.shape.only(data.mesh.vertices.shape)
+        v_offset = [0]
+        e_offset = [0]
+        v1, v2, v3 = [], [], []
+        for bi in batch_dims.meshgrid():
+            mesh = data.mesh[bi]
+            if isinstance(mesh.elements, CompactSparseTensor):
+                polygons = mesh.elements._indices
+                math.assert_close(1, mesh.elements._values)
+                if dual(polygons).size == 3:  # triangles
+                    t1, t2, t3 = polygons.numpy([dual, instance]) + v_offset[-1]
+                    v1.extend(t1)
+                    v2.extend(t2)
+                    v3.extend(t3)
+                else:
+                    q1, q2, q3, q4 = polygons.numpy([dual, instance]) + v_offset[-1]
+                    v1.extend(np.concatenate([q1, q1]))
+                    v2.extend(np.concatenate([q2, q3]))
+                    v3.extend(np.concatenate([q3, q4]))
             else:
-                q1, q2, q3, q4 = polygons.numpy([dual, instance])
-                v1 = np.concatenate([q1, q1])
-                v2 = np.concatenate([q2, q3])
-                v3 = np.concatenate([q3, q4])
-        else:
-            elements: csr_matrix = data.mesh.elements.numpy().tocsr()
-            indices = elements.indices
-            pointers = elements.indptr
-            vertex_count = pointers[1:] - pointers[:-1]
-            v1, v2, v3 = [], [], []
-            # --- add triangles ---
-            tris, = np.where(vertex_count == 3)
-            tri_pointers = pointers[:-1][tris]
-            v1.extend(indices[tri_pointers])
-            v2.extend(indices[tri_pointers+1])
-            v3.extend(indices[tri_pointers+2])
-            # --- add two tris for each quad ---
-            quads, = np.where(vertex_count == 4)
-            quad_pointers = pointers[:-1][quads]
-            v1.extend(indices[quad_pointers])
-            v2.extend(indices[quad_pointers+1])
-            v3.extend(indices[quad_pointers+2])
-            v1.extend(indices[quad_pointers])
-            v2.extend(indices[quad_pointers+2])
-            v3.extend(indices[quad_pointers+3])
-            # --- polygons with > 4 vertices ---
-            if np.any(vertex_count > 4):
-                warnings.warn("Only tris and quads are currently supported with Plotly mesh render", RuntimeWarning)
+                elements: csr_matrix = mesh.elements.numpy().tocsr()
+                indices = elements.indices + v_offset[-1]
+                pointers = elements.indptr
+                vertex_count = pointers[1:] - pointers[:-1]
+                # --- add triangles ---
+                tris, = np.where(vertex_count == 3)
+                tri_pointers = pointers[:-1][tris]
+                v1.extend(indices[tri_pointers])
+                v2.extend(indices[tri_pointers+1])
+                v3.extend(indices[tri_pointers+2])
+                # --- add two tris for each quad ---
+                quads, = np.where(vertex_count == 4)
+                quad_pointers = pointers[:-1][quads]
+                v1.extend(indices[quad_pointers])
+                v2.extend(indices[quad_pointers+1])
+                v3.extend(indices[quad_pointers+2])
+                v1.extend(indices[quad_pointers])
+                v2.extend(indices[quad_pointers+2])
+                v3.extend(indices[quad_pointers+3])
+                # --- polygons with > 4 vertices ---
+                if np.any(vertex_count > 4):
+                    warnings.warn("Only tris and quads are currently supported with Plotly mesh render", RuntimeWarning)
+            v_offset.append(v_offset[-1] + instance(mesh.vertices).volume)
+            e_offset.append(len(v1))
         # --- plot mesh ---
         cbar = None if not channel(data) or not channel(data).item_names[0] else channel(data).item_names[0][0]
         if math.is_nan(data.values).all:
             mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, flatshading=False, opacity=float(alpha), color=plotly_color(color.native()))
         elif data.sampled_at == 'center':
-            values = reshaped_numpy(data.values, [instance(data.mesh)])
+            if any(b in data.values.shape for b in batch_dims):
+                values = []
+                for bi in batch_dims.meshgrid():
+                    vertex_count = dsum(data.mesh[bi].elements).numpy()
+                    repeat = np.where(vertex_count == 4, 2, 1)
+                    bi_values = reshaped_numpy(data.values[bi], [instance(data.mesh)-batch_dims])
+                    bi_values = np.repeat(bi_values, repeat)
+                    values.extend(bi_values)
+            else:
+                values = reshaped_numpy(data.values, [[batch_dims + instance(data.mesh)]])
             mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='cell', flatshading=True, opacity=float(alpha))
         elif data.sampled_at == 'vertex':
             values = reshaped_numpy(data.values, [instance(data.mesh.vertices)])
