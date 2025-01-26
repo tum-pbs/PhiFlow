@@ -323,7 +323,7 @@ class Mesh(Geometry):
             elements = wrap(filtered_coo, self.elements.shape.without_sizes())
         return replace(self, vertices=vertices, elements=elements)
 
-    @property
+    @cached_property
     def volume(self) -> Tensor:
         if self.element_rank == 2:
             if instance(self.elements).volume > 0:
