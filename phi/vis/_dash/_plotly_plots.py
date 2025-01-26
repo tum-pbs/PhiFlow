@@ -18,7 +18,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
 
-from phiml.math import reshaped_numpy, dual, instance, non_dual, merge_shapes, pack_dims, dsum
+from phiml.math import reshaped_numpy, dual, instance, non_dual, merge_shapes, pack_dims, dsum, close, equal, NAN
 from phi import math, geom
 from phi.field import Field
 from phi.geom import Sphere, BaseBox, Point, Box, SDF, SDFGrid, Cylinder, Mesh
@@ -314,7 +314,7 @@ class VectorCloud3D(Recipe):
         if color == 'cmap':
             colorscale = 'Blues'
         else:
-            hex_color = plotly_color(color.native())
+            hex_color = plotly_color(color.numpy())
             colorscale = [[0, hex_color], [1, hex_color]]
         if data.is_staggered:
             data = data.at_centers()
@@ -338,7 +338,7 @@ class VectorCloud2D(Recipe):
         u, v = math.reshaped_numpy(data.values, [vector, data.shape.without('vector')])
         quiver = figure_factory.create_quiver(x, y, u, v, scale=1.0).data[0]  # 7 points per arrow
         if color != 'cmap':
-            quiver.line.update(color=color.native())
+            quiver.line.update(color=color.numpy())
         figure.add_trace(quiver, row=row, col=col)
 
 
@@ -365,7 +365,7 @@ class PointCloud2D(Recipe):
             if color[idx] == 'cmap':
                 hex_color = plotly_color(0)  # ToDo add color bar
             else:
-                hex_color = plotly_color(color[idx].native())
+                hex_color = plotly_color(color[idx].numpy())
             alphas = reshaped_numpy(alpha, [non_channel(data)])
             if isinstance(data.geometry, Sphere):
                 hex_color = [hex_color] * non_channel(data).volume if isinstance(hex_color, str) else hex_color
@@ -508,7 +508,7 @@ class Scatter3D(Recipe):
             if color == 'cmap':
                 color_i = data[idx].values.numpy([math.shape]).astype(np.float32)
             else:
-                color_i = plotly_color(color[idx].native())
+                color_i = plotly_color(color[idx].numpy())
             if spatial(data.geometry):
                 for sdim in spatial(data.geometry):
                     xyz = math.reshaped_numpy(data[idx].points.vector[dims], [vector, ..., sdim])
@@ -590,6 +590,11 @@ class SurfaceMesh3D(Recipe):
         row, col = subplot
         x, y, z = reshaped_numpy(data.mesh.vertices.center.vector[dims], ['vector', instance])
         batch_dims = data.mesh.elements.shape.only(data.mesh.vertices.shape)
+        if batch_dims.only(color.shape):
+            # must plot multiple meshes, as color cannot be specified per-face
+            for bi in batch_dims.only(color.shape).meshgrid():
+                self.plot(Field(data.geometry[bi], NAN), figure, subplot, space, min_val, max_val, show_color_bar, color[bi], alpha[bi], err[bi])
+            return
         v_offset = [0]
         e_offset = [0]
         v1, v2, v3 = [], [], []
@@ -634,9 +639,9 @@ class SurfaceMesh3D(Recipe):
             v_offset.append(v_offset[-1] + instance(mesh.vertices).volume)
             e_offset.append(len(v1))
         # --- plot mesh ---
-        cbar = None if not channel(data) or not channel(data).item_names[0] else channel(data).item_names[0][0]
+        cbar_title = None if not channel(data) or not channel(data).item_names[0] else channel(data).item_names[0][0]
         if math.is_nan(data.values).all:
-            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, flatshading=False, opacity=float(alpha), color=plotly_color(color.native()))
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, flatshading=False, opacity=float(alpha), color=plotly_color(color.numpy()))
         elif data.sampled_at == 'center':
             if any(b in data.values.shape for b in batch_dims):
                 values = []
@@ -648,13 +653,13 @@ class SurfaceMesh3D(Recipe):
                     values.extend(bi_values)
             else:
                 values = reshaped_numpy(data.values, [[batch_dims + instance(data.mesh)]])
-            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='cell', flatshading=True, opacity=float(alpha))
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar_title, intensity=values, intensitymode='cell', flatshading=True, opacity=float(alpha))
         elif data.sampled_at == 'vertex':
             values = reshaped_numpy(data.values, [instance(data.mesh.vertices)])
-            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='vertex', flatshading=True, opacity=float(alpha))
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar_title, intensity=values, intensitymode='vertex', flatshading=True, opacity=float(alpha))
         elif data.sampled_at == '~vertex':
             values = reshaped_numpy(data.values, [dual(data.mesh.elements)])
-            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar, intensity=values, intensitymode='vertex', flatshading=True, opacity=float(alpha))
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, colorscale='viridis', colorbar_title=cbar_title, intensity=values, intensitymode='vertex', flatshading=True, opacity=float(alpha))
         else:
             warnings.warn(f"No recipe for mesh sampled at {data.sampled_at}")
             return
@@ -695,7 +700,9 @@ def real_values(field: Field):
     return field.values if field.values.dtype.kind != complex else abs(field.values)
 
 
-def plotly_color(col: Union[int,str]):
+def plotly_color(col: Union[int, str, np.ndarray]):
+    if isinstance(col, np.ndarray):
+        col = col.item()
     if isinstance(col, int):
         return DEFAULT_PLOTLY_COLORS[col % len(DEFAULT_PLOTLY_COLORS)]
     if isinstance(col, str) and (col.startswith('#') or col.startswith('rgb(') or col.startswith('rgba(')):
