@@ -979,7 +979,10 @@ def stack(fields: Sequence[Field], dim: Shape, dim_bounds: Box = None):
             return fields[0].with_values(values).with_boundary(boundary)
     else:
         values = math.stack([f.values for f in fields], dim)
-        geometry = fields[0].geometry if all(f.geometry == fields[0].geometry for f in fields) else math.stack([f.geometry for f in fields], dim)
+        geometry = fields[0].geometry if all(f.geometry == fields[0].geometry for f in fields) else math.stack([f.geometry for f in fields], dim, layout_non_matching=True)
+        if isinstance(geometry, Tensor):
+            from phi.geom._geom_ops import GeometryStack
+            geometry = GeometryStack(geometry)
         return Field(geometry, values, boundary)
 
 
