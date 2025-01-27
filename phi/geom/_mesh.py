@@ -623,7 +623,7 @@ def mesh_from_numpy(points: Sequence[Sequence],
     points = np.asarray(points)
     xyz = tuple(axes[:points.shape[-1]])
     vertices = wrap(points, instance('vertices'), channel(vector=xyz))
-    if not polygons:
+    if len(polygons) == 0:
         elements = math.ones(cell_dim, instance(vertices).as_dual(), dtype=bool)
         return mesh(vertices, elements, boundaries, element_rank, periodic, face_format)
     try:  # if all elements have the same vertex count, we stack them
