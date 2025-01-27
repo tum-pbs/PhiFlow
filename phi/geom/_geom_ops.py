@@ -75,7 +75,7 @@ class GeometryStack(Geometry):
             set_shapes = []
             for g in self._geometries:
                 set_shapes.append(g.sets.get(name, zeros))
-            set_shape = math.stack(set_shapes, object_dims(self._geometries))
+            set_shape = shape_stack(object_dims(self._geometries), *set_shapes)
             result[name] = set_shape
         return result
 
@@ -256,8 +256,8 @@ class GeometryStack(Geometry):
         return result
 
     @property
-    def boundary_faces(self) -> Dict[Any, Dict[str, slice]]:
-        raise NotImplementedError
+    def boundary_faces(self) -> Dict[str, Dict[str, slice]]:
+        return next(iter(self._geometries)).boundary_faces
 
     @property
     def face_shape(self) -> Shape:
