@@ -31,6 +31,6 @@ from ._embed import embed, infinite_cylinder
 # --- Top-level functions ---
 from ._geom_ops import union, intersection
 from ._convert import surface_mesh, as_sdf
-from ._geom_functions import line_trace, length, normalize
+from ._geom_functions import line_trace, length, squared_length, normalize
 
 __all__ = [key for key in globals().keys() if not key.startswith('_')]
