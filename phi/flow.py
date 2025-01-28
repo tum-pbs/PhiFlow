@@ -48,7 +48,7 @@ from phiml.math import (
     assert_close, always_close, equal, close,
     l1_loss, l2_loss,
 )
-from .geom import union, rotate, scale, length, normalize, cross
+from .geom import union, rotate, scale, length, squared_length, normalize, cross
 from .vis import show, control, plot
 
 # Exceptions

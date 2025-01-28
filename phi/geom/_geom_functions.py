@@ -13,7 +13,7 @@ def length(obj: Union[Geometry, Tensor], epsilon=None) -> Tensor:
     Returns the length of a vector `Tensor` or geometric object with a length-like property.
 
     Args:
-        obj:
+        obj: `Tensor` with 'vector' dim or `Geometry` with a length-like property.
         epsilon: Minimum valid vector length. Use to avoid `inf` gradients for zero-length vectors.
             Lengths shorter than `eps` are set to 0.
 
@@ -25,6 +25,24 @@ def length(obj: Union[Geometry, Tensor], epsilon=None) -> Tensor:
         return math.norm(obj, 'vector', epsilon)
     elif isinstance(obj, Cylinder):
         return obj.depth
+    raise ValueError(obj)
+
+
+def squared_length(obj: Union[Geometry, Tensor]) -> Tensor:
+    """
+    Returns the squared length of a vector `Tensor` or geometric object with a length-like property.
+
+    Args:
+        obj: `Tensor` with 'vector' dim or `Geometry` with a length-like property.
+
+    Returns:
+        Squared length as `Tensor`
+    """
+    if isinstance(obj, Tensor):
+        assert 'vector' in obj.shape, f"squared_length() requires 'vector' dim but got {type(obj)} with shape {shape(obj)}."
+        return math.squared_norm(obj, 'vector')
+    elif isinstance(obj, Cylinder):
+        return obj.depth ** 2
     raise ValueError(obj)
 
 
