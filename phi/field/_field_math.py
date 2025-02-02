@@ -51,7 +51,8 @@ def laplace(u: Field,
             implicitness: int = None,
             weights: Union[Tensor, Field] = None,
             upwind: Field = None,
-            correct_skew=True) -> Field:
+            correct_skew=True,
+            wide_stencil=False) -> Field:
     """
     Spatial Laplace operator for scalar grid.
 
@@ -78,7 +79,6 @@ def laplace(u: Field,
     Returns:
         laplacian field as `CenteredGrid`
     """
-
     if implicitness is None:
         implicitness = 0 if implicit is None else 2
     elif implicitness != 0:
@@ -95,6 +95,11 @@ def laplace(u: Field,
             raise NotImplementedError(f"laplace on meshes is not yet supported with vector-valued weights")
         neighbor_val = u.mesh.pad_boundary(u.values, mode=u.boundary)
         nb_distances = u.mesh.neighbor_distances
+        if wide_stencil:
+            assert weights is None
+            grad_p = spatial_gradient(u, order=order, scheme='green-gauss', upwind=upwind)
+            div_grad_p = grad_p.divergence(order=order, upwind=upwind)
+            return div_grad_p
         connecting_grad = (u.mesh.connectivity * neighbor_val - u.values) / nb_distances  # (T_N - T_P) / d_PN
         if correct_skew and gradient is not None:  # skewness correction
             assert dual(gradient).names == ('~vector',), f"gradient must contain one dual dim '~vector' listing the gradient components but got {gradient.shape}"
@@ -110,25 +115,19 @@ def laplace(u: Field,
         laplace_values = u.mesh.integrate_surface(grad) / u.mesh.volume  # 1/V ∑_f ∇T ν A
         result = weights * laplace_values if weights is not None else laplace_values
         return Field(u.mesh, result, u.boundary - u.boundary)
-
     # --- Grid ---
-
     laplace_ext = u.extrapolation.spatial_gradient().spatial_gradient()
     laplace_dims = u.shape.only(axes).names
-
     if 'vector' in u.shape and (u.is_centered or order > 2):
         fields = [f for f in u.vector]
     else:
         fields = [u]
-
     result = []
     for f in fields:
         if order == 2:
             result.append(math.map_d2c(math.laplace)(f.values, dx=f.dx, padding=f.extrapolation, dims=axes, weights=weights, padding_kwargs={'bounds': f.bounds}))  # uses ghost cells
         else:
-            result_components = [perform_finite_difference_operation(f.values, dim, 2, f.dx.vector[dim], f.extrapolation,
-                                                                         laplace_ext, 'center', order, implicit,
-                                                                         implicitness) for dim in laplace_dims]
+            result_components = [perform_finite_difference_operation(f.values, dim, 2, f.dx.vector[dim], f.extrapolation, laplace_ext, 'center', order, implicit, implicitness) for dim in laplace_dims]
             if weights is not None:
                 if channel(weights):
                     result_components = [c * weights[ax] for c, ax in zip(result_components, axes_names)]
@@ -136,7 +135,6 @@ def laplace(u: Field,
                     result_components = [c * weights for c in result_components]
 
             result.append(sum(result_components))
-
     if 'vector' in u.shape and (u.is_centered or order > 2):
         if u.is_staggered:
             result = math.stack(result, dual(vector=u.vector.item_names))
@@ -144,7 +142,6 @@ def laplace(u: Field,
             result = math.stack(result, channel(vector=u.vector.item_names))
     else:
         result = result[0]
-
     return u.with_values(result).with_extrapolation(laplace_ext)
 
 

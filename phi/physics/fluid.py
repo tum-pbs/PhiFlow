@@ -210,7 +210,7 @@ def masked_laplace(pressure: Field,
         `CenteredGrid`
     """
     if pressure.is_mesh:
-        return field.laplace(pressure, gradient=None, order=order, upwind=upwind, correct_skew=correct_skew)
+        return field.laplace(pressure, gradient=None, order=order, upwind=upwind, correct_skew=correct_skew, wide_stencil=wide_stencil)
     assert pressure.is_grid and pressure.is_centered, f"Only mesh and centered grid supported for pressure"
     grad = spatial_gradient(pressure, v_boundary, at='center' if wide_stencil else 'face')
     valid_grad = grad * hard_bcs if hard_bcs is not None else grad
