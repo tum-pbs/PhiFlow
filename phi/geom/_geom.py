@@ -364,10 +364,12 @@ class Geometry:
         return Box(min_vec, max_vec)
 
     def bounding_sphere(self):
-        center = self.bounding_box().center
-        dist = length(self.center - center) + self.bounding_radius()
+        from phi.geom._functions import vec_length
         from ._sphere import Sphere
-        return Sphere(center, dist)
+        center = self.bounding_box().center
+        dist = vec_length(self.center - center) + self.bounding_radius()
+        max_dist = math.max(dist, dim=self.shape.non_batch.non_dual - 'vector')
+        return Sphere(center, max_dist)
 
     def shifted(self, delta: Tensor) -> 'Geometry':
         """
