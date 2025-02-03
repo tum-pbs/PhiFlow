@@ -18,6 +18,8 @@ def vec_length(x, eps=None):
 
 def rotate_vector(x, rot, invert=False):
     assert 'vector' in x.shape, f"vector must have exactly a channel dimension named 'vector'"
+    if rot is None:
+        return x
     matrix = rotation_matrix(rot, matrix_dim=x.shape['vector'])
     if invert:
         matrix = rename_dims(matrix, '~vector,vector', matrix.shape['vector'] + matrix.shape['~vector'])
