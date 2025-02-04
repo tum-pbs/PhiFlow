@@ -12,7 +12,7 @@ from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack
     find_closest, sqrt, where, vec_normalize, argmax, broadcast, zeros, EMPTY_SHAPE, meshgrid, mean, reshaped_numpy, range_tensor, convolve, \
     assert_close, shift, pad, extrapolation, sum as sum_, dim_mask, math, Tensor, Shape, channel, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, \
     stack, vec_length, tensor_like, pairwise_distances, concat, Extrapolation, dsum, reshaped_tensor, dmean
-from phiml.math._magic_ops import getitem_dataclass
+from phiml.dataclasses import getitem
 from phiml.math._sparse import CompactSparseTensor
 from phiml.math.extrapolation import as_extrapolation, PERIODIC
 from phiml.math.magic import slicing_dict
@@ -464,7 +464,7 @@ class Mesh(Geometry):
         item: dict = slicing_dict(self, item)
         assert not spatial(self.elements).only(tuple(item)), f"Cannot slice vertex lists ('{spatial(self.elements)}') but got slicing dict {item}"
         assert not instance(self.vertices).only(tuple(item)), f"Slicing by vertex indices ('{instance(self.vertices)}') not supported but got slicing dict {item}"
-        return getitem_dataclass(self, item, keepdims=[self.shape.instance.name, 'vector'])
+        return getitem(self, item, keepdims=[self.shape.instance.name, 'vector'])
 
     def __repr__(self):
         return Geometry.__repr__(self)

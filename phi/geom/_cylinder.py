@@ -4,7 +4,8 @@ from typing import Union, Dict, Tuple, Optional, Sequence
 
 from phiml import math
 from phiml.math import (Shape, dual, wrap, Tensor, expand, vec, where, ncat, clip, length, normalize, minimum, vec_squared, channel, instance, stack, maximum, PI, linspace, sin, cos, sqrt, batch)
-from phiml.math._magic_ops import all_attributes, getitem_dataclass
+from phiml.math._magic_ops import all_attributes
+from phiml.dataclasses import getitem
 from ._geom import Geometry
 from ._transform import rotate, rotation_matrix, rotation_matrix_from_directions, rotation_angles
 from ._sphere import Sphere
@@ -144,7 +145,7 @@ class Cylinder(Geometry):
         return Cylinder(self._center, self.radius * factor, self.depth * factor, self.rotation, self.axis, self.variable_attrs, self.value_attrs)
 
     def __getitem__(self, item):
-        return getitem_dataclass(self, item, keepdims='vector')
+        return getitem(self, item, keepdims='vector')
 
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
