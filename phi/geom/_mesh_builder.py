@@ -2,7 +2,7 @@ from typing import Union, Dict
 
 import numpy as np
 
-from phiml.math import Tensor, range_tensor, non_spatial, spatial, instance, Shape, EMPTY_SHAPE, math, stack, channel
+from phiml.math import Tensor, range_tensor, non_spatial, spatial, instance, Shape, EMPTY_SHAPE, math, stack, channel, expand, wrap
 from ._mesh import Mesh, mesh_from_numpy
 
 
@@ -23,6 +23,23 @@ class MeshBuilder:
         for i in range(self.batch_dims.volume):
             elements = [e[i] for e in self.elements]
             mesh = mesh_from_numpy(self.v_buffer[i], elements, {}, self.element_rank, axes=self.axes, cell_dim=element_dim)
+            meshes.append(mesh)
+        return stack(meshes, self.batch_dims)
+
+    def build_displaced_mesh(self, distance: Union[float, Tensor], element_dim=instance('elements')) -> 'MeshBuilder':
+        distance = wrap(distance)
+        meshes = []
+        for bi, b in enumerate(self.batch_dims.meshgrid()):
+            distance_np = expand(distance[b], self.source_face_shape).numpy([*self.source_face_shape])
+            new_vertices = []
+            new_elements = []
+            for element, idx in zip(self.elements, self.source_idx):
+                v = self.v_buffer[bi, element[bi, :], :]
+                normal = np.cross(v[1] - v[0], v[2] - v[0])
+                offset = normal / np.linalg.norm(normal) * distance_np[tuple(idx[bi])]
+                new_elements.append(np.arange(len(v)) + len(new_vertices))
+                new_vertices.extend(v + offset)
+            mesh = mesh_from_numpy(new_vertices, new_elements, {}, self.element_rank, axes=self.axes, cell_dim=element_dim)
             meshes.append(mesh)
         return stack(meshes, self.batch_dims)
 
@@ -110,6 +127,6 @@ class MeshBuilder:
         from phi.vis import show
         mesh = self.build_mesh()
         plot = [mesh, mesh.vertices]
-        # if normals:
-        #     plot.append(PointCloud(mesh.center, mesh.normals * .05))
+        if normals:
+            plot.append(PointCloud(mesh.center, mesh.normals * .05))
         show(plot, overlay='list')
