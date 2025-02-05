@@ -15125,9 +15125,9 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-python"><pre><span></span><span class="o">%</span><span class="n">pip</span> <span class="n">install</span> <span class="o">--</span><span class="n">quiet</span> <span class="n">phiflow</span>
-<span class="kn">from</span> <span class="nn">phi.jax.flow</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">phi.jax.flow</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
 <span class="c1"># from phi.flow import *  # If JAX is not installed. You can use phi.torch or phi.tf as well.</span>
-<span class="kn">from</span> <span class="nn">tqdm.notebook</span> <span class="kn">import</span> <span class="n">trange</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm.notebook</span><span class="w"> </span><span class="kn">import</span> <span class="n">trange</span>
 </pre></div>
 
      </div>
@@ -15163,7 +15163,7 @@ Each step, the obstacle positions are incremented by $v \cdot \Delta t$.</p>
     <span class="n">Obstacle</span><span class="p">(</span><span class="n">Sphere</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mi">10</span><span class="p">),</span> <span class="n">velocity</span><span class="o">=</span><span class="n">vec</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mi">4</span><span class="p">)),</span>
 <span class="p">]</span>
 
-<span class="k">def</span> <span class="nf">move_obstacle</span><span class="p">(</span><span class="n">obs</span><span class="p">:</span> <span class="n">Obstacle</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">move_obstacle</span><span class="p">(</span><span class="n">obs</span><span class="p">:</span> <span class="n">Obstacle</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
     <span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">obs</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">center</span> <span class="o">+</span> <span class="n">obs</span><span class="o">.</span><span class="n">velocity</span> <span class="o">*</span> <span class="n">dt</span><span class="p">)</span> <span class="o">%</span> <span class="n">domain</span><span class="o">.</span><span class="n">size</span>
     <span class="k">return</span> <span class="n">obs</span><span class="o">.</span><span class="n">at</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 
@@ -15264,7 +15264,7 @@ jp-needs-light-background
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-python"><pre><span></span><span class="nd">@jit_compile</span>
-<span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">obs1</span><span class="p">,</span> <span class="n">obs2</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">.5</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">obs1</span><span class="p">,</span> <span class="n">obs2</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">.5</span><span class="p">):</span>
     <span class="n">obs1</span><span class="p">,</span> <span class="n">obs2</span> <span class="o">=</span> <span class="n">move_obstacles</span><span class="p">(</span><span class="n">obs1</span><span class="p">,</span> <span class="n">obs2</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="n">dt</span><span class="p">)</span>
     <span class="n">v</span> <span class="o">=</span> <span class="n">advect</span><span class="o">.</span><span class="n">mac_cormack</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
     <span class="n">v</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">fluid</span><span class="o">.</span><span class="n">make_incompressible</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="n">obs1</span><span class="p">,</span> <span class="n">obs2</span><span class="p">),</span> <span class="n">Solve</span><span class="p">(</span><span class="n">x0</span><span class="o">=</span><span class="n">p</span><span class="p">))</span>

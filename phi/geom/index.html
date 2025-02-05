@@ -53,7 +53,7 @@ el.replaceWith(d);
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.geom.as_sdf"><code class="name flex">
-<span>def <span class="ident">as_sdf</span></span>(<span>geo: phi.geom._geom.Geometry,<br>bounds=None,<br>rel_margin=None,<br>abs_margin=0.0,<br>separate: str | Sequence | set | ForwardRef('Shape') | Callable | None = None,<br>method='auto') ‑> phi.geom._sdf.SDF</span>
+<span>def <span class="ident">as_sdf</span></span>(<span>geo: phi.geom._geom.Geometry,<br>bounds=None,<br>rel_margin=None,<br>abs_margin=0.0,<br>separate: str | Sequence | set | phiml.math._shape.Shape | Callable | None = None,<br>method='auto') ‑> phi.geom._sdf.SDF</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -171,7 +171,7 @@ Once created, SDFs cannot be unstacked.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def bounding_box(geometry: Geometry | Tensor, reduce=non_batch) -&gt; Box:
+<pre><code class="python">def bounding_box(geometry: Union[Geometry, Tensor], reduce=non_batch) -&gt; Box:
     &#34;&#34;&#34;
     Builds a bounding box around `geometry` or a collection of points.
 
@@ -308,7 +308,7 @@ This allows for variable cell stretching.</dd>
 <p><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code></p></div>
 </dd>
 <dt id="phi.geom.clip_length"><code class="name flex">
-<span>def <span class="ident">clip_length</span></span>(<span>vec: phiml.math._tensors.Tensor,<br>min_len=0,<br>max_len=1,<br>vec_dim: str | Sequence | set | ForwardRef('Shape') | Callable | None = 'vector',<br>eps: phiml.math._tensors.Tensor | float = 1e-05)</span>
+<span>def <span class="ident">clip_length</span></span>(<span>vec: phiml.math._tensors.Tensor,<br>min_len=0,<br>max_len=1,<br>vec_dim: str | Sequence | set | phiml.math._shape.Shape | Callable | None = 'vector',<br>eps: phiml.math._tensors.Tensor | float = 1e-05)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -353,31 +353,31 @@ Zero-vectors remain zero-vectors.</p>
 <p><code>Tensor</code> with same shape as <code>vec</code>.</p></div>
 </dd>
 <dt id="phi.geom.concat"><code class="name flex">
-<span>def <span class="ident">concat</span></span>(<span>values: Sequence[~PhiTreeNodeType],<br>dim: phiml.math._shape.Shape | str,<br>/,<br>expand_values=False,<br>**kwargs) ‑> ~PhiTreeNodeType</span>
+<span>def <span class="ident">concat</span></span>(<span>values: Sequence[~PhiTreeNodeType],<br>dim: phiml.math._shape.Shape | str,<br>expand_values=False,<br>**kwargs) ‑> ~PhiTreeNodeType</span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def concat(values: Sequence[PhiTreeNodeType], dim: Union[str, Shape], /, expand_values=False, **kwargs) -&gt; PhiTreeNodeType:
+<pre><code class="python">def concat(values: Sequence[PhiTreeNodeType], dim: Union[str, Shape], expand_values=False, **kwargs) -&gt; PhiTreeNodeType:
     &#34;&#34;&#34;
     Concatenates a sequence of `phiml.math.magic.Shapable` objects, e.g. `Tensor`, along one dimension.
-    All values must have the same spatial, instance and channel dimensions and their sizes must be equal, except for `dim`.
-    Batch dimensions will be added as needed.
+    All values must have the same spatial, instance and channel dims and their sizes must be equal, except for `dim`.
+    Batch dims will be added as needed.
 
     Args:
         values: Tuple or list of `phiml.math.magic.Shapable`, such as `phiml.math.Tensor`
         dim: Concatenation dimension, must be present in all `values`.
             The size along `dim` is determined from `values` and can be set to undefined (`None`).
             Alternatively, a `str` of the form `&#39;t-&gt;name:t&#39;` can be specified, where `t` is on of `b d i s c` denoting the dimension type.
-            This first packs all dimensions of the input into a new dim with given name and type, then concatenates the values along this dim.
-        expand_values: If `True`, will first add missing dimensions to all values, not just batch dimensions.
-            This allows tensors with different dimensions to be concatenated.
-            The resulting tensor will have all dimensions that are present in `values`.
+            This first packs all dims of the input into a new dim with given name and type, then concatenates the values along this dim.
+        expand_values: If `True`, will first add missing dims to all values, not just batch dimensions.
+            This allows tensors with different dims to be concatenated.
+            The resulting tensor will have all dims that are present in `values`.
         **kwargs: Additional keyword arguments required by specific implementations.
-            Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
-            Adding batch dimensions must always work without keyword arguments.
+            Adding spatial dims to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
+            Adding batch dims must always work without keyword arguments.
 
     Returns:
         Concatenated `Tensor`
@@ -390,7 +390,7 @@ Zero-vectors remain zero-vectors.</p>
         (x=1.000, y=0.000, z=2.000) float64
     &#34;&#34;&#34;
     assert len(values) &gt; 0, f&#34;concat() got empty sequence {values}&#34;
-    if isinstance(dim, Shape):
+    if isinstance(dim, SHAPE_TYPES):
         dim = dim.name
     assert isinstance(dim, str), f&#34;dim must be a str or Shape but got &#39;{dim}&#39; of type {type(dim)}&#34;
     if &#39;-&gt;&#39; in dim:
@@ -401,17 +401,33 @@ Zero-vectors remain zero-vectors.</p>
         dim = dim.name
     else:
         dim = auto(dim, channel).name
-    # Add missing dimensions
+    # --- Filter 0-length values ---
+    shapes = [shape(v) for v in values]
+    def is_non_zero(s: Shape):
+        if dim not in s:
+            return True
+        size = s.get_size(dim)
+        if isinstance(size, int):
+            return size &gt; 0
+        return True
+    filtered_values = [v for v, s in zip(values, shapes) if is_non_zero(s)]
+    if not filtered_values:
+        return values[0]
+    values = filtered_values
+    if len(values) == 1:
+        return values[0]
+    shapes = [s for s in shapes if is_non_zero(s)]
+    #  --- Add missing dimensions ---
     if expand_values:
-        all_dims = merge_shapes(*values, allow_varying_sizes=True)
+        all_dims = merge_shapes(*shapes, allow_varying_sizes=True)
         all_dims = all_dims.with_dim_size(dim, 1, keep_item_names=False)
-        values = [expand(v, all_dims.without(shape(v))) for v in values]
+        values = [expand(v, all_dims - s) for v, s in zip(values, shapes)]
     else:
-        for v in values:
-            assert dim in shape(v), f&#34;concat dim &#39;{dim}&#39; must be present in the shapes of all values bot got value {type(v).__name__} with shape {shape(v)}&#34;
+        for v, s in zip(values, shapes):
+            assert dim in s, f&#34;concat dim &#39;{dim}&#39; must be present in the shapes of all values bot got value {type(v).__name__} with shape {s}&#34;
         for v in values[1:]:
-            assert set(non_batch(v).names) == set(non_batch(values[0]).names), f&#34;Concatenated values must have the same non-batch dimensions but got {non_batch(values[0])} and {non_batch(v)}&#34;
-        all_batch_dims = merge_shapes(*[shape(v).batch.without(dim) for v in values])
+            assert set(non_batch(v).names) == set(non_batch(values[0]).names), f&#34;Concatenated values must have the same non-batch dims but got {non_batch(values[0])} and {non_batch(v)}&#34;
+        all_batch_dims = merge_shapes(*[s.batch - dim for s in shapes])
         values = [expand(v, all_batch_dims) for v in values]
     # --- First try __concat__ ---
     for v in values:
@@ -439,16 +455,16 @@ Zero-vectors remain zero-vectors.</p>
     except MagicNotImplemented:
         raise MagicNotImplemented(f&#34;concat: No value implemented __concat__ and not all values were Sliceable along {dim}. values = {[type(v) for v in values]}&#34;)
     if len(unstacked) &gt; 8:
-        warnings.warn(f&#34;concat() default implementation is slow on large dimensions ({dim}={len(unstacked)}). Please implement __concat__()&#34;, RuntimeWarning, stacklevel=2)
-    dim = shape(values[0])[dim].with_size(None)
+        warnings.warn(f&#34;concat() default implementation is slow on large dims ({dim}={len(unstacked)}). Please implement __concat__()&#34;, RuntimeWarning, stacklevel=2)
+    dim = shapes[0][dim].with_size(None)
     try:
         return stack(unstacked, dim, **kwargs)
     except MagicNotImplemented:
         raise MagicNotImplemented(f&#34;concat: No value implemented __concat__ and slices could not be stacked. values = {[type(v) for v in values]}&#34;)</code></pre>
 </details>
 <div class="desc"><p>Concatenates a sequence of <code>phiml.math.magic.Shapable</code> objects, e.g. <code>Tensor</code>, along one dimension.
-All values must have the same spatial, instance and channel dimensions and their sizes must be equal, except for <code>dim</code>.
-Batch dimensions will be added as needed.</p>
+All values must have the same spatial, instance and channel dims and their sizes must be equal, except for <code>dim</code>.
+Batch dims will be added as needed.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>values</code></strong></dt>
@@ -457,15 +473,15 @@ Batch dimensions will be added as needed.</p>
 <dd>Concatenation dimension, must be present in all <code>values</code>.
 The size along <code>dim</code> is determined from <code>values</code> and can be set to undefined (<code>None</code>).
 Alternatively, a <code>str</code> of the form <code>'t-&gt;name:t'</code> can be specified, where <code>t</code> is on of <code>b d i s c</code> denoting the dimension type.
-This first packs all dimensions of the input into a new dim with given name and type, then concatenates the values along this dim.</dd>
+This first packs all dims of the input into a new dim with given name and type, then concatenates the values along this dim.</dd>
 <dt><strong><code>expand_values</code></strong></dt>
-<dd>If <code>True</code>, will first add missing dimensions to all values, not just batch dimensions.
-This allows tensors with different dimensions to be concatenated.
-The resulting tensor will have all dimensions that are present in <code>values</code>.</dd>
+<dd>If <code>True</code>, will first add missing dims to all values, not just batch dimensions.
+This allows tensors with different dims to be concatenated.
+The resulting tensor will have all dims that are present in <code>values</code>.</dd>
 <dt><strong><code>**kwargs</code></strong></dt>
 <dd>Additional keyword arguments required by specific implementations.
-Adding spatial dimensions to fields requires the <code>bounds: Box</code> argument specifying the physical extent of the new dimensions.
-Adding batch dimensions must always work without keyword arguments.</dd>
+Adding spatial dims to fields requires the <code>bounds: Box</code> argument specifying the physical extent of the new dimensions.
+Adding batch dims must always work without keyword arguments.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Concatenated <code>Tensor</code></p>
@@ -500,8 +516,8 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     vec2 = math.tensor(vec2)
     spatial_rank = vec1.vector.size if &#39;vector&#39; in vec1.shape else vec2.vector.size
     if spatial_rank == 2:  # Curl in 2D
-        assert vec2.vector.exists
-        if vec1.vector.exists:
+        assert &#39;vector&#39; in vec2.shape
+        if &#39;vector&#39; in vec1.shape:
             v1_x, v1_y = vec1.vector
             v2_x, v2_y = vec2.vector
             return v1_x * v2_y - v1_y * v2_x
@@ -509,7 +525,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
             v2_x, v2_y = vec2.vector
             return vec1 * stack([-v2_y, v2_x], channel(vec2))
     elif spatial_rank == 3:  # Curl in 3D
-        assert vec1.vector.exists and vec2.vector.exists, f&#34;Both vectors must have a &#39;vector&#39; dimension but got shapes {vec1.shape}, {vec2.shape}&#34;
+        assert &#39;vector&#39; in vec1.shape and &#39;vector&#39; in vec2.shape, f&#34;Both vectors must have a &#39;vector&#39; dimension but got shapes {vec1.shape}, {vec2.shape}&#34;
         v1_x, v1_y, v1_z = vec1.vector
         v2_x, v2_y, v2_z = vec2.vector
         return math.stack([
@@ -543,7 +559,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
              radius: Union[float, Tensor] = None,
              depth: Union[float, Tensor] = None,
              rotation: Optional[Tensor] = None,
-             axis: int | str | Tensor = -1,
+             axis: Union[int, str, Tensor] = -1,
              variables=(&#39;center&#39;, &#39;radius&#39;, &#39;depth&#39;, &#39;rotation&#39;),
              **center_: Union[float, Tensor]) -&gt; Cylinder:
     &#34;&#34;&#34;
@@ -879,19 +895,19 @@ A point lies inside the union if it lies within all of the geometries.</p>
 <p>New <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> object with same surface but swapped normals</p></div>
 </dd>
 <dt id="phi.geom.length"><code class="name flex">
-<span>def <span class="ident">length</span></span>(<span>obj: phi.geom._geom.Geometry | phiml.math._tensors.Tensor, epsilon=1e-05) ‑> phiml.math._tensors.Tensor</span>
+<span>def <span class="ident">length</span></span>(<span>obj: phi.geom._geom.Geometry | phiml.math._tensors.Tensor, epsilon=None) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def length(obj: Geometry | Tensor, epsilon=1e-5) -&gt; Tensor:
+<pre><code class="python">def length(obj: Union[Geometry, Tensor], epsilon=None) -&gt; Tensor:
     &#34;&#34;&#34;
     Returns the length of a vector `Tensor` or geometric object with a length-like property.
 
     Args:
-        obj:
+        obj: `Tensor` with &#39;vector&#39; dim or `Geometry` with a length-like property.
         epsilon: Minimum valid vector length. Use to avoid `inf` gradients for zero-length vectors.
             Lengths shorter than `eps` are set to 0.
 
@@ -900,7 +916,7 @@ A point lies inside the union if it lies within all of the geometries.</p>
     &#34;&#34;&#34;
     if isinstance(obj, Tensor):
         assert &#39;vector&#39; in obj.shape, f&#34;length() requires &#39;vector&#39; dim but got {type(obj)} with shape {shape(obj)}.&#34;
-        return math.length(obj, &#39;vector&#39;, epsilon)
+        return math.norm(obj, &#39;vector&#39;, epsilon)
     elif isinstance(obj, Cylinder):
         return obj.depth
     raise ValueError(obj)</code></pre>
@@ -908,7 +924,8 @@ A point lies inside the union if it lies within all of the geometries.</p>
 <div class="desc"><p>Returns the length of a vector <code>Tensor</code> or geometric object with a length-like property.</p>
 <h2 id="args">Args</h2>
 <dl>
-<dt>obj:</dt>
+<dt><strong><code>obj</code></strong></dt>
+<dd><code>Tensor</code> with 'vector' dim or <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with a length-like property.</dd>
 <dt><strong><code>epsilon</code></strong></dt>
 <dd>Minimum valid vector length. Use to avoid <code>inf</code> gradients for zero-length vectors.
 Lengths shorter than <code>eps</code> are set to 0.</dd>
@@ -1207,9 +1224,9 @@ def load_su2(file_or_mesh: str, cell_dim=instance(&#39;cells&#39;), face_format:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@broadcast(dims=batch)
-def mesh(vertices: Geometry | Tensor,
+def mesh(vertices: Union[Geometry, Tensor],
          elements: Tensor,
-         boundaries: str | Dict[str, List[Sequence]] | None = None,
+         boundaries: Union[str, Dict[str, List[Sequence]], None] = None,
          element_rank: int = None,
          periodic: str = None,
          face_format: str = &#39;csc&#39;,
@@ -1288,7 +1305,7 @@ The <code>boundaries</code> <code>dict</code> maps boundary names to a list of e
 </summary>
 <pre><code class="python">def mesh_from_numpy(points: Sequence[Sequence],
                     polygons: Sequence[Sequence],
-                    boundaries: str | Dict[str, List[Sequence]] | None = None,
+                    boundaries: Union[str, Dict[str, List[Sequence]], None] = None,
                     element_rank: int = None,
                     periodic: str = None,
                     cell_dim: Shape = instance(&#39;cells&#39;),
@@ -1314,6 +1331,9 @@ The <code>boundaries</code> <code>dict</code> maps boundary names to a list of e
     points = np.asarray(points)
     xyz = tuple(axes[:points.shape[-1]])
     vertices = wrap(points, instance(&#39;vertices&#39;), channel(vector=xyz))
+    if len(polygons) == 0:
+        elements = math.ones(cell_dim, instance(vertices).as_dual(), dtype=bool)
+        return mesh(vertices, elements, boundaries, element_rank, periodic, face_format)
     try:  # if all elements have the same vertex count, we stack them
         elements_np = np.stack(polygons).astype(np.int32)
         elements = wrap(elements_np, cell_dim, spatial(&#39;vertex_index&#39;))
@@ -1470,7 +1490,7 @@ If not specified, the zero-vector yields <code>NaN</code> as it cannot be normal
 <p><code><a title="phi.geom.SDF" href="#phi.geom.SDF">SDF</a></code></p></div>
 </dd>
 <dt id="phi.geom.pack_dims"><code class="name flex">
-<span>def <span class="ident">pack_dims</span></span>(<span>value,<br>dims: str | Sequence | set | ForwardRef('Shape') | Callable | None,<br>packed_dim: phiml.math._shape.Shape | str,<br>pos: int | None = None,<br>**kwargs)</span>
+<span>def <span class="ident">pack_dims</span></span>(<span>value,<br>dims: str | Sequence | set | phiml.math._shape.Shape | Callable | None,<br>packed_dim: phiml.math._shape.Shape | str,<br>pos: int | None = None,<br>**kwargs)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -1479,8 +1499,8 @@ If not specified, the zero-vector yields <code>NaN</code> as it cannot be normal
 </summary>
 <pre><code class="python">def pack_dims(value, dims: DimFilter, packed_dim: Union[Shape, str], pos: Optional[int] = None, **kwargs):
     &#34;&#34;&#34;
-    Compresses multiple dimensions into a single dimension by concatenating the elements.
-    Elements along the new dimensions are laid out according to the order of `dims`.
+    Compresses multiple dims into a single dimension by concatenating the elements.
+    Elements along the new dims are laid out according to the order of `dims`.
     If the order of `dims` differs from the current dimension order, the tensor is transposed accordingly.
     This function replaces the traditional `reshape` for these cases.
 
@@ -1498,8 +1518,8 @@ If not specified, the zero-vector yields <code>NaN</code> as it cannot be normal
         packed_dim: Single-dimension `Shape`.
         pos: Index of new dimension. `None` for automatic, `-1` for last, `0` for first.
         **kwargs: Additional keyword arguments required by specific implementations.
-            Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
-            Adding batch dimensions must always work without keyword arguments.
+            Adding spatial dims to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
+            Adding batch dims must always work without keyword arguments.
 
     Returns:
         Same type as `value`.
@@ -1510,7 +1530,8 @@ If not specified, the zero-vector yields <code>NaN</code> as it cannot be normal
     &#34;&#34;&#34;
     if isinstance(value, (Number, bool)):
         return value
-    assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f&#34;value must be Shapable but got {type(value)}&#34;
+    if DEBUG_CHECKS:
+        assert isinstance(value, Shapable) and isinstance(value, Sliceable) and isinstance(value, Shaped), f&#34;value must be Shapable but got {type(value)}&#34;
     packed_dim = auto(packed_dim, dims if callable(dims) else None) if isinstance(packed_dim, str) else packed_dim
     dims = shape(value).only(dims, reorder=True)
     if packed_dim in shape(value):
@@ -1523,7 +1544,7 @@ If not specified, the zero-vector yields <code>NaN</code> as it cannot be normal
         return unpack_dim(value, dims, packed_dim, **kwargs)
     # --- First try __pack_dims__ ---
     if hasattr(value, &#39;__pack_dims__&#39;):
-        result = value.__pack_dims__(dims.names, packed_dim, pos, **kwargs)
+        result = value.__pack_dims__(dims, packed_dim, pos, **kwargs)
         if result is not NotImplemented:
             return result
     # --- Next try Tree Node ---
@@ -1531,11 +1552,11 @@ If not specified, the zero-vector yields <code>NaN</code> as it cannot be normal
         return tree_map(pack_dims, value, attr_type=all_attributes, dims=dims, packed_dim=packed_dim, pos=pos, **kwargs)
     # --- Fallback: unstack and stack ---
     if shape(value).only(dims).volume &gt; 8:
-        warnings.warn(f&#34;pack_dims() default implementation is slow on large dimensions ({shape(value).only(dims)}). Please implement __pack_dims__() for {type(value).__name__} as defined in phiml.math.magic&#34;, RuntimeWarning, stacklevel=2)
+        warnings.warn(f&#34;pack_dims() default implementation is slow on large dims ({shape(value).only(dims)}). Please implement __pack_dims__() for {type(value).__name__} as defined in phiml.math.magic&#34;, RuntimeWarning, stacklevel=2)
     return stack(unstack(value, dims), packed_dim, **kwargs)</code></pre>
 </details>
-<div class="desc"><p>Compresses multiple dimensions into a single dimension by concatenating the elements.
-Elements along the new dimensions are laid out according to the order of <code>dims</code>.
+<div class="desc"><p>Compresses multiple dims into a single dimension by concatenating the elements.
+Elements along the new dims are laid out according to the order of <code>dims</code>.
 If the order of <code>dims</code> differs from the current dimension order, the tensor is transposed accordingly.
 This function replaces the traditional <code>reshape</code> for these cases.</p>
 <p>The type of the new dimension will be equal to the types of <code>dims</code>.
@@ -1555,8 +1576,8 @@ If <code>dims</code> have varying types, the new dimension will be a batch dimen
 <dd>Index of new dimension. <code>None</code> for automatic, <code>-1</code> for last, <code>0</code> for first.</dd>
 <dt><strong><code>**kwargs</code></strong></dt>
 <dd>Additional keyword arguments required by specific implementations.
-Adding spatial dimensions to fields requires the <code>bounds: Box</code> argument specifying the physical extent of the new dimensions.
-Adding batch dimensions must always work without keyword arguments.</dd>
+Adding spatial dims to fields requires the <code>bounds: Box</code> argument specifying the physical extent of the new dimensions.
+Adding batch dims must always work without keyword arguments.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p>Same type as <code>value</code>.</p>
@@ -1573,7 +1594,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def rotate(obj: GeometricType, rot: float | Tensor | None, invert=False, pivot: Tensor | str = &#39;bounds&#39;) -&gt; GeometricType:
+<pre><code class="python">def rotate(obj: GeometricType, rot: Union[float, Tensor, None], invert=False, pivot: Union[Tensor, str] = &#39;bounds&#39;) -&gt; GeometricType:
     &#34;&#34;&#34;
     Rotate a vector or `Geometry` about the `pivot`.
 
@@ -1593,7 +1614,9 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     if isinstance(obj, Geometry):
         if pivot is None:
             pivot = obj.bounding_box().center
-        center = pivot + rotate(obj.center - pivot, rot)
+        center = pivot + rotate(obj.center - pivot, rot, invert=invert)
+        if invert:
+            raise NotImplementedError
         return obj.rotated(rot).at(center)
     elif isinstance(obj, Tensor):
         if isinstance(pivot, Tensor):
@@ -1678,7 +1701,7 @@ Must have exactly one channel and one dual dimension with equally-ordered elemen
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def rotation_matrix(x: float | math.Tensor | None, matrix_dim=channel(&#39;vector&#39;), none_to_unit=False) -&gt; Optional[Tensor]:
+<pre><code class="python">def rotation_matrix(x: Union[float, math.Tensor, None], matrix_dim=channel(&#39;vector&#39;), none_to_unit=False) -&gt; Optional[Tensor]:
     &#34;&#34;&#34;
     Create a 2D or 3D rotation matrix from the corresponding angle(s).
 
@@ -1747,7 +1770,7 @@ Must have exactly one channel and one dual dimension with equally-ordered elemen
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def rotation_matrix_from_axis_and_angle(axis: Tensor, angle: float | Tensor, vec_dim=&#39;vector&#39;, is_axis_normalized=False, epsilon=1e-5) -&gt; Tensor:
+<pre><code class="python">def rotation_matrix_from_axis_and_angle(axis: Tensor, angle: Union[float, Tensor], vec_dim=&#39;vector&#39;, is_axis_normalized=False, epsilon=1e-5) -&gt; Tensor:
     &#34;&#34;&#34;
     Computes a rotation matrix that rotates by `angle` around `axis`.
 
@@ -1903,7 +1926,7 @@ A <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></cod
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sample_sdf(geometry: Geometry,
-               bounds: BaseBox | UniformGrid = None,
+               bounds: Union[BaseBox, UniformGrid] = None,
                resolution: Shape = math.EMPTY_SHAPE,
                approximate_outside=False,
                rebuild: Optional[str] = None,
@@ -1992,7 +2015,7 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def scale(obj: GeometricType, scale: float | Tensor, pivot: Tensor = None, dim=&#39;vector&#39;) -&gt; GeometricType:
+<pre><code class="python">def scale(obj: GeometricType, scale: Union[float, Tensor], pivot: Tensor = None, dim=&#39;vector&#39;) -&gt; GeometricType:
     &#34;&#34;&#34;
     Scale a `Geometry` or vector `Tensor` about a pivot point.
 
@@ -2031,6 +2054,40 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
 <h2 id="returns">Returns</h2>
 <p>Rotated <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></p></div>
 </dd>
+<dt id="phi.geom.squared_length"><code class="name flex">
+<span>def <span class="ident">squared_length</span></span>(<span>obj: phi.geom._geom.Geometry | phiml.math._tensors.Tensor) ‑> phiml.math._tensors.Tensor</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def squared_length(obj: Union[Geometry, Tensor]) -&gt; Tensor:
+    &#34;&#34;&#34;
+    Returns the squared length of a vector `Tensor` or geometric object with a length-like property.
+
+    Args:
+        obj: `Tensor` with &#39;vector&#39; dim or `Geometry` with a length-like property.
+
+    Returns:
+        Squared length as `Tensor`
+    &#34;&#34;&#34;
+    if isinstance(obj, Tensor):
+        assert &#39;vector&#39; in obj.shape, f&#34;squared_length() requires &#39;vector&#39; dim but got {type(obj)} with shape {shape(obj)}.&#34;
+        return math.squared_norm(obj, &#39;vector&#39;)
+    elif isinstance(obj, Cylinder):
+        return obj.depth ** 2
+    raise ValueError(obj)</code></pre>
+</details>
+<div class="desc"><p>Returns the squared length of a vector <code>Tensor</code> or geometric object with a length-like property.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>obj</code></strong></dt>
+<dd><code>Tensor</code> with 'vector' dim or <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with a length-like property.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p>Squared length as <code>Tensor</code></p></div>
+</dd>
 <dt id="phi.geom.stack"><code class="name flex">
 <span>def <span class="ident">stack</span></span>(<span>values: Sequence[~PhiTreeNodeType] | Dict[str, ~PhiTreeNodeType],<br>dim: phiml.math._shape.Shape | str,<br>expand_values=False,<br>simplify=False,<br>layout_non_matching=False,<br>**kwargs) ‑> ~PhiTreeNodeType</span>
 </code></dt>
@@ -2043,7 +2100,7 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
     &#34;&#34;&#34;
     Stacks `values` along the new dimension `dim`.
     All values must have the same spatial, instance and channel dimensions. If the dimension sizes vary, the resulting tensor will be non-uniform.
-    Batch dimensions will be added as needed.
+    Batch dims will be added as needed.
 
     Stacking tensors is performed lazily, i.e. the memory is allocated only when needed.
     This makes repeated stacking and slicing along the same dimension very efficient, i.e. jit-compiled functions will not perform these operations.
@@ -2051,18 +2108,18 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
     Args:
         values: Collection of `phiml.math.magic.Shapable`, such as `phiml.math.Tensor`
             If a `dict`, keys must be of type `str` and are used as item names along `dim`.
-        dim: `Shape` with a least one dimension. None of these dimensions can be present with any of the `values`.
+        dim: `Shape` with a least one dimension. None of these dims can be present with any of the `values`.
             If `dim` is a single-dimension shape, its size is determined from `len(values)` and can be left undefined (`None`).
             If `dim` is a multi-dimension shape, its volume must be equal to `len(values)`.
-        expand_values: If `True`, will first add missing dimensions to all values, not just batch dimensions.
-            This allows tensors with different dimensions to be stacked.
-            The resulting tensor will have all dimensions that are present in `values`.
+        expand_values: If `True`, will first add missing dims to all values, not just batch dimensions.
+            This allows tensors with different dims to be stacked.
+            The resulting tensor will have all dims that are present in `values`.
             If `False`, this may return a non-numeric object instead.
         simplify: If `True` and all values are equal, returns one value without adding the dimension.
         layout_non_matching: If non-matching values should be stacked using a Layout object, i.e. should be put into a named list instead.
         **kwargs: Additional keyword arguments required by specific implementations.
-            Adding spatial dimensions to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
-            Adding batch dimensions must always work without keyword arguments.
+            Adding spatial dims to fields requires the `bounds: Box` argument specifying the physical extent of the new dimensions.
+            Adding batch dims must always work without keyword arguments.
 
     Returns:
         `Tensor` containing `values` stacked along `dim`.
@@ -2083,7 +2140,7 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
     if not dim:
         assert len(values) == 1, f&#34;Only one element can be passed as `values` if no dim is passed but got {values}&#34;
         return next(iter(values.values())) if isinstance(values, dict) else values[0]
-    if not isinstance(dim, Shape):
+    if not isinstance(dim, SHAPE_TYPES):
         dim = auto(dim)
     values_ = tuple(values.values()) if isinstance(values, dict) else values
     if simplify:
@@ -2102,9 +2159,8 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
                 if layout_non_matching:
                     from ._tensors import layout
                     return layout(values, dim)
-                else:
-                    raise ValueError(f&#34;Non-batch dims must match but got: {v0_dims} and {s.non_batch.names}. Manually expand tensors or set expand_values=True&#34;)
-    # --- Add missing dimensions ---
+                raise ValueError(f&#34;Non-batch dims must match but got: {v0_dims} and {s.non_batch.names}. Manually expand tensors or set expand_values=True&#34;)
+    # --- Add missing dims ---
     if expand_values:
         all_dims = merge_shapes(*shapes, allow_varying_sizes=True)
         if isinstance(values, dict):
@@ -2122,7 +2178,7 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
         if dim.size is None:
             dim = dim.with_size(len(values))
         if isinstance(values, dict):
-            dim_item_names = tuple([k.name if isinstance(k, Shape) else k for k in values.keys()])
+            dim_item_names = tuple([k.name if isinstance(k, SHAPE_TYPES) else k for k in values.keys()])
             assert all(isinstance(k, str) for k in dim_item_names), f&#34;dict keys must be of type str but got {dim_item_names}&#34;
             values = tuple(values.values())
             dim = dim.with_size(dim_item_names)
@@ -2131,12 +2187,19 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
             if hasattr(v, &#39;__stack__&#39;):
                 result = v.__stack__(values, dim, **kwargs)
                 if result is not NotImplemented:
-                    assert isinstance(result, Shape) if isinstance(v, Shape) else isinstance(result, Shapable), &#34;__stack__ must return a Shapable object&#34;
+                    if DEBUG_CHECKS:
+                        assert isinstance(result, SHAPE_TYPES) if isinstance(v, SHAPE_TYPES) else isinstance(result, Shapable), &#34;__stack__ must return a Shapable object&#34;
                     return result
         # --- Next: try stacking attributes for tree nodes ---
         if any(dataclasses.is_dataclass(v) for v in values):
             from ..dataclasses._merge import dc_stack
-            return dc_stack(values, dim, expand_values=expand_values, simplify=simplify, layout_non_matching=layout_non_matching, **kwargs)
+            try:
+                return dc_stack(values, dim, expand_values=expand_values, simplify=simplify, layout_non_matching=layout_non_matching, **kwargs)
+            except NotCompatible as err:
+                if layout_non_matching:
+                    from ._tensors import layout
+                    return layout(values, dim)
+                raise err
         if all(isinstance(v, dict) for v in values):
             keys = set(values[0])
             if all(set(v) == keys for v in values[1:]):
@@ -2146,6 +2209,14 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
                     new_dict[k] = stack(k_values, dim, expand_values=expand_values, simplify=simplify, **kwargs)
                 return new_dict
             raise NotImplementedError
+        if any(isinstance(v, (tuple, list, dict)) for v in values_):
+            from ._tensors import wrap, layout
+            if all(np.asarray(v).dtype != object for v in values_):
+                tensors = [wrap(v) for v in values_]
+                return stack(tensors, dim)
+            else:
+                assert len(dim) == 1, f&#34;Cannot stack values with nested tuples, lists or dicts along multiple dimensions {dim}&#34;
+                return layout(values_, dim)
         if all(isinstance(v, PhiTreeNode) for v in values):
             attributes = all_attributes(values[0])
             if attributes and all(all_attributes(v) == attributes for v in values):
@@ -2164,7 +2235,7 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
             if not hasattr(v, &#39;__stack__&#39;) and hasattr(v, &#39;__concat__&#39;) and hasattr(v, &#39;__expand__&#39;):
                 expanded_values = tuple([expand(v, dim.with_size(1 if dim.item_names[0] is None else dim.item_names[0][i]), **kwargs) for i, v in enumerate(values)])
                 if len(expanded_values) &gt; 8:
-                    warnings.warn(f&#34;stack() default implementation is slow on large dimensions ({dim.name}={len(expanded_values)}). Please implement __stack__()&#34;, RuntimeWarning, stacklevel=2)
+                    warnings.warn(f&#34;stack() default implementation is slow on large dims ({dim.name}={len(expanded_values)}). Please implement __stack__()&#34;, RuntimeWarning, stacklevel=2)
                 result = v.__concat__(expanded_values, dim.name, **kwargs)
                 if result is not NotImplemented:
                     assert isinstance(result, Shapable), &#34;__concat__ must return a Shapable object&#34;
@@ -2201,7 +2272,7 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
 </details>
 <div class="desc"><p>Stacks <code>values</code> along the new dimension <code>dim</code>.
 All values must have the same spatial, instance and channel dimensions. If the dimension sizes vary, the resulting tensor will be non-uniform.
-Batch dimensions will be added as needed.</p>
+Batch dims will be added as needed.</p>
 <p>Stacking tensors is performed lazily, i.e. the memory is allocated only when needed.
 This makes repeated stacking and slicing along the same dimension very efficient, i.e. jit-compiled functions will not perform these operations.</p>
 <h2 id="args">Args</h2>
@@ -2210,13 +2281,13 @@ This makes repeated stacking and slicing along the same dimension very efficient
 <dd>Collection of <code>phiml.math.magic.Shapable</code>, such as <code>phiml.math.Tensor</code>
 If a <code>dict</code>, keys must be of type <code>str</code> and are used as item names along <code>dim</code>.</dd>
 <dt><strong><code>dim</code></strong></dt>
-<dd><code>Shape</code> with a least one dimension. None of these dimensions can be present with any of the <code>values</code>.
+<dd><code>Shape</code> with a least one dimension. None of these dims can be present with any of the <code>values</code>.
 If <code>dim</code> is a single-dimension shape, its size is determined from <code>len(values)</code> and can be left undefined (<code>None</code>).
 If <code>dim</code> is a multi-dimension shape, its volume must be equal to <code>len(values)</code>.</dd>
 <dt><strong><code>expand_values</code></strong></dt>
-<dd>If <code>True</code>, will first add missing dimensions to all values, not just batch dimensions.
-This allows tensors with different dimensions to be stacked.
-The resulting tensor will have all dimensions that are present in <code>values</code>.
+<dd>If <code>True</code>, will first add missing dims to all values, not just batch dimensions.
+This allows tensors with different dims to be stacked.
+The resulting tensor will have all dims that are present in <code>values</code>.
 If <code>False</code>, this may return a non-numeric object instead.</dd>
 <dt><strong><code>simplify</code></strong></dt>
 <dd>If <code>True</code> and all values are equal, returns one value without adding the dimension.</dd>
@@ -2224,8 +2295,8 @@ If <code>False</code>, this may return a non-numeric object instead.</dd>
 <dd>If non-matching values should be stacked using a Layout object, i.e. should be put into a named list instead.</dd>
 <dt><strong><code>**kwargs</code></strong></dt>
 <dd>Additional keyword arguments required by specific implementations.
-Adding spatial dimensions to fields requires the <code>bounds: Box</code> argument specifying the physical extent of the new dimensions.
-Adding batch dimensions must always work without keyword arguments.</dd>
+Adding spatial dims to fields requires the <code>bounds: Box</code> argument specifying the physical extent of the new dimensions.
+Adding batch dims must always work without keyword arguments.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code>Tensor</code> containing <code>values</code> stacked along <code>dim</code>.</p>
@@ -2272,7 +2343,7 @@ Adding batch dimensions must always work without keyword arguments.</dd>
     if isinstance(geo, SDFGrid):
         assert rel_dx is None and abs_dx is None, f&#34;When creating a surface mesh from an SDF grid, rel_dx and abs_dx are determined from the grid and must be specified as None&#34;
     if rel_dx is None and abs_dx is None:
-        rel_dx = 0.005
+        rel_dx = 1 / 128
     rel_dx = None if rel_dx is None else rel_dx * geo.bounding_box().size.max
     dx = math.minimum(rel_dx, abs_dx, allow_none=True)
     # --- Check special cases ---
@@ -2290,8 +2361,6 @@ Adding batch dimensions must always work without keyword arguments.</dd>
         return mesh(vertices, faces, element_rank=2)
     elif method == &#39;auto&#39; and isinstance(geo, Sphere):
         pass  # ToDo analytic solution
-    elif method == &#39;auto&#39; and isinstance(geo, SplineSolid):
-        return geo.surface_mesh()  # ToDo resolution from dx
     # --- Build mesh from SDF ---
     if isinstance(geo, SDFGrid):
         sdf_grid = geo
@@ -2330,14 +2399,14 @@ Adding batch dimensions must always work without keyword arguments.</dd>
 <p><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code> if there is any geometry</p></div>
 </dd>
 <dt id="phi.geom.union"><code class="name flex">
-<span>def <span class="ident">union</span></span>(<span>*geometries, dim=(unionⁱ=None)) ‑> phi.geom._geom.Geometry</span>
+<span>def <span class="ident">union</span></span>(<span>*geometries, dim=(unionⁱ=None))</span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def union(*geometries, dim=instance(&#39;union&#39;)) -&gt; Geometry:
+<pre><code class="python">def union(*geometries, dim=instance(&#39;union&#39;)):
     &#34;&#34;&#34;
     Union of the given geometries.
     A point lies inside the union if it lies within at least one of the geometries.
@@ -3082,7 +3151,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <p>Box-space coordinate <code>Tensor</code></p></div>
 </dd>
 <dt id="phi.geom.BaseBox.largest"><code class="name flex">
-<span>def <span class="ident">largest</span></span>(<span>self, dim: str | Sequence | set | ForwardRef('Shape') | Callable | None) ‑> phi.geom._box.BaseBox</span>
+<span>def <span class="ident">largest</span></span>(<span>self, dim: str | Sequence | set | phiml.math._shape.Shape | Callable | None) ‑> phi.geom._box.BaseBox</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3257,7 +3326,7 @@ The individual <code>center</code> points act as pivots for the operation.</p>
 Returns:</p></div>
 </dd>
 <dt id="phi.geom.BaseBox.smallest"><code class="name flex">
-<span>def <span class="ident">smallest</span></span>(<span>self, dim: str | Sequence | set | ForwardRef('Shape') | Callable | None) ‑> phi.geom._box.BaseBox</span>
+<span>def <span class="ident">smallest</span></span>(<span>self, dim: str | Sequence | set | phiml.math._shape.Shape | Callable | None) ‑> phi.geom._box.BaseBox</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -5119,10 +5188,12 @@ Returns:</p></div>
         return Box(min_vec, max_vec)
 
     def bounding_sphere(self):
-        center = self.bounding_box().center
-        dist = length(self.center - center) + self.bounding_radius()
+        from phi.geom._functions import vec_length
         from ._sphere import Sphere
-        return Sphere(center, dist)
+        center = self.bounding_box().center
+        dist = vec_length(self.center - center) + self.bounding_radius()
+        max_dist = math.max(dist, dim=self.shape.non_batch.non_dual - &#39;vector&#39;)
+        return Sphere(center, max_dist)
 
     def shifted(self, delta: Tensor) -&gt; &#39;Geometry&#39;:
         &#34;&#34;&#34;
@@ -5287,7 +5358,6 @@ Equality checks must also take this into account.</p></div>
 <li>phi.geom._sdf.SDF</li>
 <li>phi.geom._sdf_grid.SDFGrid</li>
 <li>phi.geom._sphere.Sphere</li>
-<li>phi.geom._spline_solid.SplineSolid</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
@@ -5813,10 +5883,12 @@ If these dims are not present on the result, all parts are assumed to have the s
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def bounding_sphere(self):
-    center = self.bounding_box().center
-    dist = length(self.center - center) + self.bounding_radius()
+    from phi.geom._functions import vec_length
     from ._sphere import Sphere
-    return Sphere(center, dist)</code></pre>
+    center = self.bounding_box().center
+    dist = vec_length(self.center - center) + self.bounding_radius()
+    max_dist = math.max(dist, dim=self.shape.non_batch.non_dual - &#39;vector&#39;)
+    return Sphere(center, max_dist)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -6227,7 +6299,7 @@ Possible causes:</p>
                  boundary: Dict[str, Dict[str, slice]],
                  deltas: Optional[Tensor] = None,
                  distances: Optional[Tensor] = None,
-                 bounding_distance: Tensor | float | None = None):
+                 bounding_distance: Union[Tensor, float, None] = None):
         &#34;&#34;&#34;
         Create a graph where `nodes` are connected by `edges`.
 
@@ -7779,7 +7851,11 @@ class Mesh(Geometry):
 
     @property
     def face_shape(self) -&gt; Shape:
-        return instance(self.elements) &amp; dual
+        if not self.boundary_faces:
+            return instance(self) &amp; dual
+        dual_len = max([next(iter(sl.values())).stop for sl in self.boundary_faces.values()])
+        dim = instance(self)
+        return dim.as_dual().with_size(dual_len) + dim
 
     @property
     def sets(self):
@@ -7808,26 +7884,30 @@ class Mesh(Geometry):
 
     @property
     def boundary_faces(self) -&gt; Dict[str, Dict[str, slice]]:
+        if self.boundaries is None:
+            return {}
         return self._faces[&#39;boundary_slices&#39;]
 
     @property
     def all_boundary_faces(self) -&gt; Dict[str, slice]:
+        if self.face_shape.dual.size == self.elements.shape.instance.size:
+            return {}
         return {self.face_shape.dual.name: slice(instance(self).volume, None)}
-    
+
     @property
     def interior_faces(self) -&gt; Dict[str, slice]:
         return {self.face_shape.dual.name: slice(0, instance(self).volume)}
 
     def pad_boundary(self, value: Tensor, widths: Dict[str, Dict[str, slice]] = None, mode: Extrapolation or Tensor or Number = 0, **kwargs) -&gt; Tensor:
-        if not widths:
-            return value
         mode = as_extrapolation(mode)
         if self.face_shape.dual.name not in value.shape:
-            value = rename_dims(value, instance, self.face_shape.dual)
+            value = rename_dims(value, instance, self.face_shape.dual.without_sizes())
         else:
             raise NotImplementedError
         if widths is None:
             widths = self.boundary_faces
+        if isinstance(widths, dict) and len(widths) == 0:
+            return value
         if isinstance(widths, (tuple, list)):
             if len(widths) == 0 or isinstance(widths[0], dict):  # add sliced-off slices
                 pass
@@ -7856,6 +7936,9 @@ class Mesh(Geometry):
 
     @cached_property
     def boundary_connectivity(self) -&gt; Tensor:
+        if not self.all_boundary_faces:
+            dual_dim = instance(self).as_dual().with_size(0)
+            return zeros(instance(self) &amp; dual_dim)
         return self.connectivity[self.all_boundary_faces]
 
     @cached_property
@@ -7887,6 +7970,8 @@ class Mesh(Geometry):
     @cached_property
     def neighbor_offsets(self):
         &#34;&#34;&#34;Returns shift vector to neighbor centroids and boundary faces.&#34;&#34;&#34;
+        if not self.all_boundary_faces:
+            return self._cell_deltas
         boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
         assert (vec_length(boundary_deltas) &gt; 0).all, f&#34;All boundary faces must be separated from the cell centers but 0 distance at the following {channel(stored_indices(boundary_deltas)).item_names[0]}:\n{nonzero(vec_length(boundary_deltas) == 0):full}&#34;
         return concat([self._cell_deltas, boundary_deltas], self.face_shape.dual)
@@ -7977,7 +8062,7 @@ class Mesh(Geometry):
             elements = wrap(filtered_coo, self.elements.shape.without_sizes())
         return replace(self, vertices=vertices, elements=elements)
 
-    @property
+    @cached_property
     def volume(self) -&gt; Tensor:
         if self.element_rank == 2:
             if instance(self.elements).volume &gt; 0:
@@ -8126,7 +8211,7 @@ class Mesh(Geometry):
     def rotated(self, angle: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
         raise NotImplementedError
 
-    def scaled(self, factor: float | Tensor) -&gt; &#39;Geometry&#39;:
+    def scaled(self, factor: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
         pivot = self.bounds.center
         vertices = scale(self.vertices, factor, pivot)
         # center = scale(Point(self.center), factor, pivot).center
@@ -8136,7 +8221,7 @@ class Mesh(Geometry):
     def __getitem__(self, item):
         item: dict = slicing_dict(self, item)
         assert not dual(self.elements).only(tuple(item)), f&#34;Cannot slice vertex lists (&#39;{spatial(self.elements)}&#39;) but got slicing dict {item}&#34;
-        return getitem(self, item, keepdims=[self.shape.instance.name, &#39;vector&#39;])
+        return getitem(self, item, keepdims=[(self.shape.instance - instance(self.vertices)).name, &#39;vector&#39;])
 
     def __repr__(self):
         return Geometry.__repr__(self)</code></pre>
@@ -8198,6 +8283,8 @@ The vertex count of an element is equal to the number of elements in that row (i
 </summary>
 <pre><code class="python">@property
 def all_boundary_faces(self) -&gt; Dict[str, slice]:
+    if self.face_shape.dual.size == self.elements.shape.instance.size:
+        return {}
     return {self.face_shape.dual.name: slice(instance(self).volume, None)}</code></pre>
 </details>
 <div class="desc"></div>
@@ -8210,6 +8297,9 @@ def all_boundary_faces(self) -&gt; Dict[str, slice]:
 </summary>
 <pre><code class="python">@cached_property
 def boundary_connectivity(self) -&gt; Tensor:
+    if not self.all_boundary_faces:
+        dual_dim = instance(self).as_dual().with_size(0)
+        return zeros(instance(self) &amp; dual_dim)
     return self.connectivity[self.all_boundary_faces]</code></pre>
 </details>
 <div class="desc"></div>
@@ -8238,6 +8328,8 @@ Dynamic graphs can define boundary elements for obstacles and walls.</p>
 </summary>
 <pre><code class="python">@property
 def boundary_faces(self) -&gt; Dict[str, Dict[str, slice]]:
+    if self.boundaries is None:
+        return {}
     return self._faces[&#39;boundary_slices&#39;]</code></pre>
 </details>
 <div class="desc"><p>Slices on the dual dimensions to mark boundary faces.</p>
@@ -8408,7 +8500,11 @@ def face_normals(self) -&gt; Tensor:
 </summary>
 <pre><code class="python">@property
 def face_shape(self) -&gt; Shape:
-    return instance(self.elements) &amp; dual</code></pre>
+    if not self.boundary_faces:
+        return instance(self) &amp; dual
+    dual_len = max([next(iter(sl.values())).stop for sl in self.boundary_faces.values()])
+    dim = instance(self)
+    return dim.as_dual().with_size(dual_len) + dim</code></pre>
 </details>
 <div class="desc"><h2 id="returns">Returns</h2>
 <p>Full Shape to identify each face of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>, including instance/spatial dimensions for the elements and dual dimensions listing the faces per element.
@@ -8486,6 +8582,8 @@ def neighbor_distances(self):
 <pre><code class="python">@cached_property
 def neighbor_offsets(self):
     &#34;&#34;&#34;Returns shift vector to neighbor centroids and boundary faces.&#34;&#34;&#34;
+    if not self.all_boundary_faces:
+        return self._cell_deltas
     boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
     assert (vec_length(boundary_deltas) &gt; 0).all, f&#34;All boundary faces must be separated from the cell centers but 0 distance at the following {channel(stored_indices(boundary_deltas)).item_names[0]}:\n{nonzero(vec_length(boundary_deltas) == 0):full}&#34;
     return concat([self._cell_deltas, boundary_deltas], self.face_shape.dual)</code></pre>
@@ -8617,13 +8715,13 @@ def vertex_positions(self) -&gt; Tensor:
 </details>
 <div class="desc"><p>Lists the vertex centers along the corresponding dual dim to <code>self.vertices.center</code>.</p></div>
 </dd>
-<dt id="phi.geom.Mesh.volume"><code class="name">prop <span class="ident">volume</span> : phiml.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.Mesh.volume"><code class="name">var <span class="ident">volume</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@property
+<pre><code class="python">@cached_property
 def volume(self) -&gt; Tensor:
     if self.element_rank == 2:
         if instance(self.elements).volume &gt; 0:
@@ -8640,8 +8738,7 @@ def volume(self) -&gt; Tensor:
         return sum_(vol_contributions, dual) / self.spatial_rank
     raise NotImplementedError</code></pre>
 </details>
-<div class="desc"><p><code>phi.math.Tensor</code> representing the volume of each element.
-The result retains batch, spatial and instance dimensions.</p></div>
+<div class="desc"></div>
 </dd>
 </dl>
 <h3>Methods</h3>
@@ -8985,15 +9082,15 @@ If these dims are not present on the result, all parts are assumed to have the s
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def pad_boundary(self, value: Tensor, widths: Dict[str, Dict[str, slice]] = None, mode: Extrapolation or Tensor or Number = 0, **kwargs) -&gt; Tensor:
-    if not widths:
-        return value
     mode = as_extrapolation(mode)
     if self.face_shape.dual.name not in value.shape:
-        value = rename_dims(value, instance, self.face_shape.dual)
+        value = rename_dims(value, instance, self.face_shape.dual.without_sizes())
     else:
         raise NotImplementedError
     if widths is None:
         widths = self.boundary_faces
+    if isinstance(widths, dict) and len(widths) == 0:
+        return value
     if isinstance(widths, (tuple, list)):
         if len(widths) == 0 or isinstance(widths[0], dict):  # add sliced-off slices
             pass
@@ -9067,7 +9164,7 @@ Either</p>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def scaled(self, factor: float | Tensor) -&gt; &#39;Geometry&#39;:
+<pre><code class="python">def scaled(self, factor: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
     pivot = self.bounds.center
     vertices = scale(self.vertices, factor, pivot)
     # center = scale(Point(self.center), factor, pivot).center
@@ -12602,6 +12699,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.sample_function" href="#phi.geom.sample_function">sample_function</a></code></li>
 <li><code><a title="phi.geom.sample_sdf" href="#phi.geom.sample_sdf">sample_sdf</a></code></li>
 <li><code><a title="phi.geom.scale" href="#phi.geom.scale">scale</a></code></li>
+<li><code><a title="phi.geom.squared_length" href="#phi.geom.squared_length">squared_length</a></code></li>
 <li><code><a title="phi.geom.stack" href="#phi.geom.stack">stack</a></code></li>
 <li><code><a title="phi.geom.surface_mesh" href="#phi.geom.surface_mesh">surface_mesh</a></code></li>
 <li><code><a title="phi.geom.union" href="#phi.geom.union">union</a></code></li>

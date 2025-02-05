@@ -15125,9 +15125,9 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># %pip install --quiet phiflow meshio</span>
-<span class="kn">from</span> <span class="nn">phi.torch.flow</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">phi.torch.flow</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
 <span class="c1"># from phi.flow import *  # If JAX is not installed. You can use phi.torch or phi.tf as well.</span>
-<span class="kn">from</span> <span class="nn">tqdm.notebook</span> <span class="kn">import</span> <span class="n">trange</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm.notebook</span><span class="w"> </span><span class="kn">import</span> <span class="n">trange</span>
 </pre></div>
 
      </div>
@@ -15236,13 +15236,13 @@ jp-needs-light-background
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="nd">@jit_compile_linear</span>
-<span class="k">def</span> <span class="nf">momentum_eq</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">u_prev</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">diffusivity</span><span class="o">=</span><span class="mf">0.01</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">momentum_eq</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">u_prev</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">diffusivity</span><span class="o">=</span><span class="mf">0.01</span><span class="p">):</span>
     <span class="n">diffusion_term</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">diffuse</span><span class="o">.</span><span class="n">differential</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">diffusivity</span><span class="p">,</span> <span class="n">correct_skew</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
     <span class="n">advection_term</span> <span class="o">=</span> <span class="n">dt</span> <span class="o">*</span> <span class="n">advect</span><span class="o">.</span><span class="n">differential</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">u_prev</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">u</span> <span class="o">+</span> <span class="n">advection_term</span> <span class="o">+</span> <span class="n">diffusion_term</span>
 
 <span class="nd">@jit_compile</span>
-<span class="k">def</span> <span class="nf">implicit_time_step</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">implicit_time_step</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
     <span class="n">v</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">solve_linear</span><span class="p">(</span><span class="n">momentum_eq</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">Solve</span><span class="p">(</span><span class="n">x0</span><span class="o">=</span><span class="n">v</span><span class="p">),</span> <span class="n">u_prev</span><span class="o">=</span><span class="n">v</span><span class="p">,</span> <span class="n">dt</span><span class="o">=-</span><span class="n">dt</span><span class="p">)</span>
     <span class="n">v</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">fluid</span><span class="o">.</span><span class="n">make_incompressible</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(),</span> <span class="n">Solve</span><span class="p">(</span><span class="s1">&#39;scipy-direct&#39;</span><span class="p">))</span>
     <span class="k">return</span> <span class="n">v</span>

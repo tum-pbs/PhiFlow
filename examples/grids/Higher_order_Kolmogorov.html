@@ -15125,8 +15125,8 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%</span><span class="k">pip</span> install phiflow
-<span class="kn">from</span> <span class="nn">phi.jax.flow</span> <span class="kn">import</span> <span class="o">*</span>
-<span class="kn">from</span> <span class="nn">tqdm.notebook</span> <span class="kn">import</span> <span class="n">trange</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">phi.jax.flow</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">tqdm.notebook</span><span class="w"> </span><span class="kn">import</span> <span class="n">trange</span>
 <span class="n">math</span><span class="o">.</span><span class="n">set_global_precision</span><span class="p">(</span><span class="mi">64</span><span class="p">)</span>
 </pre></div>
 
@@ -15227,13 +15227,13 @@ The pressure solve is integrated into Φ<sub>Flow</sub>'s 4th-order Runge-Kutta 
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[3]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">momentum_equation</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">viscosity</span><span class="o">=</span><span class="mf">0.001</span><span class="p">):</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">momentum_equation</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">viscosity</span><span class="o">=</span><span class="mf">0.001</span><span class="p">):</span>
     <span class="n">advection</span> <span class="o">=</span> <span class="n">advect</span><span class="o">.</span><span class="n">finite_difference</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
     <span class="n">diffusion</span> <span class="o">=</span> <span class="n">diffuse</span><span class="o">.</span><span class="n">finite_difference</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">viscosity</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">advection</span> <span class="o">+</span> <span class="n">diffusion</span> <span class="o">+</span> <span class="n">FORCING</span>
 
 <span class="nd">@jit_compile</span>
-<span class="k">def</span> <span class="nf">rk4_step</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">rk4_step</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">dt</span><span class="p">):</span>
   <span class="k">return</span> <span class="n">fluid</span><span class="o">.</span><span class="n">incompressible_rk4</span><span class="p">(</span><span class="n">momentum_equation</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">dt</span><span class="p">,</span> <span class="n">pressure_order</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">pressure_solve</span><span class="o">=</span><span class="n">Solve</span><span class="p">(</span><span class="s1">&#39;CG&#39;</span><span class="p">,</span> <span class="mf">1e-5</span><span class="p">,</span> <span class="mf">1e-5</span><span class="p">))</span>
 </pre></div>
 

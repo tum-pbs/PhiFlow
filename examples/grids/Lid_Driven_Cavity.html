@@ -15126,7 +15126,7 @@ Fluid inside a closed box is forced at the top boundary which has a constant rig
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-python"><pre><span></span><span class="o">%</span><span class="n">pip</span> <span class="n">install</span> <span class="n">phiflow</span>
-<span class="kn">from</span> <span class="nn">phi.jax.flow</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">phi.jax.flow</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
 <span class="c1"># from phi.flow import *  # If JAX is not installed. You can use phi.torch or phi.tf as well.</span>
 </pre></div>
 
@@ -15156,7 +15156,7 @@ Fluid inside a closed box is forced at the top boundary which has a constant rig
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-python"><pre><span></span><span class="nd">@jit_compile</span>
-<span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">viscosity</span><span class="o">=</span><span class="mf">.1</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">1.</span><span class="p">,</span> <span class="n">viscosity</span><span class="o">=</span><span class="mf">.1</span><span class="p">):</span>
     <span class="n">v</span> <span class="o">=</span> <span class="n">advect</span><span class="o">.</span><span class="n">semi_lagrangian</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
     <span class="n">v</span> <span class="o">=</span> <span class="n">diffuse</span><span class="o">.</span><span class="n">explicit</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">viscosity</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
     <span class="n">v</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">fluid</span><span class="o">.</span><span class="n">make_incompressible</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">solve</span><span class="o">=</span><span class="n">Solve</span><span class="p">(</span><span class="n">x0</span><span class="o">=</span><span class="n">p</span><span class="p">))</span>

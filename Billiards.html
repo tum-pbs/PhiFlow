@@ -15152,7 +15152,7 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># from phi.tf.flow import *</span>
-<span class="kn">from</span> <span class="nn">phi.torch.flow</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">phi.torch.flow</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
 <span class="c1"># from phi.jax.stax.flow import *</span>
 </pre></div>
 
@@ -15182,7 +15182,7 @@ We use the Φ<sub>Flow</sub> geometry class <code>Sphere</code> to represent the
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[3]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">billiards_triangle</span><span class="p">(</span><span class="n">billiard_layers</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">.03</span><span class="p">):</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">billiards_triangle</span><span class="p">(</span><span class="n">billiard_layers</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="mf">.03</span><span class="p">):</span>
     <span class="n">coords</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">billiard_layers</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
@@ -15260,7 +15260,7 @@ Below, we test the step with a simple pair collision.</p>
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[4]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">physics_step</span><span class="p">(</span><span class="n">v</span><span class="p">:</span> <span class="n">PointCloud</span><span class="p">,</span> <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">elasticity</span><span class="o">=</span><span class="mf">0.8</span><span class="p">):</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">physics_step</span><span class="p">(</span><span class="n">v</span><span class="p">:</span> <span class="n">PointCloud</span><span class="p">,</span> <span class="n">dt</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">elasticity</span><span class="o">=</span><span class="mf">0.8</span><span class="p">):</span>
     <span class="n">v_next</span> <span class="o">=</span> <span class="n">advect</span><span class="o">.</span><span class="n">points</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">dt</span><span class="p">)</span>
     <span class="n">dist</span> <span class="o">=</span> <span class="n">v_next</span><span class="o">.</span><span class="n">points</span> <span class="o">-</span> <span class="n">rename_dims</span><span class="p">(</span><span class="n">v_next</span><span class="o">.</span><span class="n">points</span><span class="p">,</span> <span class="s1">&#39;balls&#39;</span><span class="p">,</span> <span class="s1">&#39;others&#39;</span><span class="p">)</span>
     <span class="n">dist_norm</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">vec_length</span><span class="p">(</span><span class="n">dist</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">)</span>  <span class="c1"># eps to avoid NaN during backprop of sqrt</span>
@@ -15300,7 +15300,7 @@ Below, we test the step with a simple pair collision.</p>
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>/tmp/ipykernel_2003/1958517515.py:4: DeprecationWarning: phiml.math.length is deprecated in favor of phiml.math.norm
+<pre>/tmp/ipykernel_2009/1958517515.py:4: DeprecationWarning: phiml.math.length is deprecated in favor of phiml.math.norm
   dist_norm = math.vec_length(dist, eps=1e-4)  # eps to avoid NaN during backprop of sqrt
 </pre>
 </div>
@@ -15527,7 +15527,7 @@ The loss function sets up our system consisting of the 10 balls in triangle form
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[5]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">loss_function</span><span class="p">(</span><span class="n">x0</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">v0</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">goal</span><span class="o">=</span><span class="n">vec</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.75</span><span class="p">),</span> <span class="n">steps</span><span class="o">=</span><span class="mi">1024</span><span class="p">):</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">loss_function</span><span class="p">(</span><span class="n">x0</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">v0</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">goal</span><span class="o">=</span><span class="n">vec</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="mf">0.9</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="mf">0.75</span><span class="p">),</span> <span class="n">steps</span><span class="o">=</span><span class="mi">1024</span><span class="p">):</span>
     <span class="n">triangle_balls</span> <span class="o">=</span> <span class="n">PointCloud</span><span class="p">(</span><span class="n">billiards_triangle</span><span class="p">())</span> <span class="o">*</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
     <span class="n">controllable_ball</span> <span class="o">=</span> <span class="n">PointCloud</span><span class="p">(</span><span class="n">Sphere</span><span class="p">(</span><span class="n">expand</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">instance</span><span class="p">(</span><span class="n">triangle_balls</span><span class="p">)</span><span class="o">.</span><span class="n">with_size</span><span class="p">(</span><span class="mi">1</span><span class="p">)),</span> <span class="n">radius</span><span class="o">=</span><span class="n">triangle_balls</span><span class="o">.</span><span class="n">geometry</span><span class="o">.</span><span class="n">radius</span><span class="p">))</span> <span class="o">*</span> <span class="n">v0</span>
     <span class="n">all_balls</span> <span class="o">=</span> <span class="n">controllable_ball</span> <span class="o">&amp;</span> <span class="n">triangle_balls</span>
@@ -15580,7 +15580,7 @@ The loss function sets up our system consisting of the 10 balls in triangle form
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>/tmp/ipykernel_2003/1958517515.py:4: DeprecationWarning: phiml.math.length is deprecated in favor of phiml.math.norm
+<pre>/tmp/ipykernel_2009/1958517515.py:4: DeprecationWarning: phiml.math.length is deprecated in favor of phiml.math.norm
   dist_norm = math.vec_length(dist, eps=1e-4)  # eps to avoid NaN during backprop of sqrt
 </pre>
 </div>
@@ -16556,7 +16556,7 @@ We noticed the loss landscape is highly dependent on the number of simulation st
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>/tmp/ipykernel_2003/1958517515.py:4: DeprecationWarning: phiml.math.length is deprecated in favor of phiml.math.norm
+<pre>/tmp/ipykernel_2009/1958517515.py:4: DeprecationWarning: phiml.math.length is deprecated in favor of phiml.math.norm
   dist_norm = math.vec_length(dist, eps=1e-4)  # eps to avoid NaN during backprop of sqrt
 </pre>
 </div>
@@ -16649,9 +16649,9 @@ We plot the found trajectory after 5 iterations along with the goal point (X).</
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>/opt/hostedtoolcache/Python/3.12.8/x64/lib/python3.12/site-packages/phiml/math/_functional.py:628: RuntimeWarning: Using torch for gradient computation because numpy does not support jacobian()
+<pre>/opt/hostedtoolcache/Python/3.12.8/x64/lib/python3.12/site-packages/phiml/math/_functional.py:630: RuntimeWarning: Using torch for gradient computation because numpy does not support jacobian()
   warnings.warn(f&#34;Using {math.default_backend()} for gradient computation because {key.backend} does not support jacobian()&#34;, RuntimeWarning)
-/tmp/ipykernel_2003/1958517515.py:4: DeprecationWarning: phiml.math.length is deprecated in favor of phiml.math.norm
+/tmp/ipykernel_2009/1958517515.py:4: DeprecationWarning: phiml.math.length is deprecated in favor of phiml.math.norm
   dist_norm = math.vec_length(dist, eps=1e-4)  # eps to avoid NaN during backprop of sqrt
 </pre>
 </div>

@@ -15125,7 +15125,7 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="o">%</span><span class="k">pip</span> install --quiet phiflow
-<span class="kn">from</span> <span class="nn">phi.jax.flow</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">phi.jax.flow</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>
 <span class="c1"># from phi.flow import *  # If JAX is not installed. You can use phi.torch or phi.tf as well.</span>
 </pre></div>
 
@@ -15243,7 +15243,7 @@ Inside the step, <code>math.pairwise_distances</code> computes all body-body dis
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="nd">@jit_compile</span>
-<span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">.5</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">step</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="mf">.5</span><span class="p">):</span>
     <span class="n">dx</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">pairwise_differences</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="n">a</span> <span class="o">=</span> <span class="mf">.01</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">safe_div</span><span class="p">(</span><span class="n">mass</span><span class="o">.</span><span class="n">planets</span><span class="o">.</span><span class="n">as_dual</span><span class="p">()</span> <span class="o">*</span> <span class="n">dx</span><span class="p">,</span> <span class="n">math</span><span class="o">.</span><span class="n">vec_squared</span><span class="p">(</span><span class="n">dx</span><span class="p">)</span> <span class="o">**</span> <span class="mf">1.5</span><span class="p">),</span> <span class="s1">&#39;~planets&#39;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">x</span> <span class="o">+</span> <span class="n">v</span> <span class="o">*</span> <span class="n">dt</span><span class="p">,</span> <span class="n">v</span> <span class="o">+</span> <span class="n">a</span> <span class="o">*</span> <span class="n">dt</span>

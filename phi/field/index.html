@@ -338,7 +338,7 @@ See the description in <code><a title="phi.geom.Geometry.approximate_fraction_in
             values = sample(values, elements, at=&#39;face&#39;, boundary=extrapolation, dot_face_normal=elements)
         elif callable(values):
             values = sample_function(values, elements, &#39;face&#39;, extrapolation)
-            if elements.shape.shape.rank &gt; 1:  # Different number of X and Y faces
+            if elements.shape.is_non_uniform:  # Different number of X and Y faces
                 assert isinstance(values, TensorStack), f&#34;values function must return a staggered Tensor but returned {type(values)}&#34;
             assert &#39;~vector&#39; in values.shape
             if &#39;vector&#39; in values.shape:
@@ -718,13 +718,13 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 
     Args:
         x: `Tensor` to convert. If `x` is a `phiml.math.magic.PhiTreeNode`, its variable attributes are converted.
-        backend: Target backend. If `None`, uses the current default backend, see `phiml.math.backend.default_backend()`.
+        backend: Target backend. If `None`, uses the current default backend, see `phiml.math.backend.backend()`.
 
     Returns:
         `Tensor` with native representation belonging to `backend`.
     &#34;&#34;&#34;
     if isinstance(x, Tensor):
-        return x._op1(lambda native: b_convert(native, backend, use_dlpack=use_dlpack))
+        return x._from_spec_and_natives(x._spec_dict(), [b_convert(n, use_dlpack=False) for n in x._natives()])
     elif isinstance(x, PhiTreeNode):
         return tree_map(convert, x, backend=backend, use_dlpack=use_dlpack)
     else:
@@ -739,7 +739,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 <dt><strong><code>x</code></strong></dt>
 <dd><code>Tensor</code> to convert. If <code>x</code> is a <code>phiml.math.magic.PhiTreeNode</code>, its variable attributes are converted.</dd>
 <dt><strong><code>backend</code></strong></dt>
-<dd>Target backend. If <code>None</code>, uses the current default backend, see <code>phiml.math.backend.default_backend()</code>.</dd>
+<dd>Target backend. If <code>None</code>, uses the current default backend, see <code>phiml.math.backend.backend()</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code>Tensor</code> with native representation belonging to <code>backend</code>.</p></div>
@@ -779,8 +779,8 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
     if field.is_grid and field.is_staggered and field.spatial_rank == 2 and at == &#39;corner&#39;:
         x, y = field.vector.item_names
         values = field.with_boundary(None).values
-        vx = math.pad(values.vector.dual[x], {y: (1, 1)}, field.extrapolation[{&#39;vector&#39;: y}])
-        vy = math.pad(values.vector.dual[y], {x: (1, 1)}, field.extrapolation[{&#39;vector&#39;: x}])
+        vx = math.pad(values.vector.dual[x], {y: (1, 1)}, field.boundary[{&#39;vector&#39;: y}])
+        vy = math.pad(values.vector.dual[y], {x: (1, 1)}, field.boundary[{&#39;vector&#39;: x}])
         vy_dx = math.spatial_gradient(vy, dims=x, dx=field.dx[x], padding=None, stack_dim=None, difference=&#39;forward&#39;)
         vx_dy = math.spatial_gradient(vx, dims=y, dx=field.dx[y], padding=None, stack_dim=None, difference=&#39;forward&#39;)
         curl_val = vy_dx - vx_dy
@@ -821,6 +821,36 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
     #         vy_dx = math.spatial_gradient(y_padded, field.dx, &#39;forward&#39;, None, dims=&#39;x&#39;, stack_dim=None)
     #         result = vy_dx - vx_dy
     #         return CenteredGrid(result, field.extrapolation.spatial_gradient(), field.bounds)
+    elif field.is_grid and field.is_staggered and field.spatial_rank == 3 and at == &#39;corner&#39;:
+        x, y, z = field.vector.item_names
+        values = field.with_boundary(None).values
+        vx = math.pad(values.vector.dual[x], {y: (1, 1), z: (1, 1)}, field.boundary[{&#39;vector&#39;: y}])
+        vy = math.pad(values.vector.dual[y], {x: (1, 1), z: (1, 1)}, field.boundary[{&#39;vector&#39;: x}])
+        vz = math.pad(values.vector.dual[z], {x: (1, 1), y: (1, 1)}, field.boundary[{&#39;vector&#39;: z}])
+        vx_dy = neighbor_mean(math.spatial_gradient(vx, dims=y, dx=field.dx[y], padding=None, stack_dim=None, difference=&#39;forward&#39;), z)
+        vx_dz = neighbor_mean(math.spatial_gradient(vx, dims=z, dx=field.dx[z], padding=None, stack_dim=None, difference=&#39;forward&#39;), y)
+        vy_dx = neighbor_mean(math.spatial_gradient(vy, dims=x, dx=field.dx[x], padding=None, stack_dim=None, difference=&#39;forward&#39;), z)
+        vy_dz = neighbor_mean(math.spatial_gradient(vy, dims=z, dx=field.dx[z], padding=None, stack_dim=None, difference=&#39;forward&#39;), x)
+        vz_dx = neighbor_mean(math.spatial_gradient(vz, dims=x, dx=field.dx[x], padding=None, stack_dim=None, difference=&#39;forward&#39;), y)
+        vz_dy = neighbor_mean(math.spatial_gradient(vz, dims=y, dx=field.dx[y], padding=None, stack_dim=None, difference=&#39;forward&#39;), x)
+        curl_val = math.stack([vz_dy-vy_dz, vx_dz-vz_dx, vy_dx-vx_dy], field.shape[&#39;vector&#39;])
+        corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx / 2, field.bounds.upper + field.dx / 2))
+        return Field(corners, curl_val, field.boundary.spatial_gradient())
+    elif field.is_grid and field.is_centered and field.spatial_rank == 3 and at == &#39;corner&#39;:
+        raise NotImplementedError
+        x, y, z = field.vector.item_names
+        values = pad(field, 1).values
+        # ToDo 8 diag offset vectors, account for cell stretching
+        # Then sum (offset x v) / |offset|^2 ??
+        diag_basis = wrap([(1, 1), (1, -1)], channel(diag=&#39;pos,neg&#39;), dual(vector=[x, y]))
+        diag_comp = diag_basis @ values
+        ll = diag_comp[{x: slice(-1), y: slice(-1), &#39;diag&#39;: &#39;neg&#39;}]
+        ul = diag_comp[{x: slice(-1), y: slice(1, None), &#39;diag&#39;: &#39;pos&#39;}]
+        lr = diag_comp[{x: slice(1, None), y: slice(-1), &#39;diag&#39;: &#39;pos&#39;}]
+        ur = diag_comp[{x: slice(1, None), y: slice(1, None), &#39;diag&#39;: &#39;neg&#39;}]
+        curl_val = ll - ul + lr - ur
+        corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx / 2, field.bounds.upper + field.dx / 2))
+        return Field(corners, curl_val, field.boundary.spatial_gradient())
     raise NotImplementedError(&#34;Only 2D curl at corner currently supported&#34;)</code></pre>
 </details>
 <div class="desc"><p>Computes the finite-difference curl of the give 2D <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid()</a></code>.</p>
@@ -833,7 +863,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f1098a2c360></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f7919475d00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -1667,7 +1697,7 @@ Upon tracing with new instance (due to changed shapes or auxiliary args), delete
 <p><code>LinearFunction</code> with similar signature and return values as <code>f</code>.</p></div>
 </dd>
 <dt id="phi.field.l1_loss"><code class="name flex">
-<span>def <span class="ident">l1_loss</span></span>(<span>x,<br>reduce: str | Sequence | set | ForwardRef('Shape') | Callable | None = &lt;function non_batch&gt;) ‑> phiml.math._tensors.Tensor</span>
+<span>def <span class="ident">l1_loss</span></span>(<span>x,<br>reduce: str | Sequence | set | phiml.math._shape.Shape | Callable | None = &lt;function non_batch&gt;) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -1692,7 +1722,7 @@ Upon tracing with new instance (due to changed shapes or auxiliary args), delete
         return sum([l1_loss(getattr(x, a), reduce) for a in value_attributes(x)])
     else:
         try:
-            backend = math.choose_backend(x)
+            backend = choose_backend(x)
             shape = backend.staticshape(x)
             if len(shape) == 0:
                 return abs(x)
@@ -1719,7 +1749,7 @@ For <code>phiml.math.magic.PhiTreeNode</code> objects, only value the sum over a
 </dl></div>
 </dd>
 <dt id="phi.field.l2_loss"><code class="name flex">
-<span>def <span class="ident">l2_loss</span></span>(<span>x,<br>reduce: str | Sequence | set | ForwardRef('Shape') | Callable | None = &lt;function non_batch&gt;) ‑> phiml.math._tensors.Tensor</span>
+<span>def <span class="ident">l2_loss</span></span>(<span>x,<br>reduce: str | Sequence | set | phiml.math._shape.Shape | Callable | None = &lt;function non_batch&gt;) ‑> phiml.math._tensors.Tensor</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -1746,7 +1776,7 @@ For <code>phiml.math.magic.PhiTreeNode</code> objects, only value the sum over a
         return sum([l2_loss(getattr(x, a), reduce) for a in value_attributes(x)])
     else:
         try:
-            backend = math.choose_backend(x)
+            backend = choose_backend(x)
             shape = backend.staticshape(x)
             if len(shape) == 0:
                 return x ** 2 * 0.5
@@ -1773,7 +1803,7 @@ For <code>phiml.math.magic.PhiTreeNode</code> objects, only value the sum over a
 </dl></div>
 </dd>
 <dt id="phi.field.laplace"><code class="name flex">
-<span>def <span class="ident">laplace</span></span>(<span>u: phi.field._field.Field,<br>axes: str | Sequence | set | ForwardRef('Shape') | Callable | None = &lt;function spatial&gt;,<br>gradient: phi.field._field.Field = None,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>implicitness: int = None,<br>weights: phiml.math._tensors.Tensor | phi.field._field.Field = None,<br>upwind: phi.field._field.Field = None,<br>correct_skew=True) ‑> phi.field._field.Field</span>
+<span>def <span class="ident">laplace</span></span>(<span>u: phi.field._field.Field,<br>axes: str | Sequence | set | phiml.math._shape.Shape | Callable | None = &lt;function spatial&gt;,<br>gradient: phi.field._field.Field = None,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>implicitness: int = None,<br>weights: phiml.math._tensors.Tensor | phi.field._field.Field = None,<br>upwind: phi.field._field.Field = None,<br>correct_skew=True,<br>wide_stencil=False) ‑> phi.field._field.Field</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -1788,7 +1818,8 @@ For <code>phiml.math.magic.PhiTreeNode</code> objects, only value the sum over a
             implicitness: int = None,
             weights: Union[Tensor, Field] = None,
             upwind: Field = None,
-            correct_skew=True) -&gt; Field:
+            correct_skew=True,
+            wide_stencil=False) -&gt; Field:
     &#34;&#34;&#34;
     Spatial Laplace operator for scalar grid.
 
@@ -1815,7 +1846,6 @@ For <code>phiml.math.magic.PhiTreeNode</code> objects, only value the sum over a
     Returns:
         laplacian field as `CenteredGrid`
     &#34;&#34;&#34;
-
     if implicitness is None:
         implicitness = 0 if implicit is None else 2
     elif implicitness != 0:
@@ -1832,6 +1862,11 @@ For <code>phiml.math.magic.PhiTreeNode</code> objects, only value the sum over a
             raise NotImplementedError(f&#34;laplace on meshes is not yet supported with vector-valued weights&#34;)
         neighbor_val = u.mesh.pad_boundary(u.values, mode=u.boundary)
         nb_distances = u.mesh.neighbor_distances
+        if wide_stencil:
+            assert weights is None
+            grad_p = spatial_gradient(u, order=order, scheme=&#39;green-gauss&#39;, upwind=upwind)
+            div_grad_p = grad_p.divergence(order=order, upwind=upwind)
+            return div_grad_p
         connecting_grad = (u.mesh.connectivity * neighbor_val - u.values) / nb_distances  # (T_N - T_P) / d_PN
         if correct_skew and gradient is not None:  # skewness correction
             assert dual(gradient).names == (&#39;~vector&#39;,), f&#34;gradient must contain one dual dim &#39;~vector&#39; listing the gradient components but got {gradient.shape}&#34;
@@ -1847,25 +1882,19 @@ For <code>phiml.math.magic.PhiTreeNode</code> objects, only value the sum over a
         laplace_values = u.mesh.integrate_surface(grad) / u.mesh.volume  # 1/V ∑_f ∇T ν A
         result = weights * laplace_values if weights is not None else laplace_values
         return Field(u.mesh, result, u.boundary - u.boundary)
-
     # --- Grid ---
-
     laplace_ext = u.extrapolation.spatial_gradient().spatial_gradient()
     laplace_dims = u.shape.only(axes).names
-
-    if u.vector.exists and (u.is_centered or order &gt; 2):
+    if &#39;vector&#39; in u.shape and (u.is_centered or order &gt; 2):
         fields = [f for f in u.vector]
     else:
         fields = [u]
-
     result = []
     for f in fields:
         if order == 2:
             result.append(math.map_d2c(math.laplace)(f.values, dx=f.dx, padding=f.extrapolation, dims=axes, weights=weights, padding_kwargs={&#39;bounds&#39;: f.bounds}))  # uses ghost cells
         else:
-            result_components = [perform_finite_difference_operation(f.values, dim, 2, f.dx.vector[dim], f.extrapolation,
-                                                                         laplace_ext, &#39;center&#39;, order, implicit,
-                                                                         implicitness) for dim in laplace_dims]
+            result_components = [perform_finite_difference_operation(f.values, dim, 2, f.dx.vector[dim], f.extrapolation, laplace_ext, &#39;center&#39;, order, implicit, implicitness) for dim in laplace_dims]
             if weights is not None:
                 if channel(weights):
                     result_components = [c * weights[ax] for c, ax in zip(result_components, axes_names)]
@@ -1873,15 +1902,13 @@ For <code>phiml.math.magic.PhiTreeNode</code> objects, only value the sum over a
                     result_components = [c * weights for c in result_components]
 
             result.append(sum(result_components))
-
-    if u.vector.exists and (u.is_centered or order &gt; 2):
+    if &#39;vector&#39; in u.shape and (u.is_centered or order &gt; 2):
         if u.is_staggered:
             result = math.stack(result, dual(vector=u.vector.item_names))
         else:
             result = math.stack(result, channel(vector=u.vector.item_names))
     else:
         result = result[0]
-
     return u.with_values(result).with_extrapolation(laplace_ext)</code></pre>
 </details>
 <div class="desc"><p>Spatial Laplace operator for scalar grid.</p>
@@ -2066,18 +2093,18 @@ If both are <code>Fields</code> but have different points, <code>f1</code> takes
     assert solve.preprocess_y is None, &#34;minimize() does not allow preprocess_y&#34;
     x0_nest, x0_tensors = disassemble_tree(solve.x0, cache=True, attr_type=variable_attributes)
     x0_tensors = [to_float(t) for t in x0_tensors]
-    backend = choose_backend_t(*x0_tensors, prefer_default=True)
+    backend = preferred_backend_for(*x0_tensors)
     batch_dims = merge_shapes(*[batch(t) for t in x0_tensors])
     x0_natives = []
     x0_native_shapes = []
     for t in x0_tensors:
         t = cached(t)
         if t.shape.is_uniform:
-            x0_natives.append(reshaped_native(t, [batch_dims, t.shape.non_batch]))
+            x0_natives.append(t.native([batch_dims, t.shape.non_batch]))
             x0_native_shapes.append(t.shape.non_batch)
         else:
-            for ut in unstack(t, t.shape.shape.without(&#39;dims&#39;)):
-                x0_natives.append(reshaped_native(ut, [batch_dims, ut.shape.non_batch]))
+            for ut in unstack(t, t.shape.non_uniform_shape):
+                x0_natives.append(ut.native([batch_dims, ut.shape.non_batch]))
                 x0_native_shapes.append(ut.shape.non_batch)
     x0_flat = backend.concat(x0_natives, -1)
 
@@ -2096,7 +2123,7 @@ If both are <code>Fields</code> but have different points, <code>f1</code> takes
             if t.shape.is_uniform:
                 x_tensors.append(partial_tensors.pop(0))
             else:
-                stack_dims = t.shape.shape.without(&#39;dims&#39;)
+                stack_dims = t.shape.non_uniform_shape
                 x_tensors.append(stack(partial_tensors[:stack_dims.volume], stack_dims))
                 partial_tensors = partial_tensors[stack_dims.volume:]
         x = assemble_tree(x0_nest, x_tensors, attr_type=variable_attributes)
@@ -2117,11 +2144,11 @@ If both are <code>Fields</code> but have different points, <code>f1</code> takes
                 raise NewBatchDims(loss_tensor.shape, extra_batch)
             else:
                 loss_tensor = loss_tensor[next(iter(extra_batch.meshgrid()))]
-        loss_native = reshaped_native(loss_tensor, [batch_dims], force_expand=False)
+        loss_native = loss_tensor.native([batch_dims], force_expand=False)
         return loss_tensor.sum, (loss_native,)
 
-    atol = backend.to_float(reshaped_native(solve.abs_tol, [batch_dims]))
-    maxi = reshaped_numpy(solve.max_iterations, [batch_dims])
+    atol = backend.to_float(solve.abs_tol.native([batch_dims]))
+    maxi = solve.max_iterations.numpy([batch_dims])
     trj = _SOLVE_TAPES and any(t.should_record_trajectory_for(solve) for t in _SOLVE_TAPES)
     t = time.perf_counter()
     try:
@@ -2860,7 +2887,7 @@ The sign of 0 is undefined.</p>
     * `&#39;biCG-stab&#39;` or `&#39;biCG-stab(1)&#39;`: Biconjugate gradient stabilized, first order
     * `&#39;biCG-stab(2)&#39;`, `&#39;biCG-stab(4)&#39;`, ...: Biconjugate gradient stabilized, second or higher order
     * `&#39;scipy-direct&#39;`: SciPy direct solve always run oh the CPU using `scipy.sparse.linalg.spsolve`.
-    * `&#39;scipy-CG&#39;`, `&#39;scipy-GMres&#39;`, `&#39;scipy-biCG&#39;`, `&#39;scipy-biCG-stab&#39;`, `&#39;scipy-CGS&#39;`, `&#39;scipy-QMR&#39;`, `&#39;scipy-GCrotMK&#39;`: SciPy iterative solvers always run oh the CPU, both in eager execution and JIT mode.
+    * `&#39;scipy-CG&#39;`, `&#39;scipy-GMres&#39;`, `&#39;scipy-biCG&#39;`, `&#39;scipy-biCG-stab&#39;`, `&#39;scipy-CGS&#39;`, `&#39;scipy-QMR&#39;`, `&#39;scipy-GCrotMK&#39;`, `&#39;scipy-lsqr&#39;`: SciPy iterative solvers always run oh the CPU, both in eager execution and JIT mode.
 
     For maximum performance, compile `f` using `jit_compile_linear()` beforehand.
     Then, an optimized representation of `f` (such as a sparse matrix) will be used to solve the linear system.
@@ -2946,7 +2973,7 @@ The sign of 0 is undefined.</p>
                 solve = copy_with(solve, x0=x0)
                 solution = solve_linear(f, y, solve, *f_args, grad_for_f=grad_for_f, f_kwargs=f_kwargs, **f_kwargs_)
                 return solution.native(&#39;,&#39;.join([f&#39;batch{i}&#39; for i in range(rank - 1)]) + &#39;,vector&#39;)
-    backend = choose_backend_t(*y_tensors, *x0_tensors)
+    backend = backend_for(*y_tensors, *x0_tensors)
     prefer_explicit = backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix) or grad_for_f
 
     if isinstance(f, Tensor) or (isinstance(f, LinearFunction) and prefer_explicit):  # Matrix solve
@@ -2968,13 +2995,15 @@ The sign of 0 is undefined.</p>
         preconditioner = compute_preconditioner(solve.preconditioner, matrix, rank_deficiency=solve.rank_deficiency, target_backend=NUMPY if solve.method.startswith(&#39;scipy-&#39;) else backend, solver=solve.method) if solve.preconditioner is not None else None
 
         def _matrix_solve_forward(y, solve: Solve, matrix: Tensor, is_backprop=False):
-            backend_matrix = native_matrix(matrix, choose_backend_t(*y_tensors, matrix))
+            if solve.rank_deficiency:
+                matrix = matrix[{dual: slice(-solve.rank_deficiency), primal: slice(-solve.rank_deficiency)}]
+            backend_matrix = native_matrix(matrix, backend_for(*y_tensors, matrix))
             pattern_dims_in = dual(matrix).as_channel().names
             pattern_dims_out = non_dual(matrix).names  # batch dims can be sparse or batched matrices
             result = _linear_solve_forward(y, solve, backend_matrix, pattern_dims_in, pattern_dims_out, preconditioner, backend, is_backprop)
             return result  # must return exactly `x` so gradient isn&#39;t computed w.r.t. other quantities
 
-        _matrix_solve = attach_gradient_solve(_matrix_solve_forward, auxiliary_args=f&#39;is_backprop,solve{&#34;,matrix&#34; if matrix.default_backend == NUMPY else &#34;&#34;}&#39;, matrix_adjoint=grad_for_f)
+        _matrix_solve = attach_gradient_solve(_matrix_solve_forward, auxiliary_args=f&#39;is_backprop,solve{&#34;,matrix&#34; if matrix.backend == NUMPY else &#34;&#34;}&#39;, matrix_adjoint=grad_for_f)
         return _matrix_solve(y - bias, solve, matrix)
     else:  # Matrix-free solve
         f_args = cached(f_args)
@@ -2989,13 +3018,14 @@ The sign of 0 is undefined.</p>
             batches = (y_tensor.shape &amp; x0_tensor.shape).batch
 
             def native_lin_f(native_x, batch_index=None):
+                assert not solve.rank_deficiency  # ToDo add and remove zeros around function call
                 if batch_index is not None and batches.volume &gt; 1:
                     native_x = backend.tile(backend.expand_dims(native_x), [batches.volume, 1])
                 x = assemble_tree(x0_nest, [reshaped_tensor(native_x, [batches, non_batch(x0_tensor)] if backend.ndims(native_x) &gt;= 2 else [non_batch(x0_tensor)], convert=False)], attr_type=variable_attributes)
                 y_ = f(x, *f_args, **f_kwargs)
                 _, (y_tensor_,) = disassemble_tree(y_, cache=False, attr_type=value_attributes)
                 assert set(non_batch(y_tensor_)) == set(non_batch(y_tensor)), f&#34;Function returned dimensions {y_tensor_.shape} but right-hand-side has shape {y_tensor.shape}&#34;
-                y_native = reshaped_native(y_tensor_, [batches, non_batch(y_tensor)] if backend.ndims(native_x) &gt;= 2 else [non_batch(y_tensor)])  # order like right-hand-side
+                y_native = y_tensor_.native([batches, non_batch(y_tensor)] if backend.ndims(native_x) &gt;= 2 else [non_batch(y_tensor)])  # order like right-hand-side
                 if batch_index is not None and batches.volume &gt; 1:
                     y_native = y_native[batch_index]
                 return y_native
@@ -3017,7 +3047,7 @@ The following method identifiers are supported by all backends:</p>
 <li><code>'biCG-stab'</code> or <code>'biCG-stab(1)'</code>: Biconjugate gradient stabilized, first order</li>
 <li><code>'biCG-stab(2)'</code>, <code>'biCG-stab(4)'</code>, &hellip;: Biconjugate gradient stabilized, second or higher order</li>
 <li><code>'scipy-direct'</code>: SciPy direct solve always run oh the CPU using <code>scipy.sparse.linalg.spsolve</code>.</li>
-<li><code>'scipy-CG'</code>, <code>'scipy-GMres'</code>, <code>'scipy-biCG'</code>, <code>'scipy-biCG-stab'</code>, <code>'scipy-CGS'</code>, <code>'scipy-QMR'</code>, <code>'scipy-GCrotMK'</code>: SciPy iterative solvers always run oh the CPU, both in eager execution and JIT mode.</li>
+<li><code>'scipy-CG'</code>, <code>'scipy-GMres'</code>, <code>'scipy-biCG'</code>, <code>'scipy-biCG-stab'</code>, <code>'scipy-CGS'</code>, <code>'scipy-QMR'</code>, <code>'scipy-GCrotMK'</code>, <code>'scipy-lsqr'</code>: SciPy iterative solvers always run oh the CPU, both in eager execution and JIT mode.</li>
 </ul>
 <p>For maximum performance, compile <code>f</code> using <code><a title="phi.field.jit_compile_linear" href="#phi.field.jit_compile_linear">jit_compile_linear()</a></code> beforehand.
 Then, an optimized representation of <code>f</code> (such as a sparse matrix) will be used to solve the linear system.</p>
@@ -3139,7 +3169,7 @@ The output of <code>f</code> must match <code>y</code>.</dd>
 </dl></div>
 </dd>
 <dt id="phi.field.spatial_gradient"><code class="name flex">
-<span>def <span class="ident">spatial_gradient</span></span>(<span>field: phi.field._field.Field,<br>boundary: phiml.math.extrapolation.Extrapolation = None,<br>at: str = 'center',<br>dims: str | Sequence | set | ForwardRef('Shape') | Callable | None = &lt;function spatial&gt;,<br>stack_dim: phiml.math._shape.Shape | str = (vectorᶜ=None),<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>implicitness: int = None,<br>scheme=None,<br>upwind: phi.field._field.Field = None,<br>gradient_extrapolation: phiml.math.extrapolation.Extrapolation = None)</span>
+<span>def <span class="ident">spatial_gradient</span></span>(<span>field: phi.field._field.Field,<br>boundary: phiml.math.extrapolation.Extrapolation = None,<br>at: str = 'center',<br>dims: str | Sequence | set | phiml.math._shape.Shape | Callable | None = &lt;function spatial&gt;,<br>stack_dim: phiml.math._shape.Shape | str = (vectorᶜ=None),<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>implicitness: int = None,<br>scheme=None,<br>upwind: phi.field._field.Field = None,<br>gradient_extrapolation: phiml.math.extrapolation.Extrapolation = None)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3204,16 +3234,13 @@ The output of <code>f</code> must match <code>y</code>.</dd>
             return least_squares_gradient(field, stack_dim=stack_dim, boundary=boundary)
         raise NotImplementedError(scheme)
 
-
-    if field.vector.exists:
+    if &#39;vector&#39; in field.shape:
         assert stack_dim.name != &#39;vector&#39;, &#34;`stack_dim=vector` is inadmissible if the input is a vector grid&#34;
         if field == StaggeredGrid:
             assert at == &#39;faces&#39;, &#34;for a `StaggeredGrid` input only `type == StaggeredGrid` is possible&#34;
 
     if at == &#39;faces&#39;:
         assert stack_dim.name == &#39;vector&#39;, f&#34;spatial_gradient with type=StaggeredGrid requires stack_dim.name == &#39;vector&#39; but got &#39;{stack_dim.name}&#39;&#34;
-
-
 
     if gradient_extrapolation is None:
         gradient_extrapolation = field.extrapolation.spatial_gradient()
@@ -3352,7 +3379,10 @@ Otherwise, an explicit stencil is used.</dd>
             return fields[0].with_values(values).with_boundary(boundary)
     else:
         values = math.stack([f.values for f in fields], dim)
-        geometry = fields[0].geometry if all(f.geometry == fields[0].geometry for f in fields) else math.stack([f.geometry for f in fields], dim)
+        geometry = fields[0].geometry if all(f.geometry == fields[0].geometry for f in fields) else math.stack([f.geometry for f in fields], dim, layout_non_matching=True)
+        if isinstance(geometry, Tensor):
+            from phi.geom._geom_ops import GeometryStack
+            geometry = GeometryStack(geometry)
         return Field(geometry, values, boundary)</code></pre>
 </details>
 <div class="desc"><p>Stacks the given <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>s along <code>dim</code>.</p>
@@ -3477,7 +3507,7 @@ When returning a CenteredGrid, the new grid has the same resolution as <code>fie
     Returns:
         Copy of `x`.
     &#34;&#34;&#34;
-    if isinstance(x, Shape):
+    if isinstance(x, SHAPE_TYPES):
         return x
     return _backend_op1(x, Backend.stop_gradient, attr_type=variable_attributes)</code></pre>
 </details>
@@ -3598,7 +3628,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <div class="desc"><p>Converts the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code> to 64-bit integer.</p></div>
 </dd>
 <dt id="phi.field.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>value, dim: str | Sequence | set | ForwardRef('Shape') | Callable | None) ‑> tuple</span>
+<span>def <span class="ident">unstack</span></span>(<span>value, dim: str | Sequence | set | phiml.math._shape.Shape | Callable | None) ‑> tuple</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3609,8 +3639,8 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
     &#34;&#34;&#34;
     Un-stacks a `Sliceable` along one or multiple dimensions.
 
-    If multiple dimensions are given, the order of elements will be according to the dimension order in `dim`, i.e. elements along the last dimension will be neighbors in the returned `tuple`.
-    If no dimension is given or none of the given dimensions exists on `value`, returns a list containing only `value`.
+    If multiple dims are given, the order of elements will be according to the dimension order in `dim`, i.e. elements along the last dimension will be neighbors in the returned `tuple`.
+    If no dimension is given or none of the given dims exists on `value`, returns a list containing only `value`.
 
     See Also:
         `phiml.math.slice`.
@@ -3626,22 +3656,24 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
         &gt;&gt;&gt; unstack(expand(0, spatial(x=5)), &#39;x&#39;)
         (0.0, 0.0, 0.0, 0.0, 0.0)
     &#34;&#34;&#34;
-    assert isinstance(value, Sliceable) and isinstance(value, Shaped), f&#34;Cannot unstack {type(value).__name__}. Must be Sliceable and Shaped, see https://tum-pbs.github.io/PhiML/phiml/math/magic.html&#34;
-    dims = shape(value).only(dim)
+    if DEBUG_CHECKS:
+        assert isinstance(value, Sliceable) and isinstance(value, Shaped), f&#34;Cannot unstack {type(value).__name__}. Must be Sliceable and Shaped, see https://tum-pbs.github.io/PhiML/phiml/math/magic.html&#34;
+    dims = shape(value).only(dim, reorder=True)
     if dims.rank == 0:
         return value,
     if dims.rank == 1:
         if hasattr(value, &#39;__unstack__&#39;):
             result = value.__unstack__(dims.names)
             if result is not NotImplemented:
-                assert isinstance(result, tuple), f&#34;__unstack__ must return a tuple but got {type(result)}&#34;
-                assert all([isinstance(item, Sliceable) for item in result]), f&#34;__unstack__ must return a tuple of Sliceable objects but not all items were sliceable in {result}&#34;
+                if DEBUG_CHECKS:
+                    assert isinstance(result, tuple), f&#34;__unstack__ must return a tuple but got {type(result)}&#34;
+                    assert all([isinstance(item, Sliceable) for item in result]), f&#34;__unstack__ must return a tuple of Sliceable objects but not all items were sliceable in {result}&#34;
                 return result
         return tuple([slice_(value, {dims.name: i}) for i in range(dims.size)])
     else:  # multiple dimensions
         if hasattr(value, &#39;__pack_dims__&#39;):
             packed_dim = batch(&#39;_unstack&#39;)
-            value_packed = value.__pack_dims__(dims.names, packed_dim, pos=None)
+            value_packed = value.__pack_dims__(dims, packed_dim, pos=None)
             if value_packed is not NotImplemented:
                 return unstack(value_packed, packed_dim)
         unstack_dim = _any_uniform_dim(dims)
@@ -3650,8 +3682,8 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
         return sum(inner_unstacked, ())</code></pre>
 </details>
 <div class="desc"><p>Un-stacks a <code>Sliceable</code> along one or multiple dimensions.</p>
-<p>If multiple dimensions are given, the order of elements will be according to the dimension order in <code>dim</code>, i.e. elements along the last dimension will be neighbors in the returned <code>tuple</code>.
-If no dimension is given or none of the given dimensions exists on <code>value</code>, returns a list containing only <code>value</code>.</p>
+<p>If multiple dims are given, the order of elements will be according to the dimension order in <code>dim</code>, i.e. elements along the last dimension will be neighbors in the returned <code>tuple</code>.
+If no dimension is given or none of the given dims exists on <code>value</code>, returns a list containing only <code>value</code>.</p>
 <p>See Also:
 <code>phiml.math.slice</code>.</p>
 <h2 id="args">Args</h2>
@@ -3925,7 +3957,8 @@ This is the case with rotating rigid bodies, for example.</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@dataclass(frozen=True)
+<pre><code class="python">@sliceable
+@dataclass(frozen=True)
 class Field(metaclass=_FieldType):
     &#34;&#34;&#34;
     A `Field` represents a discretized physical quantity (like temperature field or velocity field).
@@ -4054,7 +4087,7 @@ class Field(metaclass=_FieldType):
             assert order is not None, f&#34;order must be specified for non-uniform Field values&#34;
             order = self.values.shape.only(order, reorder=True)
             stack_dims = order.non_uniform_shape
-            inner_order = order.without(stack_dims)
+            inner_order = order.without(stack_dims).names
             return [v.numpy(inner_order) for v in unstack(self.values, stack_dims)]
 
     def uniform_values(self):
@@ -4112,7 +4145,7 @@ class Field(metaclass=_FieldType):
 
         Fields whose spatial rank is determined only during sampling return an empty `Box`.
         &#34;&#34;&#34;
-        if isinstance(self.geometry.bounds, BaseBox):
+        if hasattr(self.geometry, &#39;bounds&#39;) and isinstance(self.geometry.bounds, BaseBox):
             return self.geometry.bounds
         extent = self.geometry.bounding_half_extent().vector.as_dual(&#39;_extent&#39;)
         points = self.geometry.center + extent
@@ -4121,6 +4154,10 @@ class Field(metaclass=_FieldType):
         return Box(lower, upper)
 
     box = bounds
+
+    @property
+    def boundary_names(self):
+        return tuple(self.geometry.boundary_faces)
 
     @property
     def is_grid(self):
@@ -4542,7 +4579,7 @@ class Field(metaclass=_FieldType):
         item = slicing_dict(self, item)
         if not item:
             return self
-        boundary = domain_slice(self.boundary, item, tuple(self.geometry.boundary_faces if self.sampled_at == &#39;face&#39; else self.geometry.boundary_elements))
+        boundary = domain_slice(self.boundary, item, domain_dims=self.boundary_names)
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != &#39;vector&#39;}
         geometry = self.geometry[item_without_vec]
         if self.is_staggered and &#39;vector&#39; in item and &#39;~vector&#39; in self.geometry.face_shape:
@@ -4561,9 +4598,6 @@ class Field(metaclass=_FieldType):
                 del item[&#39;vector&#39;]
         values = self.values[item]
         return Field(geometry, values, boundary)
-
-    def __getattr__(self, name: str) -&gt; BoundDim:
-        return BoundDim(self, name)
 
     def dimension(self, name: str):
         &#34;&#34;&#34;
@@ -4763,6 +4797,18 @@ The boundary conditions and values outside the geometry are determined by <code>
 </dl>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.field.Field.boundary_names"><code class="name">prop <span class="ident">boundary_names</span></code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def boundary_names(self):
+    return tuple(self.geometry.boundary_faces)</code></pre>
+</details>
+<div class="desc"></div>
+</dd>
 <dt id="phi.field.Field.bounds"><code class="name">prop <span class="ident">bounds</span> : phi.geom._box.BaseBox</code></dt>
 <dd>
 <details class="source">
@@ -4781,7 +4827,7 @@ def bounds(self) -&gt; BaseBox:
 
     Fields whose spatial rank is determined only during sampling return an empty `Box`.
     &#34;&#34;&#34;
-    if isinstance(self.geometry.bounds, BaseBox):
+    if hasattr(self.geometry, &#39;bounds&#39;) and isinstance(self.geometry.bounds, BaseBox):
         return self.geometry.bounds
     extent = self.geometry.bounding_half_extent().vector.as_dual(&#39;_extent&#39;)
     points = self.geometry.center + extent
@@ -4813,7 +4859,7 @@ def bounds(self) -&gt; BaseBox:
 
     Fields whose spatial rank is determined only during sampling return an empty `Box`.
     &#34;&#34;&#34;
-    if isinstance(self.geometry.bounds, BaseBox):
+    if hasattr(self.geometry, &#39;bounds&#39;) and isinstance(self.geometry.bounds, BaseBox):
         return self.geometry.bounds
     extent = self.geometry.bounding_half_extent().vector.as_dual(&#39;_extent&#39;)
     points = self.geometry.center + extent
@@ -5523,7 +5569,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
 <div class="desc"></div>
 </dd>
 <dt id="phi.field.Field.gradient"><code class="name flex">
-<span>def <span class="ident">gradient</span></span>(<span>self,<br>boundary: phiml.math.extrapolation.Extrapolation = None,<br>at: str = 'center',<br>dims: str | Sequence | set | ForwardRef('Shape') | Callable | None = &lt;function spatial&gt;,<br>stack_dim: phiml.math._shape.Shape | str = (vectorᶜ=None),<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>scheme=None,<br>upwind: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>gradient_extrapolation: phiml.math.extrapolation.Extrapolation = None)</span>
+<span>def <span class="ident">gradient</span></span>(<span>self,<br>boundary: phiml.math.extrapolation.Extrapolation = None,<br>at: str = 'center',<br>dims: str | Sequence | set | phiml.math._shape.Shape | Callable | None = &lt;function spatial&gt;,<br>stack_dim: phiml.math._shape.Shape | str = (vectorᶜ=None),<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>scheme=None,<br>upwind: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>gradient_extrapolation: phiml.math.extrapolation.Extrapolation = None)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -5563,7 +5609,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
 <div class="desc"><p>Deprecated. Use <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code> with <code>scatter=True</code> instead.</p></div>
 </dd>
 <dt id="phi.field.Field.laplace"><code class="name flex">
-<span>def <span class="ident">laplace</span></span>(<span>self,<br>axes: str | Sequence | set | ForwardRef('Shape') | Callable | None = &lt;function spatial&gt;,<br>gradient: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>weights: phiml.math._tensors.Tensor | ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>') = None,<br>upwind: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>correct_skew=True)</span>
+<span>def <span class="ident">laplace</span></span>(<span>self,<br>axes: str | Sequence | set | phiml.math._shape.Shape | Callable | None = &lt;function spatial&gt;,<br>gradient: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>weights: phiml.math._tensors.Tensor | ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>') = None,<br>upwind: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>correct_skew=True)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -5585,7 +5631,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
 <div class="desc"><p>Alias for <code><a title="phi.field.laplace" href="#phi.field.laplace">laplace()</a></code></p></div>
 </dd>
 <dt id="phi.field.Field.numpy"><code class="name flex">
-<span>def <span class="ident">numpy</span></span>(<span>self,<br>order: str | Sequence | set | ForwardRef('Shape') | Callable | None = None)</span>
+<span>def <span class="ident">numpy</span></span>(<span>self,<br>order: str | Sequence | set | phiml.math._shape.Shape | Callable | None = None)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -5611,7 +5657,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
         assert order is not None, f&#34;order must be specified for non-uniform Field values&#34;
         order = self.values.shape.only(order, reorder=True)
         stack_dims = order.non_uniform_shape
-        inner_order = order.without(stack_dims)
+        inner_order = order.without(stack_dims).names
         return [v.numpy(inner_order) for v in unstack(self.values, stack_dims)]</code></pre>
 </details>
 <div class="desc"><p>Return the field values as <code>NumPy</code> array(s).</p>
@@ -5997,7 +6043,8 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@dataclass(frozen=True)
+<pre><code class="python">@sliceable
+@dataclass(frozen=True)
 class Field(metaclass=_FieldType):
     &#34;&#34;&#34;
     A `Field` represents a discretized physical quantity (like temperature field or velocity field).
@@ -6126,7 +6173,7 @@ class Field(metaclass=_FieldType):
             assert order is not None, f&#34;order must be specified for non-uniform Field values&#34;
             order = self.values.shape.only(order, reorder=True)
             stack_dims = order.non_uniform_shape
-            inner_order = order.without(stack_dims)
+            inner_order = order.without(stack_dims).names
             return [v.numpy(inner_order) for v in unstack(self.values, stack_dims)]
 
     def uniform_values(self):
@@ -6184,7 +6231,7 @@ class Field(metaclass=_FieldType):
 
         Fields whose spatial rank is determined only during sampling return an empty `Box`.
         &#34;&#34;&#34;
-        if isinstance(self.geometry.bounds, BaseBox):
+        if hasattr(self.geometry, &#39;bounds&#39;) and isinstance(self.geometry.bounds, BaseBox):
             return self.geometry.bounds
         extent = self.geometry.bounding_half_extent().vector.as_dual(&#39;_extent&#39;)
         points = self.geometry.center + extent
@@ -6193,6 +6240,10 @@ class Field(metaclass=_FieldType):
         return Box(lower, upper)
 
     box = bounds
+
+    @property
+    def boundary_names(self):
+        return tuple(self.geometry.boundary_faces)
 
     @property
     def is_grid(self):
@@ -6614,7 +6665,7 @@ class Field(metaclass=_FieldType):
         item = slicing_dict(self, item)
         if not item:
             return self
-        boundary = domain_slice(self.boundary, item, tuple(self.geometry.boundary_faces if self.sampled_at == &#39;face&#39; else self.geometry.boundary_elements))
+        boundary = domain_slice(self.boundary, item, domain_dims=self.boundary_names)
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != &#39;vector&#39;}
         geometry = self.geometry[item_without_vec]
         if self.is_staggered and &#39;vector&#39; in item and &#39;~vector&#39; in self.geometry.face_shape:
@@ -6633,9 +6684,6 @@ class Field(metaclass=_FieldType):
                 del item[&#39;vector&#39;]
         values = self.values[item]
         return Field(geometry, values, boundary)
-
-    def __getattr__(self, name: str) -&gt; BoundDim:
-        return BoundDim(self, name)
 
     def dimension(self, name: str):
         &#34;&#34;&#34;
@@ -6835,6 +6883,18 @@ The boundary conditions and values outside the geometry are determined by <code>
 </dl>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.field.Field.boundary_names"><code class="name">prop <span class="ident">boundary_names</span></code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def boundary_names(self):
+    return tuple(self.geometry.boundary_faces)</code></pre>
+</details>
+<div class="desc"></div>
+</dd>
 <dt id="phi.field.Field.bounds"><code class="name">prop <span class="ident">bounds</span> : phi.geom._box.BaseBox</code></dt>
 <dd>
 <details class="source">
@@ -6853,7 +6913,7 @@ def bounds(self) -&gt; BaseBox:
 
     Fields whose spatial rank is determined only during sampling return an empty `Box`.
     &#34;&#34;&#34;
-    if isinstance(self.geometry.bounds, BaseBox):
+    if hasattr(self.geometry, &#39;bounds&#39;) and isinstance(self.geometry.bounds, BaseBox):
         return self.geometry.bounds
     extent = self.geometry.bounding_half_extent().vector.as_dual(&#39;_extent&#39;)
     points = self.geometry.center + extent
@@ -6885,7 +6945,7 @@ def bounds(self) -&gt; BaseBox:
 
     Fields whose spatial rank is determined only during sampling return an empty `Box`.
     &#34;&#34;&#34;
-    if isinstance(self.geometry.bounds, BaseBox):
+    if hasattr(self.geometry, &#39;bounds&#39;) and isinstance(self.geometry.bounds, BaseBox):
         return self.geometry.bounds
     extent = self.geometry.bounding_half_extent().vector.as_dual(&#39;_extent&#39;)
     points = self.geometry.center + extent
@@ -7595,7 +7655,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
 <div class="desc"></div>
 </dd>
 <dt id="phi.field.Field.gradient"><code class="name flex">
-<span>def <span class="ident">gradient</span></span>(<span>self,<br>boundary: phiml.math.extrapolation.Extrapolation = None,<br>at: str = 'center',<br>dims: str | Sequence | set | ForwardRef('Shape') | Callable | None = &lt;function spatial&gt;,<br>stack_dim: phiml.math._shape.Shape | str = (vectorᶜ=None),<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>scheme=None,<br>upwind: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>gradient_extrapolation: phiml.math.extrapolation.Extrapolation = None)</span>
+<span>def <span class="ident">gradient</span></span>(<span>self,<br>boundary: phiml.math.extrapolation.Extrapolation = None,<br>at: str = 'center',<br>dims: str | Sequence | set | phiml.math._shape.Shape | Callable | None = &lt;function spatial&gt;,<br>stack_dim: phiml.math._shape.Shape | str = (vectorᶜ=None),<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>scheme=None,<br>upwind: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>gradient_extrapolation: phiml.math.extrapolation.Extrapolation = None)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -7635,7 +7695,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
 <div class="desc"><p>Deprecated. Use <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code> with <code>scatter=True</code> instead.</p></div>
 </dd>
 <dt id="phi.field.Field.laplace"><code class="name flex">
-<span>def <span class="ident">laplace</span></span>(<span>self,<br>axes: str | Sequence | set | ForwardRef('Shape') | Callable | None = &lt;function spatial&gt;,<br>gradient: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>weights: phiml.math._tensors.Tensor | ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>') = None,<br>upwind: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>correct_skew=True)</span>
+<span>def <span class="ident">laplace</span></span>(<span>self,<br>axes: str | Sequence | set | phiml.math._shape.Shape | Callable | None = &lt;function spatial&gt;,<br>gradient: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>weights: phiml.math._tensors.Tensor | ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>') = None,<br>upwind: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>correct_skew=True)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -7657,7 +7717,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
 <div class="desc"><p>Alias for <code><a title="phi.field.laplace" href="#phi.field.laplace">laplace()</a></code></p></div>
 </dd>
 <dt id="phi.field.Field.numpy"><code class="name flex">
-<span>def <span class="ident">numpy</span></span>(<span>self,<br>order: str | Sequence | set | ForwardRef('Shape') | Callable | None = None)</span>
+<span>def <span class="ident">numpy</span></span>(<span>self,<br>order: str | Sequence | set | phiml.math._shape.Shape | Callable | None = None)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -7683,7 +7743,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
         assert order is not None, f&#34;order must be specified for non-uniform Field values&#34;
         order = self.values.shape.only(order, reorder=True)
         stack_dims = order.non_uniform_shape
-        inner_order = order.without(stack_dims)
+        inner_order = order.without(stack_dims).names
         return [v.numpy(inner_order) for v in unstack(self.values, stack_dims)]</code></pre>
 </details>
 <div class="desc"><p>Return the field values as <code>NumPy</code> array(s).</p>
@@ -8068,7 +8128,8 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@dataclass(frozen=True)
+<pre><code class="python">@sliceable
+@dataclass(frozen=True)
 class Field(metaclass=_FieldType):
     &#34;&#34;&#34;
     A `Field` represents a discretized physical quantity (like temperature field or velocity field).
@@ -8197,7 +8258,7 @@ class Field(metaclass=_FieldType):
             assert order is not None, f&#34;order must be specified for non-uniform Field values&#34;
             order = self.values.shape.only(order, reorder=True)
             stack_dims = order.non_uniform_shape
-            inner_order = order.without(stack_dims)
+            inner_order = order.without(stack_dims).names
             return [v.numpy(inner_order) for v in unstack(self.values, stack_dims)]
 
     def uniform_values(self):
@@ -8255,7 +8316,7 @@ class Field(metaclass=_FieldType):
 
         Fields whose spatial rank is determined only during sampling return an empty `Box`.
         &#34;&#34;&#34;
-        if isinstance(self.geometry.bounds, BaseBox):
+        if hasattr(self.geometry, &#39;bounds&#39;) and isinstance(self.geometry.bounds, BaseBox):
             return self.geometry.bounds
         extent = self.geometry.bounding_half_extent().vector.as_dual(&#39;_extent&#39;)
         points = self.geometry.center + extent
@@ -8264,6 +8325,10 @@ class Field(metaclass=_FieldType):
         return Box(lower, upper)
 
     box = bounds
+
+    @property
+    def boundary_names(self):
+        return tuple(self.geometry.boundary_faces)
 
     @property
     def is_grid(self):
@@ -8685,7 +8750,7 @@ class Field(metaclass=_FieldType):
         item = slicing_dict(self, item)
         if not item:
             return self
-        boundary = domain_slice(self.boundary, item, tuple(self.geometry.boundary_faces if self.sampled_at == &#39;face&#39; else self.geometry.boundary_elements))
+        boundary = domain_slice(self.boundary, item, domain_dims=self.boundary_names)
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != &#39;vector&#39;}
         geometry = self.geometry[item_without_vec]
         if self.is_staggered and &#39;vector&#39; in item and &#39;~vector&#39; in self.geometry.face_shape:
@@ -8704,9 +8769,6 @@ class Field(metaclass=_FieldType):
                 del item[&#39;vector&#39;]
         values = self.values[item]
         return Field(geometry, values, boundary)
-
-    def __getattr__(self, name: str) -&gt; BoundDim:
-        return BoundDim(self, name)
 
     def dimension(self, name: str):
         &#34;&#34;&#34;
@@ -8906,6 +8968,18 @@ The boundary conditions and values outside the geometry are determined by <code>
 </dl>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.field.Field.boundary_names"><code class="name">prop <span class="ident">boundary_names</span></code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def boundary_names(self):
+    return tuple(self.geometry.boundary_faces)</code></pre>
+</details>
+<div class="desc"></div>
+</dd>
 <dt id="phi.field.Field.bounds"><code class="name">prop <span class="ident">bounds</span> : phi.geom._box.BaseBox</code></dt>
 <dd>
 <details class="source">
@@ -8924,7 +8998,7 @@ def bounds(self) -&gt; BaseBox:
 
     Fields whose spatial rank is determined only during sampling return an empty `Box`.
     &#34;&#34;&#34;
-    if isinstance(self.geometry.bounds, BaseBox):
+    if hasattr(self.geometry, &#39;bounds&#39;) and isinstance(self.geometry.bounds, BaseBox):
         return self.geometry.bounds
     extent = self.geometry.bounding_half_extent().vector.as_dual(&#39;_extent&#39;)
     points = self.geometry.center + extent
@@ -8956,7 +9030,7 @@ def bounds(self) -&gt; BaseBox:
 
     Fields whose spatial rank is determined only during sampling return an empty `Box`.
     &#34;&#34;&#34;
-    if isinstance(self.geometry.bounds, BaseBox):
+    if hasattr(self.geometry, &#39;bounds&#39;) and isinstance(self.geometry.bounds, BaseBox):
         return self.geometry.bounds
     extent = self.geometry.bounding_half_extent().vector.as_dual(&#39;_extent&#39;)
     points = self.geometry.center + extent
@@ -9666,7 +9740,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
 <div class="desc"></div>
 </dd>
 <dt id="phi.field.Field.gradient"><code class="name flex">
-<span>def <span class="ident">gradient</span></span>(<span>self,<br>boundary: phiml.math.extrapolation.Extrapolation = None,<br>at: str = 'center',<br>dims: str | Sequence | set | ForwardRef('Shape') | Callable | None = &lt;function spatial&gt;,<br>stack_dim: phiml.math._shape.Shape | str = (vectorᶜ=None),<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>scheme=None,<br>upwind: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>gradient_extrapolation: phiml.math.extrapolation.Extrapolation = None)</span>
+<span>def <span class="ident">gradient</span></span>(<span>self,<br>boundary: phiml.math.extrapolation.Extrapolation = None,<br>at: str = 'center',<br>dims: str | Sequence | set | phiml.math._shape.Shape | Callable | None = &lt;function spatial&gt;,<br>stack_dim: phiml.math._shape.Shape | str = (vectorᶜ=None),<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>scheme=None,<br>upwind: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>gradient_extrapolation: phiml.math.extrapolation.Extrapolation = None)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -9706,7 +9780,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
 <div class="desc"><p>Deprecated. Use <code><a title="phi.field.sample" href="#phi.field.sample">sample()</a></code> with <code>scatter=True</code> instead.</p></div>
 </dd>
 <dt id="phi.field.Field.laplace"><code class="name flex">
-<span>def <span class="ident">laplace</span></span>(<span>self,<br>axes: str | Sequence | set | ForwardRef('Shape') | Callable | None = &lt;function spatial&gt;,<br>gradient: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>weights: phiml.math._tensors.Tensor | ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>') = None,<br>upwind: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>correct_skew=True)</span>
+<span>def <span class="ident">laplace</span></span>(<span>self,<br>axes: str | Sequence | set | phiml.math._shape.Shape | Callable | None = &lt;function spatial&gt;,<br>gradient: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>weights: phiml.math._tensors.Tensor | ForwardRef('<a title="phi.field.Field" href="#phi.field.Field">Field</a>') = None,<br>upwind: <a title="phi.field.Field" href="#phi.field.Field">Field</a> = None,<br>correct_skew=True)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -9728,7 +9802,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
 <div class="desc"><p>Alias for <code><a title="phi.field.laplace" href="#phi.field.laplace">laplace()</a></code></p></div>
 </dd>
 <dt id="phi.field.Field.numpy"><code class="name flex">
-<span>def <span class="ident">numpy</span></span>(<span>self,<br>order: str | Sequence | set | ForwardRef('Shape') | Callable | None = None)</span>
+<span>def <span class="ident">numpy</span></span>(<span>self,<br>order: str | Sequence | set | phiml.math._shape.Shape | Callable | None = None)</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -9754,7 +9828,7 @@ indexing using <code>[index]</code>, <code><a title="phi.field.unstack" href="#p
         assert order is not None, f&#34;order must be specified for non-uniform Field values&#34;
         order = self.values.shape.only(order, reorder=True)
         stack_dims = order.non_uniform_shape
-        inner_order = order.without(stack_dims)
+        inner_order = order.without(stack_dims).names
         return [v.numpy(inner_order) for v in unstack(self.values, stack_dims)]</code></pre>
 </details>
 <div class="desc"><p>Return the field values as <code>NumPy</code> array(s).</p>
@@ -11728,6 +11802,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <li><code><a title="phi.field.Field.at_centers" href="#phi.field.Field.at_centers">at_centers</a></code></li>
 <li><code><a title="phi.field.Field.at_faces" href="#phi.field.Field.at_faces">at_faces</a></code></li>
 <li><code><a title="phi.field.Field.boundary" href="#phi.field.Field.boundary">boundary</a></code></li>
+<li><code><a title="phi.field.Field.boundary_names" href="#phi.field.Field.boundary_names">boundary_names</a></code></li>
 <li><code><a title="phi.field.Field.bounds" href="#phi.field.Field.bounds">bounds</a></code></li>
 <li><code><a title="phi.field.Field.box" href="#phi.field.Field.box">box</a></code></li>
 <li><code><a title="phi.field.Field.cells" href="#phi.field.Field.cells">cells</a></code></li>
@@ -11793,6 +11868,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <li><code><a title="phi.field.Field.at_centers" href="#phi.field.Field.at_centers">at_centers</a></code></li>
 <li><code><a title="phi.field.Field.at_faces" href="#phi.field.Field.at_faces">at_faces</a></code></li>
 <li><code><a title="phi.field.Field.boundary" href="#phi.field.Field.boundary">boundary</a></code></li>
+<li><code><a title="phi.field.Field.boundary_names" href="#phi.field.Field.boundary_names">boundary_names</a></code></li>
 <li><code><a title="phi.field.Field.bounds" href="#phi.field.Field.bounds">bounds</a></code></li>
 <li><code><a title="phi.field.Field.box" href="#phi.field.Field.box">box</a></code></li>
 <li><code><a title="phi.field.Field.cells" href="#phi.field.Field.cells">cells</a></code></li>
@@ -11858,6 +11934,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <li><code><a title="phi.field.Field.at_centers" href="#phi.field.Field.at_centers">at_centers</a></code></li>
 <li><code><a title="phi.field.Field.at_faces" href="#phi.field.Field.at_faces">at_faces</a></code></li>
 <li><code><a title="phi.field.Field.boundary" href="#phi.field.Field.boundary">boundary</a></code></li>
+<li><code><a title="phi.field.Field.boundary_names" href="#phi.field.Field.boundary_names">boundary_names</a></code></li>
 <li><code><a title="phi.field.Field.bounds" href="#phi.field.Field.bounds">bounds</a></code></li>
 <li><code><a title="phi.field.Field.box" href="#phi.field.Field.box">box</a></code></li>
 <li><code><a title="phi.field.Field.cells" href="#phi.field.Field.cells">cells</a></code></li>
