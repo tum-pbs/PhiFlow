@@ -304,7 +304,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
                     plots.set_title(display_name(animate.item_names[0][frame]) if animate.item_names[0] else None, figure, None)
                     for i, f in enumerate(fields):
                         idx = indices[pos][i]
-                        f = f[{animate.name: frame}]
+                        f = f[{animate.name: int(frame)}]
                         plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[pos][i], alpha[idx], err[idx])
                 plots.finalize(figure)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat, interactive=True, time_axis=animate.name)
