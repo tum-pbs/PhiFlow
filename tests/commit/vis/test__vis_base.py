@@ -10,7 +10,7 @@ class TestVisBase(TestCase):
 
     def test_tensor_as_field(self):
         # --- Grid ---
-        t = math.random_normal(spatial(x=4, y=3), channel(vector='x,y'))
+        t = math.random_normal(spatial(x=4, y=3))
         grid = to_field(t)
         self.assertTrue(grid.is_grid)
         self.assertTrue(grid.is_centered)
