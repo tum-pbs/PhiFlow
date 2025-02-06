@@ -27,6 +27,7 @@ from phi.math import Tensor, spatial, channel, non_channel
 from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve, down_sample_curve
 from phi.vis._vis_base import PlottingLibrary, Recipe, is_jupyter, display_name
+from phiml.math._tensors import Layout
 
 
 class PlotlyPlots(PlottingLibrary):
@@ -209,8 +210,8 @@ class LinePlot(Recipe):
         subplot = figure.get_subplot(row, col)
         x = data.points.vector[0].numpy().flatten()
         channels = data.values.shape.channel
-        if channels.rank == 1 and channels.get_item_names(0) is not None:
-            for i, name in enumerate(channels.get_item_names(0)):
+        if channels.rank == 1 and channels.item_names[0] is not None:
+            for i, name in enumerate(channels.item_names[0]):
                 y = math.reshaped_native(real_values(data[{channels.name: i}]), [data.shape.spatial], to_numpy=True)
                 figure.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers', name=name), row=row, col=col)
             figure.update_layout(showlegend=True)
@@ -263,7 +264,7 @@ class VectorField2D(Recipe):
             # lines_x = numpy.stack([x, x + data_x_flat, [None] * len(x)], -1).flatten()
             lines_x = numpy.stack([x, x + u_ch, [None] * len(x)], -1).flatten()
             lines_y = numpy.stack([y, y + v_ch, [None] * len(x)], -1).flatten()  # 3 points per arrow
-            name = extra_channels.get_item_names(0)[ch] if extra_channels.rank == 1 and extra_channels.get_item_names(0) is not None else None
+            name = extra_channels.item_names[0][ch] if extra_channels.rank == 1 and extra_channels.item_names[0] is not None else None
             figure.add_scatter(x=lines_x, y=lines_y, mode='lines', row=row, col=col, name=name)
         if u.shape[0] == 1:
             figure.update_layout(showlegend=False)
@@ -314,7 +315,7 @@ class VectorCloud3D(Recipe):
         if color == 'cmap':
             colorscale = 'Blues'
         else:
-            hex_color = plotly_color(color.numpy())
+            hex_color = plotly_color(color)
             colorscale = [[0, hex_color], [1, hex_color]]
         if data.is_staggered:
             data = data.at_centers()
@@ -338,7 +339,7 @@ class VectorCloud2D(Recipe):
         u, v = math.reshaped_numpy(data.values, [vector, data.shape.without('vector')])
         quiver = figure_factory.create_quiver(x, y, u, v, scale=1.0).data[0]  # 7 points per arrow
         if color != 'cmap':
-            quiver.line.update(color=color.numpy())
+            quiver.line.update(color=plotly_color(color))
         figure.add_trace(quiver, row=row, col=col)
 
 
@@ -365,7 +366,7 @@ class PointCloud2D(Recipe):
             if color[idx] == 'cmap':
                 hex_color = plotly_color(0)  # ToDo add color bar
             else:
-                hex_color = plotly_color(color[idx].numpy())
+                hex_color = plotly_color(color[idx])
             alphas = reshaped_numpy(alpha, [non_channel(data)])
             if isinstance(data.geometry, Sphere):
                 hex_color = [hex_color] * non_channel(data).volume if isinstance(hex_color, str) else hex_color
@@ -508,7 +509,7 @@ class Scatter3D(Recipe):
             if color == 'cmap':
                 color_i = data[idx].values.numpy([math.shape]).astype(np.float32)
             else:
-                color_i = plotly_color(color[idx].numpy())
+                color_i = plotly_color(color[idx])
             if spatial(data.geometry):
                 for sdim in spatial(data.geometry):
                     xyz = math.reshaped_numpy(data[idx].points.vector[dims], [vector, ..., sdim])
@@ -641,7 +642,7 @@ class SurfaceMesh3D(Recipe):
         # --- plot mesh ---
         cbar_title = None if not channel(data) or not channel(data).item_names[0] else channel(data).item_names[0][0]
         if math.is_nan(data.values).all:
-            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, flatshading=False, opacity=float(alpha), color=plotly_color(color.numpy()))
+            mesh = go.Mesh3d(x=x, y=y, z=z, i=v1, j=v2, k=v3, flatshading=False, opacity=float(alpha), color=plotly_color(color))
         elif data.sampled_at == 'center':
             if any(b in data.values.shape for b in batch_dims):
                 values = []
@@ -700,7 +701,11 @@ def real_values(field: Field):
     return field.values if field.values.dtype.kind != complex else abs(field.values)
 
 
-def plotly_color(col: Union[int, str, np.ndarray]):
+def plotly_color(col: Union[int, str, np.ndarray, Tensor]):
+    if isinstance(col, Tensor) and col.dtype.kind == object:
+        col = col.native()
+    elif isinstance(col, Tensor):
+        col = col.numpy()
     if isinstance(col, np.ndarray):
         col = col.item()
     if isinstance(col, int):
