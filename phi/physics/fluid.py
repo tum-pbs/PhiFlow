@@ -123,25 +123,6 @@ def make_incompressible(velocity: Field,
     obstacles = _get_obstacles_for(obstacles, velocity)
     assert order <= 2 or len(obstacles) == 0, f"obstacles are not supported with higher order schemes"
     assert not velocity.is_mesh or not obstacles, f"Meshes don't support obstacle masks. Apply the obstacle when building the mesh instead."
-
-    if order > 2:
-        div = divergence(velocity, order=order)
-        pressure_extrapolation = _pressure_extrapolation(velocity.extrapolation)
-        dummy = CenteredGrid(0, pressure_extrapolation, div.bounds, div.resolution)
-
-        system_is_underdetermined = pressure_extrapolation is extrapolation.ZERO_GRADIENT
-        if system_is_underdetermined:
-            rank_fix = math.sqrt(1 / div.dx.mean)
-        else:
-            rank_fix = 0
-
-        solve = copy_with(solve, x0=dummy, rank_deficiency=rank_fix)
-        pressure = math.solve_linear(masked_laplace_narrow_stencil, div, solve, order=order)
-        grad_pressure = field.spatial_gradient(pressure, at=velocity.sampled_at, order=order)
-        velocity = velocity - grad_pressure
-
-        return velocity, pressure
-
     input_velocity = velocity
     # --- Obstacles ---
     all_active = active is None
@@ -163,7 +144,7 @@ def make_incompressible(velocity: Field,
         div = field.where(field.is_finite(div), div, 0)
     if not input_velocity.extrapolation.is_flexible and all_active:
         solve = solve.with_preprocessing(_balance_divergence, active)
-        if solve.rank_deficiency is None and not div.is_grid:
+        if solve.rank_deficiency is None:
             solve = copy_with(solve, rank_deficiency=1)
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
@@ -211,18 +192,14 @@ def masked_laplace(pressure: Field,
     """
     if pressure.is_mesh:
         return field.laplace(pressure, gradient=None, order=order, upwind=upwind, correct_skew=correct_skew, wide_stencil=wide_stencil)
+    if order > 2 and not wide_stencil:
+        return field.laplace(pressure, order=order)
     assert pressure.is_grid and pressure.is_centered, f"Only mesh and centered grid supported for pressure"
     grad = spatial_gradient(pressure, v_boundary, at='center' if wide_stencil else 'face')
     valid_grad = grad * hard_bcs if hard_bcs is not None else grad
     valid_grad = valid_grad.with_boundary(extrapolation.remove_constant_offset(valid_grad.extrapolation))
     div = divergence(valid_grad)
     return where(active, div, pressure) if active is not None else div
-
-
-@math.jit_compile_linear(auxiliary_args='order', forget_traces=True)  # jit compilation is required for boundary conditions that add a constant offset solving Ax + b = y
-def masked_laplace_narrow_stencil(pressure: CenteredGrid, order=2) -> CenteredGrid:
-    laplace = field.laplace(pressure, order=order)
-    return laplace
 
 
 def _balance_divergence(div: Field, active: Optional[Field]) -> Field:
