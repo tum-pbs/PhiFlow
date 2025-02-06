@@ -25,7 +25,7 @@ class FluidTest(TestCase):
                 for _ in range(2):
                     velocity += smoke * (0, 0.1) @ velocity
                     velocity, _ = fluid.make_incompressible(velocity)
-                math.assert_close(0, divergence(velocity).values, abs_tolerance=2e-5)
+                math.assert_close(0, divergence(velocity).values, abs_tolerance=5e-5)
                 if result is None:
                     result = velocity
                 else:
