@@ -455,7 +455,7 @@ class VectorCloud2D(Recipe):
             x, y = reshaped_numpy(c_data.center[dims], [vector, c_data.shape.without('vector')])
             u, v = reshaped_numpy(c_data.values.vector[dims], [vector, c_data.shape.without('vector')])
             color_i = color[idx]
-            if (color[idx] == 'cmap').all:
+            if wrap(color[idx] == 'cmap').all:
                 col = _next_line_color(subplot, kind='collections')  # ToDo
             elif color[idx].shape:
                 col = [_plt_col(c) for c in color_i.numpy(c_data.shape.non_channel).reshape(-1)]
