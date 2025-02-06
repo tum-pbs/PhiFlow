@@ -724,7 +724,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
         `Tensor` with native representation belonging to `backend`.
     &#34;&#34;&#34;
     if isinstance(x, Tensor):
-        return x._from_spec_and_natives(x._spec_dict(), [b_convert(n, use_dlpack=False) for n in x._natives()])
+        return x._from_spec_and_natives(x._spec_dict(), [b_convert(n, backend=backend, use_dlpack=False) for n in x._natives()])
     elif isinstance(x, PhiTreeNode):
         return tree_map(convert, x, backend=backend, use_dlpack=use_dlpack)
     else:
@@ -863,7 +863,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fd1980ddda0></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7ff196fe1d00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -2995,11 +2995,15 @@ The sign of 0 is undefined.</p>
         preconditioner = compute_preconditioner(solve.preconditioner, matrix, rank_deficiency=solve.rank_deficiency, target_backend=NUMPY if solve.method.startswith(&#39;scipy-&#39;) else backend, solver=solve.method) if solve.preconditioner is not None else None
 
         def _matrix_solve_forward(y, solve: Solve, matrix: Tensor, is_backprop=False):
-            if solve.rank_deficiency:
-                matrix = matrix[{dual: slice(-solve.rank_deficiency), primal: slice(-solve.rank_deficiency)}]
-            backend_matrix = native_matrix(matrix, backend_for(*y_tensors, matrix))
             pattern_dims_in = dual(matrix).as_channel().names
             pattern_dims_out = non_dual(matrix).names  # batch dims can be sparse or batched matrices
+            if solve.rank_deficiency:
+                if primal(matrix).rank &gt; 1:
+                    matrix = pack_dims(matrix, primal, channel(&#39;_primal&#39;))
+                if dual(matrix).rank &gt; 1:
+                    matrix = pack_dims(matrix, dual, dual(&#39;_dual&#39;))
+                matrix = matrix[{dual: slice(-solve.rank_deficiency), primal: slice(-solve.rank_deficiency)}]
+            backend_matrix = native_matrix(matrix, backend_for(*y_tensors, matrix))
             result = _linear_solve_forward(y, solve, backend_matrix, pattern_dims_in, pattern_dims_out, preconditioner, backend, is_backprop)
             return result  # must return exactly `x` so gradient isn&#39;t computed w.r.t. other quantities
 
