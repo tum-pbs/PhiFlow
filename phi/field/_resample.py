@@ -7,7 +7,7 @@ from phi.math import Shape, Tensor, instance, spatial, Solve, dual, si2d
 from phi.math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
 from phiml.math import unstack, channel, rename_dims, batch, extrapolation
 from ._field import Field, FieldInitializer, as_boundary, slice_off_constant_faces
-from phiml.math._tensors import may_vary_along
+from phiml.math._tensors import may_vary_along, wrap
 
 
 def resample(value: Union[Field, Geometry, Tensor, float, FieldInitializer], to: Union[Field, Geometry], keep_boundary=False, **kwargs):
@@ -48,7 +48,9 @@ def resample(value: Union[Field, Geometry, Tensor, float, FieldInitializer], to:
         >>> field.resample(grid, to=grid) == grid
         True
     """
-    assert isinstance(to, (Field, Geometry)), f"'to' must be a Field or Geomoetry but got {to}"
+    assert isinstance(to, (Field, Geometry)), f"'to' must be a Field or Geometry but got {to}"
+    if isinstance(to, Geometry):
+        to = Field(to, wrap(0.), value.extrapolation if isinstance(value, Field) else 0.)
     if not isinstance(value, (Field, Geometry, FieldInitializer)):
         return to.with_values(value)
     if isinstance(value, Field) and keep_boundary:
