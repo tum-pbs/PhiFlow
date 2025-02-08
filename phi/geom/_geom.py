@@ -5,7 +5,7 @@ from typing import Union, Dict, Any, Tuple, Callable, TypeVar
 from phiml import math
 from phiml.math import Tensor, Shape, non_channel, wrap, shape, Extrapolation, non_batch, tensor_like
 from phiml.math.magic import BoundDim, slicing_dict
-from phiml.math._magic_ops import variable_attributes, expand, find_differences
+from phiml.math._magic_ops import variable_attributes, expand, find_differences, all_attributes
 
 
 class Geometry:
@@ -455,7 +455,7 @@ class Geometry:
             if a is None or b is None:
                 return True  # stored mode, tensors unavailable
             return math.close(a, b, rel_tolerance=1e-5, equal_nan=True)
-        differences = find_differences(self, other, attr_type=variable_attributes, tensor_equality=tensor_equality)
+        differences = find_differences(self, other, attr_type=all_attributes, tensor_equality=tensor_equality)
         return not differences
 
     def shallow_equals(self, other):
@@ -466,7 +466,7 @@ class Geometry:
 
         The `shallow_equals()` check does not compare all tensor elements but merely checks whether the same tensors are referenced.
         """
-        differences = find_differences(self, other, compare_tensors_by_id=True)
+        differences = find_differences(self, other, compare_tensors_by_id=True, attr_type=all_attributes)
         return not differences
 
     @staticmethod
