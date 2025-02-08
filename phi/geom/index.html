@@ -5279,7 +5279,7 @@ Returns:</p></div>
             if a is None or b is None:
                 return True  # stored mode, tensors unavailable
             return math.close(a, b, rel_tolerance=1e-5, equal_nan=True)
-        differences = find_differences(self, other, attr_type=variable_attributes, tensor_equality=tensor_equality)
+        differences = find_differences(self, other, attr_type=all_attributes, tensor_equality=tensor_equality)
         return not differences
 
     def shallow_equals(self, other):
@@ -5290,7 +5290,7 @@ Returns:</p></div>
 
         The `shallow_equals()` check does not compare all tensor elements but merely checks whether the same tensors are referenced.
         &#34;&#34;&#34;
-        differences = find_differences(self, other, compare_tensors_by_id=True)
+        differences = find_differences(self, other, compare_tensors_by_id=True, attr_type=all_attributes)
         return not differences
 
     @staticmethod
@@ -6161,7 +6161,7 @@ Returns:</p></div>
 
     The `shallow_equals()` check does not compare all tensor elements but merely checks whether the same tensors are referenced.
     &#34;&#34;&#34;
-    differences = find_differences(self, other, compare_tensors_by_id=True)
+    differences = find_differences(self, other, compare_tensors_by_id=True, attr_type=all_attributes)
     return not differences</code></pre>
 </details>
 <div class="desc"><p>Quick equality check.

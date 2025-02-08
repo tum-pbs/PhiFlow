@@ -863,7 +863,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f636ee11da0></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fe4298ddd00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -2556,7 +2556,9 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
         &gt;&gt;&gt; field.resample(grid, to=grid) == grid
         True
     &#34;&#34;&#34;
-    assert isinstance(to, (Field, Geometry)), f&#34;&#39;to&#39; must be a Field or Geomoetry but got {to}&#34;
+    assert isinstance(to, (Field, Geometry)), f&#34;&#39;to&#39; must be a Field or Geometry but got {to}&#34;
+    if isinstance(to, Geometry):
+        to = Field(to, wrap(0.), value.extrapolation if isinstance(value, Field) else 0.)
     if not isinstance(value, (Field, Geometry, FieldInitializer)):
         return to.with_values(value)
     if isinstance(value, Field) and keep_boundary:
@@ -2926,6 +2928,8 @@ The sign of 0 is undefined.</p>
         Diverged: If the solve failed prematurely.
     &#34;&#34;&#34;
     assert solve.x0 is not None, &#34;Please specify the initial guess as Solve(..., x0=initial_guess)&#34;
+    if solve.method == &#39;auto&#39; and solve.rank_deficiency:
+        solve = copy_with(solve, method=&#39;scipy-direct&#39;)
     # --- Handle parameters ---
     f_kwargs = f_kwargs or {}
     f_kwargs.update(f_kwargs_)
@@ -2997,14 +3001,25 @@ The sign of 0 is undefined.</p>
         def _matrix_solve_forward(y, solve: Solve, matrix: Tensor, is_backprop=False):
             pattern_dims_in = dual(matrix).as_channel().names
             pattern_dims_out = non_dual(matrix).names  # batch dims can be sparse or batched matrices
+            b = backend_for(*y_tensors, matrix)
+            nat_matrix = native_matrix(matrix, b)
             if solve.rank_deficiency:
-                if primal(matrix).rank &gt; 1:
-                    matrix = pack_dims(matrix, primal, channel(&#39;_primal&#39;))
-                if dual(matrix).rank &gt; 1:
-                    matrix = pack_dims(matrix, dual, dual(&#39;_dual&#39;))
-                matrix = matrix[{dual: slice(-solve.rank_deficiency), primal: slice(-solve.rank_deficiency)}]
-            backend_matrix = native_matrix(matrix, backend_for(*y_tensors, matrix))
-            result = _linear_solve_forward(y, solve, backend_matrix, pattern_dims_in, pattern_dims_out, preconditioner, backend, is_backprop)
+                N = dual(matrix).volume
+                if get_format(matrix) == &#39;csr&#39;:
+                    _, (data, idx, ptr) = b.disassemble(nat_matrix)
+                    idx = b.csr_to_coo(idx[None, :], ptr[None, :])[0, :]
+                elif get_format(matrix) == &#39;coo&#39;:
+                    _, (idx, data) = b.disassemble(nat_matrix)
+                else:
+                    raise NotImplementedError
+                data = b.pad(data, [(0, 2*N)], constant_values=1)
+                i = b.range(N, dtype=b.dtype(idx))
+                j = N + b.zeros((N,), dtype=b.dtype(idx))
+                new_col = b.stack([i, j], -1)
+                new_row = b.stack([j, i], -1)
+                idx = b.concat([idx, new_col, new_row], 0)
+                nat_matrix = b.sparse_coo_tensor(idx, data, (N+1, N+1))
+            result = _linear_solve_forward(y, solve, nat_matrix, pattern_dims_in, pattern_dims_out, preconditioner, backend, is_backprop)
             return result  # must return exactly `x` so gradient isn&#39;t computed w.r.t. other quantities
 
         _matrix_solve = attach_gradient_solve(_matrix_solve_forward, auxiliary_args=f&#39;is_backprop,solve{&#34;,matrix&#34; if matrix.backend == NUMPY else &#34;&#34;}&#39;, matrix_adjoint=grad_for_f)
