@@ -536,11 +536,7 @@ _LOADED_PLOTTING_LIBRARIES: List[PlottingLibrary] = []
 
 
 def default_plots(content: Dict[Tuple[int, int], List[Field]]) -> PlottingLibrary:
-    is_3d = False
-    for fields in content.values():
-        if any(f.spatial_rank == 3 for f in fields):
-            is_3d = True
-            break
+    is_3d = any(_contains_3d_field(f) for fields in content.values() for f in fields)
     if is_jupyter():
         options = ['plotly', 'matplotlib'] if is_3d else ['matplotlib', 'plotly']
     else:
@@ -551,6 +547,14 @@ def default_plots(content: Dict[Tuple[int, int], List[Field]]) -> PlottingLibrar
         except ImportError as import_error:
             warnings.warn(f"{option} user interface is unavailable because of missing dependency: {import_error}.", ImportWarning)
     raise RuntimeError("No user interface available.")
+
+
+def _contains_3d_field(data: Union[Field, Tensor]):
+    if isinstance(data, Tensor) and data.dtype.kind == object:
+        return any(_contains_3d_field(d) for d in data)
+    elif isinstance(data, Field):
+        return data.spatial_rank >= 3
+    raise NotImplementedError(f"Cannot determine spatial rank of {data}")
 
 
 def get_plots(lib: Union[str, PlottingLibrary]) -> PlottingLibrary:
