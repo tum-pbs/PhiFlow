@@ -7973,7 +7973,7 @@ class Mesh(Geometry):
         if not self.all_boundary_faces:
             return self._cell_deltas
         boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
-        assert (vec_length(boundary_deltas) &gt; 0).all, f&#34;All boundary faces must be separated from the cell centers but 0 distance at the following {channel(stored_indices(boundary_deltas)).item_names[0]}:\n{nonzero(vec_length(boundary_deltas) == 0):full}&#34;
+        # assert (vec_length(boundary_deltas) &gt; 0).all, f&#34;All boundary faces must be separated from the cell centers but 0 distance at the following {channel(stored_indices(boundary_deltas)).item_names[0]}:\n{nonzero(vec_length(boundary_deltas) == 0):full}&#34;
         return concat([self._cell_deltas, boundary_deltas], self.face_shape.dual)
 
     @cached_property
@@ -8585,7 +8585,7 @@ def neighbor_offsets(self):
     if not self.all_boundary_faces:
         return self._cell_deltas
     boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
-    assert (vec_length(boundary_deltas) &gt; 0).all, f&#34;All boundary faces must be separated from the cell centers but 0 distance at the following {channel(stored_indices(boundary_deltas)).item_names[0]}:\n{nonzero(vec_length(boundary_deltas) == 0):full}&#34;
+    # assert (vec_length(boundary_deltas) &gt; 0).all, f&#34;All boundary faces must be separated from the cell centers but 0 distance at the following {channel(stored_indices(boundary_deltas)).item_names[0]}:\n{nonzero(vec_length(boundary_deltas) == 0):full}&#34;
     return concat([self._cell_deltas, boundary_deltas], self.face_shape.dual)</code></pre>
 </details>
 <div class="desc"><p>Returns shift vector to neighbor centroids and boundary faces.</p></div>
