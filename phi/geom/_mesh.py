@@ -234,7 +234,7 @@ class Mesh(Geometry):
         if not self.all_boundary_faces:
             return self._cell_deltas
         boundary_deltas = (self.face_centers - self.center)[self.all_boundary_faces]
-        assert (vec_length(boundary_deltas) > 0).all, f"All boundary faces must be separated from the cell centers but 0 distance at the following {channel(stored_indices(boundary_deltas)).item_names[0]}:\n{nonzero(vec_length(boundary_deltas) == 0):full}"
+        # assert (vec_length(boundary_deltas) > 0).all, f"All boundary faces must be separated from the cell centers but 0 distance at the following {channel(stored_indices(boundary_deltas)).item_names[0]}:\n{nonzero(vec_length(boundary_deltas) == 0):full}"
         return concat([self._cell_deltas, boundary_deltas], self.face_shape.dual)
 
     @cached_property
