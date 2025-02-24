@@ -1,8 +1,6 @@
 from typing import Union
 
 from phiml.math import Tensor
-
-from phiml.math import Tensor
 from ._functions import rotate_vector
 from ._geom import Geometry, GeometricType
 
@@ -54,6 +52,10 @@ def rotate(obj: GeometricType, rot: Union[float, Tensor, None], invert=False, pi
     if isinstance(obj, Geometry):
         if pivot is None:
             pivot = obj.bounding_box().center
+        from ._mesh import Mesh
+        if isinstance(obj, Mesh):
+            vertices = rotate(obj.vertex_positions, rot, invert=invert, pivot=pivot)
+            return obj.at(vertices)
         center = pivot + rotate(obj.center - pivot, rot, invert=invert)
         if invert:
             raise NotImplementedError
