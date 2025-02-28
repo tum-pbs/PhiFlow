@@ -435,13 +435,24 @@ class Object3D(Recipe):
             v_count = self._sphere_vertex_count(data.geometry.radius, space)
             face_count = 2 + v_count
         else:
-            return False
+            face_count = 20  # unknown object type, guess
         face_count *= non_dual(data.geometry).without('vector').volume
         return face_count < 10_000
 
     def plot(self, data: Field, figure: go.Figure, subplot, space: Box, min_val: float, max_val: float, show_color_bar: bool, color: Tensor, alpha: Tensor, err: Tensor):
         row, col = subplot
         dims = data.geometry.vector.item_names
+        # plot different distinct colors as independent meshes, plot cmap in one mesh
+
+        for i in (channel(data.geometry) - 'vector').meshgrid():
+            if instance(data.geometry) in data.values:
+                mesh: Mesh = data.geometry[i]._surface_mesh  # batched mesh
+                values = data.values[i][spatial(data.geometry).first_index()]
+            else:
+                mesh: Mesh = data.geometry[i]._merged_surface_mesh
+                values = math.NAN
+            SurfaceMesh3D().plot(Field(mesh, values), figure, subplot, space, min_val, max_val, show_color_bar, color[i], alpha[i], err[i])
+
         def plot_one_material(data, color, alpha: float):
             if color == 'cmap':
                 color = plotly_color(0)  # ToDo cmap
