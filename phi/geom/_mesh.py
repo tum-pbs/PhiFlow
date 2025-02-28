@@ -307,10 +307,9 @@ class Mesh(Geometry):
         new_index = np.cumsum(has_element) - 1
         new_index_t = wrap(new_index, dual(self.elements))
         has_element = wrap(has_element, instance(self.vertices))
-        has_element_d = si2d(has_element)
+        # has_element_d = si2d(has_element)
         vertices = self.vertices[has_element]
-        v_normals = self.vertex_normals[has_element_d]
-        vertex_connectivity = None
+        # v_normals = self.vertex_normals[has_element_d]
         # if self._vertex_connectivity is not None:
         #     vertex_connectivity = stored_indices(self._vertex_connectivity).index.as_batch()
         #     vertex_connectivity = new_index_t[{dual: vertex_connectivity}].index.as_channel()
@@ -319,7 +318,7 @@ class Mesh(Geometry):
             indices = new_index_t[{dual: self.elements._indices}]
             elements = CompactSparseTensor(indices, self.elements._values, self.elements._compressed_dims.with_size(instance(vertices).volume), self.elements._indices_constant, self.elements._matrix_rank)
         else:
-            filtered_coo = coo_matrix((coo.data, (coo.row, new_index)), shape=(instance(self.elements).volume, instance(vertices).volume))  # ToDo keep sparse format
+            filtered_coo = coo_matrix((coo.data, (coo.row, new_index[coo.col])), shape=(instance(self.elements).volume, instance(vertices).volume))  # ToDo keep sparse format
             elements = wrap(filtered_coo, self.elements.shape.without_sizes())
         return replace(self, vertices=vertices, elements=elements)
 
