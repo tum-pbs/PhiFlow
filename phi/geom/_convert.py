@@ -103,10 +103,6 @@ def surface_mesh(geo: Geometry,
     # --- Determine resolution ---
     if isinstance(geo, SDFGrid):
         assert rel_dx is None and abs_dx is None, f"When creating a surface mesh from an SDF grid, rel_dx and abs_dx are determined from the grid and must be specified as None"
-    if rel_dx is None and abs_dx is None:
-        rel_dx = 1 / 128
-    rel_dx = None if rel_dx is None else rel_dx * geo.bounding_box().size.max
-    dx = math.minimum(rel_dx, abs_dx, allow_none=True)
     # --- Check special cases ---
     if method == 'auto' and isinstance(geo, BaseBox):
         assert rel_dx is None and abs_dx is None, f"When method='auto', boxes will always use their corners as vertices. Leave rel_dx,abs_dx unspecified or pass 'lewiner' or 'lorensen' as method"
@@ -120,7 +116,11 @@ def surface_mesh(geo: Geometry,
         faces = wrap([v1, v2, v3], spatial('vertices'), instance('faces')) + instance_offset
         faces = pack_dims(faces, instance, instance('faces'))
         return mesh(vertices, faces, element_rank=2)
-    elif method == 'auto' and isinstance(geo, Sphere):
+    if rel_dx is None and abs_dx is None:
+        rel_dx = 1 / 128
+    rel_dx = None if rel_dx is None else rel_dx * geo.bounding_box().size.max
+    dx = math.minimum(rel_dx, abs_dx, allow_none=True)
+    if method == 'auto' and isinstance(geo, Sphere):
         pass  # ToDo analytic solution
     # --- Build mesh from SDF ---
     if isinstance(geo, SDFGrid):
