@@ -11,7 +11,7 @@ from phiml import math
 from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims, unstack, tensor, si2d, non_dual, nonzero, stored_indices, stored_values, scatter, \
     find_closest, sqrt, where, vec_normalize, argmax, broadcast, zeros, EMPTY_SHAPE, meshgrid, mean, reshaped_numpy, range_tensor, convolve, \
     assert_close, shift, pad, extrapolation, sum as sum_, dim_mask, math, Tensor, Shape, channel, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, \
-    stack, tensor_like, pairwise_distances, concat, Extrapolation, dsum, reshaped_tensor, dmean
+    stack, tensor_like, pairwise_distances, concat, Extrapolation, dsum, reshaped_tensor, dmean, icat, vec
 from phiml.dataclasses import getitem, replace
 from phiml.math._sparse import CompactSparseTensor
 from phiml.math.extrapolation import as_extrapolation, PERIODIC
@@ -1017,3 +1017,35 @@ def element_types_3d():
     vertices = {k: np.concatenate(v) - 1 for k, v in elements.items()}
     v_count = {k: np.asarray([len(v) for v in e]) for k, e in elements.items()}
     return vertices, v_count
+
+
+def join_meshes(meshes: Sequence[Mesh]) -> Mesh:
+    same_vertices = all(mesh.vertices is meshes[0].vertices for mesh in meshes)
+    e_name = instance(meshes[0]).name
+    v_name = dual(meshes[0].elements).name
+    v_offset = 0
+    e_offset = 0
+    vertices = []
+    indices = []
+    compact_sizes = [dual(m.elements._indices).size if math.get_format(m.elements) == 'compact-cols' else -1 for m in meshes]
+    compatible_compact = compact_sizes[0] > 0 and all(s == compact_sizes[0] for s in compact_sizes)
+    for mesh in meshes:
+        vertices.append(mesh.vertices)
+        if compatible_compact:
+            indices.append(mesh.elements._indices + v_offset)
+        else:
+            idx = math.stored_indices(mesh.elements)# + (e_offset, v_offset)  # ToDo order
+            idx += vec('index', **{e_name: e_offset, v_name: v_offset})[channel(idx).item_names[0]]
+            indices.append(idx)
+        if not same_vertices:
+            v_offset += instance(mesh.vertices).size
+        e_offset += instance(mesh).size
+    vertices = icat(vertices)
+    indices = icat(indices)
+    e_dim = instance(meshes[0]).with_size(e_offset)
+    v_dim = instance(vertices).as_dual()
+    if compatible_compact:
+        elements = CompactSparseTensor(indices, wrap(True), v_dim, True, -1)
+    else:
+        elements = sparse_tensor(indices, True, e_dim + v_dim)
+    return replace(meshes[0], vertices=vertices, elements=elements)
