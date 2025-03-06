@@ -254,7 +254,7 @@ class UniformGrid(BaseBox):
         return self.half_size
 
 
-def enclosing_grid(*geometries: Geometry, voxel_count: int, rel_margin=0., abs_margin=0.) -> UniformGrid:
+def enclosing_grid(*geometries: Geometry, voxel_count: int, rel_margin=0., abs_margin=0., margin_cells=0) -> UniformGrid:
     """
     Constructs a `UniformGrid` which fully encloses the `geometries`.
     The grid voxels are chosen to have approximately the same size along each axis.
@@ -264,6 +264,7 @@ def enclosing_grid(*geometries: Geometry, voxel_count: int, rel_margin=0., abs_m
         voxel_count: Approximate number of total voxels.
         rel_margin: Relative margin, i.e. empty space on each side as a fraction of the bounding box size of `geometries`.
         abs_margin: Absolute margin, i.e. empty space on each side.
+        margin_cells: Number of cell layers to fit outside the bounding box around `geometries`. This is cumulative with `rel_margin` and `abs_margin`.
 
     Returns:
         `UniformGrid`
@@ -271,8 +272,24 @@ def enclosing_grid(*geometries: Geometry, voxel_count: int, rel_margin=0., abs_m
     bounds = stack([g.bounding_box() for g in geometries], batch('_geometries'))
     bounds = bounds.largest(shape).scaled(1+rel_margin)
     bounds = Box(bounds.lower - abs_margin, bounds.upper + abs_margin)
-    voxel_vol = bounds.volume / voxel_count
-    voxel_size = voxel_vol ** (1/bounds.spatial_rank)
-    resolution = math.to_int32(math.round(bounds.size / voxel_size))
-    resolution = spatial(**resolution.vector)
+    if not margin_cells:
+        voxel_vol = bounds.volume / voxel_count
+        voxel_size = voxel_vol ** (1/bounds.spatial_rank)
+        resolution = math.to_int32(math.round(bounds.size / voxel_size))
+        resolution = spatial(**resolution.vector)
+    else:
+        inner_res, outer_res = solve_resolution_with_margin_cells(*bounds.size.vector, voxel_count, margin_cells)
+        dx = bounds.size / inner_res
+        bounds = Box(bounds.lower - dx*margin_cells, bounds.upper + dx*margin_cells)
+        resolution = spatial(**{d: r for d, r in zip(bounds.size.vector.item_names, outer_res)})
     return UniformGrid(resolution, bounds)
+
+
+def solve_resolution_with_margin_cells(W, H, L, n, l: int = 1):
+    coeffs = [W * H * L, 2 * l * (W*H + W*L + H*L), 4 * l**2 * (W+H+L), 8 * l**3 - n]
+    roots = np.roots(coeffs)
+    real_positive_roots = [r.real for r in roots if np.isreal(r) and r.real > 0]  # Filter out only the real, positive roots
+    if not real_positive_roots:
+        raise ValueError(f"No grid resolution fulfills margin_cells={l} given {n} total cells.")
+    inner_res = np.round(real_positive_roots[0] * np.asarray([W, H, L]))
+    return inner_res, inner_res + 2*l
