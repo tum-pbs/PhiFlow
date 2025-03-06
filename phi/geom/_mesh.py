@@ -385,7 +385,7 @@ class Mesh(Geometry):
             size = face_size[closest_elem]
             sgn_dist = plane_sgn_dist(center, normal, location)
             delta = center - location  # this is not accurate...
-            outward = where(abs(sgn_dist) < size, normal, vec_normalize(delta))
+            outward = where(abs(sgn_dist) < size, normal, -vec_normalize(delta))
             return sgn_dist, delta, outward, None, closest_elem
         # idx = find_closest(self.center, location)
         # for i in range(self.max_cell_walk):
