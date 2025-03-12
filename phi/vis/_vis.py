@@ -304,8 +304,8 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
                     plots.set_title(display_name(animate.item_names[0][frame]) if animate.item_names[0] else None, figure, None)
                     for i, f in enumerate(fields):
                         idx = indices[pos][i]
-                        f = f[{animate.name: int(frame)}]
-                        plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[pos][i], alpha[idx], err[idx])
+                        idx = {animate.name: int(frame), **idx}
+                        plots.plot(f[idx], figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[pos][i][idx], alpha[idx], err[idx])
                 plots.finalize(figure)
             anim = plots.animate(figure, animate.size, plot_frame, frame_time, repeat, interactive=True, time_axis=animate.name)
             if is_jupyter():
@@ -319,7 +319,7 @@ def plot(*fields: Union[Field, Tensor, Geometry, list, tuple, dict],
                 plots.set_title(title_by_subplot[pos], figure, axes[pos])
                 for i, f in enumerate(fields):
                     idx = indices[pos][i]
-                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[pos][i], alpha[idx], err[idx])
+                    plots.plot(f, figure, axes[pos], subplots[pos], min_val, max_val, show_color_bar, color[pos][i][idx], alpha[idx], err[idx])
             plots.finalize(figure)
             LAST_FIGURE[0] = figure
             figures.append(figure)
@@ -435,7 +435,7 @@ def layout_color(content: Dict[Tuple[int, int], List[Field]], indices: Dict[Tupl
             for i, f in enumerate(fields):
                 idx = indices[pos][i]
                 if (color[idx] != None).all:  # user-specified color
-                    result_pos.append(color[idx])
+                    result_pos.append(math.convert(color[idx]))
                 else:
                     cmap: bool = requires_color_map(f)
                     channels = channel(f).without('vector')

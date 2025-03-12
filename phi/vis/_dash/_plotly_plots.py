@@ -18,7 +18,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
 
-from phiml.math import reshaped_numpy, dual, instance, non_dual, merge_shapes, pack_dims, dsum, close, equal, NAN
+from phiml.math import reshaped_numpy, dual, instance, non_dual, merge_shapes, pack_dims, dsum, close, equal, NAN, batch, Shape
 from phi import math, geom
 from phi.field import Field
 from phi.geom import Sphere, BaseBox, Point, Box, SDF, SDFGrid, Cylinder, Mesh
@@ -520,7 +520,7 @@ class Scatter3D(Recipe):
             if color == 'cmap':
                 color_i = data[idx].values.numpy([math.shape]).astype(np.float32)
             else:
-                color_i = plotly_color(color[idx])
+                color_i = plotly_color(color[idx], non_channel(data.geometry))
             if spatial(data.geometry):
                 for sdim in spatial(data.geometry):
                     xyz = math.reshaped_numpy(data[idx].points.vector[dims], [vector, ..., sdim])
@@ -626,7 +626,7 @@ class SurfaceMesh3D(Recipe):
                     v2.extend(np.concatenate([q2, q3]))
                     v3.extend(np.concatenate([q3, q4]))
             else:
-                elements: csr_matrix = mesh.elements.numpy().tocsr()
+                elements: csr_matrix = mesh.elements.numpy().tocsr()  # ToDo this screws up alignment
                 indices = elements.indices + v_offset[-1]
                 pointers = elements.indptr
                 vertex_count = pointers[1:] - pointers[:-1]
@@ -712,8 +712,16 @@ def real_values(field: Field):
     return field.values if field.values.dtype.kind != complex else abs(field.values)
 
 
-def plotly_color(col: Union[int, str, np.ndarray, Tensor]):
+def plotly_color(col: Union[int, str, np.ndarray, Tensor], instance_dims: Shape = None):
+    if instance_dims and isinstance(col, Tensor) and instance_dims in col.shape:  # per-instance color
+        if col.dtype.kind == float:
+            raise NotImplementedError  # ToDo cmap
+        elif col.dtype.kind == int:
+            return [plotly_color(c) for c in col]
+        raise NotImplementedError
     if isinstance(col, Tensor) and col.dtype.kind == object:
+        if batch(col):
+            col = col[{b: 0 for b in batch(col).names}]
         col = col.native()
     elif isinstance(col, Tensor):
         col = col.numpy()
