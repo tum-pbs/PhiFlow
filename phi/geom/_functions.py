@@ -141,6 +141,11 @@ def plane_sgn_dist(plane_offset: Tensor, plane_normal: Tensor, point: Tensor):
     return plane_normal.vector @ point.vector - plane_offset
 
 
+def closest_on_plane(plane_offset: Tensor, plane_normal: Tensor, point: Tensor):
+    sgn_dist = plane_sgn_dist(plane_offset, plane_normal, point)
+    return point - sgn_dist * plane_normal
+
+
 def closest_on_triangle(A: Tensor, B: Tensor, C: Tensor, query: Tensor, exact_edges=True) -> Tensor:
     """
     Computes the point inside the triangle spanned by `A,B,C` closest to `query`.
