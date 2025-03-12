@@ -1,7 +1,9 @@
 from typing import Sequence, Union, Optional, Tuple
 
+import numpy as np
+
 from phiml import math
-from phiml.math import Tensor, channel, Shape, normalize, vec, sqrt, maximum, clip, vec_squared, norm, where, stack, dual, argmin, safe_div, arange, wrap, to_float, rename_dims
+from phiml.math import Tensor, channel, Shape, normalize, vec, sqrt, maximum, clip, vec_squared, norm, where, stack, dual, argmin, safe_div, arange, wrap, to_float, rename_dims, expand
 from phiml.math._shape import parse_dim_order, DimFilter, shape
 
 
@@ -404,3 +406,35 @@ def solve2x2(a, b, c, d, y1, y2):
     x1 = (d*y1 - b*y2) / denom
     x2 = (a*y2 - c*y1) / denom
     return x1, x2
+
+
+def farthest_points(points: Tensor, list_dim: Shape, must_contain: Tensor = None):
+    """
+    Perform farthest point sampling (FPS) on a set of 3D points.
+
+    Parameters:
+        points (numpy.ndarray): (N, 3) array of 3D points.
+        list_dim: Number of points to sample and dimension along which to list the sampled points.
+        must_contain: (Optional) Indices of points that must be contained in the sample. Duplicate indices will only be sampled once.
+
+    Returns:
+        numpy.ndarray: (M, 3) array of sampled points.
+    """
+    points_np = points.numpy([..., 'vector'])
+    sampled_indices = np.zeros(list_dim.volume, dtype=int)
+    if must_contain is not None:
+        must_contain_np = must_contain.numpy([shape])
+        must_contain_np = np.unique(must_contain_np)
+        sampled_indices[:must_contain_np.size] = must_contain_np
+        distances = np.min(np.linalg.norm(points_np - points_np[must_contain_np, None, :], axis=-1), 0)
+        i0 = must_contain_np.size
+    else:
+        distances = np.full(points_np.shape[0], np.inf)  # Initialize distances as infinity
+        sampled_indices[0] = np.random.randint(points_np.shape[0])  # Start with a random point
+        i0 = 1
+    for i in range(i0, list_dim.volume):
+        last_selected = points_np[sampled_indices[i - 1]]  # Compute distances from the last selected point to all points
+        distances = np.minimum(distances, np.linalg.norm(points_np - last_selected, axis=1))  # Update the minimum distance to the set of selected points
+        sampled_indices[i] = np.argmax(distances)  # Select the farthest point
+    sampled_indices = expand(wrap(sampled_indices, list_dim), channel(index=(points.shape-'vector').name_list))
+    return sampled_indices, points[sampled_indices]
