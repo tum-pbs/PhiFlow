@@ -11,7 +11,7 @@ from phiml import math
 from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims, unstack, tensor, si2d, non_dual, nonzero, stored_indices, stored_values, scatter, \
     find_closest, sqrt, where, vec_normalize, argmax, broadcast, zeros, EMPTY_SHAPE, meshgrid, mean, reshaped_numpy, range_tensor, convolve, \
     assert_close, shift, pad, extrapolation, sum as sum_, dim_mask, math, Tensor, Shape, channel, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, \
-    stack, tensor_like, pairwise_distances, concat, Extrapolation, dsum, reshaped_tensor, dmean, icat, vec
+    stack, tensor_like, pairwise_distances, concat, Extrapolation, dsum, reshaped_tensor, dmean, icat, vec, minimum, sign
 from phiml.dataclasses import getitem, replace
 from phiml.math._sparse import CompactSparseTensor
 from phiml.math.extrapolation import as_extrapolation, PERIODIC
@@ -19,7 +19,7 @@ from phiml.math.magic import slicing_dict
 
 from ._geom import Geometry, Point, NoGeometry
 from ._box import Box, BaseBox, bounding_box
-from ._functions import plane_sgn_dist, cross, vec_length
+from ._functions import plane_sgn_dist, cross, vec_length, closest_on_triangle
 from ._graph import Graph, graph
 from ._transform import scale
 
@@ -379,14 +379,23 @@ class Mesh(Geometry):
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         if self.element_rank == 2 and self.spatial_rank == 3:
             closest_elem = find_closest(self.center, location)
-            center = self.center[closest_elem]
             normal = self.normals[closest_elem]
-            face_size = sqrt(self.volume) * 4
+            if math.get_format(self.elements) == 'compact-cols' and dual(self.elements._indices).size == 3:  # triangle mesh
+                three_vertices = self.elements[closest_elem]._indices
+                v1, v2, v3 = unstack(self.vertices.center[{instance: three_vertices}], dual(self.elements))
+                surf_pos = closest_on_triangle(v1, v2, v3, location, exact_edges=True)
+                delta = surf_pos - location
+                sgn_dist = vec_length(delta) * -sign(delta.vector @ normal)
+                return sgn_dist, delta, normal, None, closest_elem
+            center = self.center[closest_elem]
+            face_size = sqrt(self.volume) * 2
             size = face_size[closest_elem]
             sgn_dist = plane_sgn_dist(center, normal, location)
-            delta = center - location  # this is not accurate...
-            outward = where(abs(sgn_dist) < size, normal, -vec_normalize(delta))
-            return sgn_dist, delta, outward, None, closest_elem
+            delta_far = center - location  # this is not accurate...
+            delta_near = normal * -sgn_dist
+            far_fac = minimum(1, abs(sgn_dist) / size)
+            delta = far_fac * delta_far + (1 - far_fac) * delta_near
+            return sgn_dist, delta, normal, None, closest_elem
         # idx = find_closest(self.center, location)
         # for i in range(self.max_cell_walk):
         #     idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
