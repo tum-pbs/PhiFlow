@@ -33,7 +33,7 @@ from phiml.math.extrapolation import PERIODIC, ZERO_GRADIENT
 # Functions
 from phiml.math import (
     wrap, tensor, vec, zeros, zeros_like, ones, ones_like, linspace, rand, randn, arange, meshgrid,  # Tensor creation
-    shape, spatial, channel, batch, instance, dual, primal,
+    shape, spatial, channel, batch, instance, dual, primal, dsize, isize, ssize, csize,
     non_spatial, non_channel, non_batch, non_instance, non_dual, non_primal,  # Shape functions (magic)
     unstack, stack, concat, tcat, dcat, icat, scat, ccat, expand, rename_dims, pack_dims, dpack, ipack, spack, cpack, unpack_dim, flatten, cast,  # Magic Ops
     b2i, c2b, c2d, i2b, s2b, si2d, p2d, d2i, d2s, map_s2b, map_i2b, map_c2b, map_d2b, map_d2c, map_c2d,  # dim type conversions
