@@ -16,7 +16,12 @@ from phi.flow import *
 from . import TENSORFLOW
 
 from . import nets
-from .nets import parameter_count, get_parameters, dense_net, u_net, save_state, load_state, update_weights, adam, conv_net, res_net, sgd, sgd as SGD, adagrad, rmsprop, conv_classifier, invertible_net
+from .nets import (
+    parameter_count, get_parameters, save_state, load_state,
+    dense_net, u_net, conv_net, res_net, conv_classifier, invertible_net,
+    update_weights,
+    adam, sgd, sgd as SGD, rmsprop, adagrad, set_learning_rate, get_learning_rate,
+)
 
 import tensorflow
 from tensorflow import keras

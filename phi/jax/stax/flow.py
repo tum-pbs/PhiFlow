@@ -14,4 +14,9 @@ See `phi.flow`, `phi.torch.flow`, `phi.tf.flow`.
 from ..flow import *
 
 from . import nets
-from .nets import parameter_count, get_parameters, save_state, load_state, dense_net, u_net, update_weights, adam, conv_net, res_net, adagrad, rmsprop, sgd, sgd as SGD, conv_classifier, coupling_layer, invertible_net
+from .nets import (
+    parameter_count, get_parameters, save_state, load_state,
+    dense_net, u_net, conv_net, res_net, conv_classifier, invertible_net, coupling_layer,
+    update_weights,
+    adam, sgd, sgd as SGD, rmsprop, adagrad, # set_learning_rate not compatible with paradigm
+)
