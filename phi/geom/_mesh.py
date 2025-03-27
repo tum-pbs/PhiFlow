@@ -386,33 +386,35 @@ class Mesh(Geometry):
         return math.max(distances, dual)
 
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
-        if self.element_rank == 2 and self.spatial_rank == 3:
-            closest_elem = find_closest(self.center, location)
-            normal = self.normals[closest_elem]
-            if math.get_format(self.elements) == 'compact-cols' and dual(self.elements._indices).size == 3:  # triangle mesh
-                three_vertices = self.elements[closest_elem]._indices
-                v1, v2, v3 = unstack(self.vertices.center[{instance: three_vertices}], dual(self.elements))
-                surf_pos = closest_on_triangle(v1, v2, v3, location, exact_edges=True)
-                delta = surf_pos - location
-                sgn_dist = vec_length(delta) * -sign(delta.vector @ normal)
+        def acs_single_mesh(self: Mesh, location: Tensor):
+            if self.element_rank == 2 and self.spatial_rank == 3:
+                closest_elem = find_closest(self.center, location)
+                normal = self.normals[closest_elem]
+                if math.get_format(self.elements) == 'compact-cols' and dual(self.elements._indices).size == 3:  # triangle mesh
+                    three_vertices = self.elements[closest_elem]._indices
+                    v1, v2, v3 = unstack(self.vertices.center[{instance: three_vertices}], dual(self.elements))
+                    surf_pos = closest_on_triangle(v1, v2, v3, location, exact_edges=True)
+                    delta = surf_pos - location
+                    sgn_dist = vec_length(delta) * -sign(delta.vector @ normal)
+                    return sgn_dist, delta, normal, None, closest_elem
+                center = self.center[closest_elem]
+                face_size = sqrt(self.volume) * 2
+                size = face_size[closest_elem]
+                sgn_dist = plane_sgn_dist(center, normal, location)
+                delta_far = center - location  # this is not accurate...
+                delta_near = normal * -sgn_dist
+                far_fac = minimum(1, abs(sgn_dist) / size)
+                delta = far_fac * delta_far + (1 - far_fac) * delta_near
                 return sgn_dist, delta, normal, None, closest_elem
-            center = self.center[closest_elem]
-            face_size = sqrt(self.volume) * 2
-            size = face_size[closest_elem]
-            sgn_dist = plane_sgn_dist(center, normal, location)
-            delta_far = center - location  # this is not accurate...
-            delta_near = normal * -sgn_dist
-            far_fac = minimum(1, abs(sgn_dist) / size)
-            delta = far_fac * delta_far + (1 - far_fac) * delta_near
-            return sgn_dist, delta, normal, None, closest_elem
-        # idx = find_closest(self.center, location)
-        # for i in range(self.max_cell_walk):
-        #     idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
-        # sgn_dist = max(distances, dual)
-        # cell_normals = self.face_normals[idx]
-        # normal = cell_normals[{dual: nb_idx}]
-        # return sgn_dist, delta, normal, offset, face_index
-        raise NotImplementedError
+            # idx = find_closest(self.center, location)
+            # for i in range(self.max_cell_walk):
+            #     idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
+            # sgn_dist = max(distances, dual)
+            # cell_normals = self.face_normals[idx]
+            # normal = cell_normals[{dual: nb_idx}]
+            # return sgn_dist, delta, normal, offset, face_index
+            raise NotImplementedError
+        return math.map(acs_single_mesh, self, location, dims=batch(self.elements), map_name="Mesh.approximate_closest_surface")
 
     def cell_walk_towards(self, location: Tensor, start_cell_idx: Tensor, allow_exit=False):
         """
