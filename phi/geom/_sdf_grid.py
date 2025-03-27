@@ -76,7 +76,7 @@ class SDFGrid(Geometry):
 
     def with_values(self, values: Tensor):
         values = expand(values, spatial(self._sdf) - spatial(values))
-        return SDFGrid(values, self._bounds, self._approximate_outside, self._grad, self._center, self._volume, self._bounding_radius)
+        return SDFGrid(values, self._bounds, self._approximate_outside, self._grad, self._to_surface, self._surf_normal, self._surf_index, self._center, self._volume, self._bounding_radius)
 
     @property
     def bounds(self) -> BaseBox:
