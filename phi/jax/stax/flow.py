@@ -20,3 +20,4 @@ from .nets import (
     update_weights,
     adam, sgd, sgd as SGD, rmsprop, adagrad, # set_learning_rate not compatible with paradigm
 )
+from phiml.nn import train

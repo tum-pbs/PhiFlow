@@ -22,6 +22,7 @@ from .nets import (
     update_weights,
     adam, sgd, sgd as SGD, rmsprop, adagrad, set_learning_rate, get_learning_rate,
 )
+from phiml.nn import train
 
 import torch
 import torch.nn.functional as torchf
