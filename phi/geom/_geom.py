@@ -711,7 +711,7 @@ class Point(Geometry):
         return math.zeros()
 
     def bounding_half_extent(self) -> Tensor:
-        return tensor_like(self.center, 0)
+        return wrap(0)
 
     def at(self, center: Tensor) -> 'Geometry':
         return Point(center)
