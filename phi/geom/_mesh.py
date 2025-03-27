@@ -359,6 +359,15 @@ class Mesh(Geometry):
         """Lists the vertex centers along the corresponding dual dim to `self.vertices.center`."""
         return si2d(self.vertices.center)
 
+    @cached_property
+    def _v_kdtree_i(self):
+        return math.find_closest(self.vertices.center, method='kd')
+
+    def closest_vertex(self, location: Tensor):
+        idx = self._v_kdtree_i(location)
+        v_pos = self.vertices.center[idx]
+        return idx, v_pos - location
+
     def lies_inside(self, location: Tensor) -> Tensor:
         idx = find_closest(self.center, location)
         for i in range(self.max_cell_walk):
