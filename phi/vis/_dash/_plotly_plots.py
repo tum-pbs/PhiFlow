@@ -424,7 +424,7 @@ class PointCloud2D(Recipe):
 class Object3D(Recipe):
 
     def can_plot(self, data: Field, space: Box) -> bool:
-        if not data.is_point_cloud or data.spatial_rank != 3:
+        if not data.is_point_cloud or data.spatial_rank != 3 or isinstance(data.geometry, Point):
             return False
         if isinstance(data.geometry, Sphere):
             v_count = self._sphere_vertex_count(data.geometry.radius, space)
@@ -725,6 +725,8 @@ def plotly_color(col: Union[int, str, np.ndarray, Tensor], instance_dims: Shape 
         col = col.native()
     elif isinstance(col, Tensor):
         col = col.numpy()
+    if isinstance(col, np.ndarray) and col.ndim == 1:
+        return [plotly_color(c) for c in col]
     if isinstance(col, np.ndarray):
         col = col.item()
     if isinstance(col, int):
