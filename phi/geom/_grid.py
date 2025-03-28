@@ -135,7 +135,7 @@ class UniformGrid(BaseBox):
         return None
 
     def with_scaled_resolution(self, scale: float):
-        return UniformGrid(self._resolution * scale, self._bounds)
+        return UniformGrid(self._resolution.with_sizes([s*scale for s in self._resolution.sizes]), self._bounds)
 
     def __getitem__(self, item):
         item = slicing_dict(self, item)
