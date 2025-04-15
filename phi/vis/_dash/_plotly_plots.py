@@ -444,14 +444,14 @@ class Object3D(Recipe):
         dims = data.geometry.vector.item_names
         # plot different distinct colors as independent meshes, plot cmap in one mesh
 
-        for i in (channel(data.geometry) - 'vector').meshgrid():
-            if instance(data.geometry) in data.values:
-                mesh: Mesh = data.geometry[i]._surface_mesh  # batched mesh
-                values = data.values[i][spatial(data.geometry).first_index()]
-            else:
-                mesh: Mesh = data.geometry[i]._merged_surface_mesh
-                values = math.NAN
-            SurfaceMesh3D().plot(Field(mesh, values), figure, subplot, space, min_val, max_val, show_color_bar, color[i], alpha[i], err[i])
+        # for i in (channel(data.geometry) - 'vector').meshgrid():
+        #     if instance(data.geometry) in data.values:
+        #         mesh: Mesh = data.geometry[i]._surface_mesh  # batched mesh
+        #         values = data.values[i][spatial(data.geometry).first_index()]
+        #     else:
+        #         mesh: Mesh = data.geometry[i]._merged_surface_mesh
+        #         values = math.NAN
+        #     SurfaceMesh3D().plot(Field(mesh, values), figure, subplot, space, min_val, max_val, show_color_bar, color[i], alpha[i], err[i])
 
         def plot_one_material(data, color, alpha: float):
             if color == 'cmap':
