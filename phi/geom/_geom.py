@@ -116,7 +116,7 @@ class Geometry:
             Full Shape to identify each face of this `Geometry`, including instance/spatial dimensions for the elements and dual dimensions listing the faces per element.
             If this `Geometry` has no faces, returns an empty `Shape`.
         """
-        return None
+        return math.EMPTY_SHAPE
 
     @property
     def sets(self) -> Dict[str, Shape]:
@@ -348,7 +348,7 @@ class Geometry:
         """
         raise NotImplementedError(self.__class__)
 
-    def bounding_box(self) -> 'BaseBox':
+    def bounding_box(self):
         """
         Returns the approximately smallest axis-aligned box that contains this `Geometry`.
         The center of the box may not be equal to `self.center`.
@@ -368,7 +368,7 @@ class Geometry:
         from ._sphere import Sphere
         center = self.bounding_box().center
         dist = vec_length(self.center - center) + self.bounding_radius()
-        max_dist = math.max(dist, dim=self.shape.non_batch.non_dual - 'vector')
+        max_dist = math.max(dist, dim=self.shape.non_batch - 'vector')
         return Sphere(center, max_dist)
 
     def shifted(self, delta: Tensor) -> 'Geometry':

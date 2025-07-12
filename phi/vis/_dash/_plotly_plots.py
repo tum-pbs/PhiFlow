@@ -10,6 +10,7 @@ import numpy
 import numpy as np
 import plotly.graph_objs
 
+from phi.geom._spline_sheet import BSplineSheet
 from phiml.math._sparse import CompactSparseTensor
 from scipy.sparse import csr_matrix, coo_matrix
 
@@ -26,7 +27,7 @@ from phi.geom._geom_ops import GeometryStack
 from phi.math import Tensor, spatial, channel, non_channel
 from phi.vis._dash.colormaps import COLORMAPS
 from phi.vis._plot_util import smooth_uniform_curve, down_sample_curve
-from phi.vis._vis_base import PlottingLibrary, Recipe, is_jupyter, display_name
+from phi.vis._vis_base import PlottingLibrary, Recipe, is_jupyter, display_name, to_field
 from phiml.math._tensors import Layout
 
 
@@ -702,6 +703,27 @@ class SDF3D(Recipe):
         math.map(plot_single_material, data, color, alpha, dims=channel(data.geometry) - 'vector', unwrap_scalars=False)
 
 
+class SplineSheet3D(Recipe):
+
+    def can_plot(self, data: Field, space: Box) -> bool:
+        return isinstance(data.geometry, BSplineSheet) and data.spatial_rank == 3
+
+    def plot(self,
+             data: Field,
+             figure,
+             subplot,
+             space: Box,
+             min_val: float,
+             max_val: float,
+             show_color_bar: bool,
+             color: Tensor,
+             alpha: Tensor,
+             err: Tensor):
+        surface = data.geometry._sampled_grid[1]
+        Scatter3D().plot(to_field(surface), figure, subplot, space, min_val, max_val, show_color_bar, color, alpha, err)
+        # Scatter3D().plot(to_field(data.geometry.points), figure, subplot, space, min_val, max_val, show_color_bar, color, alpha, err)
+
+
 def _get_range(bounds: Box, index: int):
     lower = float(bounds.lower.vector[index])
     upper = float(bounds.upper.vector[index])
@@ -998,6 +1020,7 @@ PLOTLY.recipes.extend([
     SDF3D(),
     Graph3D(),
     VectorCloud3D(),
+    SplineSheet3D(),
     Object3D(),
     Scatter3D(),
 ])

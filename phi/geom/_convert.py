@@ -9,6 +9,7 @@ from ._geom import Geometry, NoGeometry
 from ._mesh import Mesh, mesh_from_numpy, mesh
 from ._sdf import SDF, numpy_sdf
 from ._sdf_grid import sample_sdf, SDFGrid
+from ._spline_sheet import BSplineSheet
 
 
 def as_sdf(geo: Geometry, bounds=None, rel_margin=None, abs_margin=0., separate: DimFilter = None, method='auto') -> SDF:
@@ -122,6 +123,11 @@ def surface_mesh(geo: Geometry,
     dx = math.minimum(rel_dx, abs_dx, allow_none=True)
     if method == 'auto' and isinstance(geo, Sphere):
         pass  # ToDo analytic solution
+    elif method == 'auto' and isinstance(geo, BSplineSheet):
+        vol_per_cp = geo.bounding_box().volume / math.prod(geo.res, 'vector').sum
+        avg_cp_dist = vol_per_cp ** (1/geo.spatial_rank)
+        res = max(round(avg_cp_dist / dx), 3)
+        return geo.build_mesh(res, res)
     # --- Build mesh from SDF ---
     if isinstance(geo, SDFGrid):
         sdf_grid = geo
