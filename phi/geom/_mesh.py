@@ -5,7 +5,7 @@ from numbers import Number
 from typing import Dict, List, Sequence, Union, Any, Tuple, Optional
 
 import numpy as np
-from scipy.sparse import csr_matrix, coo_matrix
+from scipy.sparse import csr_matrix, coo_matrix, issparse
 
 from phiml import math
 from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims, unstack, tensor, si2d, non_dual, nonzero, stored_indices, stored_values, scatter, \
@@ -629,8 +629,9 @@ def mesh_from_numpy(points: Sequence[Sequence],
     Args:
         points: 2D numpy array of shape (num_points, point_coord).
             The last dimension must have length 2 for 2D meshes and 3 for 3D meshes.
-        polygons: List of elements. Each polygon is defined as a sequence of point indices mapping into `points'.
+        polygons: Either list of elements where each polygon is defined as a sequence of point indices mapping into `points'.
             E.g. `[(0, 1, 2)]` denotes a single triangle connecting points 0, 1, and 2.
+            Or sparse connectivity matrix of shape (num_elements, num_vertices) with boolean values.
         boundaries: An unstructured mesh can have multiple boundaries, each defined by a name `str` and a list of faces, defined by their vertices.
             The `boundaries` `dict` maps boundary names to a list of edges (point pairs) in 2D and faces (3 or more points) in 3D (not yet supported).
         cell_dim: Dimension along which to list the cells. This should be an instance dimension.
@@ -639,22 +640,27 @@ def mesh_from_numpy(points: Sequence[Sequence],
     Returns:
         `Mesh`
     """
-    cell_dim = cell_dim.with_size(len(polygons))
     points = np.asarray(points)
     xyz = tuple(axes[:points.shape[-1]])
     vertices = wrap(points, instance('vertices'), channel(vector=xyz))
-    if len(polygons) == 0:
-        elements = math.ones(cell_dim, instance(vertices).as_dual(), dtype=bool)
-        return mesh(vertices, elements, boundaries, element_rank, periodic, face_format)
-    try:  # if all elements have the same vertex count, we stack them
-        elements_np = np.stack(polygons).astype(np.int32)
-        elements = wrap(elements_np, cell_dim, spatial('vertex_index'))
-    except ValueError:
-        indices = np.concatenate(polygons)
-        vertex_count = np.asarray([len(e) for e in polygons])
-        ptr = np.pad(np.cumsum(vertex_count), (1, 0))
-        mat = csr_matrix((np.ones(indices.shape, dtype=bool), indices, ptr), shape=(len(polygons), len(points)))
-        elements = wrap(mat, cell_dim, instance(vertices).as_dual())
+    if issparse(polygons):
+        cell_dim = cell_dim.with_size(polygons.shape[0])
+        assert points.shape[0] == polygons.shape[-1], f"Number of points {points.shape[0]} must match number of vertices in polygons {polygons.shape[-1]} but got polygons={polygons.shape}"
+        elements = wrap(polygons, cell_dim, instance(vertices).as_dual())
+    else:
+        cell_dim = cell_dim.with_size(len(polygons))
+        if len(polygons) == 0:
+            elements = math.ones(cell_dim, instance(vertices).as_dual(), dtype=bool)
+            return mesh(vertices, elements, boundaries, element_rank, periodic, face_format)
+        try:  # if all elements have the same vertex count, we stack them
+            elements_np = np.stack(polygons).astype(np.int32)
+            elements = wrap(elements_np, cell_dim, spatial('vertex_index'))
+        except ValueError:
+            indices = np.concatenate(polygons)
+            vertex_count = np.asarray([len(e) for e in polygons])
+            ptr = np.pad(np.cumsum(vertex_count), (1, 0))
+            mat = csr_matrix((np.ones(indices.shape, dtype=bool), indices, ptr), shape=(len(polygons), len(points)))
+            elements = wrap(mat, cell_dim, instance(vertices).as_dual())
     return mesh(vertices, elements, boundaries, element_rank, periodic, face_format=face_format)
 
 
@@ -690,7 +696,7 @@ def mesh(vertices: Union[Geometry, Tensor],
         indices: Tensor = rename_dims(elements, spatial, instance(vertices).as_dual())
         values = expand(True, non_batch(indices))
         elements = CompactSparseTensor(indices, values, instance(vertices).as_dual(), True)
-    assert instance(vertices).as_dual() in elements.shape, f"elements must have the instance dim of vertices {instance(vertices)} but got {shape(elements)}"
+    assert instance(vertices).as_dual() in elements.shape, f"elements must have the instance dim of vertices {instance(vertices)} as dual dim but got {shape(elements)}"
     if element_rank is None:
         if vertices.vector.size == 2:
             element_rank = 2
