@@ -60,7 +60,7 @@ def detect_backends() -> tuple:
     except ImportError:
         pass
     from phiml.backend import BACKENDS
-    return tuple([b for b in BACKENDS if b.name != 'Python'])
+    return tuple([b for b in BACKENDS if b.name not in {'Python', 'object'}])
 
 
 def set_logging_level(level='debug'):
