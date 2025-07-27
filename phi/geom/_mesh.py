@@ -12,7 +12,7 @@ from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack
     find_closest, sqrt, where, vec_normalize, argmax, broadcast, zeros, EMPTY_SHAPE, meshgrid, mean, reshaped_numpy, range_tensor, convolve, \
     assert_close, shift, pad, extrapolation, sum as sum_, dim_mask, math, Tensor, Shape, channel, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, \
     stack, tensor_like, pairwise_distances, concat, Extrapolation, dsum, reshaped_tensor, dmean, icat, vec, minimum, sign
-from phiml.dataclasses import getitem, replace
+from phiml.dataclasses import getitem, replace, sliceable
 from phiml.math._sparse import CompactSparseTensor
 from phiml.math.extrapolation import as_extrapolation, PERIODIC
 from phiml.math.magic import slicing_dict
@@ -24,6 +24,7 @@ from ._graph import Graph, graph
 from ._transform import scale
 
 
+@sliceable  # __getitem__ implemented manually to reject dual dim slicing
 @dataclass(frozen=True)
 class Mesh(Geometry):
     """
@@ -911,7 +912,7 @@ def build_quadrilaterals(vert_pos, resolution: Shape, obstacles: Dict[str, Geome
     for boundary, obstacle in obstacles.items():
         assert isinstance(obstacle, Geometry), f"all obstacles must be Geometry objects but got {type(obstacle)}"
         active_mask_vert = obstacle.approximate_signed_distance(vert_pos) > min_size
-        obs_mask_cell = convolve(active_mask_vert, expand(1, resolution.with_sizes(2))) == 0  # use all cells with one non-blocked vertex
+        obs_mask_cell = convolve(active_mask_vert, expand(1, resolution.with_sizes(2)), size='valid') == 0  # use all cells with one non-blocked vertex
         assert_close(False, obs_mask_cell & full_mask, msg="Obstacles must not overlap. For overlapping obstacles, use union() to assign a single boundary.")
         lo, up = shift(obs_mask_cell, (0, 1), padding=None)
         face_mask = lo != up
@@ -951,7 +952,7 @@ def build_quadrilaterals(vert_pos, resolution: Shape, obstacles: Dict[str, Geome
         raise NotImplementedError(resolution.rank)
     # --- push vertices out of obstacles ---
     ext_mask = pad(~full_mask, {d: (0, 1) for d in resolution.names}, False)
-    has_cell = convolve(ext_mask, expand(1, resolution.with_sizes(2)), extrapolation.ZERO)  # vertices without a cell could be removed to improve memory/cache efficiency
+    has_cell = convolve(ext_mask, expand(1, resolution.with_sizes(2)), extrapolation=extrapolation.ZERO)  # vertices without a cell could be removed to improve memory/cache efficiency
     for obstacle in obstacles.values():
         shifted_verts = obstacle.push(vert_pos)
         vert_pos = where(has_cell, shifted_verts, vert_pos)
