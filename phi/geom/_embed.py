@@ -1,22 +1,22 @@
-from numbers import Number
+from dataclasses import dataclass
 from typing import Tuple, Union, Dict, Any
-
-from phiml.math import spatial, channel, stack, expand, INF
 
 from phi import math
 from phi.math import Tensor, Shape
+from phiml.dataclasses import sliceable
+from phiml.math import channel, stack, expand, INF
+from phiml.math._shape import parse_dim_order
 from phiml.math.magic import slicing_dict
 from . import Box, Cuboid
 from ._geom import Geometry
 from ._sphere import Sphere
-from phiml.math._shape import parse_dim_order
 
 
+@sliceable
+@dataclass(frozen=True, eq=False)
 class _EmbeddedGeometry(Geometry):
-
-    def __init__(self, geometry, axes: Tuple[str]):
-        self.geometry = geometry
-        self.axes = axes  # spatial axis order
+    geometry: Geometry
+    axes: Tuple[str, ...]  # spatial axis order
 
     @property
     def spatial_rank(self) -> int:
