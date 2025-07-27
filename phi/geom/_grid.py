@@ -1,13 +1,17 @@
+from dataclasses import dataclass
+from functools import cached_property
 from typing import Tuple, Dict, Any, Optional, Union
 
 import numpy as np
 
+from phiml.dataclasses import sliceable
 from phiml.math import rename_dims, wrap
 from ._box import Box, Cuboid, bounding_box
+from ._functions import vec_length
 from ._geom import Geometry, GeometryException
 from .. import math
 from ..math import Shape, Tensor, Extrapolation, stack, vec
-from phiml.math._shape import shape_stack, dual, spatial, EMPTY_SHAPE, channel, batch, shape
+from phiml.math._shape import shape_stack, dual, spatial, EMPTY_SHAPE, channel, batch, shape, non_spatial
 from ..math.magic import slicing_dict
 
 
@@ -15,42 +19,44 @@ def _get_bounds(bounds: Union[Box, float, None], resolution: Shape):
     if bounds is None:
         return Box(math.const_vec(0, resolution), math.wrap(resolution, channel(vector=resolution.names)))
     if isinstance(bounds, Box):
-        assert set(bounds.vector.item_names) == set(resolution.names), f"bounds dimensions {bounds.vector.item_names} must match resolution {resolution}"
+        assert set(bounds.vector.labels) == set(resolution.names), f"bounds dimensions {bounds.vector.labels} must match resolution {resolution}"
         return bounds.corner_representation()
     if isinstance(bounds, (int, float)):
         return Box(math.const_vec(0, resolution), math.const_vec(bounds, resolution))
     raise ValueError(f"bounds must be a Box, float or None but got {type(bounds).__name__}")
 
 
-class UniformGrid(Geometry):
-    """
-    An instance of UniformGrid represents all cells of a regular grid as a batch of boxes.
-    """
-
-    def __init__(self, resolution: Shape = None, bounds: Box = None, **resolution_):
+class UniformGridType(type):
+    
+    def __call__(cls, resolution: Shape = None, bounds: Box = None, **resolution_):
         assert resolution is None or resolution.is_uniform, f"spatial dimensions must form a uniform grid but got {resolution}"
         resolution = (resolution or EMPTY_SHAPE).spatial & spatial(**resolution_)
         bounds = _get_bounds(bounds, resolution)
-        assert set(bounds.vector.item_names) == set(resolution.names)
-        self._resolution = resolution.only(bounds.vector.item_names, reorder=True)  # reorder only
-        self._bounds = bounds
-        self._shape = self._resolution & bounds.shape.non_spatial
-        staggered_shapes = [self._shape.spatial.with_dim_size(dim, self._shape.get_size(dim) + 1) for dim in self.vector.item_names]
-        self._face_shape = shape_stack(dual(vector=self.vector.item_names), *staggered_shapes)
+        resolution = resolution.only(bounds.vector.labels, reorder=True)  # reorder only
+        return type.__call__(cls, resolution, bounds)
 
-    @property
-    def resolution(self):
-        return self._resolution
 
-    @property
-    def bounds(self):
-        return self._bounds
+@sliceable(keepdims='vector')
+@dataclass(frozen=True, eq=False)
+class UniformGrid(Geometry, metaclass=UniformGridType):
+    """
+    An instance of UniformGrid represents all cells of a regular grid as a batch of boxes.
+    """
+    resolution: Shape
+    bounds: Box
+    
+    def __post_init__(self):
+        assert set(self.bounds.vector.labels) == set(self.resolution.names)
 
     @property
     def spatial_rank(self) -> int:
-        return self._resolution.spatial_rank
+        return self.resolution.spatial_rank
+    
+    @cached_property
+    def shape(self):
+        return self.resolution & non_spatial(self.bounds)
 
-    @property
+    @cached_property
     def center(self):
         local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
         points = self.bounds.local_to_global(local_coords)
@@ -58,10 +64,10 @@ class UniformGrid(Geometry):
 
     def position_of(self, voxel_index: Tensor):
         voxel_index = rename_dims(voxel_index, channel, 'vector')
-        return self._bounds.lower + (voxel_index+.5) / self.resolution * self._bounds.size
+        return self.bounds.lower + (voxel_index+.5) / self.resolution * self.bounds.size
 
     def voxel_at(self, location: Tensor, clamp=True):
-        float_idx = (location - self._bounds.lower) / self._bounds.size * self.resolution
+        float_idx = (location - self.bounds.lower) / self.bounds.size * self.resolution
         index = math.to_int32(float_idx)
         if clamp:
             index = math.clip(index, 0, wrap(self.resolution, channel('vector'))-1)
@@ -74,49 +80,54 @@ class UniformGrid(Geometry):
     @property
     def boundary_faces(self) -> Dict[Any, Dict[str, slice]]:
         result = {}
-        for dim in self.vector.item_names:
+        for dim in self.vector.labels:
             result[dim+'-'] = {'~vector': dim, dim: slice(1)}
             result[dim+'+'] = {'~vector': dim, dim: slice(-1, None)}
         return result
 
     @property
     def face_centers(self) -> Tensor:
-        centers = [self.stagger(dim, True, True).center for dim in self.vector.item_names]
-        return stack(centers, dual(vector=self.vector.item_names))
+        centers = [self.stagger(dim, True, True).center for dim in self.vector.labels]
+        return stack(centers, dual(vector=self.vector.labels))
 
     @property
     def faces(self) -> Geometry:
         slices = [self.stagger(d, True, True) for d in self.resolution.names]
-        return stack(slices, dual(vector=self.vector.item_names))
+        return stack(slices, dual(vector=self.vector.labels))
 
     @property
     def face_normals(self) -> Tensor:
-        normals = [vec(**{d: float(d == dim) for d in self.vector.item_names}) for dim in self.vector.item_names]
-        return stack(normals, dual(vector=self.vector.item_names))
+        normals = [vec(**{d: float(d == dim) for d in self.vector.labels}) for dim in self.vector.labels]
+        return stack(normals, dual(vector=self.vector.labels))
 
     @property
     def face_areas(self) -> Tensor:
-        areas = [math.prod(self.dx.vector[[d for d in self.vector.item_names if d != dim]], 'vector') for dim in self.vector.item_names]
-        return stack(areas, dual(vector=self.vector.item_names))
+        areas = [math.prod(self.dx.vector[[d for d in self.vector.labels if d != dim]], 'vector') for dim in self.vector.labels]
+        return stack(areas, dual(vector=self.vector.labels))
 
-    @property
+    @cached_property
     def face_shape(self) -> Shape:
-        return self._face_shape
+        staggered_shapes = [self.shape.spatial.with_dim_size(dim, self.shape.get_size(dim) + 1) for dim in self.vector.labels]
+        return shape_stack(dual(vector=self.vector.labels), *staggered_shapes)
 
     def interior(self) -> 'Geometry':
         raise GeometryException("Regular grid does not have an interior")
 
     @property
     def grid_size(self):
-        return self._bounds.size
+        return self.bounds.size
+
+    @cached_property
+    def dx(self):
+        return self.bounds.size / self.resolution
 
     @property
     def size(self):
-        return self.bounds.size / math.wrap(self.resolution.sizes)
+        return self.dx
 
     @property
-    def dx(self):
-        return self.bounds.size / self.resolution
+    def volume(self) -> Tensor:
+        return math.prod(self.dx, 'vector')
 
     @property
     def lower(self):
@@ -135,7 +146,6 @@ class UniformGrid(Geometry):
         return None
 
     def corner_representation(self) -> 'Box':
-        assert self._rot_or_none is None, f"corner_representation does not support rotations"
         return Box(self.lower, self.upper)
 
     box = corner_representation
@@ -146,17 +156,16 @@ class UniformGrid(Geometry):
     cuboid = center_representation
 
     def with_scaled_resolution(self, scale: float):
-        return UniformGrid(self._resolution.with_sizes([s*scale for s in self._resolution.sizes]), self._bounds)
+        return UniformGrid(self.resolution.with_sizes([s*scale for s in self.resolution.sizes]), self.bounds)
 
     def __getitem__(self, item):
         item = slicing_dict(self, item)
-        resolution = self._resolution.after_gather(item)
-        bounds = self._bounds[{d: s for d, s in item.items() if d != 'vector'}]
+        resolution = self.resolution.after_gather(item)
+        bounds = self.bounds[{d: s for d, s in item.items() if d != 'vector'}]
         if 'vector' in item:
             resolution = resolution.only(item['vector'], reorder=True)
             bounds = bounds.vector[item['vector']]
         bounds = bounds.vector[resolution.name_list]
-        dx = self.size
         for dim, selection in item.items():
             if dim in resolution:
                 if isinstance(selection, slice):
@@ -170,27 +179,26 @@ class UniformGrid(Geometry):
                 else:  # int slices are not contained in resolution anymore
                     raise ValueError(f"Illegal selection: {item}")
                 dim_mask = math.wrap(self.resolution.mask(dim))
-                lower = bounds.lower + start * dim_mask * dx
-                upper = bounds.upper + (stop - self.resolution.get_size(dim)) * dim_mask * dx
+                lower = bounds.lower + start * dim_mask * self.dx
+                upper = bounds.upper + (stop - self.resolution.get_size(dim)) * dim_mask * self.dx
                 bounds = Box(lower, upper)
         return UniformGrid(resolution, bounds)
 
-    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Optional[int], **kwargs) -> 'Cuboid':
+    def __pack_dims__(self, dims: Tuple[str, ...], packed_dim: Shape, pos: Optional[int], **kwargs) -> 'Box':
         return math.pack_dims(self.center_representation(size_variable=False), dims, packed_dim, pos, **kwargs)
 
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -> 'Geometry':
         from ._geom_ops import GeometryStack
-        set_op = kwargs.get('set_op')
-        return GeometryStack(math.layout(values, dim), set_op)
+        return GeometryStack(math.layout(values, dim))
 
     def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'UniformGrid':
-        resolution = math.rename_dims(self._resolution, dims, new_dims).spatial
-        bounds = math.rename_dims(self._bounds, dims, new_dims, **kwargs)[resolution.name_list]
+        resolution = math.rename_dims(self.resolution, dims, new_dims).spatial
+        bounds = math.rename_dims(self.bounds, dims, new_dims, **kwargs)[resolution.name_list]
         return UniformGrid(resolution, bounds)
 
     def list_cells(self, dim_name):
-        center = math.pack_dims(self.center, self._shape.spatial.names, dim_name)
+        center = math.pack_dims(self.center, self.shape.spatial.names, dim_name)
         return Cuboid(center, self.half_size, size_variable=False)
 
     def stagger(self, dim: str, lower: bool, upper: bool):
@@ -202,7 +210,7 @@ class UniformGrid(Geometry):
 
     def staggered_cells(self, boundaries: Extrapolation) -> Dict[str, 'UniformGrid']:
         grids = {}
-        for dim in self.vector.item_names:
+        for dim in self.vector.labels:
             grids[dim] = self.stagger(dim, *boundaries.valid_outer_faces(dim))
         return grids
 
@@ -213,10 +221,6 @@ class UniformGrid(Geometry):
             resolution = resolution.with_dim_size(dim, self.resolution.get_size(dim) + lower + upper)
             bounds = Box(bounds.lower - masked_dx * lower, bounds.upper + masked_dx * upper)
         return UniformGrid(resolution, bounds)
-
-    @property
-    def shape(self):
-        return self._shape
 
     def shifted(self, delta: Tensor, **delta_by_dim):
         # delta += math.padded_stack()
@@ -233,15 +237,15 @@ class UniformGrid(Geometry):
         return self == other
 
     def __repr__(self):
-        return f"{self._resolution}, bounds={self._bounds}"
+        return f"{self.resolution}, bounds={self.bounds}"
 
     def __eq__(self, other):
         if not isinstance(other, UniformGrid):
             return False
-        return self._resolution == other._resolution and self._bounds == other._bounds
+        return self.resolution == other.resolution and self.bounds == other.bounds
 
     def __hash__(self):
-        return hash(self._resolution) + hash(self._bounds)
+        return hash(self.resolution) + hash(self.bounds)
 
     @property
     def _center(self):
@@ -257,6 +261,9 @@ class UniformGrid(Geometry):
 
     def bounding_half_extent(self) -> Tensor:
         return self.half_size
+
+    def bounding_radius(self) -> Tensor:
+        return vec_length(self.half_size)
 
 
 def enclosing_grid(*geometries: Union[Geometry, Tensor], voxel_count: int, rel_margin=0., abs_margin=0., margin_cells=0) -> UniformGrid:
@@ -286,7 +293,7 @@ def enclosing_grid(*geometries: Union[Geometry, Tensor], voxel_count: int, rel_m
         inner_res, outer_res = solve_resolution_with_margin_cells(*bounds.size.vector, voxel_count, margin_cells)
         dx = bounds.size / inner_res
         bounds = Box(bounds.lower - dx*margin_cells, bounds.upper + dx*margin_cells)
-        resolution = spatial(**{d: r for d, r in zip(bounds.size.vector.item_names, outer_res)})
+        resolution = spatial(**{d: r for d, r in zip(bounds.size.vector.labels, outer_res)})
     return UniformGrid(resolution, bounds)
 
 
