@@ -6,7 +6,7 @@ from phiml.math import spatial, channel, stack, expand, INF
 from phi import math
 from phi.math import Tensor, Shape
 from phiml.math.magic import slicing_dict
-from . import BaseBox, Box, Cuboid
+from . import Box, Cuboid
 from ._geom import Geometry
 from ._sphere import Sphere
 from phiml.math._shape import parse_dim_order
@@ -58,7 +58,7 @@ class _EmbeddedGeometry(Geometry):
         projected = self.geometry[item]
         if projected.spatial_rank == 0:
             return Box(**{a: None for a in axes})
-        assert not isinstance(projected, BaseBox), f"_EmbeddedGeometry reduced to a Box but should already have been a box. Was {self.geometry}"
+        assert not isinstance(projected, Box), f"_EmbeddedGeometry reduced to a Box but should already have been a box. Was {self.geometry}"
         if isinstance(projected, Sphere) and projected.spatial_rank:  # 1D spheres are just boxes
             box1d = Cuboid(projected.center, expand(projected.radius, projected.center.shape['vector']))
             emb = _EmbeddedGeometry(box1d, axes)
@@ -129,7 +129,7 @@ def embed(geometry: Geometry, projected_dims: Union[math.Shape, str, tuple, list
     for name in reversed(geometry.shape.get_item_names('vector')):
         if name not in projected_dims:
             axes = (name,) + axes
-    if isinstance(geometry, BaseBox):
+    if isinstance(geometry, Box):
         box = geometry.corner_representation()
         embedded = box * Box(**{dim: None for dim in embedded_axes})
         return embedded[axes]

@@ -7,7 +7,7 @@ from phiml.math.magic import slicing_dict
 from ._geom import Geometry
 from ._functions import clip_length
 from ._grid import UniformGrid
-from ._box import BaseBox, Cuboid
+from ._box import Box, Cuboid
 
 
 class SDFGrid(Geometry):
@@ -16,7 +16,7 @@ class SDFGrid(Geometry):
     """
     def __init__(self,
                  sdf: Tensor,
-                 bounds: BaseBox,
+                 bounds: Box,
                  approximate_outside=True,
                  gradient: Tensor = None,
                  to_surface: Tensor = None, surf_normal: Tensor = None, surf_index: Tensor = None,
@@ -79,7 +79,7 @@ class SDFGrid(Geometry):
         return SDFGrid(values, self._bounds, self._approximate_outside, self._grad, self._to_surface, self._surf_normal, self._surf_index, self._center, self._volume, self._bounding_radius)
 
     @property
-    def bounds(self) -> BaseBox:
+    def bounds(self) -> Box:
         return self._bounds
 
     @property
@@ -243,7 +243,7 @@ class SDFGrid(Geometry):
 
 
 def sample_sdf(geometry: Geometry,
-               bounds: Union[BaseBox, UniformGrid] = None,
+               bounds: Union[Box, UniformGrid] = None,
                resolution: Shape = math.EMPTY_SHAPE,
                approximate_outside=False,
                rebuild: Optional[str] = None,
@@ -270,7 +270,7 @@ def sample_sdf(geometry: Geometry,
     """
     resolution = resolution & spatial(**resolution_)
     if bounds is None:
-        bounds: BaseBox = geometry.bounding_box()
+        bounds: Box = geometry.bounding_box()
         bounds = Cuboid(bounds.center, half_size=bounds.half_size * (1 + 2 * rel_margin) + 2 * abs_margin)
     elif isinstance(bounds, UniformGrid):
         assert not resolution, f"When specifying a UniformGrid, separate resolution values are not allowed."

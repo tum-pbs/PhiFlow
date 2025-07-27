@@ -14,8 +14,15 @@ class Geometry:
 
     Main implementing classes:
 
-    * Sphere
-    * box family: box (generator), Box, Cuboid, BaseBox
+    * `Sphere`
+    * `Box`
+    * `Cylinder`
+    * `Graph`
+    * `Mesh`
+    * `Heightmap`
+    * `SDFGrid`
+    * `SDF`
+    * `SplineSheet`
 
     All geometry objects support batching.
     Thereby any parameter defining the geometry can be varied along arbitrary batch dims.
@@ -360,8 +367,8 @@ class Geometry:
         half = self.bounding_half_extent()
         min_vec = math.min(center - half, dim=center.shape.non_batch.non_channel)
         max_vec = math.max(center + half, dim=center.shape.non_batch.non_channel)
-        from ._box import Box
-        return Box(min_vec, max_vec)
+        from ._box import box_from_limits
+        return box_from_limits(min_vec, max_vec)
 
     def bounding_sphere(self):
         from phi.geom._functions import vec_length
@@ -492,21 +499,6 @@ class Geometry:
 
     def __repr__(self):
         return f"{self.__class__.__name__}{self.shape}"
-
-    def __getattr__(self, name: str) -> BoundDim:
-        if name in ('shape', '__setstate__', '__all_attrs__', '__variable_attrs__', '__value_attrs__'):
-            raise AttributeError
-        try:
-            self_shape = self.shape
-            if self_shape is None:
-                raise AttributeError(f"Invalid object of type {self.__class__.__name__}. Failed to get attribute {name} because it has no shape.")
-        except BaseException as err:  # invalid object, probably None
-            raise AttributeError(err)
-        if name in self_shape:
-            return BoundDim(self, name)
-        if hasattr(self.__class__, name):
-            raise RuntimeError(f"Evaluating {self.__class__.__name__}.{name} failed with an error.")
-        raise AttributeError(f"{self.__class__.__name__}.{name}")
 
 
 class InvertedGeometry(Geometry):

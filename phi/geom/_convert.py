@@ -2,7 +2,7 @@ import numpy as np
 
 from phiml import math
 from phiml.math import wrap, instance, batch, DimFilter, Tensor, spatial, pack_dims, dual, stack, to_int32, maximum
-from ._box import Cuboid, BaseBox
+from ._box import Box, Cuboid
 from ._sphere import Sphere
 from ._functions import plane_sgn_dist
 from ._geom import Geometry, NoGeometry
@@ -27,13 +27,13 @@ def as_sdf(geo: Geometry, bounds=None, rel_margin=None, abs_margin=0., separate:
             Once created, SDFs cannot be unstacked.
 
     Returns:
-
+        `SDF` representation of `geo`.
     """
     separate = geo.shape.only(separate)
     if separate:
         return math.map(as_sdf, geo, bounds, rel_margin, abs_margin, separate=None, dims=separate, unwrap_scalars=True)
     if bounds is None:
-        bounds: BaseBox = geo.bounding_box()
+        bounds: Box = geo.bounding_box()
         rel_margin = .1 if rel_margin is None else rel_margin
     rel_margin = 0 if rel_margin is None else rel_margin
     bounds = Cuboid(bounds.center, half_size=bounds.half_size * (1 + 2 * rel_margin) + 2 * abs_margin)
@@ -105,7 +105,7 @@ def surface_mesh(geo: Geometry,
     if isinstance(geo, SDFGrid):
         assert rel_dx is None and abs_dx is None, f"When creating a surface mesh from an SDF grid, rel_dx and abs_dx are determined from the grid and must be specified as None"
     # --- Check special cases ---
-    if method == 'auto' and isinstance(geo, BaseBox):
+    if method == 'auto' and isinstance(geo, Box):
         assert rel_dx is None and abs_dx is None, f"When method='auto', boxes will always use their corners as vertices. Leave rel_dx,abs_dx unspecified or pass 'lewiner' or 'lorensen' as method"
         vertices = pack_dims(geo.corners, dual, instance('vertices'))
         corner_count = vertices.vertices.size

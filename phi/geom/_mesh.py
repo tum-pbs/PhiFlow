@@ -18,7 +18,7 @@ from phiml.math.extrapolation import as_extrapolation, PERIODIC
 from phiml.math.magic import slicing_dict
 
 from ._geom import Geometry, Point, NoGeometry
-from ._box import Box, BaseBox, bounding_box
+from ._box import Box, bounding_box
 from ._functions import plane_sgn_dist, cross, vec_length, closest_on_triangle
 from ._graph import Graph, graph
 from ._transform import scale
@@ -456,7 +456,7 @@ class Mesh(Geometry):
         max_delta = math.max(abs(vert_pos - center), dual)
         return max_delta
 
-    def bounding_box(self) -> 'BaseBox':
+    def bounding_box(self) -> 'Box':
         return self.vertices.bounding_box()
 
     @property

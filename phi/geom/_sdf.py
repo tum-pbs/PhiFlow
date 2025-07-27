@@ -3,7 +3,7 @@ from typing import Union, Tuple, Dict, Any, Callable
 from phiml import math
 from phiml.math import Shape, Tensor, channel, instance
 from phiml.math.magic import slicing_dict
-from ._box import BaseBox
+from ._box import Box
 from ._geom import Geometry
 
 
@@ -12,7 +12,7 @@ class SDF(Geometry):
     Function-based signed distance field.
     Negative values lie inside the geometry, the 0-level represents the surface.
     """
-    def __init__(self, sdf: Callable, out_shape=None, bounds: BaseBox = None, center: Tensor = None, volume: Tensor = None, bounding_radius: Tensor = None, sdf_and_grad: Callable = None):
+    def __init__(self, sdf: Callable, out_shape=None, bounds: Box = None, center: Tensor = None, volume: Tensor = None, bounding_radius: Tensor = None, sdf_and_grad: Callable = None):
         """
         Args:
             sdf: SDF function. First argument is a `phiml.math.Tensor` with a `vector` channel dim.
@@ -60,7 +60,7 @@ class SDF(Geometry):
         return ()
 
     @property
-    def bounds(self) -> BaseBox:
+    def bounds(self) -> Box:
         return self._bounds
 
     @property
@@ -149,7 +149,7 @@ class SDF(Geometry):
     def bounding_half_extent(self) -> Tensor:
         return self._bounds.half_size  # this could be too small if the center is not in the middle of the bounds
 
-    def bounding_box(self) -> 'BaseBox':
+    def bounding_box(self) -> 'Box':
         return self._bounds
 
     def shifted(self, delta: Tensor) -> 'Geometry':
@@ -179,7 +179,7 @@ class SDF(Geometry):
         return GeometryStack(math.layout(values, dim))
 
 
-def numpy_sdf(sdf: Callable, bounds: BaseBox, center: Tensor = None) -> SDF:
+def numpy_sdf(sdf: Callable, bounds: Box, center: Tensor = None) -> SDF:
     """
     Define a `SDF` (signed distance function) from a NumPy function.
 

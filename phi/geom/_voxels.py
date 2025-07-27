@@ -2,7 +2,7 @@ from typing import Union, Tuple, Dict, Any
 from phi.torch.flow import *
 from phiml.math import Tensor, Shape, extrapolation
 from . import UniformGrid
-from . import BaseBox
+from . import Box
 from ._geom import Geometry
 from .. import math
 

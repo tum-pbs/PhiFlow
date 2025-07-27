@@ -1,5 +1,6 @@
 from typing import Union
 
+from phiml import math
 from phiml.math import Tensor
 from ._functions import rotate_vector
 from ._geom import Geometry, GeometricType
@@ -49,6 +50,8 @@ def rotate(obj: GeometricType, rot: Union[float, Tensor, None], invert=False, pi
     """
     if rot is None:
         return obj
+    if isinstance(rot, Tensor) and rot.dtype.kind == object:
+        return math.map(rotate, obj, rot, invert=invert, pivot=pivot, dims=rot.shape)
     if isinstance(obj, Geometry):
         if pivot is None:
             pivot = obj.bounding_box().center

@@ -17,7 +17,7 @@ from ._functions import normal_from_slope, clip_length, cross, rotation_matrix, 
 from ._transform import scale, rotate
 
 # --- Geometry types ---
-from ._box import Box, BaseBox, Cuboid, bounding_box
+from ._box import Box, Box as BaseBox, Cuboid, bounding_box
 from ._sphere import Sphere
 from ._cylinder import Cylinder, cylinder
 from ._grid import UniformGrid, enclosing_grid

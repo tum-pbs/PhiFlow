@@ -3,7 +3,7 @@ from typing import Tuple, Dict, Any, Optional, Union
 import numpy as np
 
 from phiml.math import rename_dims, wrap
-from ._box import BaseBox, Box, Cuboid, bounding_box
+from ._box import Box, Cuboid, bounding_box
 from ._geom import Geometry, GeometryException
 from .. import math
 from ..math import Shape, Tensor, Extrapolation, stack, vec
@@ -14,7 +14,7 @@ from ..math.magic import slicing_dict
 def _get_bounds(bounds: Union[Box, float, None], resolution: Shape):
     if bounds is None:
         return Box(math.const_vec(0, resolution), math.wrap(resolution, channel(vector=resolution.names)))
-    if isinstance(bounds, BaseBox):
+    if isinstance(bounds, Box):
         assert set(bounds.vector.item_names) == set(resolution.names), f"bounds dimensions {bounds.vector.item_names} must match resolution {resolution}"
         return bounds.corner_representation()
     if isinstance(bounds, (int, float)):
@@ -22,12 +22,12 @@ def _get_bounds(bounds: Union[Box, float, None], resolution: Shape):
     raise ValueError(f"bounds must be a Box, float or None but got {type(bounds).__name__}")
 
 
-class UniformGrid(BaseBox):
+class UniformGrid(Geometry):
     """
     An instance of UniformGrid represents all cells of a regular grid as a batch of boxes.
     """
 
-    def __init__(self, resolution: Shape = None, bounds: BaseBox = None, **resolution_):
+    def __init__(self, resolution: Shape = None, bounds: Box = None, **resolution_):
         assert resolution is None or resolution.is_uniform, f"spatial dimensions must form a uniform grid but got {resolution}"
         resolution = (resolution or EMPTY_SHAPE).spatial & spatial(**resolution_)
         bounds = _get_bounds(bounds, resolution)
@@ -134,6 +134,17 @@ class UniformGrid(BaseBox):
     def _rot_or_none(self) -> Optional[Tensor]:
         return None
 
+    def corner_representation(self) -> 'Box':
+        assert self._rot_or_none is None, f"corner_representation does not support rotations"
+        return Box(self.lower, self.upper)
+
+    box = corner_representation
+
+    def center_representation(self, size_variable=True) -> 'Cuboid':
+        return Cuboid(self.center, self.half_size, size_variable=size_variable)
+
+    cuboid = center_representation
+
     def with_scaled_resolution(self, scale: float):
         return UniformGrid(self._resolution.with_sizes([s*scale for s in self._resolution.sizes]), self._bounds)
 
@@ -207,7 +218,7 @@ class UniformGrid(BaseBox):
     def shape(self):
         return self._shape
 
-    def shifted(self, delta: Tensor, **delta_by_dim) -> BaseBox:
+    def shifted(self, delta: Tensor, **delta_by_dim):
         # delta += math.padded_stack()
         if delta.shape.spatial_rank == 0:
             return UniformGrid(self.resolution, self.bounds.shifted(delta))
@@ -223,12 +234,6 @@ class UniformGrid(BaseBox):
 
     def __repr__(self):
         return f"{self._resolution}, bounds={self._bounds}"
-
-    def __variable_attrs__(self):
-        return ()
-
-    def __value_attrs__(self):
-        return ()
 
     def __eq__(self, other):
         if not isinstance(other, UniformGrid):

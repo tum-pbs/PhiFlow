@@ -7,7 +7,7 @@ from phiml import math
 from phiml.math import Tensor, spatial, unstack, stack, vec, wrap, Shape, channel, concat, instance, batch, rename_dims, shape, non_channel, expand
 from phiml.math._nd import index_shift_widths
 from phiml.math._tensors import cached
-from phiml.math.magic import slicing_dict
+from phiml.math.magic import slicing_dict, BoundDim
 from . import UniformGrid
 from ._box import Box
 from ._functions import normal_from_slope, y_intersect_2d, plane_sgn_dist
@@ -231,6 +231,11 @@ class Heightmap(Geometry):
 
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         raise NotImplementedError
+
+    def __getattr__(self, item):
+        if item in self.shape:
+            return BoundDim(self, item)
+        raise AttributeError(f"{self.__class__.__name__} has no attribute '{item}'")
 
 
 @dataclass
