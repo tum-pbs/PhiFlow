@@ -1,11 +1,13 @@
 import warnings
+from dataclasses import dataclass
 from numbers import Number
 from typing import Union, Dict, Any, Tuple, Callable, TypeVar
 
 from phiml import math
-from phiml.math import Tensor, Shape, non_channel, wrap, shape, Extrapolation, non_batch, tensor_like
-from phiml.math.magic import BoundDim, slicing_dict
-from phiml.math._magic_ops import variable_attributes, expand, find_differences, all_attributes
+from phiml.dataclasses import sliceable
+from phiml.math import Tensor, Shape, non_channel, wrap, shape, Extrapolation, non_batch
+from phiml.math._magic_ops import expand, find_differences, all_attributes
+from phiml.math.magic import slicing_dict
 
 
 class Geometry:
@@ -651,53 +653,44 @@ class NoGeometry(Geometry):
         raise GeometryException("Empty geometry does not have an interior")
 
 
+
+@sliceable(keepdims='vector')
+@dataclass(frozen=True, eq=False)
 class Point(Geometry):
     """
     Points have zero volume and are determined by a single location.
     An instance of `Point` represents a single n-dimensional point or a batch of points.
     """
 
-    def __init__(self, location: math.Tensor):
-        assert 'vector' in location.shape, "location must have a vector dimension"
-        assert location.shape.get_item_names('vector') is not None, "Vector dimension needs to list spatial dimension as item names."
-        self._location = location
-        self._shape = self._location.shape
+    location: Tensor
 
-    def __variable_attrs__(self):
-        return '_location',
+    variable_attrs = ('location',)
+    value_attrs = ('location',)
 
-    def __value_attrs__(self):
-        return '_location',
-
-    def __with_attrs__(self, **updates):
-        if '_location' in updates:
-            result = Point.__new__(Point)
-            result._location = updates['_location']
-            result._shape = result._location.shape if result._location is not None else self._shape
-            return result
-        else:
-            return self
+    def __post_init__(self):
+        assert 'vector' in self.location.shape, "location must have a vector dimension"
+        assert self.location.shape.get_item_names('vector') is not None, "Vector dimension needs to list spatial dimension as item names."
 
     @property
     def center(self) -> Tensor:
-        return self._location
+        return self.location
 
     @property
     def shape(self) -> Shape:
-        return self._shape
+        return self.location.shape
 
     @property
     def faces(self) -> 'Geometry':
         return self
 
     def unstack(self, dimension: str) -> tuple:
-        return tuple(Point(loc) for loc in math.unstack(self._location, dimension))
+        return tuple(Point(loc) for loc in math.unstack(self.location, dimension))
 
     def lies_inside(self, location: Tensor) -> Tensor:
         return expand(math.wrap(False), shape(location).without('vector'))
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]) -> Tensor:
-        return math.vec_abs(location - self._location)
+        return math.norm(location - self.location)
 
     def bounding_radius(self) -> Tensor:
         return math.zeros()
@@ -723,7 +716,7 @@ class Point(Geometry):
 
     @property
     def face_centers(self) -> Tensor:
-        return self._location
+        return self.location
 
     @property
     def face_areas(self) -> Tensor:
@@ -747,10 +740,10 @@ class Point(Geometry):
 
     @property
     def corners(self):
-        return self._location
+        return self.location
 
     def __getitem__(self, item):
-        return Point(self._location[_keep_vector(slicing_dict(self, item))])
+        return Point(self.location[_keep_vector(slicing_dict(self, item))])
 
 
 GeometricType = TypeVar("GeometricType", Tensor, Geometry)
