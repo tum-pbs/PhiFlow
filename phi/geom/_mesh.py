@@ -1041,6 +1041,16 @@ def element_types_3d():
 
 
 def join_meshes(meshes: Sequence[Mesh]) -> Mesh:
+    """
+    Creates a mesh that contains the vertices and elements of all `meshes`.
+    Vertex and elements are concatenated, thereby increasing the indices as needed.
+
+    Args:
+        meshes: Collection of `Mesh` instances.
+
+    Returns:
+        `Mesh`
+    """
     same_vertices = all(mesh.vertices is meshes[0].vertices for mesh in meshes)
     e_name = instance(meshes[0]).name
     v_name = dual(meshes[0].elements).name
