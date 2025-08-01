@@ -18,7 +18,7 @@ from phi import math
 from phi.field import StaggeredGrid, Field, CenteredGrid
 from phi.geom import Sphere, BaseBox, Point, Box, Mesh, Graph, SDFGrid, SDF, UniformGrid, rotate, rotation_angles
 from phi.geom._heightmap import Heightmap
-from phi.geom._geom_ops import GeometryStack
+from phi.geom._geom_ops import GeometryStack, Intersection
 from phi.geom._embed import _EmbeddedGeometry
 from phi.math import Tensor, channel, spatial, instance, non_channel, Shape, reshaped_numpy, shape
 from phi.vis._vis_base import display_name, PlottingLibrary, Recipe, index_label, only_stored_elements, to_field
@@ -612,15 +612,14 @@ class PointCloud2D(Recipe):
     def _plot_points(axis: Axes, data: Field, dims: tuple, vector: Shape, color: Tensor, alpha: Tensor, err: Tensor, min_val, max_val, label):
         connected = spatial(data.points)
         if isinstance(data.sampled_elements, GeometryStack):
-            if data.sampled_elements.is_union:
-                for idx in data.sampled_elements.object_dims.meshgrid():
-                    PointCloud2D._plot_points(axis, data[idx], dims, vector, color[idx], alpha[idx], err[idx], min_val, max_val, label)
-                return
-            elif data.sampled_elements.is_intersection:
-                math.assert_close(data.values, math.NAN, msg="Intersections can only be plotted as Geometries, not Fields.")
-                sdf = CenteredGrid(data.sampled_elements.approximate_signed_distance, bounds=data.sampled_elements.bounding_box().scaled(1.).corner_representation(), **{d: 32 for d in dims})
-                sdf_grid = SDFGrid(sdf.values, sdf.bounds, approximate_outside=False)
-                data = Field(sdf_grid, math.NAN, 0)
+            for idx in data.sampled_elements.object_dims.meshgrid():
+                PointCloud2D._plot_points(axis, data[idx], dims, vector, color[idx], alpha[idx], err[idx], min_val, max_val, label)
+            return
+        elif isinstance(data.sampled_elements, Intersection):
+            math.assert_close(data.values, math.NAN, msg="Intersections can only be plotted as Geometries, not Fields.")
+            sdf = CenteredGrid(data.sampled_elements.approximate_signed_distance, bounds=data.sampled_elements.bounding_box().scaled(1.).corner_representation(), **{d: 32 for d in dims})
+            sdf_grid = SDFGrid(sdf.values, sdf.bounds, approximate_outside=False)
+            data = Field(sdf_grid, math.NAN, 0)
         data = only_stored_elements(data)
         x, y = reshaped_numpy(data.points.vector[dims], ['vector', non_channel(data)])
         if wrap(color == 'cmap').all:
