@@ -31,13 +31,13 @@ class FlipTest(TestCase):
 
     def test_boundary_push(self):
         """ Tests if particles really get puhsed outside of obstacles and domain boundaries. """
-        DOMAIN = Box(x=64, y=64)
-        OBSTACLE = Box['x,y', 20:40, 10:30]
+        bounds = Box(x=64, y=64)
+        obstacle = Box['x,y', 20:40, 10:30]
         particles = p0 = distribute_points(union(Box['x,y', 20:38, 20:50], Box['x,y', 50:60, 10:50]), center=True, x=64, y=64) * (10, 0)
         particles = pa = advect.points(particles, particles, 1)
-        assert math.any(OBSTACLE.lies_inside(particles.points))
+        assert math.any(obstacle.lies_inside(particles.points))
         assert math.any((~particles.bounds).lies_inside(particles.points))
-        particles = pp = fluid.boundary_push(particles, [OBSTACLE, ~DOMAIN], separation=0.5)
-        # show(expand(OBSTACLE, batch(list=3)), [p0['x'], pa['x'], pp['x']], overlay='args')
-        assert math.all(~OBSTACLE.lies_inside(particles.points))
-        assert math.all(DOMAIN.lies_inside(particles.center))
+        particles = pp = fluid.boundary_push(particles, [obstacle, ~bounds], separation=0.5)
+        # show(expand(obstacle, batch(list=3)), [p0['x'], pa['x'], pp['x']], overlay='args')
+        assert math.all(~obstacle.lies_inside(particles.points))
+        assert math.all(bounds.lies_inside(particles.center))
