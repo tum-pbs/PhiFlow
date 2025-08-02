@@ -476,7 +476,7 @@ Zero-vectors remain zero-vectors.</p>
     #  --- Add missing dimensions ---
     if expand_values:
         all_dims = merge_shapes(*shapes, allow_varying_sizes=True)
-        all_dims = all_dims.with_dim_size(dim, 1, keep_item_names=False)
+        all_dims = all_dims.with_dim_size(dim, 1, keep_labels=False)
         values = [expand(v, all_dims - s) for v, s in zip(values, shapes)]
     else:
         for v, s in zip(values, shapes):
@@ -953,7 +953,14 @@ Use <code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated"
     Returns:
         intersection `Geometry`
     &#34;&#34;&#34;
-    return _stack_geometries(geometries, &#39;intersection&#39;, dim)</code></pre>
+    assert dim.rank == 1 and dim.instance, f&#34;intersection dimension must be a single instance dimension but got {dim}&#34;
+    geometries = geometries[0] if len(geometries) == 1 and isinstance(geometries[0], (tuple, list)) else geometries
+    if len(geometries) == 0:
+        warnings.warn(&#34;Empty intersection cannot infer dimensionality. Returning 0-dimensional empty.&#34;, RuntimeWarning, stacklevel=2)
+        return NoGeometry(channel(vector=0))
+    elif len(geometries) == 1:
+        return geometries[0]
+    return Intersection(layout(geometries, dim))</code></pre>
 </details>
 <div class="desc"><p>Intersection of the given geometries.
 A point lies inside the union if it lies within all of the geometries.</p>
@@ -1005,6 +1012,16 @@ A point lies inside the union if it lies within all of the geometries.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def join_meshes(meshes: Sequence[Mesh]) -&gt; Mesh:
+    &#34;&#34;&#34;
+    Creates a mesh that contains the vertices and elements of all `meshes`.
+    Vertex and elements are concatenated, thereby increasing the indices as needed.
+
+    Args:
+        meshes: Collection of `Mesh` instances.
+
+    Returns:
+        `Mesh`
+    &#34;&#34;&#34;
     same_vertices = all(mesh.vertices is meshes[0].vertices for mesh in meshes)
     e_name = instance(meshes[0]).name
     v_name = dual(meshes[0].elements).name
@@ -1035,7 +1052,15 @@ A point lies inside the union if it lies within all of the geometries.</p>
         elements = sparse_tensor(indices, True, e_dim + v_dim)
     return replace(meshes[0], vertices=vertices, elements=elements)</code></pre>
 </details>
-<div class="desc"></div>
+<div class="desc"><p>Creates a mesh that contains the vertices and elements of all <code>meshes</code>.
+Vertex and elements are concatenated, thereby increasing the indices as needed.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>meshes</code></strong></dt>
+<dd>Collection of <code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code> instances.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<p><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code></p></div>
 </dd>
 <dt id="phi.geom.length"><code class="name flex">
 <span>def <span class="ident">length</span></span>(<span>obj: phi.geom._geom.Geometry | phiml.math._tensors.Tensor, epsilon=None) ‑> phiml.math._tensors.Tensor</span>
@@ -2256,7 +2281,7 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
 
     Args:
         values: Collection of `phiml.math.magic.Shapable`, such as `phiml.math.Tensor`
-            If a `dict`, keys must be of type `str` and are used as item names along `dim`.
+            If a `dict`, keys must be of type `str` and are used as labels along `dim`.
         dim: `Shape` with a least one dimension. None of these dims can be present with any of the `values`.
             If `dim` is a single-dimension shape, its size is determined from `len(values)` and can be left undefined (`None`).
             If `dim` is a multi-dimension shape, its volume must be equal to `len(values)`.
@@ -2327,10 +2352,10 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
         if dim.size is None:
             dim = dim.with_size(len(values))
         if isinstance(values, dict):
-            dim_item_names = tuple([k.name if isinstance(k, SHAPE_TYPES) else k for k in values.keys()])
-            assert all(isinstance(k, str) for k in dim_item_names), f&#34;dict keys must be of type str but got {dim_item_names}&#34;
+            dim_labels = tuple([k.name if isinstance(k, SHAPE_TYPES) else k for k in values.keys()])
+            assert all(isinstance(k, str) for k in dim_labels), f&#34;dict keys must be of type str but got {dim_labels}&#34;
             values = tuple(values.values())
-            dim = dim.with_size(dim_item_names)
+            dim = dim.with_size(dim_labels)
         # --- First try __stack__ ---
         for v in values:
             if hasattr(v, &#39;__stack__&#39;):
@@ -2382,7 +2407,7 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
         # --- Fallback: use expand and concat ---
         for v in values:
             if not hasattr(v, &#39;__stack__&#39;) and hasattr(v, &#39;__concat__&#39;) and hasattr(v, &#39;__expand__&#39;):
-                expanded_values = tuple([expand(v, dim.with_size(1 if dim.item_names[0] is None else dim.item_names[0][i]), **kwargs) for i, v in enumerate(values)])
+                expanded_values = tuple([expand(v, dim.with_size(1 if dim.labels[0] is None else dim.labels[0][i]), **kwargs) for i, v in enumerate(values)])
                 if len(expanded_values) &gt; 8:
                     warnings.warn(f&#34;stack() default implementation is slow on large dims ({dim.name}={len(expanded_values)}). Please implement __stack__()&#34;, RuntimeWarning, stacklevel=2)
                 result = v.__concat__(expanded_values, dim.name, **kwargs)
@@ -2428,7 +2453,7 @@ This makes repeated stacking and slicing along the same dimension very efficient
 <dl>
 <dt><strong><code>values</code></strong></dt>
 <dd>Collection of <code>phiml.math.magic.Shapable</code>, such as <code>phiml.math.Tensor</code>
-If a <code>dict</code>, keys must be of type <code>str</code> and are used as item names along <code>dim</code>.</dd>
+If a <code>dict</code>, keys must be of type <code>str</code> and are used as labels along <code>dim</code>.</dd>
 <dt><strong><code>dim</code></strong></dt>
 <dd><code>Shape</code> with a least one dimension. None of these dims can be present with any of the <code>values</code>.
 If <code>dim</code> is a single-dimension shape, its size is determined from <code>len(values)</code> and can be left undefined (<code>None</code>).
@@ -2572,7 +2597,17 @@ Adding batch dims must always work without keyword arguments.</dd>
     Returns:
         union `Geometry`
     &#34;&#34;&#34;
-    return _stack_geometries(geometries, &#39;union&#39;, dim)</code></pre>
+    assert dim.rank == 1 and dim.instance, f&#34;union dimension must be a single instance dimension but got {dim}&#34;
+    geometries = geometries[0] if len(geometries) == 1 and isinstance(geometries[0], (tuple, list)) else geometries
+    if len(geometries) == 0:
+        warnings.warn(&#34;Empty union cannot infer dimensionality. Returning 0-dimensional empty.&#34;, RuntimeWarning, stacklevel=2)
+        return NoGeometry(channel(vector=0))
+    elif len(geometries) == 1:
+        return geometries[0]
+    elif all(type(g) == type(geometries[0]) and isinstance(g, PhiTreeNode) for g in geometries):
+        return stack(tuple(geometries), dim, simplify=True)
+    else:
+        return GeometryStack(layout(geometries, dim))</code></pre>
 </details>
 <div class="desc"><p>Union of the given geometries.
 A point lies inside the union if it lies within at least one of the geometries.</p>
@@ -2731,6 +2766,7 @@ class Box(Geometry, metaclass=BoxType):
         return self.half_size
 
     def lies_inside(self, location: Tensor) -&gt; Tensor:
+        union_dims = instance(self) - instance(location)
         location = self.global_to_local(location, scale=False, origin=&#39;center&#39;)  # scale can only be performed for finite sizes
         if not self.is_open.any:
             bool_inside = abs(location) &lt;= self.half_size
@@ -2739,7 +2775,7 @@ class Box(Geometry, metaclass=BoxType):
             below_upper = (location &lt; self.upper) | self.is_open.side.dual[&#39;upper&#39;]
             bool_inside = above_lower &amp; below_upper
         bool_inside = math.all(bool_inside, &#39;vector&#39;)
-        bool_inside = math.any(bool_inside, self.shape.instance - instance(location))  # union for instance dimensions
+        bool_inside = math.any(bool_inside, union_dims)
         return bool_inside
 
     def largest(self, dim: DimFilter) -&gt; &#39;Box&#39;:
@@ -3380,7 +3416,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f8596084ea0></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f15716639c0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3423,7 +3459,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f8596084ea0></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f15716639c0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3502,6 +3538,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def lies_inside(self, location: Tensor) -&gt; Tensor:
+    union_dims = instance(self) - instance(location)
     location = self.global_to_local(location, scale=False, origin=&#39;center&#39;)  # scale can only be performed for finite sizes
     if not self.is_open.any:
         bool_inside = abs(location) &lt;= self.half_size
@@ -3510,7 +3547,7 @@ If these dims are not present on the result, all parts are assumed to have the s
         below_upper = (location &lt; self.upper) | self.is_open.side.dual[&#39;upper&#39;]
         bool_inside = above_lower &amp; below_upper
     bool_inside = math.all(bool_inside, &#39;vector&#39;)
-    bool_inside = math.any(bool_inside, self.shape.instance - instance(location))  # union for instance dimensions
+    bool_inside = math.any(bool_inside, union_dims)
     return bool_inside</code></pre>
 </details>
 <div class="desc"><p>Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.</p>
@@ -3864,6 +3901,7 @@ class Box(Geometry, metaclass=BoxType):
         return self.half_size
 
     def lies_inside(self, location: Tensor) -&gt; Tensor:
+        union_dims = instance(self) - instance(location)
         location = self.global_to_local(location, scale=False, origin=&#39;center&#39;)  # scale can only be performed for finite sizes
         if not self.is_open.any:
             bool_inside = abs(location) &lt;= self.half_size
@@ -3872,7 +3910,7 @@ class Box(Geometry, metaclass=BoxType):
             below_upper = (location &lt; self.upper) | self.is_open.side.dual[&#39;upper&#39;]
             bool_inside = above_lower &amp; below_upper
         bool_inside = math.all(bool_inside, &#39;vector&#39;)
-        bool_inside = math.any(bool_inside, self.shape.instance - instance(location))  # union for instance dimensions
+        bool_inside = math.any(bool_inside, union_dims)
         return bool_inside
 
     def largest(self, dim: DimFilter) -&gt; &#39;Box&#39;:
@@ -4513,7 +4551,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f8596084ea0></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f15716639c0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4556,7 +4594,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f8596084ea0></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f15716639c0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4635,6 +4673,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def lies_inside(self, location: Tensor) -&gt; Tensor:
+    union_dims = instance(self) - instance(location)
     location = self.global_to_local(location, scale=False, origin=&#39;center&#39;)  # scale can only be performed for finite sizes
     if not self.is_open.any:
         bool_inside = abs(location) &lt;= self.half_size
@@ -4643,7 +4682,7 @@ If these dims are not present on the result, all parts are assumed to have the s
         below_upper = (location &lt; self.upper) | self.is_open.side.dual[&#39;upper&#39;]
         bool_inside = above_lower &amp; below_upper
     bool_inside = math.all(bool_inside, &#39;vector&#39;)
-    bool_inside = math.any(bool_inside, self.shape.instance - instance(location))  # union for instance dimensions
+    bool_inside = math.any(bool_inside, union_dims)
     return bool_inside</code></pre>
 </details>
 <div class="desc"><p>Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.</p>
@@ -6093,8 +6132,7 @@ Returns:</p></div>
             return NotImplemented  # let attributes be stacked
         else:
             from ._geom_ops import GeometryStack
-            set_op = kwargs.get(&#39;set_op&#39;)
-            return GeometryStack(math.layout(values, dim), set_op)
+            return GeometryStack(math.layout(values, dim))
 
     def __flatten__(self, flat_dim: Shape, flatten_batch: bool, **kwargs) -&gt; &#39;Geometry&#39;:
         dims = self.shape.without(&#39;vector&#39;)
@@ -6138,6 +6176,7 @@ Equality checks must also take this into account.</p></div>
 <li>phi.geom._geom.NoGeometry</li>
 <li>phi.geom._geom.Point</li>
 <li>phi.geom._geom_ops.GeometryStack</li>
+<li>phi.geom._geom_ops.Intersection</li>
 <li>phi.geom._graph.Graph</li>
 <li>phi.geom._grid.UniformGrid</li>
 <li>phi.geom._heightmap.Heightmap</li>
@@ -8520,7 +8559,8 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@dataclass(frozen=True)
+<pre><code class="python">@sliceable  # __getitem__ implemented manually to reject dual dim slicing
+@dataclass(frozen=True)
 class Mesh(Geometry):
     &#34;&#34;&#34;
     Unstructured mesh, consisting of vertices and elements.
@@ -9010,6 +9050,21 @@ class Mesh(Geometry):
 </ul>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.geom.Mesh.Tc"><code class="name">prop <span class="ident">Tc</span></code></dt>
+<dd>
+<div class="desc"><p>partial(func, <em>args, </em>*keywords) - new function with partial application
+of the given arguments and keywords.</p></div>
+</dd>
+<dt id="phi.geom.Mesh.Ti"><code class="name">prop <span class="ident">Ti</span></code></dt>
+<dd>
+<div class="desc"><p>partial(func, <em>args, </em>*keywords) - new function with partial application
+of the given arguments and keywords.</p></div>
+</dd>
+<dt id="phi.geom.Mesh.Ts"><code class="name">prop <span class="ident">Ts</span></code></dt>
+<dd>
+<div class="desc"><p>partial(func, <em>args, </em>*keywords) - new function with partial application
+of the given arguments and keywords.</p></div>
+</dd>
 <dt id="phi.geom.Mesh.all_boundary_faces"><code class="name">prop <span class="ident">all_boundary_faces</span> : Dict[str, slice]</code></dt>
 <dd>
 <details class="source">
@@ -12861,8 +12916,7 @@ class UniformGrid(Geometry, metaclass=UniformGridType):
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -&gt; &#39;Geometry&#39;:
         from ._geom_ops import GeometryStack
-        set_op = kwargs.get(&#39;set_op&#39;)
-        return GeometryStack(math.layout(values, dim), set_op)
+        return GeometryStack(math.layout(values, dim))
 
     def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -&gt; &#39;UniformGrid&#39;:
         resolution = math.rename_dims(self.resolution, dims, new_dims).spatial
@@ -13260,7 +13314,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f8596084ea0></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f15716639c0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13286,7 +13340,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f8596084ea0></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f15716639c0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13820,6 +13874,9 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li>
 <h4><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code></h4>
 <ul class="">
+<li><code><a title="phi.geom.Mesh.Tc" href="#phi.geom.Mesh.Tc">Tc</a></code></li>
+<li><code><a title="phi.geom.Mesh.Ti" href="#phi.geom.Mesh.Ti">Ti</a></code></li>
+<li><code><a title="phi.geom.Mesh.Ts" href="#phi.geom.Mesh.Ts">Ts</a></code></li>
 <li><code><a title="phi.geom.Mesh.all_boundary_faces" href="#phi.geom.Mesh.all_boundary_faces">all_boundary_faces</a></code></li>
 <li><code><a title="phi.geom.Mesh.approximate_closest_surface" href="#phi.geom.Mesh.approximate_closest_surface">approximate_closest_surface</a></code></li>
 <li><code><a title="phi.geom.Mesh.approximate_signed_distance" href="#phi.geom.Mesh.approximate_signed_distance">approximate_signed_distance</a></code></li>
