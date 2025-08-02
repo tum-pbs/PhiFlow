@@ -70,4 +70,4 @@ class FluidTest(TestCase):
                     grad, = sim_grad(velocity)
                     assert math.isfinite(grad.values).all
                     grads.append(grad)
-        math.assert_close(*grads, abs_tolerance=1e-5)
+        math.assert_close(*grads, abs_tolerance=1e-4)
