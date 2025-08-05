@@ -5,7 +5,7 @@ from typing import Tuple, Dict, Any, Optional, Union
 import numpy as np
 
 from phiml.dataclasses import sliceable
-from phiml.math import rename_dims, wrap
+from phiml.math import rename_dims, wrap, safe_div
 from ._box import Box, Cuboid, bounding_box
 from ._functions import vec_length
 from ._geom import Geometry, GeometryException
@@ -27,7 +27,7 @@ def _get_bounds(bounds: Union[Box, float, None], resolution: Shape):
 
 
 class UniformGridType(type):
-    
+
     def __call__(cls, resolution: Shape = None, bounds: Box = None, **resolution_):
         assert resolution is None or resolution.is_uniform, f"spatial dimensions must form a uniform grid but got {resolution}"
         resolution = (resolution or EMPTY_SHAPE).spatial & spatial(**resolution_)
@@ -44,14 +44,14 @@ class UniformGrid(Geometry, metaclass=UniformGridType):
     """
     resolution: Shape
     bounds: Box
-    
+
     def __post_init__(self):
         assert set(self.bounds.vector.labels) == set(self.resolution.names)
 
     @property
     def spatial_rank(self) -> int:
         return self.resolution.spatial_rank
-    
+
     @cached_property
     def shape(self):
         return self.resolution & non_spatial(self.bounds)
@@ -287,11 +287,11 @@ def enclosing_grid(*geometries: Union[Geometry, Tensor], voxel_count: int, rel_m
     if not margin_cells:
         voxel_vol = bounds.volume / voxel_count
         voxel_size = voxel_vol ** (1/bounds.spatial_rank)
-        resolution = math.to_int32(math.round(bounds.size / voxel_size))
+        resolution = math.to_int32(math.round(safe_div(bounds.size, voxel_size)))
         resolution = spatial(**resolution.vector)
     else:
         inner_res, outer_res = solve_resolution_with_margin_cells(*bounds.size.vector, voxel_count, margin_cells)
-        dx = bounds.size / inner_res
+        dx = safe_div(bounds.size, inner_res)
         bounds = Box(bounds.lower - dx*margin_cells, bounds.upper + dx*margin_cells)
         resolution = spatial(**{d: r for d, r in zip(bounds.size.vector.labels, outer_res)})
     return UniformGrid(resolution, bounds)
