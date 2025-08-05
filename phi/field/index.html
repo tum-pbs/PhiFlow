@@ -867,7 +867,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fb1b3dffa60></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fef72ad7ba0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3652,14 +3652,14 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 <div class="desc"><p>Converts the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code> to 64-bit integer.</p></div>
 </dd>
 <dt id="phi.field.unstack"><code class="name flex">
-<span>def <span class="ident">unstack</span></span>(<span>value,<br>dim: str | Sequence | set | phiml.math._shape.Shape | Callable | None,<br>expand=False) ‑> tuple</span>
+<span>def <span class="ident">unstack</span></span>(<span>value: ~MagicType,<br>dim: str | Sequence | set | phiml.math._shape.Shape | Callable | None,<br>expand=False) ‑> Tuple[~MagicType, ...]</span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def unstack(value, dim: DimFilter, expand=False) -&gt; tuple:
+<pre><code class="python">def unstack(value: MagicType, dim: DimFilter, expand=False) -&gt; Tuple[MagicType, ...]:
     &#34;&#34;&#34;
     Un-stacks a `Sliceable` along one or multiple dimensions.
 

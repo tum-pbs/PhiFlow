@@ -765,11 +765,11 @@ The geometry value will be constant along the added dimensions, as if it had inf
     if not margin_cells:
         voxel_vol = bounds.volume / voxel_count
         voxel_size = voxel_vol ** (1/bounds.spatial_rank)
-        resolution = math.to_int32(math.round(bounds.size / voxel_size))
+        resolution = math.to_int32(math.round(safe_div(bounds.size, voxel_size)))
         resolution = spatial(**resolution.vector)
     else:
         inner_res, outer_res = solve_resolution_with_margin_cells(*bounds.size.vector, voxel_count, margin_cells)
-        dx = bounds.size / inner_res
+        dx = safe_div(bounds.size, inner_res)
         bounds = Box(bounds.lower - dx*margin_cells, bounds.upper + dx*margin_cells)
         resolution = spatial(**{d: r for d, r in zip(bounds.size.vector.labels, outer_res)})
     return UniformGrid(resolution, bounds)</code></pre>
@@ -1423,7 +1423,7 @@ def mesh(vertices: Union[Geometry, Tensor],
         indices: Tensor = rename_dims(elements, spatial, instance(vertices).as_dual())
         values = expand(True, non_batch(indices))
         elements = CompactSparseTensor(indices, values, instance(vertices).as_dual(), True)
-    assert instance(vertices).as_dual() in elements.shape, f&#34;elements must have the instance dim of vertices {instance(vertices)} but got {shape(elements)}&#34;
+    assert instance(vertices).as_dual() in elements.shape, f&#34;elements must have the instance dim of vertices {instance(vertices)} as dual dim but got {shape(elements)}&#34;
     if element_rank is None:
         if vertices.vector.size == 2:
             element_rank = 2
@@ -1485,8 +1485,9 @@ The <code>boundaries</code> <code>dict</code> maps boundary names to a list of e
     Args:
         points: 2D numpy array of shape (num_points, point_coord).
             The last dimension must have length 2 for 2D meshes and 3 for 3D meshes.
-        polygons: List of elements. Each polygon is defined as a sequence of point indices mapping into `points&#39;.
+        polygons: Either list of elements where each polygon is defined as a sequence of point indices mapping into `points&#39;.
             E.g. `[(0, 1, 2)]` denotes a single triangle connecting points 0, 1, and 2.
+            Or sparse connectivity matrix of shape (num_elements, num_vertices) with boolean values.
         boundaries: An unstructured mesh can have multiple boundaries, each defined by a name `str` and a list of faces, defined by their vertices.
             The `boundaries` `dict` maps boundary names to a list of edges (point pairs) in 2D and faces (3 or more points) in 3D (not yet supported).
         cell_dim: Dimension along which to list the cells. This should be an instance dimension.
@@ -1495,22 +1496,27 @@ The <code>boundaries</code> <code>dict</code> maps boundary names to a list of e
     Returns:
         `Mesh`
     &#34;&#34;&#34;
-    cell_dim = cell_dim.with_size(len(polygons))
     points = np.asarray(points)
     xyz = tuple(axes[:points.shape[-1]])
     vertices = wrap(points, instance(&#39;vertices&#39;), channel(vector=xyz))
-    if len(polygons) == 0:
-        elements = math.ones(cell_dim, instance(vertices).as_dual(), dtype=bool)
-        return mesh(vertices, elements, boundaries, element_rank, periodic, face_format)
-    try:  # if all elements have the same vertex count, we stack them
-        elements_np = np.stack(polygons).astype(np.int32)
-        elements = wrap(elements_np, cell_dim, spatial(&#39;vertex_index&#39;))
-    except ValueError:
-        indices = np.concatenate(polygons)
-        vertex_count = np.asarray([len(e) for e in polygons])
-        ptr = np.pad(np.cumsum(vertex_count), (1, 0))
-        mat = csr_matrix((np.ones(indices.shape, dtype=bool), indices, ptr), shape=(len(polygons), len(points)))
-        elements = wrap(mat, cell_dim, instance(vertices).as_dual())
+    if issparse(polygons):
+        cell_dim = cell_dim.with_size(polygons.shape[0])
+        assert points.shape[0] == polygons.shape[-1], f&#34;Number of points {points.shape[0]} must match number of vertices in polygons {polygons.shape[-1]} but got polygons={polygons.shape}&#34;
+        elements = wrap(polygons, cell_dim, instance(vertices).as_dual())
+    else:
+        cell_dim = cell_dim.with_size(len(polygons))
+        if len(polygons) == 0:
+            elements = math.ones(cell_dim, instance(vertices).as_dual(), dtype=bool)
+            return mesh(vertices, elements, boundaries, element_rank, periodic, face_format)
+        try:  # if all elements have the same vertex count, we stack them
+            elements_np = np.stack(polygons).astype(np.int32)
+            elements = wrap(elements_np, cell_dim, spatial(&#39;vertex_index&#39;))
+        except ValueError:
+            indices = np.concatenate(polygons)
+            vertex_count = np.asarray([len(e) for e in polygons])
+            ptr = np.pad(np.cumsum(vertex_count), (1, 0))
+            mat = csr_matrix((np.ones(indices.shape, dtype=bool), indices, ptr), shape=(len(polygons), len(points)))
+            elements = wrap(mat, cell_dim, instance(vertices).as_dual())
     return mesh(vertices, elements, boundaries, element_rank, periodic, face_format=face_format)</code></pre>
 </details>
 <div class="desc"><p>Construct an unstructured mesh from vertices.</p>
@@ -1520,8 +1526,9 @@ The <code>boundaries</code> <code>dict</code> maps boundary names to a list of e
 <dd>2D numpy array of shape (num_points, point_coord).
 The last dimension must have length 2 for 2D meshes and 3 for 3D meshes.</dd>
 <dt><strong><code>polygons</code></strong></dt>
-<dd>List of elements. Each polygon is defined as a sequence of point indices mapping into `points'.
-E.g. <code>[(0, 1, 2)]</code> denotes a single triangle connecting points 0, 1, and 2.</dd>
+<dd>Either list of elements where each polygon is defined as a sequence of point indices mapping into `points'.
+E.g. <code>[(0, 1, 2)]</code> denotes a single triangle connecting points 0, 1, and 2.
+Or sparse connectivity matrix of shape (num_elements, num_vertices) with boolean values.</dd>
 <dt><strong><code>boundaries</code></strong></dt>
 <dd>An unstructured mesh can have multiple boundaries, each defined by a name <code>str</code> and a list of faces, defined by their vertices.
 The <code>boundaries</code> <code>dict</code> maps boundary names to a list of edges (point pairs) in 2D and faces (3 or more points) in 3D (not yet supported).</dd>
@@ -3416,7 +3423,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fb1b423fe20></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fef72fdfec0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3459,7 +3466,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fb1b423fe20></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fef72fdfec0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4551,7 +4558,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fb1b423fe20></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fef72fdfec0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4594,7 +4601,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fb1b423fe20></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fef72fdfec0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -12770,14 +12777,14 @@ class UniformGrid(Geometry, metaclass=UniformGridType):
     &#34;&#34;&#34;
     resolution: Shape
     bounds: Box
-    
+
     def __post_init__(self):
         assert set(self.bounds.vector.labels) == set(self.resolution.names)
 
     @property
     def spatial_rank(self) -&gt; int:
         return self.resolution.spatial_rank
-    
+
     @cached_property
     def shape(self):
         return self.resolution &amp; non_spatial(self.bounds)
@@ -13314,7 +13321,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fb1b423fe20></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fef72fdfec0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13340,7 +13347,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fb1b423fe20></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fef72fdfec0></span>
 </code></dt>
 <dd>
 <details class="source">
