@@ -3429,7 +3429,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fc15953cc20></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fae0aa58c20></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3472,7 +3472,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fc15953cc20></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fae0aa58c20></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4564,7 +4564,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fc15953cc20></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fae0aa58c20></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4607,7 +4607,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fc15953cc20></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fae0aa58c20></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -7755,108 +7755,83 @@ Returns:</p></div>
 </dd>
 <dt id="phi.geom.Heightmap"><code class="flex name class">
 <span>class <span class="ident">Heightmap</span></span>
-<span>(</span><span>height: phiml.math._tensors.Tensor,<br>bounds: phi.geom._box.Box,<br>max_dist: phiml.math._tensors.Tensor | float,<br>fill_below: bool | phiml.math._tensors.Tensor = True,<br>extrapolation: float | str | phiml.math.extrapolation.Extrapolation = None,<br>faces=None)</span>
+<span>(</span><span>height: phiml.math._tensors.Tensor,<br>bounds: phi.geom._box.Box,<br>max_dist: phiml.math._tensors.Tensor,<br>fill_below: phiml.math._tensors.Tensor[bool] = &lt;factory&gt;,<br>extrapolation: phiml.math.extrapolation.Extrapolation = none,<br>variable_attrs: Tuple[str, ...] = ('height', 'bounds', 'extrapolation'),<br>value_attrs: Tuple[str, ...] = ())</span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Heightmap(Geometry):
+<pre><code class="python">@sliceable
+@dataclass(frozen=True, eq=False)
+class Heightmap(Geometry):
+    height: Tensor
+    &#34;&#34;&#34;Heightmap `Tensor` of absolute (world-space) height values. Scalar height values on a d-1 dimensional grid.&#34;&#34;&#34;
+    bounds: Box
+    &#34;&#34;&#34;Locations outside `bounds&#39; can never lie inside this geometry if `extrapolation is None`.
+    Otherwise, only the height dimension is checked.
+    The grid dimensions of `bounds` must be finite but the height dimension may be infinite to count all values above/below `height` as inside.&#34;&#34;&#34;
+    max_dist: Tensor
+    &#34;&#34;&#34;Maximum distance up to which the distance approximations should be valid.
+    This does not affect the number of computations performed to compute the distance.
+    Low values increase accuracy close to the surface but trade off possibly very wrong distances further away.&#34;&#34;&#34;
+    fill_below: Tensor[bool] = field(default_factory=lambda: wrap(True))
+    &#34;&#34;&#34;Whether the inside is below or above the height values.&#34;&#34;&#34;
+    extrapolation: Extrapolation = NONE
+    &#34;&#34;&#34;Surface height outside `bounds´. Can be any valid `phiml.math.Extrapolation`, such as a constant.
+    If not `None`, values outside `bounds` will be checked against the extrapolated `height` values.
+    Otherwise, values outside `bounds` always lie on the outside.&#34;&#34;&#34;
 
-    def __init__(self,
-                 height: Tensor,
-                 bounds: Box,
-                 max_dist: Union[float, Tensor],
-                 fill_below: Union[bool, Tensor] = True,
-                 extrapolation: Union[float, str, math.Extrapolation] = None,
-                 faces=None):
-        &#34;&#34;&#34;
-
-        Args:
-            height: Heightmap `Tensor` of absolute (world-space) height values.
-                Scalar height values on a d-1 dimensional grid.
-            bounds: d-dimensional bounds.
-                Locations outside `bounds&#39; can never lie inside this geometry if `extrapolation is None`.
-                Otherwise, only the height dimension is checked.
-                The grid dimensions of `bounds` must be finite but the height dimension may be infinite to count all values above/below `height` as inside.
-            max_dist: Maximum distance up to which the distance approximations should be valid.
-                This does not affect the number of computations performed to compute the distance.
-                Low values increase accuracy close to the surface but trade off possibly very wrong distances further away.
-            fill_below: Whether the inside is below or above the height values.
-            extrapolation: Surface height outside `bounds´. Can be any valid `phiml.math.Extrapolation`, such as a constant.
-                If not `None`, values outside `bounds` will be checked against the extrapolated `height` values.
-                Otherwise, values outside `bounds` always lie on the outside.
-        &#34;&#34;&#34;
-        assert channel(height).is_empty, f&#34;height must be a scalar quantity but got {height.shape}&#34;
-        assert spatial(height), f&#34;height field must have at least one spatial dim but got {height}&#34;
-        assert bounds.vector.size == spatial(height).rank + 1, f&#34;bounds must include the spatial grid dimensions {spatial(height)} and the height dimension but got {bounds}&#34;
-        dims = bounds.vector.item_names
-        self._hdim = spatial(*dims).without(height.shape).name
-        if math.all_available(height, bounds.lower, bounds.upper):
-            assert bounds[self._hdim].lies_inside(height).all, f&#34;All height values should be within the {self._hdim}-range given by bounds but got height={height}&#34;
-        self._height = height
-        self._fill_below = wrap(fill_below)
-        self._bounds = bounds
-        self._max_dist = wrap(max_dist)
-        self._extrapolation = math.as_extrapolation(extrapolation)
-        if faces is None:
-            proj_faces = build_faces(self)
-            with numpy.errstate(divide=&#39;ignore&#39;, invalid=&#39;ignore&#39;):
-                secondary_idx = math.map(find_most_important_neighbor, proj_faces, self.dx, self.resolution, self._hdim, self._fill_below, self._max_dist, dims=instance, unwrap_scalars=False)
-                secondary_faces = math.map(math.gather, proj_faces, secondary_idx, dims=instance)
-            self._faces: Face = stack([proj_faces, *unstack(secondary_faces, &#39;side&#39;)], batch(consider=&#39;self,outside,inside&#39;), expand_values=True)
-            self._faces = cached(self._faces)  # otherwise, this may get expanded during tracing
-        else:
-            self._faces = faces
-
-    @property
-    def height(self):
-        return self._height
-
-    @property
-    def bounds(self):
-        return self._bounds
-
-    @property
-    def max_dist(self):
-        return self._max_dist
-
-    @property
-    def fill_below(self):
-        return self._fill_below
-
-    @property
-    def extrapolation(self):
-        return self._extrapolation
+    variable_attrs: Tuple[str, ...] = &#39;height&#39;, &#39;bounds&#39;, &#39;extrapolation&#39;
+    value_attrs: Tuple[str, ...] = ()
+    
+    def __post_init__(self):
+        assert channel(self.height).is_empty, f&#34;height must be a scalar quantity but got {self.height.shape}&#34;
+        assert spatial(self.height), f&#34;height field must have at least one spatial dim but got {self.height}&#34;
+        assert self.bounds.vector.size == spatial(self.height).rank + 1, f&#34;bounds must include the spatial grid dimensions {spatial(self.height)} and the height dimension but got {self.bounds}&#34;
+        if math.all_available(self.height, self.bounds.lower, self.bounds.upper):
+            assert self.bounds[self.hdim].lies_inside(self.height).all, f&#34;All height values should be within the {self.hdim}-range given by bounds but got height={self.height}&#34;
 
     @property
     def shape(self) -&gt; Shape:
-        return (self._height.shape - 1) &amp; channel(self._bounds)
+        return self.resolution &amp; channel(self.bounds) &amp; non_spatial(self.height)
 
     @property
     def resolution(self):
-        return spatial(self._height) - 1
+        return spatial(self.height) - 1
 
     @property
     def grid_bounds(self):
-        return self._bounds[self.resolution.name_list]
+        return self.bounds[self.resolution.name_list]
 
     @property
     def up(self):
-        dims = self._bounds.vector.item_names
-        height_unit = vec(**{d: 1 if d == self._hdim else 0 for d in dims})
-        return math.where(self._fill_below, height_unit, -height_unit)
+        dims = self.bounds.vector.item_names
+        height_unit = vec(**{d: 1 if d == self.hdim else 0 for d in dims})
+        return math.where(self.fill_below, height_unit, -height_unit)
 
     @property
     def dx(self):
-        return self._bounds.size[self.resolution.name_list] / spatial(self.resolution)
+        return self.bounds.size[self.resolution.name_list] / spatial(self.resolution)
+    
+    @cached_property
+    def hdim(self):
+        return spatial(*self.bounds.vector.item_names).without(self.height.shape).name
+    
+    @cached_property
+    def face_cache(self):
+        proj_faces = build_faces(self)
+        with numpy.errstate(divide=&#39;ignore&#39;, invalid=&#39;ignore&#39;):
+            secondary_idx = math.map(find_most_important_neighbor, proj_faces, self.dx, self.resolution, self.hdim, self.fill_below, self.max_dist, dims=instance, unwrap_scalars=False)
+            secondary_faces = math.map(math.gather, proj_faces, secondary_idx, dims=instance)
+        faces: Face = stack([proj_faces, *unstack(secondary_faces, &#39;side&#39;)], batch(consider=&#39;self,outside,inside&#39;), expand_values=True)
+        return cached(faces)  # otherwise, this may get expanded during tracing
 
     @property
     def vertices(self):
-        hdim = self._hdim
+        hdim = self.hdim
         space = self.vector.item_names
-        pos = self.grid_bounds.local_to_global(math.meshgrid(spatial(self._height)) / self.resolution)
+        pos = self.grid_bounds.local_to_global(math.meshgrid(spatial(self.height)) / self.resolution)
         vert = stack({dim: self.height if dim == hdim else pos[dim] for dim in space}, channel(&#39;vector&#39;))
         return vert
 
@@ -7869,17 +7844,17 @@ Returns:</p></div>
             if extrapolation is None:
                 within_bounds = bounds.lies_inside(location)
             else:
-                within_bounds = bounds[self._hdim].lies_inside(location[self._hdim])
+                within_bounds = bounds[self.hdim].lies_inside(location[self.hdim])
             surface_height = math.grid_sample(height, float_idx - 1, math.NAN if extrapolation is None else extrapolation)
-            is_below = location[self._hdim] &lt;= surface_height
+            is_below = location[self.hdim] &lt;= surface_height
             inside = is_below == fill_below
             result = math.where(within_bounds, inside, False)
             return rename_dims(result, [&#39;loc_&#39; + n for n in self.resolution.names], self.resolution.names)
-        return math.any(lies_inside_(self._height, self.grid_bounds, self._bounds, self._fill_below, self._extrapolation), instance(self))
+        return math.any(lies_inside_(self.height, self.grid_bounds, self.bounds, self.fill_below, self.extrapolation), instance(self))
 
     def approximate_closest_surface(self, location: Tensor) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         grid_bounds = math.i2b(self.grid_bounds)
-        faces = math.i2b(self._faces)
+        faces = math.i2b(self.face_cache)
         cell_idx = cell_index(location, grid_bounds, self.resolution, clip=True)
         # --- gather face infos at projected cell ---
         normals = faces.normal[cell_idx]
@@ -7896,7 +7871,7 @@ Returns:</p></div>
         delta_highest = faces.extrema_points[cell_idx] - location
         flat_normal = math.vec_normalize(normals[self.resolution.name_list], epsilon=1e-5)
         delta_edge = flat_normal * (delta_highest[self.resolution].vector @ flat_normal.vector)  # project onto flat normal
-        delta_edge = concat([delta_edge, delta_highest[[self._hdim]]], &#39;vector&#39;)
+        delta_edge = concat([delta_edge, delta_highest[[self.hdim]]], &#39;vector&#39;)
         distance_edge = math.vec_length(delta_edge, eps=1e-5)
         delta_highest, distance_edge = math.at_min((delta_highest, distance_edge), distance_edge, &#39;extremum&#39;)
         distance_edge = math.where(distances &lt; 0, -distance_edge, distance_edge)  # copy sign of distances onto distance_edges to always return the signed distance
@@ -7909,38 +7884,24 @@ Returns:</p></div>
         return self == other
 
     def __repr__(self):
-        return f&#34;Heightmap {self.resolution}, bounds={self._bounds}&#34;
-
-    def __variable_attrs__(self):
-        return &#39;_height&#39;, &#39;_bounds&#39;, &#39;_max_dist&#39;, &#39;_fill_below&#39;, &#39;_extrapolation&#39;, &#39;_faces&#39;
-
-    def __value_attrs__(self):
-        return ()
-
-    def __getitem__(self, item):
-        item = slicing_dict(self, item)
-        return Heightmap(self._height[item], self._bounds[item], self._max_dist[item], self._fill_below[item], self._extrapolation[item] if self._extrapolation is not None else None, math.slice(self._faces, item))
+        return f&#34;Heightmap {self.resolution}, bounds={self.bounds}&#34;
 
     def bounding_half_extent(self) -&gt; Tensor:
-        h_min, h_max = self._faces.extrema_points[{&#39;consider&#39;: 0, &#39;vector&#39;: self._hdim}].extremum
+        h_min, h_max = self.face_cache.extrema_points[{&#39;consider&#39;: 0, &#39;vector&#39;: self.hdim}].extremum
         dh = h_max - h_min
         return stack({d: self.dx[d] if d in self.resolution else dh for d in self.vector.item_names}, channel(&#39;vector&#39;), expand_values=True) * .5
 
     @property
     def center(self) -&gt; Tensor:
-        return self._faces.center.consider[0]
+        return self.face_cache.center.consider[0]
 
     @property
     def volume(self) -&gt; Tensor:
         return math.prod(self.bounding_half_extent() * 2, channel)
 
     @property
-    def faces(self) -&gt; &#39;Geometry&#39;:
-        raise NotImplementedError
-
-    @property
     def face_centers(self) -&gt; Tensor:
-        return self._faces.center
+        return self.face_cache.center
 
     @property
     def face_areas(self) -&gt; Tensor:
@@ -7948,7 +7909,7 @@ Returns:</p></div>
 
     @property
     def face_normals(self) -&gt; Tensor:
-        return self._faces.normal
+        return self.face_cache.normal
 
     @property
     def boundary_elements(self) -&gt; Dict[Any, Dict[str, slice]]:
@@ -7960,7 +7921,7 @@ Returns:</p></div>
 
     @property
     def face_shape(self) -&gt; Shape:
-        return non_channel(self._faces.center)
+        return non_channel(self.face_cache.center)
 
     def approximate_signed_distance(self, location: Tensor) -&gt; Tensor:
         return self.approximate_closest_surface(location)[0]
@@ -7969,7 +7930,7 @@ Returns:</p></div>
         raise NotImplementedError
 
     def bounding_radius(self) -&gt; Tensor:
-        return self._bounds.bounding_radius()
+        return self.bounds.bounding_radius()
 
     def at(self, center: Tensor) -&gt; &#39;Geometry&#39;:
         raise NotImplementedError
@@ -7985,51 +7946,28 @@ Returns:</p></div>
             return BoundDim(self, item)
         raise AttributeError(f&#34;{self.__class__.__name__} has no attribute &#39;{item}&#39;&#34;)</code></pre>
 </details>
-<div class="desc"><p>Abstract base class for N-dimensional shapes.</p>
-<p>Main implementing classes:</p>
-<ul>
-<li><code><a title="phi.geom.Sphere" href="#phi.geom.Sphere">Sphere</a></code></li>
-<li><code><a title="phi.geom.Box" href="#phi.geom.Box">Box</a></code></li>
-<li><code><a title="phi.geom.Cylinder" href="#phi.geom.Cylinder">Cylinder</a></code></li>
-<li><code><a title="phi.geom.Graph" href="#phi.geom.Graph">Graph</a></code></li>
-<li><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code></li>
-<li><code><a title="phi.geom.Heightmap" href="#phi.geom.Heightmap">Heightmap</a></code></li>
-<li><code><a title="phi.geom.SDFGrid" href="#phi.geom.SDFGrid">SDFGrid</a></code></li>
-<li><code><a title="phi.geom.SDF" href="#phi.geom.SDF">SDF</a></code></li>
-<li><code>SplineSheet</code></li>
-</ul>
-<p>All geometry objects support batching.
-Thereby any parameter defining the geometry can be varied along arbitrary batch dims.
-All batch dimensions are listed in Geometry.shape.</p>
-<p>Property getters (<code>@property</code>, such as <code>shape</code>), save for getters, must not depend on any variables marked as <em>variable</em> via <code>__variable_attrs__()</code> as these may be <code>None</code> during tracing.
-Equality checks must also take this into account.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>height</code></strong></dt>
-<dd>Heightmap <code>Tensor</code> of absolute (world-space) height values.
-Scalar height values on a d-1 dimensional grid.</dd>
-<dt><strong><code>bounds</code></strong></dt>
-<dd>d-dimensional bounds.
-Locations outside <code>bounds' can never lie inside this geometry if</code>extrapolation is None`.
-Otherwise, only the height dimension is checked.
-The grid dimensions of <code>bounds</code> must be finite but the height dimension may be infinite to count all values above/below <code>height</code> as inside.</dd>
-<dt><strong><code>max_dist</code></strong></dt>
-<dd>Maximum distance up to which the distance approximations should be valid.
-This does not affect the number of computations performed to compute the distance.
-Low values increase accuracy close to the surface but trade off possibly very wrong distances further away.</dd>
-<dt><strong><code>fill_below</code></strong></dt>
-<dd>Whether the inside is below or above the height values.</dd>
-<dt><strong><code>extrapolation</code></strong></dt>
-<dd>Surface height outside <code>bounds´. Can be any valid</code>phiml.math.Extrapolation`, such as a constant.
-If not <code>None</code>, values outside <code>bounds</code> will be checked against the extrapolated <code>height</code> values.
-Otherwise, values outside <code>bounds</code> always lie on the outside.</dd>
-</dl></div>
+<div class="desc"><p>Heightmap(height: phiml.math._tensors.Tensor, bounds: phi.geom._box.Box, max_dist: phiml.math._tensors.Tensor, fill_below: phiml.math._tensors.Tensor[bool] = <factory>, extrapolation: phiml.math.extrapolation.Extrapolation = none, variable_attrs: Tuple[str, &hellip;] = ('height', 'bounds', 'extrapolation'), value_attrs: Tuple[str, &hellip;] = ())</p></div>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.geom._geom.Geometry</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.geom.Heightmap.Tc"><code class="name">prop <span class="ident">Tc</span></code></dt>
+<dd>
+<div class="desc"><p>partial(func, <em>args, </em>*keywords) - new function with partial application
+of the given arguments and keywords.</p></div>
+</dd>
+<dt id="phi.geom.Heightmap.Ti"><code class="name">prop <span class="ident">Ti</span></code></dt>
+<dd>
+<div class="desc"><p>partial(func, <em>args, </em>*keywords) - new function with partial application
+of the given arguments and keywords.</p></div>
+</dd>
+<dt id="phi.geom.Heightmap.Ts"><code class="name">prop <span class="ident">Ts</span></code></dt>
+<dd>
+<div class="desc"><p>partial(func, <em>args, </em>*keywords) - new function with partial application
+of the given arguments and keywords.</p></div>
+</dd>
 <dt id="phi.geom.Heightmap.boundary_elements"><code class="name">prop <span class="ident">boundary_elements</span> : Dict[Any, Dict[str, slice]]</code></dt>
 <dd>
 <details class="source">
@@ -8063,17 +8001,11 @@ Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
 <p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 </dd>
-<dt id="phi.geom.Heightmap.bounds"><code class="name">prop <span class="ident">bounds</span></code></dt>
+<dt id="phi.geom.Heightmap.bounds"><code class="name">var <span class="ident">bounds</span> : phi.geom._box.Box</code></dt>
 <dd>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def bounds(self):
-    return self._bounds</code></pre>
-</details>
-<div class="desc"></div>
+<div class="desc"><p>Locations outside <code>bounds' can never lie inside this geometry if</code>extrapolation is None`.
+Otherwise, only the height dimension is checked.
+The grid dimensions of <code>bounds</code> must be finite but the height dimension may be infinite to count all values above/below <code>height</code> as inside.</p></div>
 </dd>
 <dt id="phi.geom.Heightmap.center"><code class="name">prop <span class="ident">center</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -8083,7 +8015,7 @@ def bounds(self):
 </summary>
 <pre><code class="python">@property
 def center(self) -&gt; Tensor:
-    return self._faces.center.consider[0]</code></pre>
+    return self.face_cache.center.consider[0]</code></pre>
 </details>
 <div class="desc"><p>Center location in single channel dimension.</p></div>
 </dd>
@@ -8095,21 +8027,15 @@ def center(self) -&gt; Tensor:
 </summary>
 <pre><code class="python">@property
 def dx(self):
-    return self._bounds.size[self.resolution.name_list] / spatial(self.resolution)</code></pre>
+    return self.bounds.size[self.resolution.name_list] / spatial(self.resolution)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
-<dt id="phi.geom.Heightmap.extrapolation"><code class="name">prop <span class="ident">extrapolation</span></code></dt>
+<dt id="phi.geom.Heightmap.extrapolation"><code class="name">var <span class="ident">extrapolation</span> : phiml.math.extrapolation.Extrapolation</code></dt>
 <dd>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def extrapolation(self):
-    return self._extrapolation</code></pre>
-</details>
-<div class="desc"></div>
+<div class="desc"><p>Surface height outside <code>bounds´. Can be any valid</code>phiml.math.Extrapolation`, such as a constant.
+If not <code>None</code>, values outside <code>bounds</code> will be checked against the extrapolated <code>height</code> values.
+Otherwise, values outside <code>bounds</code> always lie on the outside.</p></div>
 </dd>
 <dt id="phi.geom.Heightmap.face_areas"><code class="name">prop <span class="ident">face_areas</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -8124,6 +8050,23 @@ def face_areas(self) -&gt; Tensor:
 <div class="desc"><p>Area of face connecting a pair of cells. Shape <code>(elements, ~)</code>.
 Returns 0 for unconnected cells.</p></div>
 </dd>
+<dt id="phi.geom.Heightmap.face_cache"><code class="name">var <span class="ident">face_cache</span></code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@cached_property
+def face_cache(self):
+    proj_faces = build_faces(self)
+    with numpy.errstate(divide=&#39;ignore&#39;, invalid=&#39;ignore&#39;):
+        secondary_idx = math.map(find_most_important_neighbor, proj_faces, self.dx, self.resolution, self.hdim, self.fill_below, self.max_dist, dims=instance, unwrap_scalars=False)
+        secondary_faces = math.map(math.gather, proj_faces, secondary_idx, dims=instance)
+    faces: Face = stack([proj_faces, *unstack(secondary_faces, &#39;side&#39;)], batch(consider=&#39;self,outside,inside&#39;), expand_values=True)
+    return cached(faces)  # otherwise, this may get expanded during tracing</code></pre>
+</details>
+<div class="desc"></div>
+</dd>
 <dt id="phi.geom.Heightmap.face_centers"><code class="name">prop <span class="ident">face_centers</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <details class="source">
@@ -8132,7 +8075,7 @@ Returns 0 for unconnected cells.</p></div>
 </summary>
 <pre><code class="python">@property
 def face_centers(self) -&gt; Tensor:
-    return self._faces.center</code></pre>
+    return self.face_cache.center</code></pre>
 </details>
 <div class="desc"><p>Center of face connecting a pair of cells. Shape <code>(elements, ~, vector)</code>.
 Here, <code>~</code> represents arbitrary internal dual dimensions, such as <code>~staggered_direction</code> or <code>~elements</code>.
@@ -8146,7 +8089,7 @@ Returns 0-vectors for unconnected cells.</p></div>
 </summary>
 <pre><code class="python">@property
 def face_normals(self) -&gt; Tensor:
-    return self._faces.normal</code></pre>
+    return self.face_cache.normal</code></pre>
 </details>
 <div class="desc"><p>Normal vectors of cell faces, including boundary faces. Shape <code>(elements, ~, vector)</code>.
 For meshes, The vectors point out of the primal cells and into the dual cells.</p>
@@ -8160,35 +8103,15 @@ For meshes, The vectors point out of the primal cells and into the dual cells.</
 </summary>
 <pre><code class="python">@property
 def face_shape(self) -&gt; Shape:
-    return non_channel(self._faces.center)</code></pre>
+    return non_channel(self.face_cache.center)</code></pre>
 </details>
 <div class="desc"><h2 id="returns">Returns</h2>
 <p>Full Shape to identify each face of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>, including instance/spatial dimensions for the elements and dual dimensions listing the faces per element.
 If this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> has no faces, returns an empty <code>Shape</code>.</p></div>
 </dd>
-<dt id="phi.geom.Heightmap.faces"><code class="name">prop <span class="ident">faces</span> : <a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code></dt>
+<dt id="phi.geom.Heightmap.fill_below"><code class="name">var <span class="ident">fill_below</span> : phiml.math._tensors.Tensor[bool]</code></dt>
 <dd>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def faces(self) -&gt; &#39;Geometry&#39;:
-    raise NotImplementedError</code></pre>
-</details>
-<div class="desc"></div>
-</dd>
-<dt id="phi.geom.Heightmap.fill_below"><code class="name">prop <span class="ident">fill_below</span></code></dt>
-<dd>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def fill_below(self):
-    return self._fill_below</code></pre>
-</details>
-<div class="desc"></div>
+<div class="desc"><p>Whether the inside is below or above the height values.</p></div>
 </dd>
 <dt id="phi.geom.Heightmap.grid_bounds"><code class="name">prop <span class="ident">grid_bounds</span></code></dt>
 <dd>
@@ -8198,33 +8121,31 @@ def fill_below(self):
 </summary>
 <pre><code class="python">@property
 def grid_bounds(self):
-    return self._bounds[self.resolution.name_list]</code></pre>
+    return self.bounds[self.resolution.name_list]</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
-<dt id="phi.geom.Heightmap.height"><code class="name">prop <span class="ident">height</span></code></dt>
+<dt id="phi.geom.Heightmap.hdim"><code class="name">var <span class="ident">hdim</span></code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">@property
-def height(self):
-    return self._height</code></pre>
+<pre><code class="python">@cached_property
+def hdim(self):
+    return spatial(*self.bounds.vector.item_names).without(self.height.shape).name</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
-<dt id="phi.geom.Heightmap.max_dist"><code class="name">prop <span class="ident">max_dist</span></code></dt>
+<dt id="phi.geom.Heightmap.height"><code class="name">var <span class="ident">height</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def max_dist(self):
-    return self._max_dist</code></pre>
-</details>
-<div class="desc"></div>
+<div class="desc"><p>Heightmap <code>Tensor</code> of absolute (world-space) height values. Scalar height values on a d-1 dimensional grid.</p></div>
+</dd>
+<dt id="phi.geom.Heightmap.max_dist"><code class="name">var <span class="ident">max_dist</span> : phiml.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"><p>Maximum distance up to which the distance approximations should be valid.
+This does not affect the number of computations performed to compute the distance.
+Low values increase accuracy close to the surface but trade off possibly very wrong distances further away.</p></div>
 </dd>
 <dt id="phi.geom.Heightmap.resolution"><code class="name">prop <span class="ident">resolution</span></code></dt>
 <dd>
@@ -8234,7 +8155,7 @@ def max_dist(self):
 </summary>
 <pre><code class="python">@property
 def resolution(self):
-    return spatial(self._height) - 1</code></pre>
+    return spatial(self.height) - 1</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -8246,7 +8167,7 @@ def resolution(self):
 </summary>
 <pre><code class="python">@property
 def shape(self) -&gt; Shape:
-    return (self._height.shape - 1) &amp; channel(self._bounds)</code></pre>
+    return self.resolution &amp; channel(self.bounds) &amp; non_spatial(self.height)</code></pre>
 </details>
 <div class="desc"><p>The <code>shape</code> of a <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> consists of the following dimensions:</p>
 <ul>
@@ -8264,10 +8185,18 @@ def shape(self) -&gt; Shape:
 </summary>
 <pre><code class="python">@property
 def up(self):
-    dims = self._bounds.vector.item_names
-    height_unit = vec(**{d: 1 if d == self._hdim else 0 for d in dims})
-    return math.where(self._fill_below, height_unit, -height_unit)</code></pre>
+    dims = self.bounds.vector.item_names
+    height_unit = vec(**{d: 1 if d == self.hdim else 0 for d in dims})
+    return math.where(self.fill_below, height_unit, -height_unit)</code></pre>
 </details>
+<div class="desc"></div>
+</dd>
+<dt id="phi.geom.Heightmap.value_attrs"><code class="name">var <span class="ident">value_attrs</span> : Tuple[str, ...]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="phi.geom.Heightmap.variable_attrs"><code class="name">var <span class="ident">variable_attrs</span> : Tuple[str, ...]</code></dt>
+<dd>
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Heightmap.vertices"><code class="name">prop <span class="ident">vertices</span></code></dt>
@@ -8278,9 +8207,9 @@ def up(self):
 </summary>
 <pre><code class="python">@property
 def vertices(self):
-    hdim = self._hdim
+    hdim = self.hdim
     space = self.vector.item_names
-    pos = self.grid_bounds.local_to_global(math.meshgrid(spatial(self._height)) / self.resolution)
+    pos = self.grid_bounds.local_to_global(math.meshgrid(spatial(self.height)) / self.resolution)
     vert = stack({dim: self.height if dim == hdim else pos[dim] for dim in space}, channel(&#39;vector&#39;))
     return vert</code></pre>
 </details>
@@ -8312,7 +8241,7 @@ The result retains batch, spatial and instance dimensions.</p></div>
 </summary>
 <pre><code class="python">def approximate_closest_surface(self, location: Tensor) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
     grid_bounds = math.i2b(self.grid_bounds)
-    faces = math.i2b(self._faces)
+    faces = math.i2b(self.face_cache)
     cell_idx = cell_index(location, grid_bounds, self.resolution, clip=True)
     # --- gather face infos at projected cell ---
     normals = faces.normal[cell_idx]
@@ -8329,7 +8258,7 @@ The result retains batch, spatial and instance dimensions.</p></div>
     delta_highest = faces.extrema_points[cell_idx] - location
     flat_normal = math.vec_normalize(normals[self.resolution.name_list], epsilon=1e-5)
     delta_edge = flat_normal * (delta_highest[self.resolution].vector @ flat_normal.vector)  # project onto flat normal
-    delta_edge = concat([delta_edge, delta_highest[[self._hdim]]], &#39;vector&#39;)
+    delta_edge = concat([delta_edge, delta_highest[[self.hdim]]], &#39;vector&#39;)
     distance_edge = math.vec_length(delta_edge, eps=1e-5)
     delta_highest, distance_edge = math.at_min((delta_highest, distance_edge), distance_edge, &#39;extremum&#39;)
     distance_edge = math.where(distances &lt; 0, -distance_edge, distance_edge)  # copy sign of distances onto distance_edges to always return the signed distance
@@ -8418,7 +8347,7 @@ This is equal to calling <code>self @ center</code>.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def bounding_half_extent(self) -&gt; Tensor:
-    h_min, h_max = self._faces.extrema_points[{&#39;consider&#39;: 0, &#39;vector&#39;: self._hdim}].extremum
+    h_min, h_max = self.face_cache.extrema_points[{&#39;consider&#39;: 0, &#39;vector&#39;: self.hdim}].extremum
     dh = h_max - h_min
     return stack({d: self.dx[d] if d in self.resolution else dh for d in self.vector.item_names}, channel(&#39;vector&#39;), expand_values=True) * .5</code></pre>
 </details>
@@ -8438,7 +8367,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def bounding_radius(self) -&gt; Tensor:
-    return self._bounds.bounding_radius()</code></pre>
+    return self.bounds.bounding_radius()</code></pre>
 </details>
 <div class="desc"><p>Returns the radius of a Sphere object that fully encloses this geometry.
 The sphere is centered at the center of this geometry.</p>
@@ -8462,13 +8391,13 @@ If these dims are not present on the result, all parts are assumed to have the s
         if extrapolation is None:
             within_bounds = bounds.lies_inside(location)
         else:
-            within_bounds = bounds[self._hdim].lies_inside(location[self._hdim])
+            within_bounds = bounds[self.hdim].lies_inside(location[self.hdim])
         surface_height = math.grid_sample(height, float_idx - 1, math.NAN if extrapolation is None else extrapolation)
-        is_below = location[self._hdim] &lt;= surface_height
+        is_below = location[self.hdim] &lt;= surface_height
         inside = is_below == fill_below
         result = math.where(within_bounds, inside, False)
         return rename_dims(result, [&#39;loc_&#39; + n for n in self.resolution.names], self.resolution.names)
-    return math.any(lies_inside_(self._height, self.grid_bounds, self._bounds, self._fill_below, self._extrapolation), instance(self))</code></pre>
+    return math.any(lies_inside_(self.height, self.grid_bounds, self.bounds, self.fill_below, self.extrapolation), instance(self))</code></pre>
 </details>
 <div class="desc"><p>Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.</p>
 <p>When dealing with unions or collections of geometries (instance dimensions), a point lies inside the geometry if it lies inside any instance.</p>
@@ -13332,7 +13261,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fc15953cc20></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fae0aa58c20></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13358,7 +13287,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fc15953cc20></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fae0aa58c20></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13857,6 +13786,9 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li>
 <h4><code><a title="phi.geom.Heightmap" href="#phi.geom.Heightmap">Heightmap</a></code></h4>
 <ul class="">
+<li><code><a title="phi.geom.Heightmap.Tc" href="#phi.geom.Heightmap.Tc">Tc</a></code></li>
+<li><code><a title="phi.geom.Heightmap.Ti" href="#phi.geom.Heightmap.Ti">Ti</a></code></li>
+<li><code><a title="phi.geom.Heightmap.Ts" href="#phi.geom.Heightmap.Ts">Ts</a></code></li>
 <li><code><a title="phi.geom.Heightmap.approximate_closest_surface" href="#phi.geom.Heightmap.approximate_closest_surface">approximate_closest_surface</a></code></li>
 <li><code><a title="phi.geom.Heightmap.approximate_signed_distance" href="#phi.geom.Heightmap.approximate_signed_distance">approximate_signed_distance</a></code></li>
 <li><code><a title="phi.geom.Heightmap.at" href="#phi.geom.Heightmap.at">at</a></code></li>
@@ -13869,12 +13801,13 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Heightmap.dx" href="#phi.geom.Heightmap.dx">dx</a></code></li>
 <li><code><a title="phi.geom.Heightmap.extrapolation" href="#phi.geom.Heightmap.extrapolation">extrapolation</a></code></li>
 <li><code><a title="phi.geom.Heightmap.face_areas" href="#phi.geom.Heightmap.face_areas">face_areas</a></code></li>
+<li><code><a title="phi.geom.Heightmap.face_cache" href="#phi.geom.Heightmap.face_cache">face_cache</a></code></li>
 <li><code><a title="phi.geom.Heightmap.face_centers" href="#phi.geom.Heightmap.face_centers">face_centers</a></code></li>
 <li><code><a title="phi.geom.Heightmap.face_normals" href="#phi.geom.Heightmap.face_normals">face_normals</a></code></li>
 <li><code><a title="phi.geom.Heightmap.face_shape" href="#phi.geom.Heightmap.face_shape">face_shape</a></code></li>
-<li><code><a title="phi.geom.Heightmap.faces" href="#phi.geom.Heightmap.faces">faces</a></code></li>
 <li><code><a title="phi.geom.Heightmap.fill_below" href="#phi.geom.Heightmap.fill_below">fill_below</a></code></li>
 <li><code><a title="phi.geom.Heightmap.grid_bounds" href="#phi.geom.Heightmap.grid_bounds">grid_bounds</a></code></li>
+<li><code><a title="phi.geom.Heightmap.hdim" href="#phi.geom.Heightmap.hdim">hdim</a></code></li>
 <li><code><a title="phi.geom.Heightmap.height" href="#phi.geom.Heightmap.height">height</a></code></li>
 <li><code><a title="phi.geom.Heightmap.lies_inside" href="#phi.geom.Heightmap.lies_inside">lies_inside</a></code></li>
 <li><code><a title="phi.geom.Heightmap.max_dist" href="#phi.geom.Heightmap.max_dist">max_dist</a></code></li>
@@ -13885,6 +13818,8 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Heightmap.shallow_equals" href="#phi.geom.Heightmap.shallow_equals">shallow_equals</a></code></li>
 <li><code><a title="phi.geom.Heightmap.shape" href="#phi.geom.Heightmap.shape">shape</a></code></li>
 <li><code><a title="phi.geom.Heightmap.up" href="#phi.geom.Heightmap.up">up</a></code></li>
+<li><code><a title="phi.geom.Heightmap.value_attrs" href="#phi.geom.Heightmap.value_attrs">value_attrs</a></code></li>
+<li><code><a title="phi.geom.Heightmap.variable_attrs" href="#phi.geom.Heightmap.variable_attrs">variable_attrs</a></code></li>
 <li><code><a title="phi.geom.Heightmap.vertices" href="#phi.geom.Heightmap.vertices">vertices</a></code></li>
 <li><code><a title="phi.geom.Heightmap.volume" href="#phi.geom.Heightmap.volume">volume</a></code></li>
 </ul>
