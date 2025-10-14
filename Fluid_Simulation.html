@@ -15253,7 +15253,9 @@ In the following example, the velocity is self-advected and made incompressible,
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>/opt/hostedtoolcache/Python/3.12.11/x64/lib/python3.12/site-packages/phiml/backend/_linalg.py:345: SparseEfficiencyWarning: spsolve requires A be CSC or CSR matrix format
+<pre>W1014 20:24:21.206919    2685 dlpack.cc:197] DLPack buffer is not aligned (data at: 0x564e0d0b8be0). Creating a copy.
+W1014 20:24:21.207122    2685 dlpack.cc:197] DLPack buffer is not aligned (data at: 0x564e0ce60b60). Creating a copy.
+/opt/hostedtoolcache/Python/3.12.11/x64/lib/python3.12/site-packages/phiml/backend/_linalg.py:345: SparseEfficiencyWarning: spsolve requires A be CSC or CSR matrix format
   x = spsolve(lin[batch], y[batch])  # returns nan when diverges
 </pre>
 </div>
@@ -15365,6 +15367,16 @@ In the following example, the velocity is self-advected and made incompressible,
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
+<div class="jp-OutputArea-child">
+    
+    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+
+
+<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
+<pre>W1014 20:24:22.542068    2685 dlpack.cc:197] DLPack buffer is not aligned (data at: 0x564e0ce60b60). Creating a copy.
+</pre>
+</div>
+</div>
 <div class="jp-OutputArea-child">
     
     <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
@@ -15633,7 +15645,7 @@ This is considerably more expensive than the previous approach but yields much m
 
 
 <div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>W1014 17:20:27.899742    2699 dlpack.cc:197] DLPack buffer is not aligned (data at: 0x55f731118f70). Creating a copy.
+<pre>W1014 20:24:24.264762    2685 dlpack.cc:197] DLPack buffer is not aligned (data at: 0x564e12cb92d0). Creating a copy.
 </pre>
 </div>
 </div>

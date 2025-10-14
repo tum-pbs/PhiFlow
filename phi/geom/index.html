@@ -665,7 +665,7 @@ Adding batch dims must always work without keyword arguments.</dd>
         axis = axis_
     else:
         rotation = rotation_matrix(rotation)
-    variables = [{&#39;center&#39;: &#39;_center&#39;}.get(v, v) for v in variables]
+    variables = [{&#39;center&#39;: &#39;center&#39;}.get(v, v) for v in variables]
     assert &#39;vector&#39; not in radius.shape, f&#34;Cylinder radius must not vary along vector but got {radius}&#34;
     assert set(variables).issubset(set(all_attributes(Cylinder))), f&#34;Invalid variables: {variables}&#34;
     assert axis in center.vector.item_names, f&#34;Cylinder axis {axis} not part of vector dim {center.vector}&#34;
@@ -3038,7 +3038,7 @@ Dynamic graphs return slices along the dual dimensions.</p>
 def center(self):
     return self.pos</code></pre>
 </details>
-<div class="desc"><p>Center location in single channel dimension.</p></div>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.corners"><code class="name">prop <span class="ident">corners</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -3429,7 +3429,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fae0aa58c20></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f346abbcd60></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3472,7 +3472,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fae0aa58c20></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f346abbcd60></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4173,7 +4173,7 @@ Dynamic graphs return slices along the dual dimensions.</p>
 def center(self):
     return self.pos</code></pre>
 </details>
-<div class="desc"><p>Center location in single channel dimension.</p></div>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.corners"><code class="name">prop <span class="ident">corners</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -4564,7 +4564,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fae0aa58c20></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f346abbcd60></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4607,7 +4607,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fae0aa58c20></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f346abbcd60></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4911,7 +4911,7 @@ Returns:</p></div>
 </dd>
 <dt id="phi.geom.Cylinder"><code class="flex name class">
 <span>class <span class="ident">Cylinder</span></span>
-<span>(</span><span>_center: phiml.math._tensors.Tensor,<br>radius: phiml.math._tensors.Tensor,<br>depth: phiml.math._tensors.Tensor,<br>rotation: phiml.math._tensors.Tensor,<br>axis: str,<br>variable_attrs: Tuple[str, ...] = ('_center', 'radius', 'depth', 'rotation'),<br>value_attrs: Tuple[str, ...] = ())</span>
+<span>(</span><span>center: phiml.math._tensors.Tensor,<br>radius: phiml.math._tensors.Tensor,<br>depth: phiml.math._tensors.Tensor,<br>rotation: phiml.math._tensors.Tensor,<br>axis: str,<br>variable_attrs: Tuple[str, ...] = ('center', 'radius', 'depth', 'rotation'),<br>value_attrs: Tuple[str, ...] = ())</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4928,22 +4928,18 @@ class Cylinder(Geometry):
     For cylinders whose bottom and top lie outside the domain or are otherwise not needed, you may use `infinite_cylinder` instead, which simplifies computations.
     &#34;&#34;&#34;
 
-    _center: Tensor
+    center: Tensor
     radius: Tensor
     depth: Tensor
     rotation: Tensor  # rotation matrix
     axis: str
 
-    variable_attrs: Tuple[str, ...] = (&#39;_center&#39;, &#39;radius&#39;, &#39;depth&#39;, &#39;rotation&#39;)
+    variable_attrs: Tuple[str, ...] = (&#39;center&#39;, &#39;radius&#39;, &#39;depth&#39;, &#39;rotation&#39;)
     value_attrs: Tuple[str, ...] = ()
-
-    @property
-    def center(self) -&gt; Tensor:
-        return self._center
 
     @cached_property
     def shape(self) -&gt; Shape:
-        return self._center.shape &amp; self.radius.shape &amp; self.depth.shape &amp; batch(self.rotation)
+        return self.center.shape &amp; self.radius.shape &amp; self.depth.shape &amp; batch(self.rotation)
 
     @cached_property
     def radial_axes(self) -&gt; Sequence[str]:
@@ -4972,14 +4968,14 @@ class Cylinder(Geometry):
         return replace(self, depth=wrap(depth))
 
     def lies_inside(self, location):
-        pos = rotate(location - self._center, self._rot_or_none, invert=True)
+        pos = rotate(location - self.center, self._rot_or_none, invert=True)
         r = pos.vector[self.radial_axes]
         h = pos.vector[self.axis]
         inside = (vec_squared(r) &lt;= self.radius**2) &amp; (h &gt;= -.5*self.depth) &amp; (h &lt;= .5*self.depth)
         return math.any(inside, instance(self))  # union for instance dimensions
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]):
-        location = rotate(location - self._center, self._rot_or_none, invert=True)
+        location = rotate(location - self.center, self._rot_or_none, invert=True)
         r = location.vector[self.radial_axes]
         h = location.vector[self.axis]
         top_h = .5*self.depth
@@ -4999,7 +4995,7 @@ class Cylinder(Geometry):
         return math.min(sgn_dist, instance(self))
 
     def approximate_closest_surface(self, location: Tensor):
-        location = rotate(location - self._center, self._rot_or_none, invert=True)
+        location = rotate(location - self.center, self._rot_or_none, invert=True)
         r = location.vector[self.radial_axes]
         h = location.vector[self.axis]
         top_h = .5*self.depth
@@ -5013,12 +5009,12 @@ class Cylinder(Geometry):
         # --- Closest point on bottom / top ---
         above = h &gt;= 0
         flat_h = where(above, top_h, bot_h)
-        on_flat = ncat([flat_h, clamped_r], self._center.shape[&#39;vector&#39;])
+        on_flat = ncat([flat_h, clamped_r], self.center.shape[&#39;vector&#39;])
         normal_flat = where(above, self.up, -self.up)
         # --- Closest point on cylinder ---
         clamped_h = clip(h, bot_h, top_h)
-        on_cyl = ncat([surf_r, clamped_h], self._center.shape[&#39;vector&#39;])
-        normal_cyl = ncat([radial_outward, 0], self._center.shape[&#39;vector&#39;], expand_values=True)
+        on_cyl = ncat([surf_r, clamped_h], self.center.shape[&#39;vector&#39;])
+        normal_cyl = ncat([radial_outward, 0], self.center.shape[&#39;vector&#39;], expand_values=True)
         # --- Choose closest ---
         d_flat = length(on_flat - location, &#39;vector&#39;)
         d_cyl = length(on_cyl - location, &#39;vector&#39;)
@@ -5036,9 +5032,9 @@ class Cylinder(Geometry):
         return sgn_dist, delta, normal, None, idx
 
     def sample_uniform(self, *shape: math.Shape):
-        r = Sphere(self._center[self.radial_axes], self.radius).sample_uniform(*shape)
+        r = Sphere(self.center[self.radial_axes], self.radius).sample_uniform(*shape)
         h = math.random_uniform(*shape, -.5*self.depth, .5*self.depth)
-        rh = ncat([r, h], self._center.shape[&#39;vector&#39;])
+        rh = ncat([r, h], self.center.shape[&#39;vector&#39;])
         return rotate(rh, self._rot_or_none)
 
     def bounding_radius(self):
@@ -5048,10 +5044,10 @@ class Cylinder(Geometry):
         if self.rotation is not None:
             tip = abs(self.up) * .5 * self.depth
             return tip + self.radius * sqrt(maximum(epsilon, 1 - self.up**2))
-        return ncat([.5*self.depth, expand(self.radius, channel(vector=self.radial_axes))], self._center.shape[&#39;vector&#39;], expand_values=True)
+        return ncat([.5*self.depth, expand(self.radius, channel(vector=self.radial_axes))], self.center.shape[&#39;vector&#39;], expand_values=True)
 
     def at(self, center: Tensor) -&gt; &#39;Geometry&#39;:
-        return replace(self, _center=center)
+        return replace(self, center=center)
 
     def rotated(self, angle):
         rot = self.rotation_matrix @ rotation_matrix(angle) if self.rotation is not None else rotation_matrix(angle)
@@ -5105,8 +5101,8 @@ class Cylinder(Geometry):
             s = sin(angle) * self.radius
             c = cos(angle) * self.radius
             r = stack([s, c], channel(vector=self.radial_axes))
-            x = ncat([h, r], self._center.shape[&#39;vector&#39;], expand_values=True)
-            return rotate(x, self._rot_or_none) + self._center
+            x = ncat([h, r], self.center.shape[&#39;vector&#39;], expand_values=True)
+            return rotate(x, self._rot_or_none) + self.center
         raise NotImplementedError</code></pre>
 </details>
 <div class="desc"><p>N-dimensional cylinder.
@@ -5170,17 +5166,9 @@ Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
 <p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 </dd>
-<dt id="phi.geom.Cylinder.center"><code class="name">prop <span class="ident">center</span> : phiml.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.Cylinder.center"><code class="name">var <span class="ident">center</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def center(self) -&gt; Tensor:
-    return self._center</code></pre>
-</details>
-<div class="desc"><p>Center location in single channel dimension.</p></div>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.Cylinder.corners"><code class="name">prop <span class="ident">corners</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -5311,7 +5299,7 @@ def rotation_matrix(self):
 </summary>
 <pre><code class="python">@cached_property
 def shape(self) -&gt; Shape:
-    return self._center.shape &amp; self.radius.shape &amp; self.depth.shape &amp; batch(self.rotation)</code></pre>
+    return self.center.shape &amp; self.radius.shape &amp; self.depth.shape &amp; batch(self.rotation)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -5359,7 +5347,7 @@ def volume(self) -&gt; math.Tensor:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def approximate_closest_surface(self, location: Tensor):
-    location = rotate(location - self._center, self._rot_or_none, invert=True)
+    location = rotate(location - self.center, self._rot_or_none, invert=True)
     r = location.vector[self.radial_axes]
     h = location.vector[self.axis]
     top_h = .5*self.depth
@@ -5373,12 +5361,12 @@ def volume(self) -&gt; math.Tensor:
     # --- Closest point on bottom / top ---
     above = h &gt;= 0
     flat_h = where(above, top_h, bot_h)
-    on_flat = ncat([flat_h, clamped_r], self._center.shape[&#39;vector&#39;])
+    on_flat = ncat([flat_h, clamped_r], self.center.shape[&#39;vector&#39;])
     normal_flat = where(above, self.up, -self.up)
     # --- Closest point on cylinder ---
     clamped_h = clip(h, bot_h, top_h)
-    on_cyl = ncat([surf_r, clamped_h], self._center.shape[&#39;vector&#39;])
-    normal_cyl = ncat([radial_outward, 0], self._center.shape[&#39;vector&#39;], expand_values=True)
+    on_cyl = ncat([surf_r, clamped_h], self.center.shape[&#39;vector&#39;])
+    normal_cyl = ncat([radial_outward, 0], self.center.shape[&#39;vector&#39;], expand_values=True)
     # --- Choose closest ---
     d_flat = length(on_flat - location, &#39;vector&#39;)
     d_cyl = length(on_cyl - location, &#39;vector&#39;)
@@ -5426,7 +5414,7 @@ Positive values indicate the point lies outside the geometry, negative values in
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def approximate_signed_distance(self, location: Union[Tensor, tuple]):
-    location = rotate(location - self._center, self._rot_or_none, invert=True)
+    location = rotate(location - self.center, self._rot_or_none, invert=True)
     r = location.vector[self.radial_axes]
     h = location.vector[self.axis]
     top_h = .5*self.depth
@@ -5469,7 +5457,7 @@ This also holds for negative distances.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def at(self, center: Tensor) -&gt; &#39;Geometry&#39;:
-    return replace(self, _center=center)</code></pre>
+    return replace(self, center=center)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with the center at <code>center</code>.
 This is equal to calling <code>self @ center</code>.</p>
@@ -5495,7 +5483,7 @@ This is equal to calling <code>self @ center</code>.</p>
     if self.rotation is not None:
         tip = abs(self.up) * .5 * self.depth
         return tip + self.radius * sqrt(maximum(epsilon, 1 - self.up**2))
-    return ncat([.5*self.depth, expand(self.radius, channel(vector=self.radial_axes))], self._center.shape[&#39;vector&#39;], expand_values=True)</code></pre>
+    return ncat([.5*self.depth, expand(self.radius, channel(vector=self.radial_axes))], self.center.shape[&#39;vector&#39;], expand_values=True)</code></pre>
 </details>
 <div class="desc"><p>The bounding half-extent sets a limit on the outer-most point for each coordinate axis.
 Each component is non-negative.</p>
@@ -5529,7 +5517,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def lies_inside(self, location):
-    pos = rotate(location - self._center, self._rot_or_none, invert=True)
+    pos = rotate(location - self.center, self._rot_or_none, invert=True)
     r = pos.vector[self.radial_axes]
     h = pos.vector[self.axis]
     inside = (vec_squared(r) &lt;= self.radius**2) &amp; (h &gt;= -.5*self.depth) &amp; (h &lt;= .5*self.depth)
@@ -5583,9 +5571,9 @@ Either</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def sample_uniform(self, *shape: math.Shape):
-    r = Sphere(self._center[self.radial_axes], self.radius).sample_uniform(*shape)
+    r = Sphere(self.center[self.radial_axes], self.radius).sample_uniform(*shape)
     h = math.random_uniform(*shape, -.5*self.depth, .5*self.depth)
-    rh = ncat([r, h], self._center.shape[&#39;vector&#39;])
+    rh = ncat([r, h], self.center.shape[&#39;vector&#39;])
     return rotate(rh, self._rot_or_none)</code></pre>
 </details>
 <div class="desc"><p>Samples uniformly distributed random points inside this volume.</p>
@@ -5629,8 +5617,8 @@ Returns:</p></div>
         s = sin(angle) * self.radius
         c = cos(angle) * self.radius
         r = stack([s, c], channel(vector=self.radial_axes))
-        x = ncat([h, r], self._center.shape[&#39;vector&#39;], expand_values=True)
-        return rotate(x, self._rot_or_none) + self._center
+        x = ncat([h, r], self.center.shape[&#39;vector&#39;], expand_values=True)
+        return rotate(x, self._rot_or_none) + self.center
     raise NotImplementedError</code></pre>
 </details>
 <div class="desc"></div>
@@ -5671,7 +5659,8 @@ Returns:</p></div>
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class Geometry:
+<pre><code class="python">@dataclass(frozen=True, eq=False)
+class Geometry:
     &#34;&#34;&#34;
     Abstract base class for N-dimensional shapes.
 
@@ -5695,14 +5684,17 @@ Returns:</p></div>
     Equality checks must also take this into account.
     &#34;&#34;&#34;
 
-    @property
-    def center(self) -&gt; Tensor:
-        &#34;&#34;&#34;
-        Center location in single channel dimension.
-        &#34;&#34;&#34;
-        raise NotImplementedError(self.__class__)
+    if TYPE_CHECKING:  # allow center to be implemented as a field as well
+        @property
+        @abstractmethod
+        def center(self) -&gt; Tensor:
+            &#34;&#34;&#34;
+            Center location in single channel dimension.
+            &#34;&#34;&#34;
+            raise NotImplementedError(self.__class__)
 
     @property
+    @abstractmethod
     def shape(self) -&gt; Shape:
         &#34;&#34;&#34;
         The `shape` of a `Geometry` consists of the following dimensions:
@@ -5712,38 +5704,39 @@ Returns:</p></div>
         * Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space
         * Batch dimensions indicate non-interacting versions of this geometry for parallelization only.
         &#34;&#34;&#34;
-        raise NotImplementedError(self.__class__)
 
     @property
+    @abstractmethod
     def volume(self) -&gt; Tensor:
         &#34;&#34;&#34;
         `phi.math.Tensor` representing the volume of each element.
         The result retains batch, spatial and instance dimensions.
         &#34;&#34;&#34;
-        raise NotImplementedError(self.__class__)
 
     @property
+    @abstractmethod
     def faces(self) -&gt; &#39;Geometry&#39;:
         raise NotImplementedError(self.__class__)
 
     @property
+    @abstractmethod
     def face_centers(self) -&gt; Tensor:
         &#34;&#34;&#34;
         Center of face connecting a pair of cells. Shape `(elements, ~, vector)`.
         Here, `~` represents arbitrary internal dual dimensions, such as `~staggered_direction` or `~elements`.
         Returns 0-vectors for unconnected cells.
         &#34;&#34;&#34;
-        raise NotImplementedError(self.__class__)
 
     @property
+    @abstractmethod
     def face_areas(self) -&gt; Tensor:
         &#34;&#34;&#34;
         Area of face connecting a pair of cells. Shape `(elements, ~)`.
         Returns 0 for unconnected cells.
         &#34;&#34;&#34;
-        raise NotImplementedError(self.__class__)
 
     @property
+    @abstractmethod
     def face_normals(self) -&gt; Tensor:
         &#34;&#34;&#34;
         Normal vectors of cell faces, including boundary faces. Shape `(elements, ~, vector)`.
@@ -5751,9 +5744,9 @@ Returns:</p></div>
 
         Instance/spatial dimensions along which the normal does not vary may not be included in the result tensor&#39;s shape.
         &#34;&#34;&#34;
-        raise NotImplementedError(self.__class__)
 
     @property
+    @abstractmethod
     def boundary_elements(self) -&gt; Dict[str, Dict[str, slice]]:
         &#34;&#34;&#34;
         Slices on the primal dimensions to mark boundary elements.
@@ -5763,9 +5756,9 @@ Returns:</p></div>
         Returns:
             Map from `name` to slicing `dict`.
         &#34;&#34;&#34;
-        raise NotImplementedError(self.__class__)
 
     @property
+    @abstractmethod
     def boundary_faces(self) -&gt; Dict[str, Dict[str, slice]]:
         &#34;&#34;&#34;
         Slices on the dual dimensions to mark boundary faces.
@@ -5777,7 +5770,6 @@ Returns:</p></div>
         Returns:
             Map from `name` to slicing `dict`.
         &#34;&#34;&#34;
-        raise NotImplementedError(self.__class__)
 
     @property
     def face_shape(self) -&gt; Shape:
@@ -5812,6 +5804,7 @@ Returns:</p></div>
             raise ValueError(f&#34;Unknown set: &#39;{set_key}&#39;&#34;)
 
     @property
+    @abstractmethod
     def corners(self) -&gt; Tensor:
         &#34;&#34;&#34;
         Returns:
@@ -5819,7 +5812,6 @@ Returns:</p></div>
             Corners belonging to one object or cell are listed along dual dimensions.
             If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.
         &#34;&#34;&#34;
-        raise NotImplementedError(self.__class__)
 
     def integrate_surface(self, face_values: Tensor, divide_volume=False) -&gt; Tensor:
         &#34;&#34;&#34;
@@ -5840,30 +5832,6 @@ Returns:</p></div>
         assert &#39;vector&#39; in flux.shape, f&#34;flux must have a &#39;vector&#39; dimension but got {flux.shape}&#34;
         result = math.sum(flux.vector @ (self.face_normals * self.face_areas).vector, self.face_shape.dual)
         return result / self.volume if divide_volume else result
-
-    # def resample_to_faces(self, values: Tensor, boundary: Extrapolation, **kwargs):
-    #     raise NotImplementedError(self.__class__)
-    #
-    # def resample_to_centers(self, values: Tensor, boundary: Extrapolation, **kwargs):
-    #     raise NotImplementedError(self.__class__)
-    #
-    # def centered_gradient_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
-    #     raise NotImplementedError(self.__class__)
-    #
-    # def staggered_gradient_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
-    #     raise NotImplementedError(self.__class__)
-    #
-    # def divergence_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
-    #     raise NotImplementedError(self.__class__)
-    #
-    # def laplace_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
-    #     raise NotImplementedError(self.__class__)
-    #
-    # def centered_curl_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
-    #     raise NotImplementedError(self.__class__)
-    #
-    # def staggered_curl_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
-    #     raise NotImplementedError(self.__class__)
 
     def unstack(self, dimension: str) -&gt; tuple:
         &#34;&#34;&#34;
@@ -6208,6 +6176,7 @@ Equality checks must also take this into account.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
+@abstractmethod
 def boundary_elements(self) -&gt; Dict[str, Dict[str, slice]]:
     &#34;&#34;&#34;
     Slices on the primal dimensions to mark boundary elements.
@@ -6216,8 +6185,7 @@ def boundary_elements(self) -&gt; Dict[str, Dict[str, slice]]:
 
     Returns:
         Map from `name` to slicing `dict`.
-    &#34;&#34;&#34;
-    raise NotImplementedError(self.__class__)</code></pre>
+    &#34;&#34;&#34;</code></pre>
 </details>
 <div class="desc"><p>Slices on the primal dimensions to mark boundary elements.
 Grids and meshes have no boundary elements and return <code>{}</code>.
@@ -6232,6 +6200,7 @@ Dynamic graphs can define boundary elements for obstacles and walls.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
+@abstractmethod
 def boundary_faces(self) -&gt; Dict[str, Dict[str, slice]]:
     &#34;&#34;&#34;
     Slices on the dual dimensions to mark boundary faces.
@@ -6242,8 +6211,7 @@ def boundary_faces(self) -&gt; Dict[str, Dict[str, slice]]:
 
     Returns:
         Map from `name` to slicing `dict`.
-    &#34;&#34;&#34;
-    raise NotImplementedError(self.__class__)</code></pre>
+    &#34;&#34;&#34;</code></pre>
 </details>
 <div class="desc"><p>Slices on the dual dimensions to mark boundary faces.</p>
 <p>Regular grids use the keys (dim, is_upper) to identify boundaries.
@@ -6252,21 +6220,6 @@ Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
 <p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 </dd>
-<dt id="phi.geom.Geometry.center"><code class="name">prop <span class="ident">center</span> : phiml.math._tensors.Tensor</code></dt>
-<dd>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def center(self) -&gt; Tensor:
-    &#34;&#34;&#34;
-    Center location in single channel dimension.
-    &#34;&#34;&#34;
-    raise NotImplementedError(self.__class__)</code></pre>
-</details>
-<div class="desc"><p>Center location in single channel dimension.</p></div>
-</dd>
 <dt id="phi.geom.Geometry.corners"><code class="name">prop <span class="ident">corners</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <details class="source">
@@ -6274,14 +6227,14 @@ def center(self) -&gt; Tensor:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
+@abstractmethod
 def corners(self) -&gt; Tensor:
     &#34;&#34;&#34;
     Returns:
         Corner locations as `phiml.math.Tensor`.
         Corners belonging to one object or cell are listed along dual dimensions.
         If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.
-    &#34;&#34;&#34;
-    raise NotImplementedError(self.__class__)</code></pre>
+    &#34;&#34;&#34;</code></pre>
 </details>
 <div class="desc"><h2 id="returns">Returns</h2>
 <p>Corner locations as <code>phiml.math.Tensor</code>.
@@ -6295,12 +6248,12 @@ If the object has no corners, a size-0 tensor with the correct vector and instan
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
+@abstractmethod
 def face_areas(self) -&gt; Tensor:
     &#34;&#34;&#34;
     Area of face connecting a pair of cells. Shape `(elements, ~)`.
     Returns 0 for unconnected cells.
-    &#34;&#34;&#34;
-    raise NotImplementedError(self.__class__)</code></pre>
+    &#34;&#34;&#34;</code></pre>
 </details>
 <div class="desc"><p>Area of face connecting a pair of cells. Shape <code>(elements, ~)</code>.
 Returns 0 for unconnected cells.</p></div>
@@ -6312,13 +6265,13 @@ Returns 0 for unconnected cells.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
+@abstractmethod
 def face_centers(self) -&gt; Tensor:
     &#34;&#34;&#34;
     Center of face connecting a pair of cells. Shape `(elements, ~, vector)`.
     Here, `~` represents arbitrary internal dual dimensions, such as `~staggered_direction` or `~elements`.
     Returns 0-vectors for unconnected cells.
-    &#34;&#34;&#34;
-    raise NotImplementedError(self.__class__)</code></pre>
+    &#34;&#34;&#34;</code></pre>
 </details>
 <div class="desc"><p>Center of face connecting a pair of cells. Shape <code>(elements, ~, vector)</code>.
 Here, <code>~</code> represents arbitrary internal dual dimensions, such as <code>~staggered_direction</code> or <code>~elements</code>.
@@ -6331,14 +6284,14 @@ Returns 0-vectors for unconnected cells.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
+@abstractmethod
 def face_normals(self) -&gt; Tensor:
     &#34;&#34;&#34;
     Normal vectors of cell faces, including boundary faces. Shape `(elements, ~, vector)`.
     For meshes, The vectors point out of the primal cells and into the dual cells.
 
     Instance/spatial dimensions along which the normal does not vary may not be included in the result tensor&#39;s shape.
-    &#34;&#34;&#34;
-    raise NotImplementedError(self.__class__)</code></pre>
+    &#34;&#34;&#34;</code></pre>
 </details>
 <div class="desc"><p>Normal vectors of cell faces, including boundary faces. Shape <code>(elements, ~, vector)</code>.
 For meshes, The vectors point out of the primal cells and into the dual cells.</p>
@@ -6370,6 +6323,7 @@ If this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
+@abstractmethod
 def faces(self) -&gt; &#39;Geometry&#39;:
     raise NotImplementedError(self.__class__)</code></pre>
 </details>
@@ -6397,6 +6351,7 @@ def sets(self) -&gt; Dict[str, Shape]:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
+@abstractmethod
 def shape(self) -&gt; Shape:
     &#34;&#34;&#34;
     The `shape` of a `Geometry` consists of the following dimensions:
@@ -6405,8 +6360,7 @@ def shape(self) -&gt; Shape:
     * Instance dimensions denote that this geometry consists of multiple copies in the same space
     * Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space
     * Batch dimensions indicate non-interacting versions of this geometry for parallelization only.
-    &#34;&#34;&#34;
-    raise NotImplementedError(self.__class__)</code></pre>
+    &#34;&#34;&#34;</code></pre>
 </details>
 <div class="desc"><p>The <code>shape</code> of a <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> consists of the following dimensions:</p>
 <ul>
@@ -6436,12 +6390,12 @@ def spatial_rank(self) -&gt; int:
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
+@abstractmethod
 def volume(self) -&gt; Tensor:
     &#34;&#34;&#34;
     `phi.math.Tensor` representing the volume of each element.
     The result retains batch, spatial and instance dimensions.
-    &#34;&#34;&#34;
-    raise NotImplementedError(self.__class__)</code></pre>
+    &#34;&#34;&#34;</code></pre>
 </details>
 <div class="desc"><p><code>phi.math.Tensor</code> representing the volume of each element.
 The result retains batch, spatial and instance dimensions.</p></div>
@@ -7346,7 +7300,7 @@ def bounding_distance(self) -&gt; Optional[Tensor]:
 def center(self) -&gt; Tensor:
     return self.nodes.center</code></pre>
 </details>
-<div class="desc"><p>Center location in single channel dimension.</p></div>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.Graph.connectivity"><code class="name">var <span class="ident">connectivity</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -8017,7 +7971,7 @@ The grid dimensions of <code>bounds</code> must be finite but the height dimensi
 def center(self) -&gt; Tensor:
     return self.face_cache.center.consider[0]</code></pre>
 </details>
-<div class="desc"><p>Center location in single channel dimension.</p></div>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.Heightmap.dx"><code class="name">prop <span class="ident">dx</span></code></dt>
 <dd>
@@ -10189,7 +10143,7 @@ Dynamic graphs return slices along the dual dimensions.</p>
 def center(self) -&gt; Tensor:
     return self.location</code></pre>
 </details>
-<div class="desc"><p>Center location in single channel dimension.</p></div>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.Point.corners"><code class="name">prop <span class="ident">corners</span></code></dt>
 <dd>
@@ -10729,7 +10683,7 @@ Dynamic graphs return slices along the dual dimensions.</p>
 def center(self):
     return self.bounds.center</code></pre>
 </details>
-<div class="desc"><p>Center location in single channel dimension.</p></div>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.SDF.corners"><code class="name">prop <span class="ident">corners</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -12342,7 +12296,7 @@ Dynamic graphs return slices along the dual dimensions.</p>
 def center(self):
     return self.pos</code></pre>
 </details>
-<div class="desc"><p>Center location in single channel dimension.</p></div>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.Sphere.corners"><code class="name">prop <span class="ident">corners</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -13261,7 +13215,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fae0aa58c20></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f346abbcd60></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13287,7 +13241,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fae0aa58c20></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f346abbcd60></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13717,7 +13671,6 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Geometry.bounding_half_extent" href="#phi.geom.Geometry.bounding_half_extent">bounding_half_extent</a></code></li>
 <li><code><a title="phi.geom.Geometry.bounding_radius" href="#phi.geom.Geometry.bounding_radius">bounding_radius</a></code></li>
 <li><code><a title="phi.geom.Geometry.bounding_sphere" href="#phi.geom.Geometry.bounding_sphere">bounding_sphere</a></code></li>
-<li><code><a title="phi.geom.Geometry.center" href="#phi.geom.Geometry.center">center</a></code></li>
 <li><code><a title="phi.geom.Geometry.corners" href="#phi.geom.Geometry.corners">corners</a></code></li>
 <li><code><a title="phi.geom.Geometry.face_areas" href="#phi.geom.Geometry.face_areas">face_areas</a></code></li>
 <li><code><a title="phi.geom.Geometry.face_centers" href="#phi.geom.Geometry.face_centers">face_centers</a></code></li>
