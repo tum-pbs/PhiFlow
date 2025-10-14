@@ -1,114 +1,91 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from functools import cached_property
 from typing import Union, Tuple, Dict, Any
 
 import numpy
 
-from phiml import math
-from phiml.math import Tensor, spatial, unstack, stack, vec, wrap, Shape, channel, concat, instance, batch, rename_dims, shape, non_channel, expand
+from phiml import math, non_spatial
+from phiml.dataclasses import sliceable
+from phiml.math import Tensor, spatial, unstack, stack, vec, wrap, Shape, channel, concat, instance, batch, rename_dims, non_channel, Extrapolation
 from phiml.math._nd import index_shift_widths
 from phiml.math._tensors import cached
-from phiml.math.magic import slicing_dict, BoundDim
-from . import UniformGrid
+from phiml.math.extrapolation import NONE
+from phiml.math.magic import BoundDim
 from ._box import Box
-from ._functions import normal_from_slope, y_intersect_2d, plane_sgn_dist
+from ._functions import normal_from_slope, y_intersect_2d
 from ._geom import Geometry
 
 
+@sliceable
+@dataclass(frozen=True, eq=False)
 class Heightmap(Geometry):
+    height: Tensor
+    """Heightmap `Tensor` of absolute (world-space) height values. Scalar height values on a d-1 dimensional grid."""
+    bounds: Box
+    """Locations outside `bounds' can never lie inside this geometry if `extrapolation is None`.
+    Otherwise, only the height dimension is checked.
+    The grid dimensions of `bounds` must be finite but the height dimension may be infinite to count all values above/below `height` as inside."""
+    max_dist: Tensor
+    """Maximum distance up to which the distance approximations should be valid.
+    This does not affect the number of computations performed to compute the distance.
+    Low values increase accuracy close to the surface but trade off possibly very wrong distances further away."""
+    fill_below: Tensor[bool] = field(default_factory=lambda: wrap(True))
+    """Whether the inside is below or above the height values."""
+    extrapolation: Extrapolation = NONE
+    """Surface height outside `bounds´. Can be any valid `phiml.math.Extrapolation`, such as a constant.
+    If not `None`, values outside `bounds` will be checked against the extrapolated `height` values.
+    Otherwise, values outside `bounds` always lie on the outside."""
 
-    def __init__(self,
-                 height: Tensor,
-                 bounds: Box,
-                 max_dist: Union[float, Tensor],
-                 fill_below: Union[bool, Tensor] = True,
-                 extrapolation: Union[float, str, math.Extrapolation] = None,
-                 faces=None):
-        """
-
-        Args:
-            height: Heightmap `Tensor` of absolute (world-space) height values.
-                Scalar height values on a d-1 dimensional grid.
-            bounds: d-dimensional bounds.
-                Locations outside `bounds' can never lie inside this geometry if `extrapolation is None`.
-                Otherwise, only the height dimension is checked.
-                The grid dimensions of `bounds` must be finite but the height dimension may be infinite to count all values above/below `height` as inside.
-            max_dist: Maximum distance up to which the distance approximations should be valid.
-                This does not affect the number of computations performed to compute the distance.
-                Low values increase accuracy close to the surface but trade off possibly very wrong distances further away.
-            fill_below: Whether the inside is below or above the height values.
-            extrapolation: Surface height outside `bounds´. Can be any valid `phiml.math.Extrapolation`, such as a constant.
-                If not `None`, values outside `bounds` will be checked against the extrapolated `height` values.
-                Otherwise, values outside `bounds` always lie on the outside.
-        """
-        assert channel(height).is_empty, f"height must be a scalar quantity but got {height.shape}"
-        assert spatial(height), f"height field must have at least one spatial dim but got {height}"
-        assert bounds.vector.size == spatial(height).rank + 1, f"bounds must include the spatial grid dimensions {spatial(height)} and the height dimension but got {bounds}"
-        dims = bounds.vector.item_names
-        self._hdim = spatial(*dims).without(height.shape).name
-        if math.all_available(height, bounds.lower, bounds.upper):
-            assert bounds[self._hdim].lies_inside(height).all, f"All height values should be within the {self._hdim}-range given by bounds but got height={height}"
-        self._height = height
-        self._fill_below = wrap(fill_below)
-        self._bounds = bounds
-        self._max_dist = wrap(max_dist)
-        self._extrapolation = math.as_extrapolation(extrapolation)
-        if faces is None:
-            proj_faces = build_faces(self)
-            with numpy.errstate(divide='ignore', invalid='ignore'):
-                secondary_idx = math.map(find_most_important_neighbor, proj_faces, self.dx, self.resolution, self._hdim, self._fill_below, self._max_dist, dims=instance, unwrap_scalars=False)
-                secondary_faces = math.map(math.gather, proj_faces, secondary_idx, dims=instance)
-            self._faces: Face = stack([proj_faces, *unstack(secondary_faces, 'side')], batch(consider='self,outside,inside'), expand_values=True)
-            self._faces = cached(self._faces)  # otherwise, this may get expanded during tracing
-        else:
-            self._faces = faces
-
-    @property
-    def height(self):
-        return self._height
-
-    @property
-    def bounds(self):
-        return self._bounds
-
-    @property
-    def max_dist(self):
-        return self._max_dist
-
-    @property
-    def fill_below(self):
-        return self._fill_below
-
-    @property
-    def extrapolation(self):
-        return self._extrapolation
+    variable_attrs: Tuple[str, ...] = 'height', 'bounds', 'extrapolation'
+    value_attrs: Tuple[str, ...] = ()
+    
+    def __post_init__(self):
+        assert channel(self.height).is_empty, f"height must be a scalar quantity but got {self.height.shape}"
+        assert spatial(self.height), f"height field must have at least one spatial dim but got {self.height}"
+        assert self.bounds.vector.size == spatial(self.height).rank + 1, f"bounds must include the spatial grid dimensions {spatial(self.height)} and the height dimension but got {self.bounds}"
+        if math.all_available(self.height, self.bounds.lower, self.bounds.upper):
+            assert self.bounds[self.hdim].lies_inside(self.height).all, f"All height values should be within the {self.hdim}-range given by bounds but got height={self.height}"
 
     @property
     def shape(self) -> Shape:
-        return (self._height.shape - 1) & channel(self._bounds)
+        return self.resolution & channel(self.bounds) & non_spatial(self.height)
 
     @property
     def resolution(self):
-        return spatial(self._height) - 1
+        return spatial(self.height) - 1
 
     @property
     def grid_bounds(self):
-        return self._bounds[self.resolution.name_list]
+        return self.bounds[self.resolution.name_list]
 
     @property
     def up(self):
-        dims = self._bounds.vector.item_names
-        height_unit = vec(**{d: 1 if d == self._hdim else 0 for d in dims})
-        return math.where(self._fill_below, height_unit, -height_unit)
+        dims = self.bounds.vector.item_names
+        height_unit = vec(**{d: 1 if d == self.hdim else 0 for d in dims})
+        return math.where(self.fill_below, height_unit, -height_unit)
 
     @property
     def dx(self):
-        return self._bounds.size[self.resolution.name_list] / spatial(self.resolution)
+        return self.bounds.size[self.resolution.name_list] / spatial(self.resolution)
+    
+    @cached_property
+    def hdim(self):
+        return spatial(*self.bounds.vector.item_names).without(self.height.shape).name
+    
+    @cached_property
+    def face_cache(self):
+        proj_faces = build_faces(self)
+        with numpy.errstate(divide='ignore', invalid='ignore'):
+            secondary_idx = math.map(find_most_important_neighbor, proj_faces, self.dx, self.resolution, self.hdim, self.fill_below, self.max_dist, dims=instance, unwrap_scalars=False)
+            secondary_faces = math.map(math.gather, proj_faces, secondary_idx, dims=instance)
+        faces: Face = stack([proj_faces, *unstack(secondary_faces, 'side')], batch(consider='self,outside,inside'), expand_values=True)
+        return cached(faces)  # otherwise, this may get expanded during tracing
 
     @property
     def vertices(self):
-        hdim = self._hdim
+        hdim = self.hdim
         space = self.vector.item_names
-        pos = self.grid_bounds.local_to_global(math.meshgrid(spatial(self._height)) / self.resolution)
+        pos = self.grid_bounds.local_to_global(math.meshgrid(spatial(self.height)) / self.resolution)
         vert = stack({dim: self.height if dim == hdim else pos[dim] for dim in space}, channel('vector'))
         return vert
 
@@ -121,17 +98,17 @@ class Heightmap(Geometry):
             if extrapolation is None:
                 within_bounds = bounds.lies_inside(location)
             else:
-                within_bounds = bounds[self._hdim].lies_inside(location[self._hdim])
+                within_bounds = bounds[self.hdim].lies_inside(location[self.hdim])
             surface_height = math.grid_sample(height, float_idx - 1, math.NAN if extrapolation is None else extrapolation)
-            is_below = location[self._hdim] <= surface_height
+            is_below = location[self.hdim] <= surface_height
             inside = is_below == fill_below
             result = math.where(within_bounds, inside, False)
             return rename_dims(result, ['loc_' + n for n in self.resolution.names], self.resolution.names)
-        return math.any(lies_inside_(self._height, self.grid_bounds, self._bounds, self._fill_below, self._extrapolation), instance(self))
+        return math.any(lies_inside_(self.height, self.grid_bounds, self.bounds, self.fill_below, self.extrapolation), instance(self))
 
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         grid_bounds = math.i2b(self.grid_bounds)
-        faces = math.i2b(self._faces)
+        faces = math.i2b(self.face_cache)
         cell_idx = cell_index(location, grid_bounds, self.resolution, clip=True)
         # --- gather face infos at projected cell ---
         normals = faces.normal[cell_idx]
@@ -148,7 +125,7 @@ class Heightmap(Geometry):
         delta_highest = faces.extrema_points[cell_idx] - location
         flat_normal = math.vec_normalize(normals[self.resolution.name_list], epsilon=1e-5)
         delta_edge = flat_normal * (delta_highest[self.resolution].vector @ flat_normal.vector)  # project onto flat normal
-        delta_edge = concat([delta_edge, delta_highest[[self._hdim]]], 'vector')
+        delta_edge = concat([delta_edge, delta_highest[[self.hdim]]], 'vector')
         distance_edge = math.vec_length(delta_edge, eps=1e-5)
         delta_highest, distance_edge = math.at_min((delta_highest, distance_edge), distance_edge, 'extremum')
         distance_edge = math.where(distances < 0, -distance_edge, distance_edge)  # copy sign of distances onto distance_edges to always return the signed distance
@@ -161,38 +138,24 @@ class Heightmap(Geometry):
         return self == other
 
     def __repr__(self):
-        return f"Heightmap {self.resolution}, bounds={self._bounds}"
-
-    def __variable_attrs__(self):
-        return '_height', '_bounds', '_max_dist', '_fill_below', '_extrapolation', '_faces'
-
-    def __value_attrs__(self):
-        return ()
-
-    def __getitem__(self, item):
-        item = slicing_dict(self, item)
-        return Heightmap(self._height[item], self._bounds[item], self._max_dist[item], self._fill_below[item], self._extrapolation[item] if self._extrapolation is not None else None, math.slice(self._faces, item))
+        return f"Heightmap {self.resolution}, bounds={self.bounds}"
 
     def bounding_half_extent(self) -> Tensor:
-        h_min, h_max = self._faces.extrema_points[{'consider': 0, 'vector': self._hdim}].extremum
+        h_min, h_max = self.face_cache.extrema_points[{'consider': 0, 'vector': self.hdim}].extremum
         dh = h_max - h_min
         return stack({d: self.dx[d] if d in self.resolution else dh for d in self.vector.item_names}, channel('vector'), expand_values=True) * .5
 
     @property
     def center(self) -> Tensor:
-        return self._faces.center.consider[0]
+        return self.face_cache.center.consider[0]
 
     @property
     def volume(self) -> Tensor:
         return math.prod(self.bounding_half_extent() * 2, channel)
 
     @property
-    def faces(self) -> 'Geometry':
-        raise NotImplementedError
-
-    @property
     def face_centers(self) -> Tensor:
-        return self._faces.center
+        return self.face_cache.center
 
     @property
     def face_areas(self) -> Tensor:
@@ -200,7 +163,7 @@ class Heightmap(Geometry):
 
     @property
     def face_normals(self) -> Tensor:
-        return self._faces.normal
+        return self.face_cache.normal
 
     @property
     def boundary_elements(self) -> Dict[Any, Dict[str, slice]]:
@@ -212,7 +175,7 @@ class Heightmap(Geometry):
 
     @property
     def face_shape(self) -> Shape:
-        return non_channel(self._faces.center)
+        return non_channel(self.face_cache.center)
 
     def approximate_signed_distance(self, location: Tensor) -> Tensor:
         return self.approximate_closest_surface(location)[0]
@@ -221,7 +184,7 @@ class Heightmap(Geometry):
         raise NotImplementedError
 
     def bounding_radius(self) -> Tensor:
-        return self._bounds.bounding_radius()
+        return self.bounds.bounding_radius()
 
     def at(self, center: Tensor) -> 'Geometry':
         raise NotImplementedError
@@ -266,7 +229,7 @@ def build_faces(heightmap: Heightmap):
     lowest_point = math.at_min_neighbor(pos, height, spatial)
     extrema_points = stack({'lowest': lowest_point, 'highest': highest_point}, batch('extremum'))
     face_n, face_d = plane_from_slope(face_slope, center)
-    negate_below = math.where(heightmap._fill_below, 1, -1)
+    negate_below = math.where(heightmap.fill_below, 1, -1)
     face_n *= negate_below
     face_d *= negate_below
     index = math.meshgrid(heightmap.resolution)

@@ -6,6 +6,7 @@ from phiml.math import spatial, wrap, vec
 from phi.geom import Box, Heightmap
 from phi.field import CenteredGrid
 
+
 class TestHeightmap(TestCase):
 
     def test_1d_creation(self):
@@ -19,13 +20,13 @@ class TestHeightmap(TestCase):
         height = wrap([-1, 0, 0, 1], spatial('x'))
         bounds = Box(x=2, y=(-1, 1))
         heightmap = Heightmap(height, bounds, max_dist=.1)
-        math.assert_close([1, 2, 1], heightmap._faces.index.consider['outside']['x'])
-        math.assert_close([1, 0, 1], heightmap._faces.index.consider['inside']['x'])
+        math.assert_close([1, 2, 1], heightmap.face_cache.index.consider['outside']['x'])
+        math.assert_close([1, 0, 1], heightmap.face_cache.index.consider['inside']['x'])
         # --- complex case ---
         height = wrap([.1, .02, 0, 0, 1, .95, .8, .5, 0], spatial('x'))
         bounds = Box(x=2, y=1)
         heightmap = Heightmap(height, bounds, max_dist=.1)
-        outside_idx = heightmap._faces.index.consider['outside']['x']
+        outside_idx = heightmap.face_cache.index.consider['outside']['x']
         math.assert_close([1, 0, 3, 2, 3, 4, 5, 6], outside_idx)  # [- 0 3 - - 4 5 6] wanted    [ -1 1    -1-1-1] wanted shifts
 
     def test_is_inside_1d(self):

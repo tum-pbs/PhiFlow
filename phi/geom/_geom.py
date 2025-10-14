@@ -645,7 +645,6 @@ class NoGeometry(Geometry):
         raise GeometryException("Empty geometry does not have an interior")
 
 
-
 @sliceable(keepdims='vector')
 @dataclass(frozen=True, eq=False)
 class Point(Geometry):
