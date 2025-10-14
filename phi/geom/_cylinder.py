@@ -21,22 +21,18 @@ class Cylinder(Geometry):
     For cylinders whose bottom and top lie outside the domain or are otherwise not needed, you may use `infinite_cylinder` instead, which simplifies computations.
     """
 
-    _center: Tensor
+    center: Tensor
     radius: Tensor
     depth: Tensor
     rotation: Tensor  # rotation matrix
     axis: str
 
-    variable_attrs: Tuple[str, ...] = ('_center', 'radius', 'depth', 'rotation')
+    variable_attrs: Tuple[str, ...] = ('center', 'radius', 'depth', 'rotation')
     value_attrs: Tuple[str, ...] = ()
-
-    @property
-    def center(self) -> Tensor:
-        return self._center
 
     @cached_property
     def shape(self) -> Shape:
-        return self._center.shape & self.radius.shape & self.depth.shape & batch(self.rotation)
+        return self.center.shape & self.radius.shape & self.depth.shape & batch(self.rotation)
 
     @cached_property
     def radial_axes(self) -> Sequence[str]:
@@ -65,14 +61,14 @@ class Cylinder(Geometry):
         return replace(self, depth=wrap(depth))
 
     def lies_inside(self, location):
-        pos = rotate(location - self._center, self._rot_or_none, invert=True)
+        pos = rotate(location - self.center, self._rot_or_none, invert=True)
         r = pos.vector[self.radial_axes]
         h = pos.vector[self.axis]
         inside = (vec_squared(r) <= self.radius**2) & (h >= -.5*self.depth) & (h <= .5*self.depth)
         return math.any(inside, instance(self))  # union for instance dimensions
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]):
-        location = rotate(location - self._center, self._rot_or_none, invert=True)
+        location = rotate(location - self.center, self._rot_or_none, invert=True)
         r = location.vector[self.radial_axes]
         h = location.vector[self.axis]
         top_h = .5*self.depth
@@ -92,7 +88,7 @@ class Cylinder(Geometry):
         return math.min(sgn_dist, instance(self))
 
     def approximate_closest_surface(self, location: Tensor):
-        location = rotate(location - self._center, self._rot_or_none, invert=True)
+        location = rotate(location - self.center, self._rot_or_none, invert=True)
         r = location.vector[self.radial_axes]
         h = location.vector[self.axis]
         top_h = .5*self.depth
@@ -106,12 +102,12 @@ class Cylinder(Geometry):
         # --- Closest point on bottom / top ---
         above = h >= 0
         flat_h = where(above, top_h, bot_h)
-        on_flat = ncat([flat_h, clamped_r], self._center.shape['vector'])
+        on_flat = ncat([flat_h, clamped_r], self.center.shape['vector'])
         normal_flat = where(above, self.up, -self.up)
         # --- Closest point on cylinder ---
         clamped_h = clip(h, bot_h, top_h)
-        on_cyl = ncat([surf_r, clamped_h], self._center.shape['vector'])
-        normal_cyl = ncat([radial_outward, 0], self._center.shape['vector'], expand_values=True)
+        on_cyl = ncat([surf_r, clamped_h], self.center.shape['vector'])
+        normal_cyl = ncat([radial_outward, 0], self.center.shape['vector'], expand_values=True)
         # --- Choose closest ---
         d_flat = length(on_flat - location, 'vector')
         d_cyl = length(on_cyl - location, 'vector')
@@ -129,9 +125,9 @@ class Cylinder(Geometry):
         return sgn_dist, delta, normal, None, idx
 
     def sample_uniform(self, *shape: math.Shape):
-        r = Sphere(self._center[self.radial_axes], self.radius).sample_uniform(*shape)
+        r = Sphere(self.center[self.radial_axes], self.radius).sample_uniform(*shape)
         h = math.random_uniform(*shape, -.5*self.depth, .5*self.depth)
-        rh = ncat([r, h], self._center.shape['vector'])
+        rh = ncat([r, h], self.center.shape['vector'])
         return rotate(rh, self._rot_or_none)
 
     def bounding_radius(self):
@@ -141,10 +137,10 @@ class Cylinder(Geometry):
         if self.rotation is not None:
             tip = abs(self.up) * .5 * self.depth
             return tip + self.radius * sqrt(maximum(epsilon, 1 - self.up**2))
-        return ncat([.5*self.depth, expand(self.radius, channel(vector=self.radial_axes))], self._center.shape['vector'], expand_values=True)
+        return ncat([.5*self.depth, expand(self.radius, channel(vector=self.radial_axes))], self.center.shape['vector'], expand_values=True)
 
     def at(self, center: Tensor) -> 'Geometry':
-        return replace(self, _center=center)
+        return replace(self, center=center)
 
     def rotated(self, angle):
         rot = self.rotation_matrix @ rotation_matrix(angle) if self.rotation is not None else rotation_matrix(angle)
@@ -198,8 +194,8 @@ class Cylinder(Geometry):
             s = sin(angle) * self.radius
             c = cos(angle) * self.radius
             r = stack([s, c], channel(vector=self.radial_axes))
-            x = ncat([h, r], self._center.shape['vector'], expand_values=True)
-            return rotate(x, self._rot_or_none) + self._center
+            x = ncat([h, r], self.center.shape['vector'], expand_values=True)
+            return rotate(x, self._rot_or_none) + self.center
         raise NotImplementedError
 
 
@@ -250,7 +246,7 @@ def cylinder(center: Union[Tensor, float] = None,
         axis = axis_
     else:
         rotation = rotation_matrix(rotation)
-    variables = [{'center': '_center'}.get(v, v) for v in variables]
+    variables = [{'center': 'center'}.get(v, v) for v in variables]
     assert 'vector' not in radius.shape, f"Cylinder radius must not vary along vector but got {radius}"
     assert set(variables).issubset(set(all_attributes(Cylinder))), f"Invalid variables: {variables}"
     assert axis in center.vector.item_names, f"Cylinder axis {axis} not part of vector dim {center.vector}"

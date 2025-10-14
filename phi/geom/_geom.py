@@ -1,7 +1,8 @@
 import warnings
+from abc import abstractmethod
 from dataclasses import dataclass
 from numbers import Number
-from typing import Union, Dict, Any, Tuple, Callable, TypeVar
+from typing import Union, Dict, Any, Tuple, Callable, TypeVar, TYPE_CHECKING
 
 from phiml import math
 from phiml.dataclasses import sliceable
@@ -10,6 +11,7 @@ from phiml.math._magic_ops import expand, find_differences, all_attributes
 from phiml.math.magic import slicing_dict
 
 
+@dataclass(frozen=True, eq=False)
 class Geometry:
     """
     Abstract base class for N-dimensional shapes.
@@ -34,14 +36,17 @@ class Geometry:
     Equality checks must also take this into account.
     """
 
-    @property
-    def center(self) -> Tensor:
-        """
-        Center location in single channel dimension.
-        """
-        raise NotImplementedError(self.__class__)
+    if TYPE_CHECKING:  # allow center to be implemented as a field as well
+        @property
+        @abstractmethod
+        def center(self) -> Tensor:
+            """
+            Center location in single channel dimension.
+            """
+            raise NotImplementedError(self.__class__)
 
     @property
+    @abstractmethod
     def shape(self) -> Shape:
         """
         The `shape` of a `Geometry` consists of the following dimensions:
@@ -51,38 +56,39 @@ class Geometry:
         * Spatial dimensions denote a crystal (repeating structure) of this geometric primitive in space
         * Batch dimensions indicate non-interacting versions of this geometry for parallelization only.
         """
-        raise NotImplementedError(self.__class__)
 
     @property
+    @abstractmethod
     def volume(self) -> Tensor:
         """
         `phi.math.Tensor` representing the volume of each element.
         The result retains batch, spatial and instance dimensions.
         """
-        raise NotImplementedError(self.__class__)
 
     @property
+    @abstractmethod
     def faces(self) -> 'Geometry':
         raise NotImplementedError(self.__class__)
 
     @property
+    @abstractmethod
     def face_centers(self) -> Tensor:
         """
         Center of face connecting a pair of cells. Shape `(elements, ~, vector)`.
         Here, `~` represents arbitrary internal dual dimensions, such as `~staggered_direction` or `~elements`.
         Returns 0-vectors for unconnected cells.
         """
-        raise NotImplementedError(self.__class__)
 
     @property
+    @abstractmethod
     def face_areas(self) -> Tensor:
         """
         Area of face connecting a pair of cells. Shape `(elements, ~)`.
         Returns 0 for unconnected cells.
         """
-        raise NotImplementedError(self.__class__)
 
     @property
+    @abstractmethod
     def face_normals(self) -> Tensor:
         """
         Normal vectors of cell faces, including boundary faces. Shape `(elements, ~, vector)`.
@@ -90,9 +96,9 @@ class Geometry:
 
         Instance/spatial dimensions along which the normal does not vary may not be included in the result tensor's shape.
         """
-        raise NotImplementedError(self.__class__)
 
     @property
+    @abstractmethod
     def boundary_elements(self) -> Dict[str, Dict[str, slice]]:
         """
         Slices on the primal dimensions to mark boundary elements.
@@ -102,9 +108,9 @@ class Geometry:
         Returns:
             Map from `name` to slicing `dict`.
         """
-        raise NotImplementedError(self.__class__)
 
     @property
+    @abstractmethod
     def boundary_faces(self) -> Dict[str, Dict[str, slice]]:
         """
         Slices on the dual dimensions to mark boundary faces.
@@ -116,7 +122,6 @@ class Geometry:
         Returns:
             Map from `name` to slicing `dict`.
         """
-        raise NotImplementedError(self.__class__)
 
     @property
     def face_shape(self) -> Shape:
@@ -151,6 +156,7 @@ class Geometry:
             raise ValueError(f"Unknown set: '{set_key}'")
 
     @property
+    @abstractmethod
     def corners(self) -> Tensor:
         """
         Returns:
@@ -158,7 +164,6 @@ class Geometry:
             Corners belonging to one object or cell are listed along dual dimensions.
             If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.
         """
-        raise NotImplementedError(self.__class__)
 
     def integrate_surface(self, face_values: Tensor, divide_volume=False) -> Tensor:
         """
@@ -179,30 +184,6 @@ class Geometry:
         assert 'vector' in flux.shape, f"flux must have a 'vector' dimension but got {flux.shape}"
         result = math.sum(flux.vector @ (self.face_normals * self.face_areas).vector, self.face_shape.dual)
         return result / self.volume if divide_volume else result
-
-    # def resample_to_faces(self, values: Tensor, boundary: Extrapolation, **kwargs):
-    #     raise NotImplementedError(self.__class__)
-    #
-    # def resample_to_centers(self, values: Tensor, boundary: Extrapolation, **kwargs):
-    #     raise NotImplementedError(self.__class__)
-    #
-    # def centered_gradient_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
-    #     raise NotImplementedError(self.__class__)
-    #
-    # def staggered_gradient_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
-    #     raise NotImplementedError(self.__class__)
-    #
-    # def divergence_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
-    #     raise NotImplementedError(self.__class__)
-    #
-    # def laplace_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
-    #     raise NotImplementedError(self.__class__)
-    #
-    # def centered_curl_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
-    #     raise NotImplementedError(self.__class__)
-    #
-    # def staggered_curl_of(self, values: Tensor, boundary: Extrapolation, dims=None, **kwargs):
-    #     raise NotImplementedError(self.__class__)
 
     def unstack(self, dimension: str) -> tuple:
         """
