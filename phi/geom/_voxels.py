@@ -1,29 +1,33 @@
+from dataclasses import dataclass
 from typing import Union, Tuple, Dict, Any
+
 from phi.torch.flow import *
-from phiml.math import Tensor, Shape, extrapolation
-from . import UniformGrid
-from . import Box
+from phiml.dataclasses import sliceable
+from phiml.math import Tensor, Shape
 from ._geom import Geometry
-from .. import math
+from ._grid import UniformGrid
 
+
+@sliceable(keepdims='vector')
+@dataclass(frozen=True, eq=False)
 class Voxels(Geometry):
-    
-    def __init__(self, grid: UniformGrid, filled: Tensor):
-        self._grid = grid
-        self._filled = filled
+    grid: UniformGrid
+    filled: Tensor
 
-    
+    value_attrs: Tuple[str, ...] = 'filled',
+    variable_attrs: Tuple[str, ...] = 'grid', 'filled'
+
     @property
     def center(self) -> Tensor:
-        return self._grid.center[self._filled]
+        return self.grid.center[self.filled]
 
     @property
     def shape(self) -> Shape:
-        return self._filled.shape & self._grid.shape['vector']
+        return self.filled.shape & self.grid.shape['vector']
     
     @property
     def resolution(self):
-        return self._grid.resolution
+        return self.grid.resolution
 
     @property
     def volume(self) -> Tensor:
@@ -58,7 +62,7 @@ class Voxels(Geometry):
         raise NotImplementedError
 
     def lies_inside(self, location: Tensor) -> Tensor:
-        return (self._filled==1)
+        return self.filled == 1
     
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         raise NotImplementedError
@@ -71,9 +75,9 @@ class Voxels(Geometry):
         ## combinations of X,Y,Z one is L+1 and the rest are L
         L = (X+Y+Z)//3
 
-        #self._filled is a cell centered grid of the shape (L,L,L) with solid,fluid locations marked
+        #self.filled is a cell centered grid of the shape (L,L,L) with solid,fluid locations marked
         # as 1,-1 respectively
-        filled = self._filled
+        filled = self.filled
         filled_ = math.concat([ filled.x[:1].y[:].z[:] ,filled ,  filled.x[-1:].y[:].z[:]], dim=spatial('x'))
         filled_ = math.concat([filled_.x[:].y[:1].z[:], filled_, filled_.x[:].y[-1:].z[:]], dim=spatial('y'))
         filled_ = math.concat([filled_.x[:].y[:].z[:1], filled_, filled_.x[:].y[:].z[-1:]], dim=spatial('z'))
@@ -196,7 +200,6 @@ class Voxels(Geometry):
 
         return distance
 
-    
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
 
@@ -208,22 +211,9 @@ class Voxels(Geometry):
 
     def at(self, center: Tensor) -> 'Geometry':
         raise NotImplementedError
-
-    def __variable_attrs__(self):
-        return '_grid', '_filled'
-    
-    def __value_attrs__(self):
-        return '_grid', '_filled'
-
     
     def rotated(self, angle: Union[float, Tensor]) -> 'Geometry':
         raise NotImplementedError
 
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
-        raise NotImplementedError
-
-    def __hash__(self):
-        raise NotImplementedError
-
-    def __getitem__(self, item):
         raise NotImplementedError
