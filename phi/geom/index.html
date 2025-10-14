@@ -141,7 +141,10 @@ el.replaceWith(d);
     rel_margin = 0 if rel_margin is None else rel_margin
     bounds = Cuboid(bounds.center, half_size=bounds.half_size * (1 + 2 * rel_margin) + 2 * abs_margin)
     if isinstance(geo, SDF):
-        return SDF(geo._sdf, geo._out_shape, bounds, geo._center, geo._volume, geo._bounding_radius)
+        result = SDF(geo.sdf, bounds, geo.volume, geo.grad_fn)
+        if &#39;out_shape&#39; in geo.__dict__:
+            result.__dict__[&#39;out_shape&#39;] = geo.__dict__[&#39;out_shape&#39;]
+        return result
     elif isinstance(geo, Mesh) and geo.spatial_rank == 3 and geo.element_rank == 2:  # 3D surface mesh
         method = &#39;closest-face&#39; if method == &#39;auto&#39; else method
         if method == &#39;pysdf&#39;:
@@ -150,7 +153,7 @@ el.replaceWith(d);
             np_tris = geo.elements._indices.numpy(&#39;cells,~vertices&#39;)
             np_sdf = PySDF(np_verts, np_tris)  # (num_vertices, 3) and (num_faces, 3)
             np_sdf_c = lambda x: np.clip(np_sdf(x), -float(bounds.size.min) / 2, float(bounds.size.max))
-            return numpy_sdf(np_sdf_c, bounds, geo.bounding_box().center)
+            return numpy_sdf(np_sdf_c, bounds)
         elif method == &#39;closest-face&#39;:
             def sdf_closest_face(location):
                 closest_elem = math.find_closest(geo.center, location)
@@ -166,7 +169,9 @@ el.replaceWith(d);
                 sgn_dist = plane_sgn_dist(center, normal, location)
                 outward = math.where(abs(sgn_dist) &lt; size, normal, math.vec_normalize(location - center))
                 return sgn_dist, outward
-            return SDF(sdf_closest_face, math.EMPTY_SHAPE, bounds, geo.bounding_box().center, sdf_and_grad=sdf_and_grad)
+            result = SDF(sdf_closest_face, bounds, grad_fn=sdf_and_grad)
+            result.__dict__[&#39;out_shape&#39;] = math.EMPTY_SHAPE
+            return result
         elif method == &#39;mesh-to-sdf&#39;:
             from mesh_to_sdf import mesh_to_sdf
             from trimesh import Trimesh
@@ -175,13 +180,15 @@ el.replaceWith(d);
             trimesh = Trimesh(np_verts, np_tris)
             def np_sdf(points):
                 return mesh_to_sdf(trimesh, points, surface_point_method=&#39;scan&#39;, sign_method=&#39;normal&#39;)
-            return numpy_sdf(np_sdf, bounds, geo.bounding_box().center)
+            return numpy_sdf(np_sdf, bounds)
         else:
             raise ValueError(f&#34;Method &#39;{method}&#39; not implemented for Mesh SDF&#34;)
     def sdf_and_grad(x: Tensor):
         sgn_dist, delta, *_ = geo.approximate_closest_surface(x)
         return sgn_dist, math.vec_normalize(-delta)
-    return SDF(geo.approximate_signed_distance, geo.shape.non_instance.without(&#39;vector&#39;), bounds, geo.center, geo.volume, geo.bounding_radius(), sdf_and_grad)</code></pre>
+    result = SDF(geo.approximate_signed_distance, bounds, geo.volume, sdf_and_grad)
+    result.__dict__[&#39;out_shape&#39;] = geo.shape.non_instance.without(&#39;vector&#39;)
+    return result</code></pre>
 </details>
 <div class="desc"><p>Represent existing geometry as a signed distance function.</p>
 <h2 id="args">Args</h2>
@@ -1625,21 +1632,20 @@ If not specified, the zero-vector yields <code>NaN</code> as it cannot be normal
 <p><code>Tensor</code> of the same shape as <code>obj</code>.</p></div>
 </dd>
 <dt id="phi.geom.numpy_sdf"><code class="name flex">
-<span>def <span class="ident">numpy_sdf</span></span>(<span>sdf: Callable,<br>bounds: phi.geom._box.Box,<br>center: phiml.math._tensors.Tensor = None) ‑> phi.geom._sdf.SDF</span>
+<span>def <span class="ident">numpy_sdf</span></span>(<span>sdf: Callable, bounds: phi.geom._box.Box) ‑> phi.geom._sdf.SDF</span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def numpy_sdf(sdf: Callable, bounds: Box, center: Tensor = None) -&gt; SDF:
+<pre><code class="python">def numpy_sdf(sdf: Callable, bounds: Box) -&gt; SDF:
     &#34;&#34;&#34;
     Define a `SDF` (signed distance function) from a NumPy function.
 
     Args:
         sdf: Function mapping a location `numpy.ndarray` of shape `(points, vector)` to the corresponding SDF value `(points,)`.
         bounds: Bounds inside which the function is defined.
-        center: Optional center position of the object encoded via `sdf`.
 
     Returns:
         `SDF`
@@ -1649,7 +1655,9 @@ If not specified, the zero-vector yields <code>NaN</code> as it cannot be normal
         nat_sdf = pos.default_backend.numpy_call(sdf, nat_pos.shape[:1], math.DType(float, 32), nat_pos)
         with pos.default_backend:
             return math.reshaped_tensor(nat_sdf, [pos.shape - &#39;vector&#39;])
-    return SDF(native_sdf_function, math.EMPTY_SHAPE, bounds, center)</code></pre>
+    result = SDF(native_sdf_function, bounds)
+    result.__dict__[&#39;out_shape&#39;] = math.EMPTY_SHAPE
+    return result</code></pre>
 </details>
 <div class="desc"><p>Define a <code><a title="phi.geom.SDF" href="#phi.geom.SDF">SDF</a></code> (signed distance function) from a NumPy function.</p>
 <h2 id="args">Args</h2>
@@ -1658,8 +1666,6 @@ If not specified, the zero-vector yields <code>NaN</code> as it cannot be normal
 <dd>Function mapping a location <code>numpy.ndarray</code> of shape <code>(points, vector)</code> to the corresponding SDF value <code>(points,)</code>.</dd>
 <dt><strong><code>bounds</code></strong></dt>
 <dd>Bounds inside which the function is defined.</dd>
-<dt><strong><code>center</code></strong></dt>
-<dd>Optional center position of the object encoded via <code>sdf</code>.</dd>
 </dl>
 <h2 id="returns">Returns</h2>
 <p><code><a title="phi.geom.SDF" href="#phi.geom.SDF">SDF</a></code></p></div>
@@ -3423,7 +3429,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f9e76bb8c20></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fc15953cc20></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3466,7 +3472,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f9e76bb8c20></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fc15953cc20></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4558,7 +4564,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f9e76bb8c20></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fc15953cc20></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4601,7 +4607,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f9e76bb8c20></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fc15953cc20></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -10573,84 +10579,60 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 </dd>
 <dt id="phi.geom.SDF"><code class="flex name class">
 <span>class <span class="ident">SDF</span></span>
-<span>(</span><span>sdf: Callable,<br>out_shape=None,<br>bounds: phi.geom._box.Box = None,<br>center: phiml.math._tensors.Tensor = None,<br>volume: phiml.math._tensors.Tensor = None,<br>bounding_radius: phiml.math._tensors.Tensor = None,<br>sdf_and_grad: Callable = None)</span>
+<span>(</span><span>sdf: Callable,<br>bounds: phi.geom._box.Box,<br>vol: phiml.math._tensors.Tensor = None,<br>grad_fn: Callable | None = None,<br>variable_attrs: Tuple[str, ...] = ('bounds',),<br>value_attrs: Tuple[str, ...] = ())</span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">class SDF(Geometry):
+<pre><code class="python">@sliceable(keepdims=&#39;vector&#39;)
+@dataclass(frozen=True, eq=False)
+class SDF(Geometry):
     &#34;&#34;&#34;
     Function-based signed distance field.
     Negative values lie inside the geometry, the 0-level represents the surface.
     &#34;&#34;&#34;
-    def __init__(self, sdf: Callable, out_shape=None, bounds: Box = None, center: Tensor = None, volume: Tensor = None, bounding_radius: Tensor = None, sdf_and_grad: Callable = None):
-        &#34;&#34;&#34;
-        Args:
-            sdf: SDF function. First argument is a `phiml.math.Tensor` with a `vector` channel dim.
-            bounds: Grid limits. The bounds fully enclose all virtual cells.
-            center: (Optional) Geometry center point. Will be computed otherwise.
-            volume: (Optional) Geometry volume. Will be computed otherwise.
-            bounding_radius: (Optional) Geometry bounding radius around center. Will be computed otherwise.
-        &#34;&#34;&#34;
-        self._sdf = sdf
-        if out_shape is not None:
-            self._out_shape = out_shape or math.EMPTY_SHAPE
-        else:
-            dims = channel([bounds, center, bounding_radius])
-            assert &#39;vector&#39; in dims, f&#34;If out_shape is not specified, either bounds, center or bounding_radius must be given.&#34;
-            self._out_shape = sdf(math.zeros(dims[&#39;vector&#39;])).shape
-        self._bounds = bounds
-        if sdf_and_grad is not None:
-            self._grad = sdf_and_grad
-        else:
-            self._grad = math.gradient(sdf, wrt=0, get_output=True)
-        if center is not None:
-            self._center = center
-        else:
-            self._center = bounds.center
-        if volume is not None:
-            self._volume = volume
-        else:
-            self._volume = None
-        if bounding_radius is not None:
-            self._bounding_radius = bounding_radius
-        else:
-            self._bounding_radius = self._bounds.bounding_radius()
+    sdf: Callable  # SDF function. First argument is a `phiml.math.Tensor` with a `vector` channel dim.
+    bounds: Box  # Grid limits. The bounds fully enclose all virtual cells.
+    vol: Tensor = None
+    grad_fn: Optional[Callable] = None  # Returns (sdf, grad) when called with location
 
+    variable_attrs: Tuple[str, ...] = &#39;bounds&#39;,
+    value_attrs: Tuple[str, ...] = ()
+    
     def __call__(self, location, *aux_args, **aux_kwargs):
         native_loc = not isinstance(location, Tensor)
         if native_loc:
-            location = math.wrap(location, instance(&#39;points&#39;), self.shape[&#39;vector&#39;])
-        sdf_val: Tensor = self._sdf(location, *aux_args, **aux_kwargs)
+            location = wrap(location, instance(&#39;points&#39;), self.shape[&#39;vector&#39;])
+        sdf_val: Tensor = self.sdf(location, *aux_args, **aux_kwargs)
         return sdf_val.native() if native_loc else sdf_val
-
-    def __variable_attrs__(self):
-        return &#39;_bounds&#39;, &#39;_center&#39;, &#39;_volume&#39;, &#39;_bounding_radius&#39;
-
-    def __value_attrs__(self):
-        return ()
-
+    
+    @cached_property
+    def out_shape(self):
+        dims = channel(self.bounds)
+        assert &#39;vector&#39; in dims, f&#34;If out_shape is not specified, either bounds, center or bounding_radius must be given.&#34;
+        return self.sdf(math.zeros(dims[&#39;vector&#39;])).shape
+    
+    @cached_property
+    def grad(self) -&gt; Callable:
+        return math.gradient(self.sdf, wrt=0, get_output=True) if self.grad_fn is None else self.grad_fn
+    
     @property
-    def bounds(self) -&gt; Box:
-        return self._bounds
+    def center(self):
+        return self.bounds.center
+    
+    @property
+    def volume(self):
+        return self.vol
 
     @property
     def size(self):
-        return self._bounds.size
-
-    @property
-    def center(self) -&gt; Tensor:
-        return self._center
+        return self.bounds.size
 
     @property
     def shape(self) -&gt; Shape:
-        return self._out_shape &amp; self._bounds.shape
-
-    @property
-    def volume(self) -&gt; Tensor:
-        return self._volume
+        return self.out_shape &amp; self.bounds.shape
 
     @property
     def faces(self) -&gt; &#39;Geometry&#39;:
@@ -10685,17 +10667,17 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
         raise NotImplementedError(f&#34;SDF does not support corners&#34;)
 
     def lies_inside(self, location: Tensor) -&gt; Tensor:
-        sdf = self._sdf(location)
+        sdf = self.sdf(location)
         return sdf &lt;= 0
 
     def approximate_closest_surface(self, location: Tensor, refine_iter=0) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
-        sgn_dist, outward = self._grad(location)
+        sgn_dist, outward = self.grad(location)
         closest = location - sgn_dist * outward
         if not refine_iter:
-            _, normal = self._grad(closest)
+            _, normal = self.grad(closest)
         else:
             for i in range(refine_iter):
-                sgn_dist, outward = self._grad(closest)
+                sgn_dist, outward = self.grad(closest)
                 closest -= sgn_dist * outward
             normal = outward
         offset = None
@@ -10704,26 +10686,26 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
 
     def sdf_and_gradient(self, location: Tensor, refine_iter=0) -&gt; Tuple[Tensor, Tensor]:
         if not refine_iter:
-            sgn_dist, outward = self._grad(location)
+            sgn_dist, outward = self.grad(location)
         else:
             sgn_dist, delta, *_ = self.approximate_closest_surface(location)
             outward = math.vec_normalize(math.sign(-sgn_dist) * delta)
         return sgn_dist, outward
 
     def approximate_signed_distance(self, location: Tensor) -&gt; Tensor:
-        return self._sdf(location)
+        return self.sdf(location)
 
     def sample_uniform(self, *shape: math.Shape) -&gt; Tensor:
         raise NotImplementedError
 
     def bounding_radius(self) -&gt; Tensor:
-        return self._bounding_radius
+        return self.bounds.bounding_radius()
 
     def bounding_half_extent(self) -&gt; Tensor:
-        return self._bounds.half_size  # this could be too small if the center is not in the middle of the bounds
+        return self.bounds.half_size  # this could be too small if the center is not in the middle of the bounds
 
     def bounding_box(self) -&gt; &#39;Box&#39;:
-        return self._bounds
+        return self.bounds
 
     def shifted(self, delta: Tensor) -&gt; &#39;Geometry&#39;:
         raise NotImplementedError(&#34;SDF does not yet support shifting&#34;)
@@ -10735,16 +10717,13 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
         raise NotImplementedError(&#34;SDF does not yet support rotation&#34;)
 
     def scaled(self, factor: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
-        off_center = self._center - self._bounds.center
-        volume = self._volume * factor ** self.spatial_rank
-        bounds = self._bounds.scaled(factor).shifted(off_center * (factor - 1)).corner_representation()
-        return SDF(self._sdf, bounds, self._center, volume, self._bounding_radius * factor)
+        raise NotImplementedError(&#34;SDF does not yet support scaling&#34;)
 
     def __getitem__(self, item):
         item = slicing_dict(self, item)
         if not item:
             return self
-        raise NotImplementedError
+        raise NotImplementedError(&#34;SDF cannot be sliced.&#34;)
 
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -&gt; &#39;Geometry&#39;:
@@ -10752,26 +10731,28 @@ The shapes of the returned geometries are reduced by <code>dimension</code>.</p>
         return GeometryStack(math.layout(values, dim))</code></pre>
 </details>
 <div class="desc"><p>Function-based signed distance field.
-Negative values lie inside the geometry, the 0-level represents the surface.</p>
-<h2 id="args">Args</h2>
-<dl>
-<dt><strong><code>sdf</code></strong></dt>
-<dd>SDF function. First argument is a <code>phiml.math.Tensor</code> with a <code>vector</code> channel dim.</dd>
-<dt><strong><code>bounds</code></strong></dt>
-<dd>Grid limits. The bounds fully enclose all virtual cells.</dd>
-<dt><strong><code>center</code></strong></dt>
-<dd>(Optional) Geometry center point. Will be computed otherwise.</dd>
-<dt><strong><code>volume</code></strong></dt>
-<dd>(Optional) Geometry volume. Will be computed otherwise.</dd>
-<dt><strong><code>bounding_radius</code></strong></dt>
-<dd>(Optional) Geometry bounding radius around center. Will be computed otherwise.</dd>
-</dl></div>
+Negative values lie inside the geometry, the 0-level represents the surface.</p></div>
 <h3>Ancestors</h3>
 <ul class="hlist">
 <li>phi.geom._geom.Geometry</li>
 </ul>
 <h3>Instance variables</h3>
 <dl>
+<dt id="phi.geom.SDF.Tc"><code class="name">prop <span class="ident">Tc</span></code></dt>
+<dd>
+<div class="desc"><p>partial(func, <em>args, </em>*keywords) - new function with partial application
+of the given arguments and keywords.</p></div>
+</dd>
+<dt id="phi.geom.SDF.Ti"><code class="name">prop <span class="ident">Ti</span></code></dt>
+<dd>
+<div class="desc"><p>partial(func, <em>args, </em>*keywords) - new function with partial application
+of the given arguments and keywords.</p></div>
+</dd>
+<dt id="phi.geom.SDF.Ts"><code class="name">prop <span class="ident">Ts</span></code></dt>
+<dd>
+<div class="desc"><p>partial(func, <em>args, </em>*keywords) - new function with partial application
+of the given arguments and keywords.</p></div>
+</dd>
 <dt id="phi.geom.SDF.boundary_elements"><code class="name">prop <span class="ident">boundary_elements</span> : Dict[Any, Dict[str, slice]]</code></dt>
 <dd>
 <details class="source">
@@ -10805,27 +10786,19 @@ Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
 <p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 </dd>
-<dt id="phi.geom.SDF.bounds"><code class="name">prop <span class="ident">bounds</span> : phi.geom._box.Box</code></dt>
+<dt id="phi.geom.SDF.bounds"><code class="name">var <span class="ident">bounds</span> : phi.geom._box.Box</code></dt>
 <dd>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def bounds(self) -&gt; Box:
-    return self._bounds</code></pre>
-</details>
 <div class="desc"></div>
 </dd>
-<dt id="phi.geom.SDF.center"><code class="name">prop <span class="ident">center</span> : phiml.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.SDF.center"><code class="name">prop <span class="ident">center</span></code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
-def center(self) -&gt; Tensor:
-    return self._center</code></pre>
+def center(self):
+    return self.bounds.center</code></pre>
 </details>
 <div class="desc"><p>Center location in single channel dimension.</p></div>
 </dd>
@@ -10911,6 +10884,40 @@ def faces(self) -&gt; &#39;Geometry&#39;:
 </details>
 <div class="desc"></div>
 </dd>
+<dt id="phi.geom.SDF.grad"><code class="name">var <span class="ident">grad</span> : Callable</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@cached_property
+def grad(self) -&gt; Callable:
+    return math.gradient(self.sdf, wrt=0, get_output=True) if self.grad_fn is None else self.grad_fn</code></pre>
+</details>
+<div class="desc"></div>
+</dd>
+<dt id="phi.geom.SDF.grad_fn"><code class="name">var <span class="ident">grad_fn</span> : Callable | None</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="phi.geom.SDF.out_shape"><code class="name">var <span class="ident">out_shape</span></code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@cached_property
+def out_shape(self):
+    dims = channel(self.bounds)
+    assert &#39;vector&#39; in dims, f&#34;If out_shape is not specified, either bounds, center or bounding_radius must be given.&#34;
+    return self.sdf(math.zeros(dims[&#39;vector&#39;])).shape</code></pre>
+</details>
+<div class="desc"></div>
+</dd>
+<dt id="phi.geom.SDF.sdf"><code class="name">var <span class="ident">sdf</span> : Callable</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="phi.geom.SDF.shape"><code class="name">prop <span class="ident">shape</span> : phiml.math._shape.Shape</code></dt>
 <dd>
 <details class="source">
@@ -10919,7 +10926,7 @@ def faces(self) -&gt; &#39;Geometry&#39;:
 </summary>
 <pre><code class="python">@property
 def shape(self) -&gt; Shape:
-    return self._out_shape &amp; self._bounds.shape</code></pre>
+    return self.out_shape &amp; self.bounds.shape</code></pre>
 </details>
 <div class="desc"><p>The <code>shape</code> of a <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> consists of the following dimensions:</p>
 <ul>
@@ -10937,19 +10944,31 @@ def shape(self) -&gt; Shape:
 </summary>
 <pre><code class="python">@property
 def size(self):
-    return self._bounds.size</code></pre>
+    return self.bounds.size</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
-<dt id="phi.geom.SDF.volume"><code class="name">prop <span class="ident">volume</span> : phiml.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.SDF.value_attrs"><code class="name">var <span class="ident">value_attrs</span> : Tuple[str, ...]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="phi.geom.SDF.variable_attrs"><code class="name">var <span class="ident">variable_attrs</span> : Tuple[str, ...]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="phi.geom.SDF.vol"><code class="name">var <span class="ident">vol</span> : phiml.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="phi.geom.SDF.volume"><code class="name">prop <span class="ident">volume</span></code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">@property
-def volume(self) -&gt; Tensor:
-    return self._volume</code></pre>
+def volume(self):
+    return self.vol</code></pre>
 </details>
 <div class="desc"><p><code>phi.math.Tensor</code> representing the volume of each element.
 The result retains batch, spatial and instance dimensions.</p></div>
@@ -10966,13 +10985,13 @@ The result retains batch, spatial and instance dimensions.</p></div>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def approximate_closest_surface(self, location: Tensor, refine_iter=0) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
-    sgn_dist, outward = self._grad(location)
+    sgn_dist, outward = self.grad(location)
     closest = location - sgn_dist * outward
     if not refine_iter:
-        _, normal = self._grad(closest)
+        _, normal = self.grad(closest)
     else:
         for i in range(refine_iter):
-            sgn_dist, outward = self._grad(closest)
+            sgn_dist, outward = self.grad(closest)
             closest -= sgn_dist * outward
         normal = outward
     offset = None
@@ -11010,7 +11029,7 @@ Positive values indicate the point lies outside the geometry, negative values in
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def approximate_signed_distance(self, location: Tensor) -&gt; Tensor:
-    return self._sdf(location)</code></pre>
+    return self.sdf(location)</code></pre>
 </details>
 <div class="desc"><p>Computes the approximate distance from location to the surface of the geometry.
 Locations outside return positive values, inside negative values and zero exactly at the boundary.</p>
@@ -11059,7 +11078,7 @@ This is equal to calling <code>self @ center</code>.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def bounding_box(self) -&gt; &#39;Box&#39;:
-    return self._bounds</code></pre>
+    return self.bounds</code></pre>
 </details>
 <div class="desc"><p>Returns the approximately smallest axis-aligned box that contains this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.
 The center of the box may not be equal to <code>self.center</code>.</p>
@@ -11075,7 +11094,7 @@ The center of the box may not be equal to <code>self.center</code>.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def bounding_half_extent(self) -&gt; Tensor:
-    return self._bounds.half_size  # this could be too small if the center is not in the middle of the bounds</code></pre>
+    return self.bounds.half_size  # this could be too small if the center is not in the middle of the bounds</code></pre>
 </details>
 <div class="desc"><p>The bounding half-extent sets a limit on the outer-most point for each coordinate axis.
 Each component is non-negative.</p>
@@ -11093,7 +11112,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def bounding_radius(self) -&gt; Tensor:
-    return self._bounding_radius</code></pre>
+    return self.bounds.bounding_radius()</code></pre>
 </details>
 <div class="desc"><p>Returns the radius of a Sphere object that fully encloses this geometry.
 The sphere is centered at the center of this geometry.</p>
@@ -11109,7 +11128,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def lies_inside(self, location: Tensor) -&gt; Tensor:
-    sdf = self._sdf(location)
+    sdf = self.sdf(location)
     return sdf &lt;= 0</code></pre>
 </details>
 <div class="desc"><p>Tests whether the given location lies inside or outside of the geometry. Locations on the surface count as inside.</p>
@@ -11179,10 +11198,7 @@ Either</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def scaled(self, factor: Union[float, Tensor]) -&gt; &#39;Geometry&#39;:
-    off_center = self._center - self._bounds.center
-    volume = self._volume * factor ** self.spatial_rank
-    bounds = self._bounds.scaled(factor).shifted(off_center * (factor - 1)).corner_representation()
-    return SDF(self._sdf, bounds, self._center, volume, self._bounding_radius * factor)</code></pre>
+    raise NotImplementedError(&#34;SDF does not yet support scaling&#34;)</code></pre>
 </details>
 <div class="desc"><p>Scales each individual geometry by <code>factor</code>.
 The individual <code>center</code> points act as pivots for the operation.</p>
@@ -11200,7 +11216,7 @@ Returns:</p></div>
 </summary>
 <pre><code class="python">def sdf_and_gradient(self, location: Tensor, refine_iter=0) -&gt; Tuple[Tensor, Tensor]:
     if not refine_iter:
-        sgn_dist, outward = self._grad(location)
+        sgn_dist, outward = self.grad(location)
     else:
         sgn_dist, delta, *_ = self.approximate_closest_surface(location)
         outward = math.vec_normalize(math.sign(-sgn_dist) * delta)
@@ -11239,7 +11255,7 @@ Returns:</p></div>
 </dd>
 <dt id="phi.geom.SDFGrid"><code class="flex name class">
 <span>class <span class="ident">SDFGrid</span></span>
-<span>(</span><span>values: phiml.math._tensors.Tensor,<br>bounds: phi.geom._box.Box,<br>approximate_outside: bool = True,<br>to_surface: phiml.math._tensors.Tensor | None = None,<br>surf_normal: phiml.math._tensors.Tensor | None = None,<br>surf_index: phiml.math._tensors.Tensor | None = None)</span>
+<span>(</span><span>values: phiml.math._tensors.Tensor,<br>bounds: phi.geom._box.Box,<br>approximate_outside: bool = True,<br>to_surface: phiml.math._tensors.Tensor | None = None,<br>surf_normal: phiml.math._tensors.Tensor | None = None,<br>surf_index: phiml.math._tensors.Tensor | None = None,<br>value_attrs: Tuple[str, ...] = ('sdf',),<br>variable_attrs: Tuple[str, ...] = ('sdf', 'bounds', 'to_surface', 'surf_normal', 'surf_index'))</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -11259,9 +11275,9 @@ class SDFGrid(Geometry):
     surf_normal: Optional[Tensor] = None  # Pre-computed surface normal at closest surface point.
     surf_index: Optional[Tensor] = None  # Pre-computed surface face index at closest surface point.
     
-    value_attrs = (&#39;sdf&#39;,)
-    variable_attrs = (&#39;sdf&#39;, &#39;bounds&#39;, &#39;to_surface&#39;, &#39;surf_normal&#39;, &#39;surf_index&#39;)
-            
+    value_attrs: Tuple[str, ...] = (&#39;sdf&#39;,)
+    variable_attrs: Tuple[str, ...] = (&#39;sdf&#39;, &#39;bounds&#39;, &#39;to_surface&#39;, &#39;surf_normal&#39;, &#39;surf_index&#39;)
+
     @cached_property
     def grad(self):
         grad = math.spatial_gradient(self.values, dx=self.dx, difference=&#39;forward&#39;, padding=math.extrapolation.ZERO_GRADIENT, stack_dim=channel(&#39;vector&#39;))
@@ -11441,17 +11457,6 @@ class SDFGrid(Geometry):
 <ul class="hlist">
 <li>phi.geom._geom.Geometry</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="phi.geom.SDFGrid.value_attrs"><code class="name">var <span class="ident">value_attrs</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-<dt id="phi.geom.SDFGrid.variable_attrs"><code class="name">var <span class="ident">variable_attrs</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 <h3>Instance variables</h3>
 <dl>
 <dt id="phi.geom.SDFGrid.Tc"><code class="name">prop <span class="ident">Tc</span></code></dt>
@@ -11723,7 +11728,15 @@ def size(self) -&gt; Tensor:
 <dd>
 <div class="desc"></div>
 </dd>
+<dt id="phi.geom.SDFGrid.value_attrs"><code class="name">var <span class="ident">value_attrs</span> : Tuple[str, ...]</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
 <dt id="phi.geom.SDFGrid.values"><code class="name">var <span class="ident">values</span> : phiml.math._tensors.Tensor</code></dt>
+<dd>
+<div class="desc"></div>
+</dd>
+<dt id="phi.geom.SDFGrid.variable_attrs"><code class="name">var <span class="ident">variable_attrs</span> : Tuple[str, ...]</code></dt>
 <dd>
 <div class="desc"></div>
 </dd>
@@ -13319,7 +13332,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f9e76bb8c20></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fc15953cc20></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13345,7 +13358,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f9e76bb8c20></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fc15953cc20></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13973,6 +13986,9 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li>
 <h4><code><a title="phi.geom.SDF" href="#phi.geom.SDF">SDF</a></code></h4>
 <ul class="">
+<li><code><a title="phi.geom.SDF.Tc" href="#phi.geom.SDF.Tc">Tc</a></code></li>
+<li><code><a title="phi.geom.SDF.Ti" href="#phi.geom.SDF.Ti">Ti</a></code></li>
+<li><code><a title="phi.geom.SDF.Ts" href="#phi.geom.SDF.Ts">Ts</a></code></li>
 <li><code><a title="phi.geom.SDF.approximate_closest_surface" href="#phi.geom.SDF.approximate_closest_surface">approximate_closest_surface</a></code></li>
 <li><code><a title="phi.geom.SDF.approximate_signed_distance" href="#phi.geom.SDF.approximate_signed_distance">approximate_signed_distance</a></code></li>
 <li><code><a title="phi.geom.SDF.at" href="#phi.geom.SDF.at">at</a></code></li>
@@ -13989,14 +14005,21 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.SDF.face_normals" href="#phi.geom.SDF.face_normals">face_normals</a></code></li>
 <li><code><a title="phi.geom.SDF.face_shape" href="#phi.geom.SDF.face_shape">face_shape</a></code></li>
 <li><code><a title="phi.geom.SDF.faces" href="#phi.geom.SDF.faces">faces</a></code></li>
+<li><code><a title="phi.geom.SDF.grad" href="#phi.geom.SDF.grad">grad</a></code></li>
+<li><code><a title="phi.geom.SDF.grad_fn" href="#phi.geom.SDF.grad_fn">grad_fn</a></code></li>
 <li><code><a title="phi.geom.SDF.lies_inside" href="#phi.geom.SDF.lies_inside">lies_inside</a></code></li>
+<li><code><a title="phi.geom.SDF.out_shape" href="#phi.geom.SDF.out_shape">out_shape</a></code></li>
 <li><code><a title="phi.geom.SDF.rotated" href="#phi.geom.SDF.rotated">rotated</a></code></li>
 <li><code><a title="phi.geom.SDF.sample_uniform" href="#phi.geom.SDF.sample_uniform">sample_uniform</a></code></li>
 <li><code><a title="phi.geom.SDF.scaled" href="#phi.geom.SDF.scaled">scaled</a></code></li>
+<li><code><a title="phi.geom.SDF.sdf" href="#phi.geom.SDF.sdf">sdf</a></code></li>
 <li><code><a title="phi.geom.SDF.sdf_and_gradient" href="#phi.geom.SDF.sdf_and_gradient">sdf_and_gradient</a></code></li>
 <li><code><a title="phi.geom.SDF.shape" href="#phi.geom.SDF.shape">shape</a></code></li>
 <li><code><a title="phi.geom.SDF.shifted" href="#phi.geom.SDF.shifted">shifted</a></code></li>
 <li><code><a title="phi.geom.SDF.size" href="#phi.geom.SDF.size">size</a></code></li>
+<li><code><a title="phi.geom.SDF.value_attrs" href="#phi.geom.SDF.value_attrs">value_attrs</a></code></li>
+<li><code><a title="phi.geom.SDF.variable_attrs" href="#phi.geom.SDF.variable_attrs">variable_attrs</a></code></li>
+<li><code><a title="phi.geom.SDF.vol" href="#phi.geom.SDF.vol">vol</a></code></li>
 <li><code><a title="phi.geom.SDF.volume" href="#phi.geom.SDF.volume">volume</a></code></li>
 </ul>
 </li>
