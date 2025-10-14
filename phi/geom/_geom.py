@@ -502,23 +502,23 @@ class Geometry:
         return f"{self.__class__.__name__}{self.shape}"
 
 
+@sliceable
+@dataclass(frozen=True, eq=False)
 class InvertedGeometry(Geometry):
+    geometry: Geometry
 
-    def __init__(self, geometry):
-        self.geometry = geometry
+    variable_attrs = ('geometry',)
+    value_attrs = ('geometry',)
 
     @property
     def volume(self) -> Tensor:
-        return math.wrap(math.INF)
+        return wrap(math.INF)
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
 
     def scaled(self, factor: Union[float, Tensor]) -> 'Geometry':
         return InvertedGeometry(self.geometry.scaled(factor))
-
-    def __getitem__(self, item: dict):
-        return InvertedGeometry(self.geometry[item])
 
     @property
     def center(self):
@@ -565,12 +565,6 @@ class InvertedGeometry(Geometry):
     def __repr__(self):
         return f"~{self.geometry}"
 
-    def __variable_attrs__(self):
-        return self.geometry.__variable_attrs__
-
-    def __value_attrs__(self):
-        return self.geometry.__value_attrs__
-
 
 def invert(geometry: Geometry):
     """
@@ -585,10 +579,9 @@ def invert(geometry: Geometry):
     return ~geometry
 
 
+@dataclass(frozen=True, eq=False)
 class NoGeometry(Geometry):
-
-    def __init__(self, vector: Shape):
-        self._shape = vector
+    vector_dim: Shape
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
@@ -601,7 +594,7 @@ class NoGeometry(Geometry):
 
     @property
     def shape(self):
-        return self._shape
+        return self.vector_dim
 
     @property
     def volume(self) -> Tensor:
