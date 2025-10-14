@@ -38,7 +38,10 @@ def as_sdf(geo: Geometry, bounds=None, rel_margin=None, abs_margin=0., separate:
     rel_margin = 0 if rel_margin is None else rel_margin
     bounds = Cuboid(bounds.center, half_size=bounds.half_size * (1 + 2 * rel_margin) + 2 * abs_margin)
     if isinstance(geo, SDF):
-        return SDF(geo._sdf, geo._out_shape, bounds, geo._center, geo._volume, geo._bounding_radius)
+        result = SDF(geo.sdf, bounds, geo.volume, geo.grad_fn)
+        if 'out_shape' in geo.__dict__:
+            result.__dict__['out_shape'] = geo.__dict__['out_shape']
+        return result
     elif isinstance(geo, Mesh) and geo.spatial_rank == 3 and geo.element_rank == 2:  # 3D surface mesh
         method = 'closest-face' if method == 'auto' else method
         if method == 'pysdf':
@@ -47,7 +50,7 @@ def as_sdf(geo: Geometry, bounds=None, rel_margin=None, abs_margin=0., separate:
             np_tris = geo.elements._indices.numpy('cells,~vertices')
             np_sdf = PySDF(np_verts, np_tris)  # (num_vertices, 3) and (num_faces, 3)
             np_sdf_c = lambda x: np.clip(np_sdf(x), -float(bounds.size.min) / 2, float(bounds.size.max))
-            return numpy_sdf(np_sdf_c, bounds, geo.bounding_box().center)
+            return numpy_sdf(np_sdf_c, bounds)
         elif method == 'closest-face':
             def sdf_closest_face(location):
                 closest_elem = math.find_closest(geo.center, location)
@@ -63,7 +66,9 @@ def as_sdf(geo: Geometry, bounds=None, rel_margin=None, abs_margin=0., separate:
                 sgn_dist = plane_sgn_dist(center, normal, location)
                 outward = math.where(abs(sgn_dist) < size, normal, math.vec_normalize(location - center))
                 return sgn_dist, outward
-            return SDF(sdf_closest_face, math.EMPTY_SHAPE, bounds, geo.bounding_box().center, sdf_and_grad=sdf_and_grad)
+            result = SDF(sdf_closest_face, bounds, grad_fn=sdf_and_grad)
+            result.__dict__['out_shape'] = math.EMPTY_SHAPE
+            return result
         elif method == 'mesh-to-sdf':
             from mesh_to_sdf import mesh_to_sdf
             from trimesh import Trimesh
@@ -72,13 +77,15 @@ def as_sdf(geo: Geometry, bounds=None, rel_margin=None, abs_margin=0., separate:
             trimesh = Trimesh(np_verts, np_tris)
             def np_sdf(points):
                 return mesh_to_sdf(trimesh, points, surface_point_method='scan', sign_method='normal')
-            return numpy_sdf(np_sdf, bounds, geo.bounding_box().center)
+            return numpy_sdf(np_sdf, bounds)
         else:
             raise ValueError(f"Method '{method}' not implemented for Mesh SDF")
     def sdf_and_grad(x: Tensor):
         sgn_dist, delta, *_ = geo.approximate_closest_surface(x)
         return sgn_dist, math.vec_normalize(-delta)
-    return SDF(geo.approximate_signed_distance, geo.shape.non_instance.without('vector'), bounds, geo.center, geo.volume, geo.bounding_radius(), sdf_and_grad)
+    result = SDF(geo.approximate_signed_distance, bounds, geo.volume, sdf_and_grad)
+    result.__dict__['out_shape'] = geo.shape.non_instance.without('vector')
+    return result
 
 
 def surface_mesh(geo: Geometry,
