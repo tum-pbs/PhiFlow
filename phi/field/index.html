@@ -867,7 +867,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f346aaa51c0></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f19b53f9120></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3406,7 +3406,7 @@ Otherwise, an explicit stencil is used.</dd>
         values = math.stack([f.values for f in fields], dim)
         geometry = fields[0].geometry if all(f.geometry == fields[0].geometry for f in fields) else math.stack([f.geometry for f in fields], dim, layout_non_matching=True)
         if isinstance(geometry, Tensor):
-            from phi.geom._geom_ops import GeometryStack
+            from ..geom._geom_ops import GeometryStack
             geometry = GeometryStack(geometry)
         return Field(geometry, values, boundary)</code></pre>
 </details>
@@ -3790,7 +3790,7 @@ The new values are determined via linear interpolation.</p>
     assert isinstance(field, Field), f&#34;Field required but got {type(field).__name__}&#34;
     if field.is_grid and field.is_staggered:
         field = field.at_centers()
-    return field.with_values(math.vec_abs(field.values))</code></pre>
+    return field.with_values(math.vec_length(field.values))</code></pre>
 </details>
 <div class="desc"><p>See <code>phi.math.vec_abs()</code></p></div>
 </dd>
@@ -3807,7 +3807,7 @@ The new values are determined via linear interpolation.</p>
     assert isinstance(field, Field), f&#34;Field required but got {type(field).__name__}&#34;
     if field.is_grid and field.is_staggered:
         field = field.at_centers()
-    return field.with_values(math.vec_abs(field.values))</code></pre>
+    return field.with_values(math.vec_length(field.values))</code></pre>
 </details>
 <div class="desc"><p>See <code>phi.math.vec_abs()</code></p></div>
 </dd>
@@ -10377,7 +10377,7 @@ def shape(self):
         k2 = math.vec_squared(k_vec)
         lowest_frequency = 0.1
         weight_mask = math.to_float(k2 &gt; lowest_frequency)
-        inv_k2 = math.divide_no_nan(1, k2)
+        inv_k2 = math.safe_div(1, k2)
         # --- Compute result ---
         fft = rndj * inv_k2 ** self.smoothness * weight_mask
         array = math.real(math.ifft(fft))
@@ -10429,7 +10429,7 @@ Each time values are sampled from a Noise field, a new noise field is generated.
     k2 = math.vec_squared(k_vec)
     lowest_frequency = 0.1
     weight_mask = math.to_float(k2 &gt; lowest_frequency)
-    inv_k2 = math.divide_no_nan(1, k2)
+    inv_k2 = math.safe_div(1, k2)
     # --- Compute result ---
     fft = rndj * inv_k2 ** self.smoothness * weight_mask
     array = math.real(math.ifft(fft))
