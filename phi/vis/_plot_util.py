@@ -1,7 +1,7 @@
 import numpy
 import numpy as np
 
-from phi.math import Tensor, spatial, ones, convolve, extrapolation, map_c2b
+from phiml.math import Tensor, spatial, ones, convolve, extrapolation, map_c2b
 
 
 def smooth_uniform_curve(curve, n: int):

@@ -3,7 +3,7 @@ import os
 import sys
 from typing import List
 
-from phi.vis._vis_base import display_name
+from ._vis_base import display_name
 
 
 class UserNamespace:

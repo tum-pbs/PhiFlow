@@ -1,8 +1,9 @@
 import warnings
 
-from phi import math
-from phi.geom import UniformGrid, Geometry
-from phi.math import random_normal, Tensor, channel, dual, Extrapolation, vec
+from phiml import math
+from phiml.math import random_normal, Tensor, channel, Extrapolation, vec
+
+from ..geom import UniformGrid, Geometry
 from ._field import FieldInitializer
 
 
@@ -47,7 +48,7 @@ class Noise(FieldInitializer):
         k2 = math.vec_squared(k_vec)
         lowest_frequency = 0.1
         weight_mask = math.to_float(k2 > lowest_frequency)
-        inv_k2 = math.divide_no_nan(1, k2)
+        inv_k2 = math.safe_div(1, k2)
         # --- Compute result ---
         fft = rndj * inv_k2 ** self.smoothness * weight_mask
         array = math.real(math.ifft(fft))

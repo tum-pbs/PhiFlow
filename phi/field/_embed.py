@@ -1,10 +1,10 @@
 from typing import Union, Tuple
 
-from phi.geom import UniformGrid, Box
-from phi.math import Tensor, spatial, Extrapolation, Shape, stack
-from phi.math.extrapolation import Undefined, ConstantExtrapolation, ZERO
 from phiml import math
-from phiml.math import unstack, rename_dims, instance, dual
+from phiml.math import unstack, rename_dims, instance, dual, Tensor, spatial, Extrapolation, Shape, stack
+from phiml.math.extrapolation import Undefined, ConstantExtrapolation, ZERO
+
+from ..geom import UniformGrid, Box
 from ._field import Field
 from ._resample import sample
 

@@ -1,7 +1,8 @@
 from numbers import Number
 from typing import Callable, Union
 
-from phi import math
+from phiml import math
+
 from ._field import FieldInitializer, get_sample_points
 from ..geom import Geometry, cross
 from ..math import Shape, spatial, instance, Tensor, wrap, Extrapolation

@@ -6,8 +6,8 @@ from typing import Union, Callable, Optional
 
 import numpy as np
 
-from phi import math
-from phi.field import Scene
+from phiml import math
+from ..field import Scene
 
 
 class SceneLog:

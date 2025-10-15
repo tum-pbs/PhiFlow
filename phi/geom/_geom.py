@@ -354,7 +354,7 @@ class Geometry:
         return box_from_limits(min_vec, max_vec)
 
     def bounding_sphere(self):
-        from phi.geom._functions import vec_length
+        from ._functions import vec_length
         from ._sphere import Sphere
         center = self.bounding_box().center
         dist = vec_length(self.center - center) + self.bounding_radius()

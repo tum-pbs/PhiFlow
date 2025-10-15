@@ -1,12 +1,13 @@
 from dataclasses import dataclass
 from functools import cached_property
 
-from phi.geom._spline_sheet import BSplineSheet
 from phiml import Tensor, spatial, ZERO_GRADIENT, vec, wrap, dual, stack
 from phiml.dataclasses import sliceable
 from phiml.math import pad, spatial_gradient, scatter
 from phiml.math._ops import pad_to_uniform
+
 from ._functions import cross, normalize
+from ._spline_sheet import BSplineSheet
 
 
 @sliceable(keepdims='vector')

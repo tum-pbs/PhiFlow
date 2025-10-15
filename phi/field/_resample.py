@@ -1,13 +1,13 @@
 from numbers import Number
 from typing import Union, List, Callable, Optional
 
-from phi import math
-from phi.geom import Geometry, Box, Point, UniformGrid, Mesh, sample_function
-from phi.math import Shape, Tensor, instance, spatial, Solve, dual, si2d
-from phi.math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
-from phiml.math import unstack, channel, rename_dims, batch, extrapolation
-from ._field import Field, FieldInitializer, as_boundary, slice_off_constant_faces
+from phiml import math
+from phiml.math import Shape, Tensor, instance, spatial, Solve, dual, unstack, channel, rename_dims, batch, extrapolation
+from phiml.math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
 from phiml.math._tensors import may_vary_along, wrap
+
+from ..geom import Geometry, Box, Point, UniformGrid, sample_function
+from ._field import Field, FieldInitializer, as_boundary, slice_off_constant_faces
 
 
 def resample(value: Union[Field, Geometry, Tensor, float, FieldInitializer], to: Union[Field, Geometry], keep_boundary=False, **kwargs):
@@ -351,7 +351,7 @@ def _shift_resample(self: Field, resolution: Shape, bounds: Box, threshold=1e-5,
     if total_padding > max_padding and self.extrapolation.native_grid_sample_mode:
         return NotImplemented
     elif total_padding > 0:
-        from phi.field import pad
+        from ._field_math import pad
         padded = pad(self, {dim: (int(lower[i]), int(upper[i])) for i, dim in enumerate(self.shape.spatial.names)})
         grid_box, grid_resolution, grid_values = padded.bounds, padded.resolution, padded.values
     else:
@@ -373,7 +373,7 @@ def centroid_to_faces(u: Field, boundary: Extrapolation, order=2, upwind: Field 
     if order == 2 and upwind is not None:  # linear upwind
         flows_out = upwind.values.vector @ u.mesh.face_normals.vector >= 0
         if gradient is None:
-            from phi.field._field_math import green_gauss_gradient
+            from ._field_math import green_gauss_gradient
             gradient = green_gauss_gradient(u, boundary=boundary, order=order, upwind=None, stack_dim=dual('vector'))  # we cannot pass same interpolation here
         neighbor_grad = u.mesh.pad_boundary(gradient.values, mode=boundary if boundary != extrapolation.NONE else u.boundary.spatial_gradient())
         interpolated_from_self = u.values + gradient.values.vector.dual @ (u.mesh.face_centers - u.mesh.center).vector

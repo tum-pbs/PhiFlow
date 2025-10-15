@@ -8,27 +8,27 @@ from typing import Tuple, Any, Dict, List, Callable, Union, Optional
 
 import numpy
 import numpy as np
-import plotly.graph_objs
-
-from phi.geom._spline_sheet import BSplineSheet
-from phiml.math._sparse import CompactSparseTensor
 from scipy.sparse import csr_matrix, coo_matrix
 
+import plotly.graph_objs
 from plotly import graph_objects, figure_factory
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
 
-from phiml.math import reshaped_numpy, dual, instance, non_dual, merge_shapes, pack_dims, dsum, close, equal, NAN, batch, Shape
-from phi import math, geom
-from phi.field import Field
-from phi.geom import Sphere, BaseBox, Point, Box, SDF, SDFGrid, Cylinder, Mesh
-from phi.geom._geom_ops import GeometryStack
-from phi.math import Tensor, spatial, channel, non_channel
-from phi.vis._dash.colormaps import COLORMAPS
-from phi.vis._plot_util import smooth_uniform_curve, down_sample_curve
-from phi.vis._vis_base import PlottingLibrary, Recipe, is_jupyter, display_name, to_field
+from phiml import math
+from phiml.math import reshaped_numpy, dual, instance, non_dual, merge_shapes, pack_dims, dsum, close, equal, NAN, batch, Shape, Tensor, spatial, channel, non_channel
 from phiml.math._tensors import Layout
+from phiml.math._sparse import CompactSparseTensor
+
+from ... import geom
+from ...field import Field
+from ...geom._spline_sheet import BSplineSheet
+from ...geom import Sphere, BaseBox, Point, Box, SDF, SDFGrid, Cylinder, Mesh
+from ...geom._geom_ops import GeometryStack
+from .._dash.colormaps import COLORMAPS
+from .._plot_util import smooth_uniform_curve, down_sample_curve
+from .._vis_base import PlottingLibrary, Recipe, is_jupyter, display_name, to_field
 
 
 class PlotlyPlots(PlottingLibrary):

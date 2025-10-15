@@ -7,13 +7,14 @@ import matplotlib.pyplot as plt
 import numpy
 import numpy as np
 
-from phi import math
-from phi.field import Scene
-from phi.field._scene import _str
+from phiml import math
 from phiml.math import Tensor, batch
 from phiml.backend import ML_LOGGER
-from phi.vis._plot_util import smooth_uniform_curve
-from phi.vis._vis_base import display_name
+
+from ...field import Scene
+from ...field._scene import _str
+from .._plot_util import smooth_uniform_curve
+from .._vis_base import display_name
 from ._matplotlib_plots import MATPLOTLIB
 
 

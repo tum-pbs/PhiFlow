@@ -4,10 +4,11 @@ Functions to simulate diffusion processes on `phi.field.Field` objects.
 import warnings
 from typing import Union
 
-from phi import math
-from phi.field import Grid, Field, laplace, solve_linear, jit_compile_linear, stagger
+from phiml import math
 from phiml.math import copy_with, Solve, wrap, spatial, Tensor
 from phiml.math.extrapolation import NONE
+
+from ..field import Grid, Field, laplace, solve_linear, jit_compile_linear, stagger
 
 
 def explicit(u: Field,

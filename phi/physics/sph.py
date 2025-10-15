@@ -5,13 +5,13 @@ Tools for running Smoothed Particle Hydrodynamics (SPH) simulations.
 2. Use `neighbor_graph` to find neighbor particles and compute kernel weights.
 3. Use custom function or built-in physics operations to integrate the dynamics.
 """
-from typing import Dict, Tuple, Any, Union, Sequence
+from typing import Dict, Union, Sequence
 
-from phi import math
-from phi.field import Field
-from phi.math import Tensor, pairwise_distances, vec_length, Shape, non_channel, dual, where, PI
-from phi.geom import Geometry, Graph, Box, Sphere
-from phiml.math import channel, stack, vec, concat, expand, clip
+from phiml import math
+from phiml.math import Tensor, PI, channel, concat, expand, clip
+
+from ..geom import Geometry, Graph, Box, Sphere
+
 
 _DEFAULT_DESIRED_NEIGHBORS = {
     'quintic-spline': 34,

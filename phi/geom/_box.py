@@ -5,11 +5,9 @@ from typing import Dict, Tuple, Union, Optional, Any
 
 import numpy as np
 
-from phi import math
-from phi.math import DimFilter
-from phiml import ccat, stack, where, is_finite, concat
+from phiml import math, stack, where, is_finite, concat
 from phiml.dataclasses import sliceable, replace
-from phiml.math import expand, instance, to_float, is_none
+from phiml.math import expand, instance, to_float, is_none, DimFilter
 from phiml.math._shape import parse_dim_order, dual, non_channel, non_batch, shape
 from . import rotate, rotation_matrix
 from ._functions import vec_length

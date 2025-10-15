@@ -2,12 +2,13 @@ from typing import Union
 
 import numpy as np
 
-from phi import geom, math
+from phiml import math, extrapolation, wrap, tensor, channel, Tensor, spatial
 from phiml.math._shape import from_dict
+
+from .. import geom
 from ._field import Field
 from ._grid import unstack_staggered_tensor, CenteredGrid, StaggeredGrid
 from ._field_math import stack
-from ..math import extrapolation, wrap, tensor, Shape, channel, Tensor, spatial
 
 
 def write(field: Field, file: Union[str, Tensor]):

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Union, Tuple, Dict, Any
 
-from phi.torch.flow import *
+from ..torch.flow import *
 from phiml.dataclasses import sliceable
 from phiml.math import Tensor, Shape
 from ._geom import Geometry

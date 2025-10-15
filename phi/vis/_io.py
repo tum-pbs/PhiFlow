@@ -3,10 +3,10 @@ import os
 import numpy
 from typing import Optional
 
-from phi import math
-from phi.field import Scene
-from phi.math import shape, wrap, channel, spatial, batch
+from phiml import math, shape, wrap, channel, spatial, batch
 from phiml.backend import ML_LOGGER
+
+from ..field import Scene
 
 
 @math.broadcast

@@ -5,12 +5,12 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
-from phi.field import Field
 from phiml.math._shape import parse_dim_order
-from phi.vis._dash.dash_app import DashApp
-from phi.vis._dash.player_controls import STEP_BUTTON, PAUSE_BUTTON
-from phi.vis._dash.player_controls import REFRESH_INTERVAL
-from phi.vis._vis_base import display_name
+
+from .._dash.dash_app import DashApp
+from .._dash.player_controls import STEP_BUTTON, PAUSE_BUTTON
+from .._dash.player_controls import REFRESH_INTERVAL
+from .._vis_base import display_name
 
 FRONT = 'front'
 RIGHT = 'right'

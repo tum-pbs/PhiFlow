@@ -303,8 +303,8 @@ def refine_closest(sample_points, closest, refine: Geometry, max_step, steps=10)
         better_closest = (closest + delta) + walk_on_surface
         closest = math.where(refine.lies_inside(better_closest), closest, better_closest)  # don't walk into negative SDF
         # trj.append(closest)
-    # from phi.vis import plot
-    # from phi.field import PointCloud
+    # from ..vis import plot
+    # from ..field import PointCloud
     # plot(PointCloud(sample_points, stack(trj, batch('t')) - sample_points), animate='t', frame_time=250)
     _, delta, *_ = refine.approximate_closest_surface(closest)
     closest += delta

@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Union, Dict, Any, Tuple, Sequence
 
-from phi import math
 from phiml import math, stack
 from phiml.dataclasses import sliceable
 from phiml.math import wrap, merge_shapes

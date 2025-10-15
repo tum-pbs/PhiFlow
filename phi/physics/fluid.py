@@ -6,16 +6,15 @@ The main function for incompressible fluids (Eulerian as well as FLIP / PIC) is 
 import warnings
 from typing import Tuple, Callable, Union, List, Optional
 
-from phi import math, field
-from phi.math import wrap, channel, Solve
-from phi.field import AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud, Field, resample
-from phi.geom import union, Geometry
-from phiml.math import Tensor
-from ..field._embed import FieldEmbedding
-from ..field._grid import StaggeredGrid
-from ..math import extrapolation, NUMPY, batch, shape, non_channel, expand
+from phiml import math
+from phiml.math import Tensor, wrap, channel, Solve, extrapolation, NUMPY, batch, shape, non_channel, expand
 from phiml.math._magic_ops import copy_with
-from ..math.extrapolation import combine_sides, Extrapolation
+from phiml.math.extrapolation import Extrapolation
+
+from .. import field
+from ..field import AngularVelocity, Grid, divergence, spatial_gradient, where, CenteredGrid, PointCloud, Field, resample
+from ..geom import union, Geometry
+from ..field._embed import FieldEmbedding
 
 
 class Obstacle:

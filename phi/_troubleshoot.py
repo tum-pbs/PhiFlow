@@ -16,16 +16,16 @@ def assert_minimal_config():  # raises AssertionError
         import scipy
     except ImportError:
         raise AssertionError("phiflow is unable to run because SciPy is not installed.")
-    from phi import flow
-    from phi import math
+    from . import flow
+    from phiml import math
     with math.NUMPY:
         a = math.ones()
         math.assert_close(a + a, 2)
 
 
 def troubleshoot():
-    import phi
-    return f"PhiFlow {phi.__version__} at {dirname(__file__)}\n"\
+    from . import __version__
+    return f"PhiFlow {__version__} at {dirname(__file__)}\n"\
            f"Web interface: {troubleshoot_dash()}\n"
 
 

@@ -10,11 +10,13 @@ from typing import Tuple, Union
 
 import numpy as np
 
-from phi import math, __version__ as phi_version
-from ._field import Field
-from ._field_io import read, write
+from phiml import math
 from phiml.math import Shape, batch, stack, unpack_dim, wrap
 from phiml.math.magic import BoundDim
+
+from .. import __version__ as phi_version
+from ._field import Field
+from ._field_io import read, write
 
 
 typing_list = list

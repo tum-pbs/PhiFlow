@@ -1,13 +1,13 @@
 import warnings
 from typing import Any, Union
 
-from phi import math, geom
-from phi.geom import Geometry, Box
-from phiml.math import shape
+from phiml import math, shape, Tensor, instance, Shape
+from phiml.math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
+
+from .. import geom
+from ..geom import Geometry, Box
 from ._field import Field
 from ._resample import resample
-from ..math import Tensor, instance, Shape, dual
-from ..math.extrapolation import Extrapolation, ConstantExtrapolation, PERIODIC
 
 
 def PointCloud(elements: Union[Tensor, Geometry, float], values: Any = 1., extrapolation: Union[Extrapolation, float] = 0., bounds: Box = None, variable_attrs=('values', 'geometry'), value_attrs=('values',)) -> Field:
@@ -87,17 +87,17 @@ def distribute_points(geometries: Union[tuple, list, Geometry, float],
     Returns:
          PointCloud representation of `geometries`.
     """
-    from phi.field import CenteredGrid
+    from ._grid import CenteredGrid
     if isinstance(geometries, (tuple, list, Geometry)):
-        from phi.geom import union
+        from ..geom import union
         geometries = union(geometries)
     geometries = resample(geometries, CenteredGrid(0, extrapolation, bounds=bounds, **domain), scatter=False)
     initial_points = _distribute_points(geometries.values, dim, points_per_cell, center=center)
     initial_points = geometries.bounds.local_to_global(initial_points / geometries.resolution)
     if radius is None:
-        from phi.field._field_math import data_bounds
+        from ._field_math import data_bounds
         radius = math.mean(data_bounds(initial_points).size) * 0.005
-    from phi.geom import Sphere
+    from ..geom import Sphere
     return PointCloud(Sphere(initial_points, radius=radius), extrapolation=geometries.extrapolation)
 
 

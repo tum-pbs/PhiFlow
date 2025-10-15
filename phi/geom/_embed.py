@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import Tuple, Union, Dict, Any
 
-from phi import math
-from phi.math import Tensor, Shape
+from .. import math
+from ..math import Tensor, Shape
 from phiml.dataclasses import sliceable
 from phiml.math import channel, stack, expand, INF
 from phiml.math._shape import parse_dim_order

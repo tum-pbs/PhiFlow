@@ -9,12 +9,12 @@ Examples:
 """
 from typing import Union
 
-from phi import math
-from phi.field import Field, PointCloud, Grid, spatial_gradient, unstack, stack, resample, reduce_sample, sample
-from phi.geom import Geometry
-from phi.math import Solve, channel
-from phiml.math import Tensor
+from phiml import math
+from phiml.math import Tensor, Solve, channel
 from phiml.math.extrapolation import NONE
+
+from ..field import Field, PointCloud, Grid, spatial_gradient, reduce_sample, sample
+from ..geom import Geometry
 
 
 def euler(data: Field, velocity: Field, dt: float, v0: Tensor = None) -> Tensor:

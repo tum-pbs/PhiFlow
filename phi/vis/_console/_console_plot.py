@@ -2,8 +2,9 @@ from typing import List
 
 import numpy
 
-from phi.field import Grid, CenteredGrid
 from phiml.math import extrapolation
+
+from ...field import Grid, CenteredGrid
 from ._console_util import underline, get_arrow
 from .._vis_base import PlottingLibrary
 

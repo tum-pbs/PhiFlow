@@ -1,10 +1,11 @@
 import warnings
 from typing import Union
 
-from phi import math
-from phi.geom import Geometry
-from ._field import FieldInitializer
+from phiml import math
 from phiml.math import Tensor, Extrapolation
+
+from ..geom import Geometry
+from ._field import FieldInitializer
 
 
 class HardGeometryMask(FieldInitializer):

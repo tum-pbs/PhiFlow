@@ -2,14 +2,16 @@ import warnings
 from numbers import Number
 from typing import Union
 
-from phi import math, field
-from phi.field import CenteredGrid, StaggeredGrid, PointCloud, Field, mask
-from phi.geom import Box, UniformGrid, Sphere, union, assert_same_rank
-from phi.geom import Geometry
+from phiml import math
 from phiml.math import Tensor, channel, instance
 from phiml.math.extrapolation import ZERO, ONE, PERIODIC, BOUNDARY
 from phiml.math import spatial
 from phiml.math.extrapolation import combine_sides
+
+from .. import field
+from ..field import CenteredGrid, StaggeredGrid, PointCloud, Field, mask
+from ..geom import Box, UniformGrid, Sphere, union, assert_same_rank
+from ..geom import Geometry
 from .fluid import Obstacle  # for compatibility
 
 

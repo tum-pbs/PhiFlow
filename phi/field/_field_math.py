@@ -1,20 +1,19 @@
 from numbers import Number
-from typing import Callable, List, Tuple, Optional, Union, Sequence
+from typing import Callable, Optional, Union, Sequence
 
 import numpy as np
-from phiml.math import Tensor, spatial, instance, tensor, channel, batch, Shape, unstack, solve_linear, \
-    jit_compile_linear, \
-    shape, Solve, extrapolation, dual, wrap, rename_dims, factorial, concat, zeros, ones, neighbor_mean
-from phi import geom
-from phi import math
-from phi.geom import Box, Geometry, UniformGrid
-from phiml.math._shape import auto, DimFilter
-from phiml.math.extrapolation import NONE, domain_slice
+
+from phiml import math
+from phiml.math import Tensor, spatial, instance, tensor, channel, batch, Shape, solve_linear, jit_compile_linear, shape, Solve, extrapolation, dual, wrap, rename_dims, factorial, zeros, ones, neighbor_mean, DimFilter
+from phiml.math._shape import auto
+from phiml.math.extrapolation import NONE, Extrapolation
+
+from .. import geom
+from ..geom import Box, Geometry, UniformGrid
 from ._field import Field, as_boundary, slice_off_constant_faces
 from ._grid import CenteredGrid, StaggeredGrid, grid, unstack_staggered_tensor
 from ._point_cloud import PointCloud
 from ._resample import sample
-from ..math.extrapolation import Extrapolation, SYMMETRIC, REFLECT, ANTIREFLECT, ANTISYMMETRIC, combine_by_direction
 
 
 def bake_extrapolation(grid: Field) -> Field:
@@ -978,7 +977,7 @@ def stack(fields: Sequence[Field], dim: Shape, dim_bounds: Box = None):
         values = math.stack([f.values for f in fields], dim)
         geometry = fields[0].geometry if all(f.geometry == fields[0].geometry for f in fields) else math.stack([f.geometry for f in fields], dim, layout_non_matching=True)
         if isinstance(geometry, Tensor):
-            from phi.geom._geom_ops import GeometryStack
+            from ..geom._geom_ops import GeometryStack
             geometry = GeometryStack(geometry)
         return Field(geometry, values, boundary)
 
@@ -1063,7 +1062,7 @@ def vec_length(field: Field):
     assert isinstance(field, Field), f"Field required but got {type(field).__name__}"
     if field.is_grid and field.is_staggered:
         field = field.at_centers()
-    return field.with_values(math.vec_abs(field.values))
+    return field.with_values(math.vec_length(field.values))
 
 
 def vec_squared(field: Field):

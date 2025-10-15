@@ -3,15 +3,14 @@ from dataclasses import dataclass
 from numbers import Number
 from typing import Callable, Union, Tuple, Optional
 
-from phi import math
-from phi.geom import Geometry, Box, Point, BaseBox, UniformGrid, Mesh, Sphere, Graph
-from phi.geom._geom import slice_off_constant_faces
-from phi.math import Shape, Tensor, channel, non_batch, expand, instance, spatial, wrap, dual, non_dual
-from phi.math.extrapolation import Extrapolation
-from phi.math.magic import BoundDim, slicing_dict
+from phiml import math
+from phiml.math import Shape, Tensor, channel, non_batch, expand, instance, spatial, wrap, dual, non_dual, batch, Solve, DimFilter, unstack, concat_shapes, pack_dims, shape
+from phiml.math.magic import BoundDim, slicing_dict
+from phiml.math.extrapolation import domain_slice, Extrapolation
 from phiml.dataclasses import sliceable
-from phiml.math import batch, Solve, DimFilter, unstack, concat_shapes, pack_dims, shape
-from phiml.math.extrapolation import domain_slice
+
+from ..geom import Geometry, Box, Point, BaseBox, UniformGrid, Mesh, Sphere, Graph
+from ..geom._geom import slice_off_constant_faces
 
 
 class FieldInitializer:

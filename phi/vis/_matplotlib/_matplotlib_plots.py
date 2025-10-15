@@ -14,15 +14,15 @@ from matplotlib.ticker import NullFormatter
 from matplotlib.transforms import Bbox
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from phi import math
-from phi.field import StaggeredGrid, Field, CenteredGrid
-from phi.geom import Sphere, BaseBox, Point, Box, Mesh, Graph, SDFGrid, SDF, UniformGrid, rotate, rotation_angles
-from phi.geom._heightmap import Heightmap
-from phi.geom._geom_ops import GeometryStack, Intersection
-from phi.geom._embed import _EmbeddedGeometry
-from phi.math import Tensor, channel, spatial, instance, non_channel, Shape, reshaped_numpy, shape
-from phi.vis._vis_base import display_name, PlottingLibrary, Recipe, index_label, only_stored_elements, to_field
-from phiml.math import wrap
+from phiml import math
+from phiml.math import Tensor, wrap, channel, spatial, instance, non_channel, Shape, reshaped_numpy, shape
+
+from ...field import StaggeredGrid, Field, CenteredGrid
+from ...geom import Sphere, BaseBox, Point, Box, Mesh, Graph, SDFGrid, SDF, UniformGrid, rotate, rotation_angles
+from ...geom._heightmap import Heightmap
+from ...geom._geom_ops import GeometryStack, Intersection
+from ...geom._embed import _EmbeddedGeometry
+from .._vis_base import display_name, PlottingLibrary, Recipe, index_label, only_stored_elements, to_field
 
 colormaps = matplotlib.colormaps if hasattr(matplotlib.colormaps, 'get_cmap') else matplotlib.cm
 

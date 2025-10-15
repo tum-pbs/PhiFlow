@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Union, Dict, Tuple
 
-from phi import math
+from phiml import math
 from phiml.dataclasses import sliceable, replace
 from phiml.math import Shape, dual, PI, non_channel, instance
 from ._functions import vec_length

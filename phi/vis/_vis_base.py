@@ -6,12 +6,11 @@ from math import log10
 from threading import Lock
 from typing import Tuple, Any, Optional, Dict, Callable, Union, Sequence
 
-from phi import field, math, geom
-from phi.field import Field, Scene, PointCloud, CenteredGrid
-from phi.field._field_math import data_bounds
-from phi.geom import Box, Cuboid, Geometry, Point
-from phi.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel, expand, non_batch
-from phiml.math import vec, concat, tensor_like
+from .. import field, math, geom
+from ..field import Field, Scene, PointCloud, CenteredGrid
+from ..field._field_math import data_bounds
+from ..geom import Box, Cuboid, Geometry
+from phiml.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel, expand, non_batch, vec, concat, tensor_like
 
 Control = namedtuple('Control', [
     'name',

@@ -12,7 +12,7 @@ New tensors created via `phiml.math` functions will be backed by PyTorch tensors
 See `phi.flow`, `phi.tf.flow`, `phi.jax.flow`.
 """
 
-from phi.flow import *
+from ..flow import *
 from . import TORCH
 
 from . import nets

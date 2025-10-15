@@ -123,8 +123,8 @@ class MeshBuilder:
                 assert len(self.source_idx) == len(self.elements)
 
     def debug_show(self, normals=True):
-        from phi.field import PointCloud
-        from phi.vis import show
+        from ..field import PointCloud
+        from ..vis import show
         mesh = self.build_mesh()
         plot = [mesh, mesh.vertices]
         if normals:

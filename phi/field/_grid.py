@@ -1,13 +1,13 @@
 from typing import Any, Union
 
-from phi import math
-from phi.geom import Box, Geometry, UniformGrid
-from phi.math import rename_dims
+from phiml import math, rename_dims
+from phiml.math._shape import spatial, channel, dual
+from phiml.math._tensors import TensorStack, Tensor
+
+from ..geom import Box, Geometry, UniformGrid
 from ._field import Field, as_boundary, FieldInitializer
 from ._resample import sample, sample_function
 from ..math import Shape
-from phiml.math._shape import spatial, channel, dual
-from phiml.math._tensors import TensorStack, Tensor
 from ..math.extrapolation import Extrapolation
 
 

@@ -12,7 +12,7 @@ New tensors created via `phiml.math` functions will be backed by Jax tensors.
 See `phi.flow`, `phi.torch.flow`, `phi.tf.flow`.
 """
 
-from phi.flow import *
+from ..flow import *
 from . import JAX
 import jax
 import jax.numpy as jnp
