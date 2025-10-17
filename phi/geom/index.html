@@ -53,7 +53,7 @@ el.replaceWith(d);
 <h2 class="section-title" id="header-functions">Functions</h2>
 <dl>
 <dt id="phi.geom.Cuboid"><code class="name flex">
-<span>def <span class="ident">Cuboid</span></span>(<span>center: phiml.math._tensors.Tensor = 0,<br>half_size: phiml.math._tensors.Tensor | float = None,<br>rotation: phiml.math._tensors.Tensor | None = None,<br>is_open: phiml.math._tensors.Tensor = False,<br>variable_attrs=('pos', 'size', 'rot'),<br>**size: phiml.math._tensors.Tensor | float) ‑> phi.geom._box.Box</span>
+<span>def <span class="ident">Cuboid</span></span>(<span>center: phiml.math._tensors.Tensor = 0,<br>half_size: phiml.math._tensors.Tensor | float = None,<br>rotation: phiml.math._tensors.Tensor | None = None,<br>is_open: phiml.math._tensors.Tensor = False,<br>variable_attrs=('center', 'size', 'rot'),<br>**size: phiml.math._tensors.Tensor | float) ‑> phi.geom._box.Box</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -64,7 +64,7 @@ el.replaceWith(d);
            half_size: Union[float, Tensor] = None,
            rotation: Optional[Tensor] = None,
            is_open: Tensor = wrap(False),
-           variable_attrs=(&#39;pos&#39;, &#39;size&#39;, &#39;rot&#39;),
+           variable_attrs=(&#39;center&#39;, &#39;size&#39;, &#39;rot&#39;),
            **size: Union[float, Tensor]) -&gt; Box:
     &#34;&#34;&#34;
     Args:
@@ -2641,7 +2641,7 @@ A point lies inside the union if it lies within at least one of the geometries.<
 <dl>
 <dt id="phi.geom.Box"><code class="flex name class">
 <span>class <span class="ident">Box</span></span>
-<span>(</span><span>pos: phiml.math._tensors.Tensor,<br>size: phiml.math._tensors.Tensor,<br>rot: phiml.math._tensors.Tensor,<br>is_open: phiml.math._tensors.Tensor,<br>variable_attrs: Tuple[str, ...] = ('pos', 'size', 'rot'))</span>
+<span>(</span><span>center: phiml.math._tensors.Tensor,<br>size: phiml.math._tensors.Tensor,<br>rot: phiml.math._tensors.Tensor,<br>is_open: phiml.math._tensors.Tensor,<br>variable_attrs: Tuple[str, ...] = ('center', 'size', 'rot'))</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -2666,15 +2666,15 @@ class Box(Geometry, metaclass=BoxType):
         &gt;&gt;&gt; Box[&#39;x,y&#39;, :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
     &#34;&#34;&#34;
 
-    pos: Tensor
+    center: Tensor
     size: Tensor
     rot: Tensor  # can be Layout(None) for no rotation
     is_open: Tensor  # Infinite extent per face, (~side, vector) or fewer
     
-    variable_attrs: Tuple[str, ...] = (&#39;pos&#39;, &#39;size&#39;, &#39;rot&#39;)
+    variable_attrs: Tuple[str, ...] = (&#39;center&#39;, &#39;size&#39;, &#39;rot&#39;)
 
     def __post_init__(self):
-        assert isinstance(self.pos, Tensor) and &#39;vector&#39; in channel(self.pos)
+        assert isinstance(self.center, Tensor) and &#39;vector&#39; in channel(self.center)
         assert isinstance(self.size, Tensor)
         assert isinstance(self.rot, Tensor)
 
@@ -2684,11 +2684,11 @@ class Box(Geometry, metaclass=BoxType):
 
     @cached_property
     def lower(self):
-        return math.where(self.is_open.side[&#39;lower&#39;], -math.INF, self.pos - self.half_size)
+        return math.where(self.is_open.side[&#39;lower&#39;], -math.INF, self.center - self.half_size)
 
     @cached_property
     def upper(self):
-        return math.where(self.is_open.side[&#39;upper&#39;], math.INF, self.pos + self.half_size)
+        return math.where(self.is_open.side[&#39;upper&#39;], math.INF, self.center + self.half_size)
 
     @cached_property
     def is_finite(self):
@@ -2696,8 +2696,8 @@ class Box(Geometry, metaclass=BoxType):
 
     def __repr__(self):
         if self.rot is not None:
-            return f&#34;Cuboid(center={self.pos}, size={self.size})&#34;
-        if self.pos is None or self.size is None:  # traced
+            return f&#34;Cuboid(center={self.center}, size={self.size})&#34;
+        if self.center is None or self.size is None:  # traced
             return f&#34;Box[traced, shape={self.shape}]&#34;
         if self.shape.non_channel.volume == 1:
             item_names = self.size.vector.item_names
@@ -2710,11 +2710,11 @@ class Box(Geometry, metaclass=BoxType):
 
     @cached_property
     def shape(self):
-        return self.pos.shape &amp; self.size.shape &amp; (shape(self.rot) - &#39;~vector&#39;)
+        return self.center.shape &amp; self.size.shape &amp; (shape(self.rot) - &#39;~vector&#39;)
 
     @property
-    def center(self):
-        return self.pos
+    def pos(self):
+        return self.center
 
     @property
     def volume(self) -&gt; Tensor:
@@ -2729,7 +2729,7 @@ class Box(Geometry, metaclass=BoxType):
         return rotation_matrix(self.rot, self.shape[&#39;vector&#39;], none_to_unit=True)
 
     def at(self, center: Tensor) -&gt; &#39;Box&#39;:
-        return replace(self, pos=center)
+        return replace(self, center=center)
 
     def rotated(self, angle) -&gt; &#39;Box&#39;:
         rot = wrap(angle) if self.is_axis_aligned.all else self.rotation_matrix @ rotation_matrix(angle)
@@ -2768,9 +2768,9 @@ class Box(Geometry, metaclass=BoxType):
         if not isinstance(other, Box):
             return NotImplemented
         assert self.is_axis_aligned.all and other.is_axis_aligned.all, f&#34;Box * Box only supported for axis-aligned boxes (rot=None).&#34;
-        pos = concat([self.pos, other.pos], &#39;vector&#39;)
+        pos = concat([self.center, other.center], &#39;vector&#39;)
         size = concat([self.size, other.size], &#39;vector&#39;)
-        return replace(self, pos=pos, size=size)
+        return replace(self, center=pos, size=size)
 
     def bounding_half_extent(self) -&gt; Tensor:
         if self.rot is not None:
@@ -3028,16 +3028,8 @@ Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
 <p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 </dd>
-<dt id="phi.geom.Box.center"><code class="name">prop <span class="ident">center</span></code></dt>
+<dt id="phi.geom.Box.center"><code class="name">var <span class="ident">center</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def center(self):
-    return self.pos</code></pre>
-</details>
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.corners"><code class="name">prop <span class="ident">corners</span> : phiml.math._tensors.Tensor</code></dt>
@@ -3190,12 +3182,20 @@ def is_size_variable(self):
 </summary>
 <pre><code class="python">@cached_property
 def lower(self):
-    return math.where(self.is_open.side[&#39;lower&#39;], -math.INF, self.pos - self.half_size)</code></pre>
+    return math.where(self.is_open.side[&#39;lower&#39;], -math.INF, self.center - self.half_size)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
-<dt id="phi.geom.Box.pos"><code class="name">var <span class="ident">pos</span> : phiml.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.Box.pos"><code class="name">prop <span class="ident">pos</span></code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def pos(self):
+    return self.center</code></pre>
+</details>
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.rot"><code class="name">var <span class="ident">rot</span> : phiml.math._tensors.Tensor</code></dt>
@@ -3222,7 +3222,7 @@ def rotation_matrix(self) -&gt; Tensor:
 </summary>
 <pre><code class="python">@cached_property
 def shape(self):
-    return self.pos.shape &amp; self.size.shape &amp; (shape(self.rot) - &#39;~vector&#39;)</code></pre>
+    return self.center.shape &amp; self.size.shape &amp; (shape(self.rot) - &#39;~vector&#39;)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -3238,7 +3238,7 @@ def shape(self):
 </summary>
 <pre><code class="python">@cached_property
 def upper(self):
-    return math.where(self.is_open.side[&#39;upper&#39;], math.INF, self.pos + self.half_size)</code></pre>
+    return math.where(self.is_open.side[&#39;upper&#39;], math.INF, self.center + self.half_size)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -3363,7 +3363,7 @@ For inside locations it is <code>-max(abs(l - s))</code>.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def at(self, center: Tensor) -&gt; &#39;Box&#39;:
-    return replace(self, pos=center)</code></pre>
+    return replace(self, center=center)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with the center at <code>center</code>.
 This is equal to calling <code>self @ center</code>.</p>
@@ -3429,7 +3429,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f19b5518d60></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f31e7b68d60></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3472,7 +3472,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f19b5518d60></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f31e7b68d60></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3776,7 +3776,7 @@ Returns:</p></div>
 </dd>
 <dt id="phi.geom.Box"><code class="flex name class">
 <span>class <span class="ident">BaseBox</span></span>
-<span>(</span><span>pos: phiml.math._tensors.Tensor,<br>size: phiml.math._tensors.Tensor,<br>rot: phiml.math._tensors.Tensor,<br>is_open: phiml.math._tensors.Tensor,<br>variable_attrs: Tuple[str, ...] = ('pos', 'size', 'rot'))</span>
+<span>(</span><span>center: phiml.math._tensors.Tensor,<br>size: phiml.math._tensors.Tensor,<br>rot: phiml.math._tensors.Tensor,<br>is_open: phiml.math._tensors.Tensor,<br>variable_attrs: Tuple[str, ...] = ('center', 'size', 'rot'))</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3801,15 +3801,15 @@ class Box(Geometry, metaclass=BoxType):
         &gt;&gt;&gt; Box[&#39;x,y&#39;, :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
     &#34;&#34;&#34;
 
-    pos: Tensor
+    center: Tensor
     size: Tensor
     rot: Tensor  # can be Layout(None) for no rotation
     is_open: Tensor  # Infinite extent per face, (~side, vector) or fewer
     
-    variable_attrs: Tuple[str, ...] = (&#39;pos&#39;, &#39;size&#39;, &#39;rot&#39;)
+    variable_attrs: Tuple[str, ...] = (&#39;center&#39;, &#39;size&#39;, &#39;rot&#39;)
 
     def __post_init__(self):
-        assert isinstance(self.pos, Tensor) and &#39;vector&#39; in channel(self.pos)
+        assert isinstance(self.center, Tensor) and &#39;vector&#39; in channel(self.center)
         assert isinstance(self.size, Tensor)
         assert isinstance(self.rot, Tensor)
 
@@ -3819,11 +3819,11 @@ class Box(Geometry, metaclass=BoxType):
 
     @cached_property
     def lower(self):
-        return math.where(self.is_open.side[&#39;lower&#39;], -math.INF, self.pos - self.half_size)
+        return math.where(self.is_open.side[&#39;lower&#39;], -math.INF, self.center - self.half_size)
 
     @cached_property
     def upper(self):
-        return math.where(self.is_open.side[&#39;upper&#39;], math.INF, self.pos + self.half_size)
+        return math.where(self.is_open.side[&#39;upper&#39;], math.INF, self.center + self.half_size)
 
     @cached_property
     def is_finite(self):
@@ -3831,8 +3831,8 @@ class Box(Geometry, metaclass=BoxType):
 
     def __repr__(self):
         if self.rot is not None:
-            return f&#34;Cuboid(center={self.pos}, size={self.size})&#34;
-        if self.pos is None or self.size is None:  # traced
+            return f&#34;Cuboid(center={self.center}, size={self.size})&#34;
+        if self.center is None or self.size is None:  # traced
             return f&#34;Box[traced, shape={self.shape}]&#34;
         if self.shape.non_channel.volume == 1:
             item_names = self.size.vector.item_names
@@ -3845,11 +3845,11 @@ class Box(Geometry, metaclass=BoxType):
 
     @cached_property
     def shape(self):
-        return self.pos.shape &amp; self.size.shape &amp; (shape(self.rot) - &#39;~vector&#39;)
+        return self.center.shape &amp; self.size.shape &amp; (shape(self.rot) - &#39;~vector&#39;)
 
     @property
-    def center(self):
-        return self.pos
+    def pos(self):
+        return self.center
 
     @property
     def volume(self) -&gt; Tensor:
@@ -3864,7 +3864,7 @@ class Box(Geometry, metaclass=BoxType):
         return rotation_matrix(self.rot, self.shape[&#39;vector&#39;], none_to_unit=True)
 
     def at(self, center: Tensor) -&gt; &#39;Box&#39;:
-        return replace(self, pos=center)
+        return replace(self, center=center)
 
     def rotated(self, angle) -&gt; &#39;Box&#39;:
         rot = wrap(angle) if self.is_axis_aligned.all else self.rotation_matrix @ rotation_matrix(angle)
@@ -3903,9 +3903,9 @@ class Box(Geometry, metaclass=BoxType):
         if not isinstance(other, Box):
             return NotImplemented
         assert self.is_axis_aligned.all and other.is_axis_aligned.all, f&#34;Box * Box only supported for axis-aligned boxes (rot=None).&#34;
-        pos = concat([self.pos, other.pos], &#39;vector&#39;)
+        pos = concat([self.center, other.center], &#39;vector&#39;)
         size = concat([self.size, other.size], &#39;vector&#39;)
-        return replace(self, pos=pos, size=size)
+        return replace(self, center=pos, size=size)
 
     def bounding_half_extent(self) -&gt; Tensor:
         if self.rot is not None:
@@ -4163,16 +4163,8 @@ Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
 <p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 </dd>
-<dt id="phi.geom.Box.center"><code class="name">prop <span class="ident">center</span></code></dt>
+<dt id="phi.geom.Box.center"><code class="name">var <span class="ident">center</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def center(self):
-    return self.pos</code></pre>
-</details>
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.corners"><code class="name">prop <span class="ident">corners</span> : phiml.math._tensors.Tensor</code></dt>
@@ -4325,12 +4317,20 @@ def is_size_variable(self):
 </summary>
 <pre><code class="python">@cached_property
 def lower(self):
-    return math.where(self.is_open.side[&#39;lower&#39;], -math.INF, self.pos - self.half_size)</code></pre>
+    return math.where(self.is_open.side[&#39;lower&#39;], -math.INF, self.center - self.half_size)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
-<dt id="phi.geom.Box.pos"><code class="name">var <span class="ident">pos</span> : phiml.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.Box.pos"><code class="name">prop <span class="ident">pos</span></code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def pos(self):
+    return self.center</code></pre>
+</details>
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.rot"><code class="name">var <span class="ident">rot</span> : phiml.math._tensors.Tensor</code></dt>
@@ -4357,7 +4357,7 @@ def rotation_matrix(self) -&gt; Tensor:
 </summary>
 <pre><code class="python">@cached_property
 def shape(self):
-    return self.pos.shape &amp; self.size.shape &amp; (shape(self.rot) - &#39;~vector&#39;)</code></pre>
+    return self.center.shape &amp; self.size.shape &amp; (shape(self.rot) - &#39;~vector&#39;)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -4373,7 +4373,7 @@ def shape(self):
 </summary>
 <pre><code class="python">@cached_property
 def upper(self):
-    return math.where(self.is_open.side[&#39;upper&#39;], math.INF, self.pos + self.half_size)</code></pre>
+    return math.where(self.is_open.side[&#39;upper&#39;], math.INF, self.center + self.half_size)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -4498,7 +4498,7 @@ For inside locations it is <code>-max(abs(l - s))</code>.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def at(self, center: Tensor) -&gt; &#39;Box&#39;:
-    return replace(self, pos=center)</code></pre>
+    return replace(self, center=center)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with the center at <code>center</code>.
 This is equal to calling <code>self @ center</code>.</p>
@@ -4564,7 +4564,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f19b5518d60></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f31e7b68d60></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4607,7 +4607,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f19b5518d60></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f31e7b68d60></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -11996,7 +11996,7 @@ Returns:</p></div>
 </dd>
 <dt id="phi.geom.Sphere"><code class="flex name class">
 <span>class <span class="ident">Sphere</span></span>
-<span>(</span><span>pos: phiml.math._tensors.Tensor,<br>radius: phiml.math._tensors.Tensor,<br>variable_attrs: Tuple[str, ...] = ('pos', 'radius'))</span>
+<span>(</span><span>center: phiml.math._tensors.Tensor,<br>radius: phiml.math._tensors.Tensor,<br>variable_attrs: Tuple[str, ...] = ('center', 'radius'))</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -12011,22 +12011,22 @@ class Sphere(Geometry, metaclass=SphereType):
     Defined through center position and radius.
     &#34;&#34;&#34;
     
-    pos: Tensor
+    center: Tensor
     radius: Tensor
     
-    variable_attrs: Tuple[str, ...] = (&#39;pos&#39;, &#39;radius&#39;)
+    variable_attrs: Tuple[str, ...] = (&#39;center&#39;, &#39;radius&#39;)
     
     def __post_init__(self):
-        assert &#39;vector&#39; in self.pos.shape
+        assert &#39;vector&#39; in self.center.shape
         assert &#39;vector&#39; not in self.radius.shape, f&#34;Sphere radius must not vary along vector but got {self.radius}&#34;
 
     @cached_property
     def shape(self):
-        return self.pos.shape &amp; self.radius.shape
+        return self.center.shape &amp; self.radius.shape
 
     @property
-    def center(self):
-        return self.pos
+    def pos(self):
+        return self.center
 
     @cached_property
     def volume(self) -&gt; math.Tensor:
@@ -12083,7 +12083,7 @@ class Sphere(Geometry, metaclass=SphereType):
           float tensor of shape (*location.shape[:-1], 1).
 
         &#34;&#34;&#34;
-        distance = vec_length(location - self.pos, eps=1e-3)
+        distance = vec_length(location - self.center, eps=1e-3)
         return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions
 
     def approximate_closest_surface(self, location: Tensor) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
@@ -12119,10 +12119,10 @@ class Sphere(Geometry, metaclass=SphereType):
         return self.radius
 
     def bounding_half_extent(self):
-        return expand(self.radius, self.pos.shape.only(&#39;vector&#39;))
+        return expand(self.radius, self.center.shape.only(&#39;vector&#39;))
 
     def at(self, center: Tensor) -&gt; &#39;Geometry&#39;:
-        return replace(self, pos=center)
+        return replace(self, center=center)
 
     def rotated(self, angle):
         return self
@@ -12286,16 +12286,8 @@ Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
 <p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 </dd>
-<dt id="phi.geom.Sphere.center"><code class="name">prop <span class="ident">center</span></code></dt>
+<dt id="phi.geom.Sphere.center"><code class="name">var <span class="ident">center</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-def center(self):
-    return self.pos</code></pre>
-</details>
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Sphere.corners"><code class="name">prop <span class="ident">corners</span> : phiml.math._tensors.Tensor</code></dt>
@@ -12380,8 +12372,16 @@ def faces(self) -&gt; &#39;Geometry&#39;:
 </details>
 <div class="desc"></div>
 </dd>
-<dt id="phi.geom.Sphere.pos"><code class="name">var <span class="ident">pos</span> : phiml.math._tensors.Tensor</code></dt>
+<dt id="phi.geom.Sphere.pos"><code class="name">prop <span class="ident">pos</span></code></dt>
 <dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def pos(self):
+    return self.center</code></pre>
+</details>
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Sphere.radius"><code class="name">var <span class="ident">radius</span> : phiml.math._tensors.Tensor</code></dt>
@@ -12396,7 +12396,7 @@ def faces(self) -&gt; &#39;Geometry&#39;:
 </summary>
 <pre><code class="python">@cached_property
 def shape(self):
-    return self.pos.shape &amp; self.radius.shape</code></pre>
+    return self.center.shape &amp; self.radius.shape</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -12486,7 +12486,7 @@ Positive values indicate the point lies outside the geometry, negative values in
       float tensor of shape (*location.shape[:-1], 1).
 
     &#34;&#34;&#34;
-    distance = vec_length(location - self.pos, eps=1e-3)
+    distance = vec_length(location - self.center, eps=1e-3)
     return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions</code></pre>
 </details>
 <div class="desc"><p>Computes the exact distance from location to the closest point on the sphere.
@@ -12508,7 +12508,7 @@ Very close to the sphere center, the distance takes a constant value.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def at(self, center: Tensor) -&gt; &#39;Geometry&#39;:
-    return replace(self, pos=center)</code></pre>
+    return replace(self, center=center)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> with the center at <code>center</code>.
 This is equal to calling <code>self @ center</code>.</p>
@@ -12531,7 +12531,7 @@ This is equal to calling <code>self @ center</code>.</p>
 <span>Expand source code</span>
 </summary>
 <pre><code class="python">def bounding_half_extent(self):
-    return expand(self.radius, self.pos.shape.only(&#39;vector&#39;))</code></pre>
+    return expand(self.radius, self.center.shape.only(&#39;vector&#39;))</code></pre>
 </details>
 <div class="desc"><p>The bounding half-extent sets a limit on the outer-most point for each coordinate axis.
 Each component is non-negative.</p>
@@ -13215,7 +13215,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f19b5518d60></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f31e7b68d60></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13241,7 +13241,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f19b5518d60></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f31e7b68d60></span>
 </code></dt>
 <dd>
 <details class="source">
