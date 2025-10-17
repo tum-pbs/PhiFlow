@@ -15,7 +15,7 @@ class SphereType(type):
     def __call__(cls, center: Tensor = None,
                  radius: Union[float, Tensor] = None,
                  volume: Union[float, Tensor] = None,
-                 variable_attrs=('pos', 'radius'),
+                 variable_attrs=('center', 'radius'),
                  radius_variable=None,
                  pos: Tensor = None,
                  **center_: Union[float, Tensor]):
@@ -33,7 +33,7 @@ class SphereType(type):
             radius = Sphere.radius_from_volume(wrap(volume), center.vector.size)
         else:
             radius = wrap(radius)
-        return type.__call__(cls, pos=center, radius=radius, variable_attrs=variable_attrs)
+        return type.__call__(cls, center=center, radius=radius, variable_attrs=variable_attrs)
 
 
 @sliceable(keepdims='vector')
@@ -44,22 +44,22 @@ class Sphere(Geometry, metaclass=SphereType):
     Defined through center position and radius.
     """
     
-    pos: Tensor
+    center: Tensor
     radius: Tensor
     
-    variable_attrs: Tuple[str, ...] = ('pos', 'radius')
+    variable_attrs: Tuple[str, ...] = ('center', 'radius')
     
     def __post_init__(self):
-        assert 'vector' in self.pos.shape
+        assert 'vector' in self.center.shape
         assert 'vector' not in self.radius.shape, f"Sphere radius must not vary along vector but got {self.radius}"
 
     @cached_property
     def shape(self):
-        return self.pos.shape & self.radius.shape
+        return self.center.shape & self.radius.shape
 
     @property
-    def center(self):
-        return self.pos
+    def pos(self):
+        return self.center
 
     @cached_property
     def volume(self) -> math.Tensor:
@@ -116,7 +116,7 @@ class Sphere(Geometry, metaclass=SphereType):
           float tensor of shape (*location.shape[:-1], 1).
 
         """
-        distance = vec_length(location - self.pos, eps=1e-9)
+        distance = vec_length(location - self.center, eps=1e-9)
         return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions
 
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
@@ -152,10 +152,10 @@ class Sphere(Geometry, metaclass=SphereType):
         return self.radius
 
     def bounding_half_extent(self):
-        return expand(self.radius, self.pos.shape.only('vector'))
+        return expand(self.radius, self.center.shape.only('vector'))
 
     def at(self, center: Tensor) -> 'Geometry':
-        return replace(self, pos=center)
+        return replace(self, center=center)
 
     def rotated(self, angle):
         return self

@@ -19,7 +19,7 @@ class BoxType(type):
     """ Deprecated. Does not support item names. """
 
     def __call__(cls, *args, **kwargs):
-        if 'lower' in kwargs or 'upper' in kwargs or (not kwargs and len(args) == 2) or (not args and 'pos' not in kwargs):
+        if 'lower' in kwargs or 'upper' in kwargs or (not kwargs and len(args) == 2) or (not args and 'pos' not in kwargs and 'center' not in kwargs):
             return box_from_limits(*args, **kwargs)
         return type.__call__(cls, *args, **kwargs)
 
@@ -57,15 +57,15 @@ class Box(Geometry, metaclass=BoxType):
         >>> Box['x,y', :1, 0:]  # creates a Box with `lower=(-inf, 0)` and `upper=(1, inf)`.
     """
 
-    pos: Tensor
+    center: Tensor
     size: Tensor
     rot: Tensor  # can be Layout(None) for no rotation
     is_open: Tensor  # Infinite extent per face, (~side, vector) or fewer
     
-    variable_attrs: Tuple[str, ...] = ('pos', 'size', 'rot')
+    variable_attrs: Tuple[str, ...] = ('center', 'size', 'rot')
 
     def __post_init__(self):
-        assert isinstance(self.pos, Tensor) and 'vector' in channel(self.pos)
+        assert isinstance(self.center, Tensor) and 'vector' in channel(self.center)
         assert isinstance(self.size, Tensor)
         assert isinstance(self.rot, Tensor)
 
@@ -75,11 +75,11 @@ class Box(Geometry, metaclass=BoxType):
 
     @cached_property
     def lower(self):
-        return math.where(self.is_open.side['lower'], -math.INF, self.pos - self.half_size)
+        return math.where(self.is_open.side['lower'], -math.INF, self.center - self.half_size)
 
     @cached_property
     def upper(self):
-        return math.where(self.is_open.side['upper'], math.INF, self.pos + self.half_size)
+        return math.where(self.is_open.side['upper'], math.INF, self.center + self.half_size)
 
     @cached_property
     def is_finite(self):
@@ -87,8 +87,8 @@ class Box(Geometry, metaclass=BoxType):
 
     def __repr__(self):
         if self.rot is not None:
-            return f"Cuboid(center={self.pos}, size={self.size})"
-        if self.pos is None or self.size is None:  # traced
+            return f"Cuboid(center={self.center}, size={self.size})"
+        if self.center is None or self.size is None:  # traced
             return f"Box[traced, shape={self.shape}]"
         if self.shape.non_channel.volume == 1:
             item_names = self.size.vector.item_names
@@ -101,11 +101,11 @@ class Box(Geometry, metaclass=BoxType):
 
     @cached_property
     def shape(self):
-        return self.pos.shape & self.size.shape & (shape(self.rot) - '~vector')
+        return self.center.shape & self.size.shape & (shape(self.rot) - '~vector')
 
     @property
-    def center(self):
-        return self.pos
+    def pos(self):
+        return self.center
 
     @property
     def volume(self) -> Tensor:
@@ -120,7 +120,7 @@ class Box(Geometry, metaclass=BoxType):
         return rotation_matrix(self.rot, self.shape['vector'], none_to_unit=True)
 
     def at(self, center: Tensor) -> 'Box':
-        return replace(self, pos=center)
+        return replace(self, center=center)
 
     def rotated(self, angle) -> 'Box':
         rot = wrap(angle) if self.is_axis_aligned.all else self.rotation_matrix @ rotation_matrix(angle)
@@ -159,9 +159,9 @@ class Box(Geometry, metaclass=BoxType):
         if not isinstance(other, Box):
             return NotImplemented
         assert self.is_axis_aligned.all and other.is_axis_aligned.all, f"Box * Box only supported for axis-aligned boxes (rot=None)."
-        pos = concat([self.pos, other.pos], 'vector')
+        pos = concat([self.center, other.center], 'vector')
         size = concat([self.size, other.size], 'vector')
-        return replace(self, pos=pos, size=size)
+        return replace(self, center=pos, size=size)
 
     def bounding_half_extent(self) -> Tensor:
         if self.rot is not None:
@@ -417,7 +417,7 @@ def Cuboid(center: Tensor = 0,
            half_size: Union[float, Tensor] = None,
            rotation: Optional[Tensor] = None,
            is_open: Tensor = wrap(False),
-           variable_attrs=('pos', 'size', 'rot'),
+           variable_attrs=('center', 'size', 'rot'),
            **size: Union[float, Tensor]) -> Box:
     """
     Args:
