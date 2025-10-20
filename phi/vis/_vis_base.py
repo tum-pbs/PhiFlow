@@ -522,6 +522,8 @@ def to_field(obj) -> Field:
         else:
             point = expand(vec(value=0.), instance(value=1))
             return PointCloud(point, obj)
+    if hasattr(obj, 'surface') and isinstance(obj.surface, Geometry):
+        return Field(obj.surface, math.NAN, math.NAN)
     raise ValueError(f"Cannot plot {obj}. Tensors, geometries and fields can be plotted.")
 
 
