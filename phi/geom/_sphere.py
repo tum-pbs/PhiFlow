@@ -116,7 +116,7 @@ class Sphere(Geometry, metaclass=SphereType):
           float tensor of shape (*location.shape[:-1], 1).
 
         """
-        distance = vec_length(location - self.pos, eps=1e-3)
+        distance = vec_length(location - self.pos, eps=1e-9)
         return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions
 
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
