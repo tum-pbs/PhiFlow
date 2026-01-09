@@ -15121,7 +15121,7 @@ body[data-format='mobile'] .jp-OutputArea-child .jp-OutputArea-output {
 <div class="jp-Collapser jp-InputCollapser jp-Cell-inputCollapser">
 </div>
 <div class="jp-InputArea jp-Cell-inputArea">
-<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[&nbsp;]:</div>
+<div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[1]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="c1"># %pip install --quiet phiflow</span>
@@ -15230,7 +15230,7 @@ The sticks are represented by the graph's edge matrix, which we store in sparse 
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">deltas</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">pairwise_differences</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">max_distance</span><span class="o">=</span><span class="n">grid</span><span class="o">.</span><span class="n">dx</span><span class="o">.</span><span class="n">mean</span> <span class="o">*</span> <span class="mf">1.1</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;coo&#39;</span><span class="p">)</span>
 <span class="n">distances</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">vec_length</span><span class="p">(</span><span class="n">deltas</span><span class="p">)</span>
-<span class="n">graph</span> <span class="o">=</span> <span class="n">geom</span><span class="o">.</span><span class="n">graph</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">distances</span><span class="p">)</span>
+<span class="n">graph</span> <span class="o">=</span> <span class="n">geom</span><span class="o">.</span><span class="n">Graph</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">distances</span><span class="p">,</span> <span class="p">{},</span> <span class="n">deltas</span><span class="p">,</span> <span class="n">distances</span><span class="p">)</span>
 <span class="n">plot</span><span class="p">(</span><span class="n">graph</span><span class="p">)</span>
 </pre></div>
 
@@ -15310,12 +15310,12 @@ For nodes with multiple connected sticks, we compute the ideal node position for
     <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">relaxation_steps</span><span class="p">):</span>
         <span class="n">deltas</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">pairwise_differences</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="n">graph</span><span class="o">.</span><span class="n">edges</span><span class="p">)</span>
         <span class="n">stick_centers</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="mf">.5</span> <span class="o">*</span> <span class="n">deltas</span>
-        <span class="n">stick_directions</span> <span class="o">=</span> <span class="n">normalize</span><span class="p">(</span><span class="n">deltas</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">)</span>
+        <span class="n">stick_directions</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">vec_normalize</span><span class="p">(</span><span class="n">deltas</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">1e-5</span><span class="p">)</span>
         <span class="n">next_x</span> <span class="o">=</span> <span class="n">stick_centers</span> <span class="o">-</span> <span class="n">stick_directions</span> <span class="o">*</span> <span class="mf">.5</span> <span class="o">*</span> <span class="n">graph</span><span class="o">.</span><span class="n">edges</span>
         <span class="n">next_x</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">next_x</span><span class="p">,</span> <span class="n">dual</span><span class="p">)</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">fixed</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">next_x</span><span class="p">)</span>
     <span class="n">v</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">-</span> <span class="n">graph</span><span class="o">.</span><span class="n">center</span><span class="p">)</span> <span class="o">/</span> <span class="n">dt</span>
-    <span class="k">return</span> <span class="n">geom</span><span class="o">.</span><span class="n">graph</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">graph</span><span class="o">.</span><span class="n">edges</span><span class="p">),</span> <span class="n">v</span>
+    <span class="k">return</span> <span class="n">geom</span><span class="o">.</span><span class="n">Graph</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">graph</span><span class="o">.</span><span class="n">edges</span><span class="p">,</span> <span class="p">{}),</span> <span class="n">v</span>
 </pre></div>
 
      </div>
