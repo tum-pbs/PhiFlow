@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from functools import cached_property
 from typing import Union, Tuple, Dict
 
-from phiml import math, Tensor, spatial, Shape, vec, linspace, dual, stack, channel, wrap, instance, clip, batch
+from phiml import math, Tensor, spatial, Shape, vec, linspace, dual, stack, channel, wrap, instance, clip, batch, non_channel
 from phiml.dataclasses import sliceable
 from phiml.math import stop_gradient, copy_with
 from ._functions import solve2x2, vec_length, cross, normalize
@@ -29,7 +29,7 @@ class BSplineSheet(Geometry):
     degree: int
     """ Spline degree (1=linear, 2=quadratic, 3=cubic). """
     crease: Tensor
-    """ Crease per non-end row of shape (res-2, uv=2) """
+    """ Crease per non-end row of shape (res-2:s, uv=2) """
     res: Tensor
     """ Actual spline resolution along u and v as vector (res_u, res_v). Points >= res are ignored. """
     flip_normals: Union[bool, Tensor]
@@ -41,11 +41,12 @@ class BSplineSheet(Geometry):
     sample_res_v: int = 16
     sample_grid_margin: float = 1e-3
     # --- PhiML meta-info ---
-    variable_attrs = ('points', 'crease')
+    variable_attrs: Tuple[str, ...] = ('points', 'crease')
 
     def __post_init__(self):
         assert set(spatial(self.points).names) == {'u', 'v'}, f"points must have spatial dims 'u' and 'v', but got {self.points.shape}"
         assert len(set(spatial(self.points).sizes)) == 1, f"points must have the same size in u and v, but got {self.points.shape}"
+        assert spatial(self.crease).rank == 1, f"crease must have spatial rank 1, but got {self.crease.shape}"
 
     @cached_property
     def shape(self):
@@ -60,7 +61,7 @@ class BSplineSheet(Geometry):
         n_alloc = spatial(self.points).get_size('u')
         def single_knots(res: int, crease):
             return b_spline_knots(spatial(ctrl_pt=res), self.degree, crease=crease, pad_to=n_alloc)
-        return math.map(single_knots, self.res, self.crease, dims=self.res.shape & batch(self.crease))
+        return math.map(single_knots, self.res, self.crease, dims=spatial(self.crease).only(self.points.shape) & self.res.shape & non_channel(self.crease).non_spatial)
 
     def eval_pos(self, uv: Tensor, selection: Tensor = None):
         bases_u, bases_v = eval_nurbs_bases(uv, self.knots, weights=None).vector
