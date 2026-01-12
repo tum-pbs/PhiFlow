@@ -73,7 +73,7 @@ class MeshBuilder:
         self.add_quads(indices, source_idx, flip=flip)
         return indices
 
-    def add_quads(self, indices2d: Tensor, source_idx: Tensor, /, flip: Union[Tensor, bool] = False):
+    def add_quads(self, indices2d: Tensor, source_idx: Tensor = None, /, mask: Tensor = None, flip: Union[Tensor, bool] = False):
         """
         Add quads to the mesh, connecting previously added vertices.
 
@@ -81,9 +81,11 @@ class MeshBuilder:
             indices2d: 2D tensor of vertex indices, shape `(..., u:s, v:s)`.
                 Use `MeshBuilder.vertex_indices()` or the output of `add_vertices()` to get indices of existing vertices.
             source_idx: Meta-information about the added quads, can have fewer dims than `indices2d`.
+            mask: Optional mask to specify a subset of quads to be added (only at True). Must have one fewer entries along spatial dims of `indices2d`.
             flip: Whether to flip the quad orientation, i.e. reverse the order in which the vertices are listed per quad.
                 Can have fewer dims than `indices2d`.
         """
+        mask_per_part = mask is not None and (non_spatial(indices2d) in mask.shape or self.batch_dims)
         if self.source_idx is not None:
             source_idx = source_idx[self.source_face_shape.name_list]
         for strip in (non_spatial(indices2d) - self.batch_dims).meshgrid():
@@ -93,8 +95,17 @@ class MeshBuilder:
             v10 = indices_np[1:, :-1, :]
             v11 = indices_np[1:, 1:, :]
             flip_strip = flip[strip] if isinstance(flip, Tensor) else flip
+            if mask is not None and mask_per_part:  # Cannot have different #quads -> add zero-area quad (v00,v00,v00,v00)
+                m = mask[strip].numpy([*(spatial(indices2d)-1), self.batch_dims])
+                v01 = np.where(m, v01, v00)
+                v10 = np.where(m, v10, v00)
+                v11 = np.where(m, v11, v00)
             lists = np.stack((v00, v01, v11, v10) if flip_strip else (v00, v10, v11, v01), axis=-1)
-            self.elements.extend(lists.reshape((-1, self.batch_dims.volume, 4)))
+            lists = lists.reshape((-1, self.batch_dims.volume, 4))
+            if mask is not None and not mask_per_part:
+                m = mask.numpy([(spatial(indices2d)-1)])
+                lists = lists[np.where(m)[0]]
+            self.elements.extend(lists)
             if self.source_idx is not None:
                 self.source_idx.extend(source_idx[strip].numpy([spatial(indices2d)-1, self.batch_dims, channel]))
                 assert len(self.source_idx) == len(self.elements)
