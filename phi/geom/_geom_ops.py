@@ -7,7 +7,7 @@ from phiml import math, stack
 from phiml.dataclasses import sliceable
 from phiml.math import wrap, merge_shapes
 from phiml.math._shape import shape_stack, Shape, EMPTY_SHAPE, channel
-from phiml.math._tensors import object_dims, layout
+from phiml.math._tree import object_dims, layout
 from phiml.math.magic import PhiTreeNode
 from ._box import bounding_box, Box
 from ._functions import vec_length
@@ -305,6 +305,8 @@ def union(*geometries, dim=instance('union')):
     Returns:
         union `Geometry`
     """
+    if isinstance(dim, str):
+        dim = instance(dim)
     assert dim.rank == 1 and dim.instance, f"union dimension must be a single instance dimension but got {dim}"
     geometries = geometries[0] if len(geometries) == 1 and isinstance(geometries[0], (tuple, list)) else geometries
     if len(geometries) == 0:
