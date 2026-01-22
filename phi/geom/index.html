@@ -3429,7 +3429,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f7a23de6520></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f628d27ec00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3472,7 +3472,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f7a23de6520></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f628d27ec00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4564,7 +4564,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f7a23de6520></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f628d27ec00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4607,7 +4607,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f7a23de6520></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f628d27ec00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -7156,6 +7156,8 @@ class Graph(Geometry):
 
     @property
     def boundary_faces(self) -&gt; Dict[Any, Dict[str, slice]]:
+        if not self.boundary:
+            return {}
         raise NotImplementedError  # connections between boundary elements
 
     @property
@@ -7269,6 +7271,8 @@ Dynamic graphs can define boundary elements for obstacles and walls.</p>
 </summary>
 <pre><code class="python">@property
 def boundary_faces(self) -&gt; Dict[Any, Dict[str, slice]]:
+    if not self.boundary:
+        return {}
     raise NotImplementedError  # connections between boundary elements</code></pre>
 </details>
 <div class="desc"><p>Slices on the dual dimensions to mark boundary faces.</p>
@@ -13215,7 +13219,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f7a23de6520></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f628d27ec00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13241,7 +13245,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f7a23de6520></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f628d27ec00></span>
 </code></dt>
 <dd>
 <details class="source">
