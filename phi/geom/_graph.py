@@ -87,6 +87,8 @@ class Graph(Geometry):
 
     @property
     def boundary_faces(self) -> Dict[Any, Dict[str, slice]]:
+        if not self.boundary:
+            return {}
         raise NotImplementedError  # connections between boundary elements
 
     @property
