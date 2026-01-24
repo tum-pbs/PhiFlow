@@ -46,6 +46,10 @@ class Sphere(Geometry, metaclass=SphereType):
     
     center: Tensor
     radius: Tensor
+
+    center_eps: float | None = 1e-9
+    """The gradient of the distance function is discontinuous at the sphere center.
+    If a value is set for `center_eps`, sets the gradient to zero for values at most that distance from the center. This also results in inaccurate distances near the center."""
     
     variable_attrs: Tuple[str, ...] = ('center', 'radius')
     
@@ -114,16 +118,15 @@ class Sphere(Geometry, metaclass=SphereType):
 
         Returns:
           float tensor of shape (*location.shape[:-1], 1).
-
         """
-        distance = vec_length(location - self.center, eps=1e-9)
+        distance = vec_length(location - self.center, eps=self.center_eps)
         return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions
 
     def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         self_center = self.center
         self_radius = self.radius
         center_delta = location - self_center
-        center_dist = vec_length(center_delta)
+        center_dist = vec_length(center_delta, eps=self.center_eps)
         sgn_dist = center_dist - self_radius
         if instance(self):
             self_center, self_radius, sgn_dist, center_delta, center_dist = math.at_min((self.center, self.radius, sgn_dist, center_delta, center_dist), key=abs(sgn_dist), dim=instance(self))
