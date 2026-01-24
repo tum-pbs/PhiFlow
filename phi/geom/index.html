@@ -3429,7 +3429,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f628d27ec00></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7faf8403ac00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3472,7 +3472,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f628d27ec00></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7faf8403ac00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4564,7 +4564,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f628d27ec00></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7faf8403ac00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4607,7 +4607,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f628d27ec00></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7faf8403ac00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -12000,7 +12000,7 @@ Returns:</p></div>
 </dd>
 <dt id="phi.geom.Sphere"><code class="flex name class">
 <span>class <span class="ident">Sphere</span></span>
-<span>(</span><span>center: phiml.math._tensors.Tensor,<br>radius: phiml.math._tensors.Tensor,<br>variable_attrs: Tuple[str, ...] = ('center', 'radius'))</span>
+<span>(</span><span>center: phiml.math._tensors.Tensor,<br>radius: phiml.math._tensors.Tensor,<br>center_eps: float | None = 1e-09,<br>variable_attrs: Tuple[str, ...] = ('center', 'radius'))</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -12017,6 +12017,10 @@ class Sphere(Geometry, metaclass=SphereType):
     
     center: Tensor
     radius: Tensor
+
+    center_eps: float | None = 1e-9
+    &#34;&#34;&#34;The gradient of the distance function is discontinuous at the sphere center.
+    If a value is set for `center_eps`, sets the gradient to zero for values at most that distance from the center. This also results in inaccurate distances near the center.&#34;&#34;&#34;
     
     variable_attrs: Tuple[str, ...] = (&#39;center&#39;, &#39;radius&#39;)
     
@@ -12085,16 +12089,15 @@ class Sphere(Geometry, metaclass=SphereType):
 
         Returns:
           float tensor of shape (*location.shape[:-1], 1).
-
         &#34;&#34;&#34;
-        distance = vec_length(location - self.center, eps=1e-3)
+        distance = vec_length(location - self.center, eps=self.center_eps)
         return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions
 
     def approximate_closest_surface(self, location: Tensor) -&gt; Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
         self_center = self.center
         self_radius = self.radius
         center_delta = location - self_center
-        center_dist = vec_length(center_delta)
+        center_dist = vec_length(center_delta, eps=self.center_eps)
         sgn_dist = center_dist - self_radius
         if instance(self):
             self_center, self_radius, sgn_dist, center_delta, center_dist = math.at_min((self.center, self.radius, sgn_dist, center_delta, center_dist), key=abs(sgn_dist), dim=instance(self))
@@ -12294,6 +12297,11 @@ Dynamic graphs return slices along the dual dimensions.</p>
 <dd>
 <div class="desc"></div>
 </dd>
+<dt id="phi.geom.Sphere.center_eps"><code class="name">var <span class="ident">center_eps</span> : float | None</code></dt>
+<dd>
+<div class="desc"><p>The gradient of the distance function is discontinuous at the sphere center.
+If a value is set for <code>center_eps</code>, sets the gradient to zero for values at most that distance from the center. This also results in inaccurate distances near the center.</p></div>
+</dd>
 <dt id="phi.geom.Sphere.corners"><code class="name">prop <span class="ident">corners</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <details class="source">
@@ -12435,7 +12443,7 @@ def volume(self) -&gt; math.Tensor:
     self_center = self.center
     self_radius = self.radius
     center_delta = location - self_center
-    center_dist = vec_length(center_delta)
+    center_dist = vec_length(center_delta, eps=self.center_eps)
     sgn_dist = center_dist - self_radius
     if instance(self):
         self_center, self_radius, sgn_dist, center_delta, center_dist = math.at_min((self.center, self.radius, sgn_dist, center_delta, center_dist), key=abs(sgn_dist), dim=instance(self))
@@ -12488,9 +12496,8 @@ Positive values indicate the point lies outside the geometry, negative values in
 
     Returns:
       float tensor of shape (*location.shape[:-1], 1).
-
     &#34;&#34;&#34;
-    distance = vec_length(location - self.center, eps=1e-3)
+    distance = vec_length(location - self.center, eps=self.center_eps)
     return math.min(distance - self.radius, self.shape.instance)  # union for instance dimensions</code></pre>
 </details>
 <div class="desc"><p>Computes the exact distance from location to the closest point on the sphere.
@@ -13219,7 +13226,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f628d27ec00></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7faf8403ac00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13245,7 +13252,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f628d27ec00></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7faf8403ac00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13978,6 +13985,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Sphere.bounding_half_extent" href="#phi.geom.Sphere.bounding_half_extent">bounding_half_extent</a></code></li>
 <li><code><a title="phi.geom.Sphere.bounding_radius" href="#phi.geom.Sphere.bounding_radius">bounding_radius</a></code></li>
 <li><code><a title="phi.geom.Sphere.center" href="#phi.geom.Sphere.center">center</a></code></li>
+<li><code><a title="phi.geom.Sphere.center_eps" href="#phi.geom.Sphere.center_eps">center_eps</a></code></li>
 <li><code><a title="phi.geom.Sphere.corners" href="#phi.geom.Sphere.corners">corners</a></code></li>
 <li><code><a title="phi.geom.Sphere.face_areas" href="#phi.geom.Sphere.face_areas">face_areas</a></code></li>
 <li><code><a title="phi.geom.Sphere.face_centers" href="#phi.geom.Sphere.face_centers">face_centers</a></code></li>
