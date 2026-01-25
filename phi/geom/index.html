@@ -3429,7 +3429,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7faf8403ac00></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff9a70e2c00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3472,7 +3472,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7faf8403ac00></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff9a70e2c00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4564,7 +4564,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7faf8403ac00></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff9a70e2c00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4607,7 +4607,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7faf8403ac00></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff9a70e2c00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -12696,9 +12696,9 @@ class UniformGrid(Geometry, metaclass=UniformGridType):
 
     @cached_property
     def center(self):
-        local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
-        points = self.bounds.local_to_global(local_coords)
-        return points
+        with NUMPY:  # avoid JAX tracing this. It cannot not have a tracer dependency.
+            local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
+            return self.bounds.local_to_global(local_coords)
 
     def position_of(self, voxel_index: Tensor):
         voxel_index = rename_dims(voxel_index, channel, &#39;vector&#39;)
@@ -12974,9 +12974,9 @@ Dynamic graphs return slices along the dual dimensions.</p>
 </summary>
 <pre><code class="python">@cached_property
 def center(self):
-    local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
-    points = self.bounds.local_to_global(local_coords)
-    return points</code></pre>
+    with NUMPY:  # avoid JAX tracing this. It cannot not have a tracer dependency.
+        local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
+        return self.bounds.local_to_global(local_coords)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -13226,7 +13226,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7faf8403ac00></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff9a70e2c00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13252,7 +13252,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7faf8403ac00></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff9a70e2c00></span>
 </code></dt>
 <dd>
 <details class="source">
