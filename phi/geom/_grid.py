@@ -5,7 +5,7 @@ from typing import Tuple, Dict, Any, Optional, Union
 import numpy as np
 
 from phiml.dataclasses import sliceable
-from phiml.math import rename_dims, wrap, safe_div
+from phiml.math import rename_dims, wrap, safe_div, NUMPY
 from ._box import Box, Cuboid, bounding_box
 from ._functions import vec_length
 from ._geom import Geometry, GeometryException
@@ -58,9 +58,9 @@ class UniformGrid(Geometry, metaclass=UniformGridType):
 
     @cached_property
     def center(self):
-        local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
-        points = self.bounds.local_to_global(local_coords)
-        return points
+        with NUMPY:  # avoid JAX tracing this. It cannot not have a tracer dependency.
+            local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
+            return self.bounds.local_to_global(local_coords)
 
     def position_of(self, voxel_index: Tensor):
         voxel_index = rename_dims(voxel_index, channel, 'vector')
