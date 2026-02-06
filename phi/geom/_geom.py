@@ -168,17 +168,18 @@ class Geometry:
         else:
             raise ValueError(f"Unknown set: '{set_key}'")
 
-    @property
-    @abstractmethod
-    def nodes(self) -> Tensor:
-        """
-        Returns:
-            Corner locations as `phiml.math.Tensor`.
-            Corners belonging to one object or cell are listed along dual dimensions.
-            If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.
-        """
+    if TYPE_CHECKING:
+        @property
+        @abstractmethod
+        def nodes(self) -> Tensor:
+            """
+            Returns:
+                Corner locations as `phiml.math.Tensor`.
+                Corners belonging to one object or cell are listed along dual dimensions.
+                If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.
+            """
 
-    corners = nodes
+        corners = nodes
 
     def integrate_surface(self, face_values: Tensor, divide_volume=False) -> Tensor:
         """
