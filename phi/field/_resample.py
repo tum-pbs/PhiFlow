@@ -95,7 +95,7 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
         geometry: Single or batched `phi.geom.Geometry` or `Field` or location `Tensor`.
             When passing a `Field`, its `elements` are used as sample points.
             When passing a vector-valued `Tensor`, a `Point` geometry will be created.
-        at: One of 'center', 'face', 'vertex'
+        at: One of 'center', 'face', 'node'
         boundary: Target extrapolation.
         dot_face_normal: If not `None` and , `field` is a vector field and `at=='face'`, the dot product between sampled field vectors and the face normals is returned instead.
         **kwargs: Sampling arguments, e.g. to specify the numerical scheme.
@@ -106,7 +106,7 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
         Sampled values as a `phi.math.Tensor`
     """
     # --- Process args ---
-    assert at in ['center', 'face', 'vertex']
+    assert at in ['center', 'face', 'node']
     if at == 'face':
         assert boundary is not None, "boundaries must be given when sampling at faces"
     geometry = _get_geometry(geometry)
@@ -170,7 +170,10 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
         # if geom_ch:
         #     sampled = [field._sample(p, **kwargs) for p in geometry.unstack(geom_ch.name)]
         #     return math.stack(sampled, geom_ch)
-    elif at == 'vertex':
+    elif at == 'node':
+        if isinstance(geometry, UniformGrid):
+            offset_grid = UniformGrid(geometry.resolution + 1, Box(lower=geometry.bounds.lower - geometry.dx / 2, upper=geometry.bounds.upper + geometry.dx / 2))
+            return sample(field, offset_grid, at='center', boundary=boundary, **kwargs)
         raise NotImplementedError
 
 

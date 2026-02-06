@@ -11,7 +11,7 @@ from ._functions import vec_length
 from ._geom import Geometry, GeometryException
 from .. import math
 from ..math import Shape, Tensor, Extrapolation, stack, vec
-from phiml.math._shape import shape_stack, dual, spatial, EMPTY_SHAPE, channel, batch, shape, non_spatial
+from phiml.math._shape import shape_stack, dual, spatial, EMPTY_SHAPE, channel, batch, shape, non_spatial, non_batch
 from ..math.magic import slicing_dict
 
 
@@ -58,7 +58,7 @@ class UniformGrid(Geometry, metaclass=UniformGridType):
 
     @cached_property
     def center(self):
-        with NUMPY:  # avoid JAX tracing this. It cannot not have a tracer dependency.
+        with NUMPY:  # avoid JAX tracing this. It should not have a tracer dependency when cached.
             local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
             return self.bounds.local_to_global(local_coords)
 
@@ -84,6 +84,16 @@ class UniformGrid(Geometry, metaclass=UniformGridType):
             result[dim+'-'] = {'~vector': dim, dim: slice(1)}
             result[dim+'+'] = {'~vector': dim, dim: slice(-1, None)}
         return result
+
+    @property
+    def node_shape(self) -> Shape:
+        return (self.shape.spatial + 1) & (non_spatial(self) - 'vector')
+
+    @cached_property
+    def nodes(self) -> Tensor:
+        with NUMPY:  # avoid JAX tracing this. It should not have a tracer dependency when cached.
+            local_coords = math.meshgrid(**{dim.name: math.linspace(0, 1, dim+1) for dim in self.resolution})
+            return self.bounds.local_to_global(local_coords)
 
     @property
     def face_centers(self) -> Tensor:

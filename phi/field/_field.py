@@ -80,7 +80,12 @@ class Field(metaclass=_FieldType):
     """ Which of the three attributes (geometry,values,boundary) are considered values. See `phiml.math.magic.PhiTreeNode.__value_attrs__`"""
 
     def __post_init__(self):
-        math.merge_shapes(self.values, non_batch(self.sampled_elements).non_channel)  # shape check
+        at = self.sampled_at
+        if at in {'center', 'face'}:
+            math.merge_shapes(self.values, non_batch(self.sampled_elements).non_channel)  # shape check
+        else:
+            points = get_sample_points(self.geometry, at, self.boundary)
+            math.merge_shapes(self.values, points)  # shape check
 
     @property
     def grid(self) -> UniformGrid:
@@ -374,8 +379,12 @@ class Field(metaclass=_FieldType):
 
     @property
     def sampled_at(self):
-        matching_sets = [s for s, s_shape in self.geometry.sets.items() if s_shape.non_batch in self.values.shape]
-        return matching_sets[-1]
+        v_shape = self.values.shape.non_batch
+        for name, s_shape in self.geometry.sets.items():
+            if s_shape.non_batch in v_shape:  # all necessary dims present in values
+                if v_shape.only(s_shape, reorder=True).sizes == s_shape.sizes:
+                    return name
+        raise ValueError(f"Could not determine where the values of this Field are sampled. Geometry sets: {self.geometry.sets}, Field values shape: {v_shape}")
 
     def at(self, representation: Union['Field', Geometry], keep_boundary=False, **kwargs) -> 'Field':
         """
@@ -876,4 +885,5 @@ def get_sample_points(geometry: Geometry, at: str, boundary: Extrapolation):
         return slice_off_constant_faces(geometry.center, geometry.boundary_elements, boundary)
     elif at == 'face':
         return slice_off_constant_faces(geometry.face_centers, geometry.boundary_faces, boundary)
-    raise ValueError(at)
+    else:
+        return geometry.get_points(at)

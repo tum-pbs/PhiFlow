@@ -133,17 +133,30 @@ class Geometry:
         return math.EMPTY_SHAPE
 
     @property
+    def node_shape(self) -> Shape:
+        """
+        Returns:
+            Full Shape to identify each node of this `Geometry`.
+            If this `Geometry` has no nodes, returns an empty `Shape`.
+        """
+        return math.EMPTY_SHAPE
+
+    @property
     def sets(self) -> Dict[str, Shape]:
+        result = {'center': non_batch(self)-'vector'}
         if self.face_shape and self.face_shape != self.shape and self.face_shape.volume > 0:
-            return {'center': non_batch(self)-'vector', 'face': self.face_shape.non_batch}
-        else:
-            return {'center': non_batch(self)-'vector'}
+            result['face'] = self.face_shape.non_batch
+        if self.node_shape and self.node_shape != self.shape and self.node_shape.volume > 0:
+            result['node'] = self.node_shape.non_batch
+        return result
 
     def get_points(self, set_key: str) -> Tensor:
         if set_key == 'center':
             return self.center
         elif set_key == 'face':
             return self.face_centers
+        elif set_key == 'node':
+            return self.nodes
         else:
             raise ValueError(f"Unknown set: '{set_key}'")
 
@@ -157,13 +170,15 @@ class Geometry:
 
     @property
     @abstractmethod
-    def corners(self) -> Tensor:
+    def nodes(self) -> Tensor:
         """
         Returns:
             Corner locations as `phiml.math.Tensor`.
             Corners belonging to one object or cell are listed along dual dimensions.
             If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.
         """
+
+    corners = nodes
 
     def integrate_surface(self, face_values: Tensor, divide_volume=False) -> Tensor:
         """
