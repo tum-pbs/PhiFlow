@@ -867,7 +867,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7ff9a6fca2a0></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f0d7aba7ba0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -1172,14 +1172,14 @@ Setting this to zero may cause infinities or NaN values during backpropagation.<
 <p>Scalar loss value</p></div>
 </dd>
 <dt id="phi.field.functional_gradient"><code class="name flex">
-<span>def <span class="ident">functional_gradient</span></span>(<span>f: Callable, wrt: str = None, get_output=True) ‑> Callable</span>
+<span>def <span class="ident">functional_gradient</span></span>(<span>f: Callable, wrt: str | int | tuple | list = None, get_output=True) ‑> Callable</span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def gradient(f: Callable, wrt: str = None, get_output=True) -&gt; Callable:
+<pre><code class="python">def gradient(f: Callable, wrt: Union[str, int, tuple, list] = None, get_output=True) -&gt; Callable:
     &#34;&#34;&#34;
     Creates a function which computes the gradient of `f`.
 
@@ -1257,14 +1257,14 @@ If not specified, the gradient will be computed w.r.t. the first positional argu
 <p>Function with the same arguments as <code>f</code> that returns the value of <code>f</code>, auxiliary data and gradient of <code>f</code> if <code>get_output=True</code>, else just the gradient of <code>f</code>.</p></div>
 </dd>
 <dt id="phi.field.gradient"><code class="name flex">
-<span>def <span class="ident">gradient</span></span>(<span>f: Callable, wrt: str = None, get_output=True) ‑> Callable</span>
+<span>def <span class="ident">gradient</span></span>(<span>f: Callable, wrt: str | int | tuple | list = None, get_output=True) ‑> Callable</span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def gradient(f: Callable, wrt: str = None, get_output=True) -&gt; Callable:
+<pre><code class="python">def gradient(f: Callable, wrt: Union[str, int, tuple, list] = None, get_output=True) -&gt; Callable:
     &#34;&#34;&#34;
     Creates a function which computes the gradient of `f`.
 
@@ -2673,7 +2673,7 @@ True
         geometry: Single or batched `phi.geom.Geometry` or `Field` or location `Tensor`.
             When passing a `Field`, its `elements` are used as sample points.
             When passing a vector-valued `Tensor`, a `Point` geometry will be created.
-        at: One of &#39;center&#39;, &#39;face&#39;, &#39;vertex&#39;
+        at: One of &#39;center&#39;, &#39;face&#39;, &#39;node&#39;
         boundary: Target extrapolation.
         dot_face_normal: If not `None` and , `field` is a vector field and `at==&#39;face&#39;`, the dot product between sampled field vectors and the face normals is returned instead.
         **kwargs: Sampling arguments, e.g. to specify the numerical scheme.
@@ -2684,7 +2684,7 @@ True
         Sampled values as a `phi.math.Tensor`
     &#34;&#34;&#34;
     # --- Process args ---
-    assert at in [&#39;center&#39;, &#39;face&#39;, &#39;vertex&#39;]
+    assert at in [&#39;center&#39;, &#39;face&#39;, &#39;node&#39;]
     if at == &#39;face&#39;:
         assert boundary is not None, &#34;boundaries must be given when sampling at faces&#34;
     geometry = _get_geometry(geometry)
@@ -2748,7 +2748,10 @@ True
         # if geom_ch:
         #     sampled = [field._sample(p, **kwargs) for p in geometry.unstack(geom_ch.name)]
         #     return math.stack(sampled, geom_ch)
-    elif at == &#39;vertex&#39;:
+    elif at == &#39;node&#39;:
+        if isinstance(geometry, UniformGrid):
+            offset_grid = UniformGrid(geometry.resolution + 1, Box(lower=geometry.bounds.lower - geometry.dx / 2, upper=geometry.bounds.upper + geometry.dx / 2))
+            return sample(field, offset_grid, at=&#39;center&#39;, boundary=boundary, **kwargs)
         raise NotImplementedError</code></pre>
 </details>
 <div class="desc"><p>Computes the field value inside the volume of the (batched) <code>geometry</code>.</p>
@@ -2767,7 +2770,7 @@ Spatial dimensions of <code>geometry</code> can be used to sample a grid of geom
 When passing a <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>, its <code>elements</code> are used as sample points.
 When passing a vector-valued <code>Tensor</code>, a <code>Point</code> geometry will be created.</dd>
 <dt><strong><code>at</code></strong></dt>
-<dd>One of 'center', 'face', 'vertex'</dd>
+<dd>One of 'center', 'face', 'node'</dd>
 <dt><strong><code>boundary</code></strong></dt>
 <dd>Target extrapolation.</dd>
 <dt><strong><code>dot_face_normal</code></strong></dt>
@@ -3042,17 +3045,24 @@ The sign of 0 is undefined.</p>
             # active_dims = (y_tensor.shape &amp; x0_tensor.shape).non_batch  # assumes batch dimensions are not active
             batches = (y_tensor.shape &amp; x0_tensor.shape).batch
 
-            def native_lin_f(native_x, batch_index=None):
+            def native_lin_f(native_x, batch_index=None, is_trajectory=False):
                 assert not solve.rank_deficiency  # ToDo add and remove zeros around function call
                 if batch_index is not None and batches.volume &gt; 1:
                     native_x = backend.tile(backend.expand_dims(native_x), [batches.volume, 1])
-                x = assemble_tree(x0_nest, [reshaped_tensor(native_x, [batches, non_batch(x0_tensor)] if backend.ndims(native_x) &gt;= 2 else [non_batch(x0_tensor)], convert=False)], attr_type=variable_attributes)
+                if is_trajectory:
+                    x_tensor = reshaped_tensor(native_x, [non_batch(x0_tensor), batch(&#39;trajectory&#39;) + batches])
+                else:
+                    x_tensor = reshaped_tensor(native_x, [batches, non_batch(x0_tensor)] if backend.ndims(native_x) &gt;= 2 else [non_batch(x0_tensor)], convert=False)
+                x = assemble_tree(x0_nest, [x_tensor], attr_type=variable_attributes)
                 y_ = f(x, *f_args, **f_kwargs)
                 _, (y_tensor_,) = disassemble_tree(y_, cache=False, attr_type=value_attributes)
                 assert set(non_batch(y_tensor_)) == set(non_batch(y_tensor)), f&#34;Function returned dimensions {y_tensor_.shape} but right-hand-side has shape {y_tensor.shape}&#34;
-                y_native = y_tensor_.native([batches, non_batch(y_tensor)] if backend.ndims(native_x) &gt;= 2 else [non_batch(y_tensor)])  # order like right-hand-side
-                if batch_index is not None and batches.volume &gt; 1:
-                    y_native = y_native[batch_index]
+                if is_trajectory:
+                    y_native = y_tensor_.native([non_batch(y_tensor), batch(x_tensor)])
+                else:
+                    y_native = y_tensor_.native([batches, non_batch(y_tensor)] if backend.ndims(native_x) &gt;= 2 else [non_batch(y_tensor)])  # order like right-hand-side
+                    if batch_index is not None and batches.volume &gt; 1:
+                        y_native = y_native[batch_index]
                 return y_native
 
             result = _linear_solve_forward(y, solve, native_lin_f, pattern_dims_in=non_batch(x0_tensor).names, pattern_dims_out=non_batch(y_tensor).names, preconditioner=None, backend=backend, is_backprop=is_backprop)
@@ -3609,7 +3619,8 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
     Returns:
         `Tensor` or `phiml.math.magic.PhiTreeNode` matching `x`.
     &#34;&#34;&#34;
-    return _backend_op1(x, Backend.to_float, to_float)</code></pre>
+    dtype = default_backend().float_type
+    return tree_map(lambda t: t.__cast__(dtype) if hasattr(t, &#39;__cast__&#39;) else choose_backend(t).cast(t, dtype), x, all_attributes, op_name=&#39;cast&#39;)</code></pre>
 </details>
 <div class="desc"><p>Converts the given tensor to floating point format with the currently specified precision.</p>
 <p>The precision can be set globally using <code>math.set_global_precision()</code> and locally using <code>with math.precision()</code>.</p>
@@ -3634,7 +3645,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 </summary>
 <pre><code class="python">def to_int32(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34; Converts the `Tensor` or `phiml.math.magic.PhiTreeNode` `x` to 32-bit integer. &#34;&#34;&#34;
-    return _backend_op1(x, Backend.to_int32, to_int32)</code></pre>
+    return tree_map(lambda t: t.__cast__(INT32) if hasattr(t, &#39;__cast__&#39;) else choose_backend(t).cast(t, INT32), x, all_attributes, op_name=&#39;cast&#39;)</code></pre>
 </details>
 <div class="desc"><p>Converts the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code> to 32-bit integer.</p></div>
 </dd>
@@ -3648,7 +3659,7 @@ This may switch off the gradients for <code>x</code> itself or create a copy of 
 </summary>
 <pre><code class="python">def to_int64(x: TensorOrTree) -&gt; TensorOrTree:
     &#34;&#34;&#34; Converts the `Tensor` or `phiml.math.magic.PhiTreeNode` `x` to 64-bit integer. &#34;&#34;&#34;
-    return _backend_op1(x, Backend.to_int64, to_int64)</code></pre>
+    return tree_map(lambda t: t.__cast__(INT64) if hasattr(t, &#39;__cast__&#39;) else choose_backend(t).cast(t, INT64), x, all_attributes, op_name=&#39;cast&#39;)</code></pre>
 </details>
 <div class="desc"><p>Converts the <code>Tensor</code> or <code>phiml.math.magic.PhiTreeNode</code> <code>x</code> to 64-bit integer.</p></div>
 </dd>
@@ -4026,7 +4037,12 @@ class Field(metaclass=_FieldType):
     &#34;&#34;&#34; Which of the three attributes (geometry,values,boundary) are considered values. See `phiml.math.magic.PhiTreeNode.__value_attrs__`&#34;&#34;&#34;
 
     def __post_init__(self):
-        math.merge_shapes(self.values, non_batch(self.sampled_elements).non_channel)  # shape check
+        at = self.sampled_at
+        if at in {&#39;center&#39;, &#39;face&#39;}:
+            math.merge_shapes(self.values, non_batch(self.sampled_elements).non_channel)  # shape check
+        else:
+            points = get_sample_points(self.geometry, at, self.boundary)
+            math.merge_shapes(self.values, points)  # shape check
 
     @property
     def grid(self) -&gt; UniformGrid:
@@ -4320,8 +4336,12 @@ class Field(metaclass=_FieldType):
 
     @property
     def sampled_at(self):
-        matching_sets = [s for s, s_shape in self.geometry.sets.items() if s_shape.non_batch in self.values.shape]
-        return matching_sets[-1]
+        v_shape = self.values.shape.non_batch
+        for name, s_shape in self.geometry.sets.items():
+            if s_shape.non_batch in v_shape:  # all necessary dims present in values
+                if v_shape.only(s_shape, reorder=True).sizes == s_shape.sizes:
+                    return name
+        raise ValueError(f&#34;Could not determine where the values of this Field are sampled. Geometry sets: {self.geometry.sets}, Field values shape: {v_shape}&#34;)
 
     def at(self, representation: Union[&#39;Field&#39;, Geometry], keep_boundary=False, **kwargs) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -5192,8 +5212,12 @@ def resolution(self):
 </summary>
 <pre><code class="python">@property
 def sampled_at(self):
-    matching_sets = [s for s, s_shape in self.geometry.sets.items() if s_shape.non_batch in self.values.shape]
-    return matching_sets[-1]</code></pre>
+    v_shape = self.values.shape.non_batch
+    for name, s_shape in self.geometry.sets.items():
+        if s_shape.non_batch in v_shape:  # all necessary dims present in values
+            if v_shape.only(s_shape, reorder=True).sizes == s_shape.sizes:
+                return name
+    raise ValueError(f&#34;Could not determine where the values of this Field are sampled. Geometry sets: {self.geometry.sets}, Field values shape: {v_shape}&#34;)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -6124,7 +6148,12 @@ class Field(metaclass=_FieldType):
     &#34;&#34;&#34; Which of the three attributes (geometry,values,boundary) are considered values. See `phiml.math.magic.PhiTreeNode.__value_attrs__`&#34;&#34;&#34;
 
     def __post_init__(self):
-        math.merge_shapes(self.values, non_batch(self.sampled_elements).non_channel)  # shape check
+        at = self.sampled_at
+        if at in {&#39;center&#39;, &#39;face&#39;}:
+            math.merge_shapes(self.values, non_batch(self.sampled_elements).non_channel)  # shape check
+        else:
+            points = get_sample_points(self.geometry, at, self.boundary)
+            math.merge_shapes(self.values, points)  # shape check
 
     @property
     def grid(self) -&gt; UniformGrid:
@@ -6418,8 +6447,12 @@ class Field(metaclass=_FieldType):
 
     @property
     def sampled_at(self):
-        matching_sets = [s for s, s_shape in self.geometry.sets.items() if s_shape.non_batch in self.values.shape]
-        return matching_sets[-1]
+        v_shape = self.values.shape.non_batch
+        for name, s_shape in self.geometry.sets.items():
+            if s_shape.non_batch in v_shape:  # all necessary dims present in values
+                if v_shape.only(s_shape, reorder=True).sizes == s_shape.sizes:
+                    return name
+        raise ValueError(f&#34;Could not determine where the values of this Field are sampled. Geometry sets: {self.geometry.sets}, Field values shape: {v_shape}&#34;)
 
     def at(self, representation: Union[&#39;Field&#39;, Geometry], keep_boundary=False, **kwargs) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -7290,8 +7323,12 @@ def resolution(self):
 </summary>
 <pre><code class="python">@property
 def sampled_at(self):
-    matching_sets = [s for s, s_shape in self.geometry.sets.items() if s_shape.non_batch in self.values.shape]
-    return matching_sets[-1]</code></pre>
+    v_shape = self.values.shape.non_batch
+    for name, s_shape in self.geometry.sets.items():
+        if s_shape.non_batch in v_shape:  # all necessary dims present in values
+            if v_shape.only(s_shape, reorder=True).sizes == s_shape.sizes:
+                return name
+    raise ValueError(f&#34;Could not determine where the values of this Field are sampled. Geometry sets: {self.geometry.sets}, Field values shape: {v_shape}&#34;)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -8221,7 +8258,12 @@ class Field(metaclass=_FieldType):
     &#34;&#34;&#34; Which of the three attributes (geometry,values,boundary) are considered values. See `phiml.math.magic.PhiTreeNode.__value_attrs__`&#34;&#34;&#34;
 
     def __post_init__(self):
-        math.merge_shapes(self.values, non_batch(self.sampled_elements).non_channel)  # shape check
+        at = self.sampled_at
+        if at in {&#39;center&#39;, &#39;face&#39;}:
+            math.merge_shapes(self.values, non_batch(self.sampled_elements).non_channel)  # shape check
+        else:
+            points = get_sample_points(self.geometry, at, self.boundary)
+            math.merge_shapes(self.values, points)  # shape check
 
     @property
     def grid(self) -&gt; UniformGrid:
@@ -8515,8 +8557,12 @@ class Field(metaclass=_FieldType):
 
     @property
     def sampled_at(self):
-        matching_sets = [s for s, s_shape in self.geometry.sets.items() if s_shape.non_batch in self.values.shape]
-        return matching_sets[-1]
+        v_shape = self.values.shape.non_batch
+        for name, s_shape in self.geometry.sets.items():
+            if s_shape.non_batch in v_shape:  # all necessary dims present in values
+                if v_shape.only(s_shape, reorder=True).sizes == s_shape.sizes:
+                    return name
+        raise ValueError(f&#34;Could not determine where the values of this Field are sampled. Geometry sets: {self.geometry.sets}, Field values shape: {v_shape}&#34;)
 
     def at(self, representation: Union[&#39;Field&#39;, Geometry], keep_boundary=False, **kwargs) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -9387,8 +9433,12 @@ def resolution(self):
 </summary>
 <pre><code class="python">@property
 def sampled_at(self):
-    matching_sets = [s for s, s_shape in self.geometry.sets.items() if s_shape.non_batch in self.values.shape]
-    return matching_sets[-1]</code></pre>
+    v_shape = self.values.shape.non_batch
+    for name, s_shape in self.geometry.sets.items():
+        if s_shape.non_batch in v_shape:  # all necessary dims present in values
+            if v_shape.only(s_shape, reorder=True).sizes == s_shape.sizes:
+                return name
+    raise ValueError(f&#34;Could not determine where the values of this Field are sampled. Geometry sets: {self.geometry.sets}, Field values shape: {v_shape}&#34;)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>

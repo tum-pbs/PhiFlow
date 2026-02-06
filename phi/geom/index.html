@@ -2398,9 +2398,13 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
             raise NotImplementedError
         if any(isinstance(v, (tuple, list, dict)) for v in values_):
             from ._tensors import wrap, layout
-            if all(np.asarray(v).dtype != object for v in values_):
+            if _is_data_array(values_):
                 tensors = [wrap(v) for v in values_]
                 return stack(tensors, dim)
+            elif all(isinstance(v, (tuple, list, dict)) for v in values_) and _contains_tensor(values_):
+                if all(isinstance(v, (tuple, list)) for v in values_):
+                    return [stack([v[i] for v in values_], dim, expand_values=expand_values, simplify=simplify, layout_non_matching=layout_non_matching, **kwargs) for i in range(len(values_[0]))]
+                # the case of dicts is handled above
             else:
                 assert len(dim) == 1, f&#34;Cannot stack values with nested tuples, lists or dicts along multiple dimensions {dim}&#34;
                 return layout(values_, dim)
@@ -2610,6 +2614,8 @@ Adding batch dims must always work without keyword arguments.</dd>
     Returns:
         union `Geometry`
     &#34;&#34;&#34;
+    if isinstance(dim, str):
+        dim = instance(dim)
     assert dim.rank == 1 and dim.instance, f&#34;union dimension must be a single instance dimension but got {dim}&#34;
     geometries = geometries[0] if len(geometries) == 1 and isinstance(geometries[0], (tuple, list)) else geometries
     if len(geometries) == 0:
@@ -3045,10 +3051,7 @@ def corners(self) -&gt; Tensor:
     to_corner = math.sum(lower_upper * to_face, &#39;~vector&#39;)
     return self.center + to_corner</code></pre>
 </details>
-<div class="desc"><h2 id="returns">Returns</h2>
-<p>Corner locations as <code>phiml.math.Tensor</code>.
-Corners belonging to one object or cell are listed along dual dimensions.
-If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.</p></div>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.face_areas"><code class="name">prop <span class="ident">face_areas</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -3429,7 +3432,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff9a70e2c00></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f0d7acc3740></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3472,7 +3475,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff9a70e2c00></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f0d7acc3740></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4180,10 +4183,7 @@ def corners(self) -&gt; Tensor:
     to_corner = math.sum(lower_upper * to_face, &#39;~vector&#39;)
     return self.center + to_corner</code></pre>
 </details>
-<div class="desc"><h2 id="returns">Returns</h2>
-<p>Corner locations as <code>phiml.math.Tensor</code>.
-Corners belonging to one object or cell are listed along dual dimensions.
-If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.</p></div>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.face_areas"><code class="name">prop <span class="ident">face_areas</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -4564,7 +4564,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff9a70e2c00></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f0d7acc3740></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4607,7 +4607,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff9a70e2c00></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f0d7acc3740></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -5180,10 +5180,7 @@ Dynamic graphs return slices along the dual dimensions.</p>
 def corners(self) -&gt; Tensor:
     return math.zeros(self.shape &amp; dual(corners=0))</code></pre>
 </details>
-<div class="desc"><h2 id="returns">Returns</h2>
-<p>Corner locations as <code>phiml.math.Tensor</code>.
-Corners belonging to one object or cell are listed along dual dimensions.
-If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.</p></div>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.Cylinder.depth"><code class="name">var <span class="ident">depth</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -5781,17 +5778,30 @@ class Geometry:
         return math.EMPTY_SHAPE
 
     @property
+    def node_shape(self) -&gt; Shape:
+        &#34;&#34;&#34;
+        Returns:
+            Full Shape to identify each node of this `Geometry`.
+            If this `Geometry` has no nodes, returns an empty `Shape`.
+        &#34;&#34;&#34;
+        return math.EMPTY_SHAPE
+
+    @property
     def sets(self) -&gt; Dict[str, Shape]:
+        result = {&#39;center&#39;: non_batch(self)-&#39;vector&#39;}
         if self.face_shape and self.face_shape != self.shape and self.face_shape.volume &gt; 0:
-            return {&#39;center&#39;: non_batch(self)-&#39;vector&#39;, &#39;face&#39;: self.face_shape.non_batch}
-        else:
-            return {&#39;center&#39;: non_batch(self)-&#39;vector&#39;}
+            result[&#39;face&#39;] = self.face_shape.non_batch
+        if self.node_shape and self.node_shape != self.shape and self.node_shape.volume &gt; 0:
+            result[&#39;node&#39;] = self.node_shape.non_batch
+        return result
 
     def get_points(self, set_key: str) -&gt; Tensor:
         if set_key == &#39;center&#39;:
             return self.center
         elif set_key == &#39;face&#39;:
             return self.face_centers
+        elif set_key == &#39;node&#39;:
+            return self.nodes
         else:
             raise ValueError(f&#34;Unknown set: &#39;{set_key}&#39;&#34;)
 
@@ -5803,15 +5813,18 @@ class Geometry:
         else:
             raise ValueError(f&#34;Unknown set: &#39;{set_key}&#39;&#34;)
 
-    @property
-    @abstractmethod
-    def corners(self) -&gt; Tensor:
-        &#34;&#34;&#34;
-        Returns:
-            Corner locations as `phiml.math.Tensor`.
-            Corners belonging to one object or cell are listed along dual dimensions.
-            If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.
-        &#34;&#34;&#34;
+    if TYPE_CHECKING:
+        @property
+        @abstractmethod
+        def nodes(self) -&gt; Tensor:
+            &#34;&#34;&#34;
+            Returns:
+                Corner locations as `phiml.math.Tensor`.
+                Corners belonging to one object or cell are listed along dual dimensions.
+                If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.
+            &#34;&#34;&#34;
+
+        corners = nodes
 
     def integrate_surface(self, face_values: Tensor, divide_volume=False) -&gt; Tensor:
         &#34;&#34;&#34;
@@ -6220,27 +6233,6 @@ Dynamic graphs return slices along the dual dimensions.</p>
 <h2 id="returns">Returns</h2>
 <p>Map from <code>name</code> to slicing <code>dict</code>.</p></div>
 </dd>
-<dt id="phi.geom.Geometry.corners"><code class="name">prop <span class="ident">corners</span> : phiml.math._tensors.Tensor</code></dt>
-<dd>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@property
-@abstractmethod
-def corners(self) -&gt; Tensor:
-    &#34;&#34;&#34;
-    Returns:
-        Corner locations as `phiml.math.Tensor`.
-        Corners belonging to one object or cell are listed along dual dimensions.
-        If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.
-    &#34;&#34;&#34;</code></pre>
-</details>
-<div class="desc"><h2 id="returns">Returns</h2>
-<p>Corner locations as <code>phiml.math.Tensor</code>.
-Corners belonging to one object or cell are listed along dual dimensions.
-If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.</p></div>
-</dd>
 <dt id="phi.geom.Geometry.face_areas"><code class="name">prop <span class="ident">face_areas</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
 <details class="source">
@@ -6329,6 +6321,25 @@ def faces(self) -&gt; &#39;Geometry&#39;:
 </details>
 <div class="desc"></div>
 </dd>
+<dt id="phi.geom.Geometry.node_shape"><code class="name">prop <span class="ident">node_shape</span> : phiml.math._shape.Shape</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def node_shape(self) -&gt; Shape:
+    &#34;&#34;&#34;
+    Returns:
+        Full Shape to identify each node of this `Geometry`.
+        If this `Geometry` has no nodes, returns an empty `Shape`.
+    &#34;&#34;&#34;
+    return math.EMPTY_SHAPE</code></pre>
+</details>
+<div class="desc"><h2 id="returns">Returns</h2>
+<p>Full Shape to identify each node of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.
+If this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> has no nodes, returns an empty <code>Shape</code>.</p></div>
+</dd>
 <dt id="phi.geom.Geometry.sets"><code class="name">prop <span class="ident">sets</span> : Dict[str, phiml.math._shape.Shape]</code></dt>
 <dd>
 <details class="source">
@@ -6337,10 +6348,12 @@ def faces(self) -&gt; &#39;Geometry&#39;:
 </summary>
 <pre><code class="python">@property
 def sets(self) -&gt; Dict[str, Shape]:
+    result = {&#39;center&#39;: non_batch(self)-&#39;vector&#39;}
     if self.face_shape and self.face_shape != self.shape and self.face_shape.volume &gt; 0:
-        return {&#39;center&#39;: non_batch(self)-&#39;vector&#39;, &#39;face&#39;: self.face_shape.non_batch}
-    else:
-        return {&#39;center&#39;: non_batch(self)-&#39;vector&#39;}</code></pre>
+        result[&#39;face&#39;] = self.face_shape.non_batch
+    if self.node_shape and self.node_shape != self.shape and self.node_shape.volume &gt; 0:
+        result[&#39;node&#39;] = self.node_shape.non_batch
+    return result</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -6717,6 +6730,8 @@ If these dims are not present on the result, all parts are assumed to have the s
         return self.center
     elif set_key == &#39;face&#39;:
         return self.face_centers
+    elif set_key == &#39;node&#39;:
+        return self.nodes
     else:
         raise ValueError(f&#34;Unknown set: &#39;{set_key}&#39;&#34;)</code></pre>
 </details>
@@ -7072,7 +7087,7 @@ Possible causes:</p>
 </dd>
 <dt id="phi.geom.Graph"><code class="flex name class">
 <span>class <span class="ident">Graph</span></span>
-<span>(</span><span>nodes: phi.geom._geom.Geometry,<br>edges: phiml.math._tensors.Tensor,<br>boundary: Dict[str, Dict[str, slice]])</span>
+<span>(</span><span>nodes: phi.geom._geom.Geometry,<br>edges: phiml.math._tensors.Tensor,<br>boundary: Dict[str, Dict[str, slice]],<br>variable_attrs: Tuple[str, ...] = ('nodes', 'edges'))</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -7092,7 +7107,7 @@ class Graph(Geometry):
     edges: Tensor
     boundary: Dict[str, Dict[str, slice]]
 
-    variable_attrs = (&#39;nodes&#39;, &#39;edges&#39;)
+    variable_attrs: Tuple[str, ...] = (&#39;nodes&#39;, &#39;edges&#39;)
 
     def __post_init__(self):
         assert isinstance(self.nodes, Geometry), f&#34;nodes must be a Geometry  but got {self.nodes}&#34;
@@ -7219,13 +7234,6 @@ Additional dimensions can be added to <code>edges</code> to store vector-valued 
 <ul class="hlist">
 <li>phi.geom._geom.Geometry</li>
 </ul>
-<h3>Class variables</h3>
-<dl>
-<dt id="phi.geom.Graph.variable_attrs"><code class="name">var <span class="ident">variable_attrs</span></code></dt>
-<dd>
-<div class="desc"></div>
-</dd>
-</dl>
 <h3>Instance variables</h3>
 <dl>
 <dt id="phi.geom.Graph.Tc"><code class="name">prop <span class="ident">Tc</span></code></dt>
@@ -7445,6 +7453,10 @@ def shape(self) -&gt; Shape:
 def unit_deltas(self):
     return math.safe_div(self.deltas, self.distances)</code></pre>
 </details>
+<div class="desc"></div>
+</dd>
+<dt id="phi.geom.Graph.variable_attrs"><code class="name">var <span class="ident">variable_attrs</span> : Tuple[str, ...]</code></dt>
+<dd>
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Graph.volume"><code class="name">prop <span class="ident">volume</span> : phiml.math._tensors.Tensor</code></dt>
@@ -10159,10 +10171,7 @@ def center(self) -&gt; Tensor:
 def corners(self):
     return self.location</code></pre>
 </details>
-<div class="desc"><h2 id="returns">Returns</h2>
-<p>Corner locations as <code>phiml.math.Tensor</code>.
-Corners belonging to one object or cell are listed along dual dimensions.
-If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.</p></div>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.Point.face_areas"><code class="name">prop <span class="ident">face_areas</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -10699,10 +10708,7 @@ def center(self):
 def corners(self) -&gt; Tensor:
     raise NotImplementedError(f&#34;SDF does not support corners&#34;)</code></pre>
 </details>
-<div class="desc"><h2 id="returns">Returns</h2>
-<p>Corner locations as <code>phiml.math.Tensor</code>.
-Corners belonging to one object or cell are listed along dual dimensions.
-If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.</p></div>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.SDF.face_areas"><code class="name">prop <span class="ident">face_areas</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -11440,10 +11446,7 @@ def center(self) -&gt; Tensor:
 def corners(self) -&gt; Tensor:
     raise NotImplementedError(f&#34;SDF does not support corners&#34;)</code></pre>
 </details>
-<div class="desc"><h2 id="returns">Returns</h2>
-<p>Corner locations as <code>phiml.math.Tensor</code>.
-Corners belonging to one object or cell are listed along dual dimensions.
-If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.</p></div>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.SDFGrid.dx"><code class="name">var <span class="ident">dx</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -12312,10 +12315,7 @@ If a value is set for <code>center_eps</code>, sets the gradient to zero for val
 def corners(self) -&gt; Tensor:
     return math.zeros(self.shape &amp; dual(corners=0))</code></pre>
 </details>
-<div class="desc"><h2 id="returns">Returns</h2>
-<p>Corner locations as <code>phiml.math.Tensor</code>.
-Corners belonging to one object or cell are listed along dual dimensions.
-If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.</p></div>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.Sphere.face_areas"><code class="name">prop <span class="ident">face_areas</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -12696,7 +12696,7 @@ class UniformGrid(Geometry, metaclass=UniformGridType):
 
     @cached_property
     def center(self):
-        with NUMPY:  # avoid JAX tracing this. It cannot not have a tracer dependency.
+        with NUMPY:  # avoid JAX tracing this. It should not have a tracer dependency when cached.
             local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
             return self.bounds.local_to_global(local_coords)
 
@@ -12722,6 +12722,16 @@ class UniformGrid(Geometry, metaclass=UniformGridType):
             result[dim+&#39;-&#39;] = {&#39;~vector&#39;: dim, dim: slice(1)}
             result[dim+&#39;+&#39;] = {&#39;~vector&#39;: dim, dim: slice(-1, None)}
         return result
+
+    @property
+    def node_shape(self) -&gt; Shape:
+        return (self.shape.spatial + 1) &amp; (non_spatial(self) - &#39;vector&#39;)
+
+    @cached_property
+    def nodes(self) -&gt; Tensor:
+        with NUMPY:  # avoid JAX tracing this. It should not have a tracer dependency when cached.
+            local_coords = math.meshgrid(**{dim.name: math.linspace(0, 1, dim+1) for dim in self.resolution})
+            return self.bounds.local_to_global(local_coords)
 
     @property
     def face_centers(self) -&gt; Tensor:
@@ -12974,7 +12984,7 @@ Dynamic graphs return slices along the dual dimensions.</p>
 </summary>
 <pre><code class="python">@cached_property
 def center(self):
-    with NUMPY:  # avoid JAX tracing this. It cannot not have a tracer dependency.
+    with NUMPY:  # avoid JAX tracing this. It should not have a tracer dependency when cached.
         local_coords = math.meshgrid(**{dim.name: math.linspace(0.5 / dim.size, 1 - 0.5 / dim.size, dim) for dim in self.resolution})
         return self.bounds.local_to_global(local_coords)</code></pre>
 </details>
@@ -13095,6 +13105,34 @@ def half_size(self):
 <pre><code class="python">@property
 def lower(self):
     return self.center - self.half_size</code></pre>
+</details>
+<div class="desc"></div>
+</dd>
+<dt id="phi.geom.UniformGrid.node_shape"><code class="name">prop <span class="ident">node_shape</span> : phiml.math._shape.Shape</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def node_shape(self) -&gt; Shape:
+    return (self.shape.spatial + 1) &amp; (non_spatial(self) - &#39;vector&#39;)</code></pre>
+</details>
+<div class="desc"><h2 id="returns">Returns</h2>
+<p>Full Shape to identify each node of this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code>.
+If this <code><a title="phi.geom.Geometry" href="#phi.geom.Geometry">Geometry</a></code> has no nodes, returns an empty <code>Shape</code>.</p></div>
+</dd>
+<dt id="phi.geom.UniformGrid.nodes"><code class="name">var <span class="ident">nodes</span> : phiml.math._tensors.Tensor</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@cached_property
+def nodes(self) -&gt; Tensor:
+    with NUMPY:  # avoid JAX tracing this. It should not have a tracer dependency when cached.
+        local_coords = math.meshgrid(**{dim.name: math.linspace(0, 1, dim+1) for dim in self.resolution})
+        return self.bounds.local_to_global(local_coords)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -13226,7 +13264,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff9a70e2c00></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f0d7acc3740></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13252,7 +13290,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff9a70e2c00></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f0d7acc3740></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13682,7 +13720,6 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Geometry.bounding_half_extent" href="#phi.geom.Geometry.bounding_half_extent">bounding_half_extent</a></code></li>
 <li><code><a title="phi.geom.Geometry.bounding_radius" href="#phi.geom.Geometry.bounding_radius">bounding_radius</a></code></li>
 <li><code><a title="phi.geom.Geometry.bounding_sphere" href="#phi.geom.Geometry.bounding_sphere">bounding_sphere</a></code></li>
-<li><code><a title="phi.geom.Geometry.corners" href="#phi.geom.Geometry.corners">corners</a></code></li>
 <li><code><a title="phi.geom.Geometry.face_areas" href="#phi.geom.Geometry.face_areas">face_areas</a></code></li>
 <li><code><a title="phi.geom.Geometry.face_centers" href="#phi.geom.Geometry.face_centers">face_centers</a></code></li>
 <li><code><a title="phi.geom.Geometry.face_normals" href="#phi.geom.Geometry.face_normals">face_normals</a></code></li>
@@ -13693,6 +13730,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.Geometry.integrate_flux" href="#phi.geom.Geometry.integrate_flux">integrate_flux</a></code></li>
 <li><code><a title="phi.geom.Geometry.integrate_surface" href="#phi.geom.Geometry.integrate_surface">integrate_surface</a></code></li>
 <li><code><a title="phi.geom.Geometry.lies_inside" href="#phi.geom.Geometry.lies_inside">lies_inside</a></code></li>
+<li><code><a title="phi.geom.Geometry.node_shape" href="#phi.geom.Geometry.node_shape">node_shape</a></code></li>
 <li><code><a title="phi.geom.Geometry.push" href="#phi.geom.Geometry.push">push</a></code></li>
 <li><code><a title="phi.geom.Geometry.rotated" href="#phi.geom.Geometry.rotated">rotated</a></code></li>
 <li><code><a title="phi.geom.Geometry.sample_uniform" href="#phi.geom.Geometry.sample_uniform">sample_uniform</a></code></li>
@@ -14032,6 +14070,8 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.UniformGrid.interior" href="#phi.geom.UniformGrid.interior">interior</a></code></li>
 <li><code><a title="phi.geom.UniformGrid.list_cells" href="#phi.geom.UniformGrid.list_cells">list_cells</a></code></li>
 <li><code><a title="phi.geom.UniformGrid.lower" href="#phi.geom.UniformGrid.lower">lower</a></code></li>
+<li><code><a title="phi.geom.UniformGrid.node_shape" href="#phi.geom.UniformGrid.node_shape">node_shape</a></code></li>
+<li><code><a title="phi.geom.UniformGrid.nodes" href="#phi.geom.UniformGrid.nodes">nodes</a></code></li>
 <li><code><a title="phi.geom.UniformGrid.normal" href="#phi.geom.UniformGrid.normal">normal</a></code></li>
 <li><code><a title="phi.geom.UniformGrid.padded" href="#phi.geom.UniformGrid.padded">padded</a></code></li>
 <li><code><a title="phi.geom.UniformGrid.position_of" href="#phi.geom.UniformGrid.position_of">position_of</a></code></li>
