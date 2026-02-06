@@ -23,7 +23,7 @@ class Graph(Geometry):
     edges: Tensor
     boundary: Dict[str, Dict[str, slice]]
 
-    variable_attrs = ('nodes', 'edges')
+    variable_attrs: Tuple[str, ...] = ('nodes', 'edges')
 
     def __post_init__(self):
         assert isinstance(self.nodes, Geometry), f"nodes must be a Geometry  but got {self.nodes}"
