@@ -605,6 +605,15 @@ class Field(metaclass=_FieldType):
         from ._field_math import laplace
         return laplace(self, axes=axes, gradient=gradient, order=order, implicit=implicit, weights=weights, upwind=upwind, correct_skew=correct_skew)
 
+    def sum(self, dims: DimFilter):
+        """Sum values along one dimension. This may reduce the geometry if the axis is spatial."""
+        dims = self.values.shape.only(dims)
+        values = math.sum(self.values, dims)
+        dims = (self.geometry.shape - 'vector').only(dims)
+        geometry = self.geometry[{d: 0 for d in dims}] if dims else self.geometry
+        boundary = self.boundary[{d: 0 for d in dims}] if dims else self.boundary
+        return Field(geometry, values, boundary, variable_attrs=self.variable_attrs, value_attrs=self.value_attrs)
+
     def downsample(self, factor: int):
         from ._field_math import downsample2x
         result = self
