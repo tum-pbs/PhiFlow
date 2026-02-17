@@ -1,10 +1,12 @@
 import warnings
 from dataclasses import dataclass
+from functools import cached_property
 from numbers import Number
 from typing import Callable, Union, Tuple, Optional
 
 from phiml import math
 from phiml.math import Shape, Tensor, channel, non_batch, expand, instance, spatial, wrap, dual, non_dual, batch, Solve, DimFilter, unstack, concat_shapes, pack_dims, shape
+from phiml.math._shape import _size_equal
 from phiml.math.magic import BoundDim, slicing_dict
 from phiml.math.extrapolation import domain_slice, Extrapolation
 from phiml.dataclasses import sliceable
@@ -45,7 +47,7 @@ class _FieldType(type):
         return result
 
 
-@sliceable
+@sliceable(dim_repr=False)
 @dataclass(frozen=True)
 class Field(metaclass=_FieldType):
     """
@@ -130,7 +132,15 @@ class Field(metaclass=_FieldType):
         If the values represent are sampled at the element centers or represent the whole element, returns `self.geometry`.
         If the values are sampled at the faces, returns `self.faces`.
         """
-        return get_faces(self.geometry, self.boundary) if is_staggered(self.values, self.geometry) else self.geometry
+        at = self.sampled_at
+        if at == 'center':
+            return self.geometry
+        elif at == 'face':
+            return get_faces(self.geometry, self.boundary)
+        elif at == 'node':
+            return self.geometry.nodes
+        else:
+            return Point(self.geometry.get_points(at))
 
     @property
     def elements(self):
@@ -144,7 +154,7 @@ class Field(metaclass=_FieldType):
 
     @property
     def is_staggered(self):
-        return is_staggered(self.values, self.geometry)
+        return self.sampled_at == 'face'
 
     @property
     def center(self) -> Tensor:
@@ -200,7 +210,7 @@ class Field(metaclass=_FieldType):
         """ Returns the `Extrapolation` of this `Field`. """
         return self.boundary
 
-    @property
+    @cached_property
     def shape(self) -> Shape:
         """
         Returns a shape with the following properties
@@ -209,7 +219,7 @@ class Field(metaclass=_FieldType):
         * The batch dimensions match the batch dimensions of this Field
         * The channel dimensions match the channels of this Field
         """
-        if self.is_grid and '~vector' in self.values.shape:
+        if self.is_grid and self.is_staggered:
             return batch(self.geometry) & self.resolution & non_dual(self.values).without(self.resolution) & self.geometry.shape['vector']
         set_shape = self.geometry.sets[self.sampled_at]
         return batch(self.geometry) & (channel(self.geometry) - 'vector') & set_shape & self.values.shape
@@ -377,12 +387,14 @@ class Field(metaclass=_FieldType):
         values = sample(self, self.geometry, at='face', boundary=boundary, **kwargs)
         return Field(self.geometry, values, boundary)
 
-    @property
+    @cached_property
     def sampled_at(self):
+        """ Which points of the `geometry` the `values` are sampled at. Typical values are `'center', 'face', 'node'`."""
         v_shape = self.values.shape.non_batch
-        for name, s_shape in self.geometry.sets.items():
-            if s_shape.non_batch in v_shape:  # all necessary dims present in values
-                if v_shape.only(s_shape, reorder=True).sizes == s_shape.sizes:
+        for name, set_shape in self.geometry.sets.items():
+            if set_shape.non_batch in v_shape:  # all necessary dims present in values
+                v_sizes = v_shape.only(set_shape, reorder=True).sizes
+                if all(_size_equal(v_size, set_size) for v_size, set_size in zip(v_sizes, set_shape.sizes)):
                     return name
         raise ValueError(f"Could not determine where the values of this Field are sampled. Geometry sets: {self.geometry.sets}, Field values shape: {v_shape}")
 
@@ -450,7 +462,7 @@ class Field(metaclass=_FieldType):
             values = sample(values, self.geometry, self.sampled_at, self.boundary, dot_face_normal=self.geometry if 'vector' not in self.values.shape else None, **sampling_kwargs)
         else:
             if not spatial(values):
-                geo_shape = self.sampled_elements.shape if self.is_staggered else self.geometry.shape
+                geo_shape = self.sampled_elements.shape
                 if '~vector' in geo_shape and 'vector' in shape(values) and '~vector' not in shape(values):
                     values = values.vector.as_dual()
                 values = expand(wrap(values), geo_shape.non_batch.non_channel)
@@ -548,13 +560,26 @@ class Field(metaclass=_FieldType):
                  boundary: Extrapolation = None,
                  at: str = 'center',
                  dims: math.DimFilter = spatial,
-                 stack_dim: Union[Shape, str] = channel('vector'),
+                 stack_dim: Union[Shape, str] = dual('vector'),
                  order=2,
                  implicit: Solve = None,
                  scheme=None,
                  upwind: 'Field' = None,
-                 gradient_extrapolation: Extrapolation = None):
+                 gradient_extrapolation: Extrapolation = None,
+                 reduce: DimFilter = None) -> 'Field':
         """Alias for `phi.field.spatial_gradient`"""
+        assert gradient_extrapolation is None, f"gradient_extrapolation is deprecated. Use boundary instead."
+        if self.is_grid:
+            if self.sampled_at == 'node' and at == 'center':
+                from .finite_differences import central_gradient_from_nodes
+                if implicit or order != 2 or scheme or upwind:
+                    raise NotImplementedError("Only second-order explicit supported.")
+                return central_gradient_from_nodes(self, dims=dims, boundary=boundary, stack_dim=stack_dim, reduce=reduce)
+            elif self.sampled_at == 'center' and at == 'node':
+                if implicit or order != 2 or scheme or upwind:
+                    raise NotImplementedError("Only second-order explicit supported.")
+                from .finite_differences import nodel_gradient_from_centroids
+                return nodel_gradient_from_centroids(self, dims=dims, boundary=boundary, stack_dim=stack_dim, reduce=reduce)
         from ._field_math import spatial_gradient
         return spatial_gradient(self, boundary=boundary, at=at, dims=dims, stack_dim=stack_dim, order=order, implicit=implicit, scheme=scheme, upwind=upwind, gradient_extrapolation=gradient_extrapolation)
 
@@ -719,8 +744,12 @@ class Field(metaclass=_FieldType):
         return self.with_values(expand(self.values, dims, **kwargs))
 
     def __replace_dims__(self, dims: Tuple[str, ...], new_dims: Shape, **kwargs) -> 'Field':
-        elements = math.rename_dims(self.geometry, dims, new_dims)
         values = math.rename_dims(self.values, dims, new_dims)
+        res = self.geometry.shape - 'vector' - '~vector'
+        rename = {dim: new_dim for dim, new_dim in zip(dims, new_dims) if dim in res}
+        dims = list(rename.keys())
+        new_dims = concat_shapes(*rename.values())
+        elements = math.rename_dims(self.geometry, dims, new_dims)
         extrapolation = math.rename_dims(self.boundary, dims, new_dims, **kwargs)
         return Field(elements, values, extrapolation)
 
@@ -821,20 +850,7 @@ class Field(metaclass=_FieldType):
             return Field(self.geometry, values, boundary)
 
     def __repr__(self):
-        if self.is_grid:
-            type_name = "Grid" if self.is_centered else "Grid faces"
-        elif self.is_mesh:
-            type_name = "Mesh" if self.is_centered else "Mesh faces"
-        elif self.is_point_cloud:
-            type_name = "Point cloud" if self.is_centered else "Point cloud edges"
-        elif self.is_graph:
-            type_name = "Graph" if self.is_centered else "Graph edges"
-        else:
-            type_name = self.__class__.__name__
-        if self.values is not None:
-            return f"{type_name}[{self.values}, ext={self.boundary}]"
-        else:
-            return f"{type_name}[{self.resolution}, ext={self.boundary}]"
+        return f"{self.values:summary} @ {self.geometry}:{self.sampled_at}, BC={self.boundary}"
 
     def grid_scatter(self, *args, **kwargs):
         """Deprecated. Use `sample` with `scatter=True` instead."""
