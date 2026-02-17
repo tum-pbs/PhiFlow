@@ -156,7 +156,7 @@ class Geometry:
         elif set_key == 'face':
             return self.face_centers
         elif set_key == 'node':
-            return self.nodes
+            return self.node_positions
         else:
             raise ValueError(f"Unknown set: '{set_key}'")
 
@@ -165,21 +165,38 @@ class Geometry:
             return self.boundary_elements
         elif set_key == 'face':
             return self.boundary_faces
+        elif set_key == 'node':
+            return self.nodes.boundary_elements
         else:
             raise ValueError(f"Unknown set: '{set_key}'")
 
     if TYPE_CHECKING:
         @property
         @abstractmethod
-        def nodes(self) -> Tensor:
+        def nodes(self) -> 'Geometry':
             """
             Returns:
-                Corner locations as `phiml.math.Tensor`.
-                Corners belonging to one object or cell are listed along dual dimensions.
-                If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.
+                Geometry representing the nodes.
             """
 
-        corners = nodes
+    @property
+    def node_positions(self) -> Tensor:
+        """
+        Returns:
+            Corner locations as `phiml.math.Tensor`.
+            Corners belonging to one object or cell are listed along dual dimensions.
+            If the object has no corners, a size-0 tensor with the correct vector and instance dims is returned.
+        """
+        return self.nodes.center
+
+    @property
+    @abstractmethod
+    def corner_positions(self):
+        """
+        Returns:
+            Matrix storing the corner positions of the element per element.
+            Contains all the element dimensions.
+        """
 
     def integrate_surface(self, face_values: Tensor, divide_volume=False) -> Tensor:
         """

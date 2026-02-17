@@ -6,7 +6,7 @@ import numpy as np
 
 from phiml.dataclasses import sliceable
 from phiml.math import rename_dims, wrap, safe_div, NUMPY
-from ._box import Box, Cuboid, bounding_box
+from ._box import Box, Cuboid, bounding_box, box_from_limits
 from ._functions import vec_length
 from ._geom import Geometry, GeometryException
 from .. import math
@@ -89,11 +89,10 @@ class UniformGrid(Geometry, metaclass=UniformGridType):
     def node_shape(self) -> Shape:
         return (self.shape.spatial + 1) & (non_spatial(self) - 'vector')
 
-    @cached_property
-    def nodes(self) -> Tensor:
-        with NUMPY:  # avoid JAX tracing this. It should not have a tracer dependency when cached.
-            local_coords = math.meshgrid(**{dim.name: math.linspace(0, 1, dim+1) for dim in self.resolution})
-            return self.bounds.local_to_global(local_coords)
+    @property
+    def nodes(self) -> 'UniformGrid':
+        bounds = box_from_limits(self.bounds.lower - .5 * self.dx, self.bounds.upper + .5 * self.dx)
+        return UniformGrid(self.resolution + 1, bounds)
 
     @property
     def face_centers(self) -> Tensor:
