@@ -874,7 +874,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f6f04e5ba60></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7ff2704984a0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -2902,8 +2902,8 @@ The sign of 0 is undefined.</p>
     * `&#39;biCG&#39;` or `&#39;biCG-stab(0)&#39;`: Biconjugate gradient
     * `&#39;biCG-stab&#39;` or `&#39;biCG-stab(1)&#39;`: Biconjugate gradient stabilized, first order
     * `&#39;biCG-stab(2)&#39;`, `&#39;biCG-stab(4)&#39;`, ...: Biconjugate gradient stabilized, second or higher order
-    * `&#39;scipy-direct&#39;`: SciPy direct solve always run oh the CPU using `scipy.sparse.linalg.spsolve`.
-    * `&#39;scipy-CG&#39;`, `&#39;scipy-GMres&#39;`, `&#39;scipy-biCG&#39;`, `&#39;scipy-biCG-stab&#39;`, `&#39;scipy-CGS&#39;`, `&#39;scipy-QMR&#39;`, `&#39;scipy-GCrotMK&#39;`, `&#39;scipy-lsqr&#39;`: SciPy iterative solvers always run oh the CPU, both in eager execution and JIT mode.
+    * `&#39;scipy-direct&#39;`: SciPy direct solve always run on the CPU using `scipy.sparse.linalg.spsolve`.
+    * `&#39;scipy-CG&#39;`, `&#39;scipy-GMres&#39;`, `&#39;scipy-biCG&#39;`, `&#39;scipy-biCG-stab&#39;`, `&#39;scipy-CGS&#39;`, `&#39;scipy-QMR&#39;`, `&#39;scipy-GCrotMK&#39;`, `&#39;scipy-lsqr&#39;`: SciPy iterative solvers always run on the CPU, both in eager execution and JIT mode.
 
     For maximum performance, compile `f` using `jit_compile_linear()` beforehand.
     Then, an optimized representation of `f` (such as a sparse matrix) will be used to solve the linear system.
@@ -2951,6 +2951,7 @@ The sign of 0 is undefined.</p>
     # --- Get input and output tensors ---
     y_tree, y_tensors = disassemble_tree(y, cache=False, attr_type=value_attributes)
     x0_tree, x0_tensors = disassemble_tree(solve.x0, cache=False, attr_type=variable_attributes)
+    _, other_tensors = disassemble_tree(f_kwargs, cache=False, attr_type=variable_attributes)
     assert len(x0_tensors) == len(y_tensors) == 1, &#34;Only single-tensor linear solves are currently supported&#34;
     # --- If native tensors passed, return native tensor ---
     if isinstance(y_tree, str) and y_tree == NATIVE_TENSOR and isinstance(x0_tree, str) and x0_tree == NATIVE_TENSOR:
@@ -2993,24 +2994,32 @@ The sign of 0 is undefined.</p>
                 solution = solve_linear(f, y, solve, *f_args, grad_for_f=grad_for_f, f_kwargs=f_kwargs, **f_kwargs_)
                 return solution.native(&#39;,&#39;.join([f&#39;batch{i}&#39; for i in range(rank - 1)]) + &#39;,vector&#39;)
     # --- PhiML Tensors ---
-    backend = backend_for(*y_tensors, *x0_tensors)
+    backend = backend_for(*y_tensors, *x0_tensors, *other_tensors)
     prefer_explicit = backend.supports(Backend.sparse_coo_tensor) or backend.supports(Backend.csr_matrix) or grad_for_f
     if isinstance(f, Tensor) or (isinstance(f, LinearFunction) and prefer_explicit):  # Matrix solve
+        expand_x = expand_y = None
         if isinstance(f, LinearFunction):
             x0 = math.convert(solve.x0, backend)
             matrix, bias = f.sparse_matrix_and_bias(x0, *f_args, **f_kwargs)
+            y_tensors = [y - bias for y in y_tensors]
         else:
             matrix = f
             bias = 0
-        m_rank = _stored_matrix_rank(matrix)
         if solve.rank_deficiency is None:
-            if m_rank is not None:
-                estimated_deficiency = dual(matrix).volume - m_rank
-                if (estimated_deficiency &gt; 0).any:
-                    warnings.warn(&#34;Possible rank deficiency detected. Matrix might be singular which can lead to convergence problems. Please specify using Solve(rank_deficiency=...).&#34;)
-                solve = copy_with(solve, rank_deficiency=0)
+            deficiency = min_rank_deficiency(matrix)  # None for unknown
+            solve = copy_with(solve, rank_deficiency=deficiency)
+        reduce_x = reduce_y = expand_x = expand_y = None
+        if (wrap(solve.rank_deficiency) &gt; 0).any:
+            empty_rows = guaranteed_empty_rows(matrix)
+            empty_cols = guaranteed_empty_cols(matrix)
+            if isize(empty_rows) == isize(empty_cols) and isize(empty_rows) &gt; 0:  # We can eliminate some rank deficiency by reducing the matrix size
+                matrix, reduce_x, reduce_y, expand_x, expand_y = drop_rows_and_cols_from_system(matrix, x0_tensors[0].shape, empty_rows, empty_cols)
+                remaining_deficiency = solve.rank_deficiency - isize(empty_rows)
+                if (remaining_deficiency &gt; 0).any:
+                    warnings.warn(f&#34;Matrix is rank-deficient after removing {isize(empty_rows)} empty rows and columns: rank deficiency &gt;= {remaining_deficiency} in linear solve. Matrix might be singular which can lead to convergence problems. Please specify using Solve(rank_deficiency=...).&#34;, RuntimeWarning, stacklevel=2)
+                solve = copy_with(solve, rank_deficiency=remaining_deficiency)
             else:
-                solve = copy_with(solve, rank_deficiency=0)  # no info or user input, assume not rank-deficient
+                warnings.warn(f&#34;Rank deficiency &gt;= {solve.rank_deficiency} detected in linear solve. Matrix might be singular which can lead to convergence problems. Please specify using Solve(rank_deficiency=...).&#34;, RuntimeWarning, stacklevel=2)
         preconditioner = compute_preconditioner(solve.preconditioner, matrix, rank_deficiency=solve.rank_deficiency, target_backend=NUMPY if solve.method.startswith(&#39;scipy-&#39;) else backend, solver=solve.method) if solve.preconditioner is not None else None
 
         def _matrix_solve_forward(y, solve: Solve, matrix: Tensor, is_backprop=False):
@@ -3019,26 +3028,34 @@ The sign of 0 is undefined.</p>
             b = backend_for(*y_tensors, matrix)
             nat_matrix = native_matrix(matrix, b)
             if solve.rank_deficiency:
-                N = dual(matrix).volume
-                if get_format(matrix) == &#39;csr&#39;:
-                    _, (data, idx, ptr) = b.disassemble(nat_matrix)
-                    idx = b.csr_to_coo(idx[None, :], ptr[None, :])[0, :]
-                elif get_format(matrix) == &#39;coo&#39;:
-                    _, (idx, data) = b.disassemble(nat_matrix)
+                if is_sparse(matrix):
+                    N = dual(matrix).volume
+                    if get_format(matrix) == &#39;csr&#39;:
+                        _, (data, idx, ptr) = b.disassemble(nat_matrix)
+                        idx = b.csr_to_coo(idx[None, :], ptr[None, :])[0, :]
+                    elif get_format(matrix) == &#39;coo&#39;:
+                        _, (idx, data) = b.disassemble(nat_matrix)
+                    else:
+                        raise NotImplementedError
+                    # --- Add a row and column of ones to the matrix to make the system non-singular ---
+                    data = b.pad(data, [(0, 2*N)], constant_values=1)
+                    i = b.range(N, dtype=b.dtype(idx))
+                    j = N + b.zeros((N,), dtype=b.dtype(idx))
+                    new_col = b.stack([i, j], -1)
+                    new_row = b.stack([j, i], -1)
+                    idx = b.concat([idx, new_col, new_row], 0)
+                    nat_matrix = b.sparse_coo_tensor(idx, data, (N+1, N+1))
                 else:
-                    raise NotImplementedError
-                data = b.pad(data, [(0, 2*N)], constant_values=1)
-                i = b.range(N, dtype=b.dtype(idx))
-                j = N + b.zeros((N,), dtype=b.dtype(idx))
-                new_col = b.stack([i, j], -1)
-                new_row = b.stack([j, i], -1)
-                idx = b.concat([idx, new_col, new_row], 0)
-                nat_matrix = b.sparse_coo_tensor(idx, data, (N+1, N+1))
-            result = _linear_solve_forward(y, solve, nat_matrix, pattern_dims_in, pattern_dims_out, preconditioner, backend, is_backprop)
+                    nat_matrix = b.pad(nat_matrix, [(0, 1), (0, 1)], constant_values=1)
+            rx, ry, ex, ey = reduce_x, reduce_y, expand_x, expand_y
+            if is_backprop:
+                rx, ry, ex, ey = reduce_y, reduce_x, expand_y, expand_x
+                # pattern_dims are already switched due to matrix transposition
+            result = _linear_solve_forward(y, solve, nat_matrix, pattern_dims_in, pattern_dims_out, preconditioner, backend, is_backprop, rx, ry, ex, ey)
             return result  # must return exactly `x` so gradient isn&#39;t computed w.r.t. other quantities
 
         _matrix_solve = attach_gradient_solve(_matrix_solve_forward, auxiliary_args=f&#39;is_backprop,solve{&#34;,matrix&#34; if matrix.backend == NUMPY else &#34;&#34;}&#39;, matrix_adjoint=grad_for_f)
-        return _matrix_solve(y - bias, solve, matrix)
+        return _matrix_solve(y_tensors[0], solve, matrix)
     else:  # Matrix-free solve
         from ._ops import cached
         f_args = cached(f_args)
@@ -3088,8 +3105,8 @@ The following method identifiers are supported by all backends:</p>
 <li><code>'biCG'</code> or <code>'biCG-stab(0)'</code>: Biconjugate gradient</li>
 <li><code>'biCG-stab'</code> or <code>'biCG-stab(1)'</code>: Biconjugate gradient stabilized, first order</li>
 <li><code>'biCG-stab(2)'</code>, <code>'biCG-stab(4)'</code>, &hellip;: Biconjugate gradient stabilized, second or higher order</li>
-<li><code>'scipy-direct'</code>: SciPy direct solve always run oh the CPU using <code>scipy.sparse.linalg.spsolve</code>.</li>
-<li><code>'scipy-CG'</code>, <code>'scipy-GMres'</code>, <code>'scipy-biCG'</code>, <code>'scipy-biCG-stab'</code>, <code>'scipy-CGS'</code>, <code>'scipy-QMR'</code>, <code>'scipy-GCrotMK'</code>, <code>'scipy-lsqr'</code>: SciPy iterative solvers always run oh the CPU, both in eager execution and JIT mode.</li>
+<li><code>'scipy-direct'</code>: SciPy direct solve always run on the CPU using <code>scipy.sparse.linalg.spsolve</code>.</li>
+<li><code>'scipy-CG'</code>, <code>'scipy-GMres'</code>, <code>'scipy-biCG'</code>, <code>'scipy-biCG-stab'</code>, <code>'scipy-CGS'</code>, <code>'scipy-QMR'</code>, <code>'scipy-GCrotMK'</code>, <code>'scipy-lsqr'</code>: SciPy iterative solvers always run on the CPU, both in eager execution and JIT mode.</li>
 </ul>
 <p>For maximum performance, compile <code>f</code> using <code><a title="phi.field.jit_compile_linear" href="#phi.field.jit_compile_linear">jit_compile_linear()</a></code> beforehand.
 Then, an optimized representation of <code>f</code> (such as a sparse matrix) will be used to solve the linear system.</p>

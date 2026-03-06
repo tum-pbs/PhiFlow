@@ -465,7 +465,6 @@ Zero-vectors remain zero-vectors.</p>
     else:
         dim = auto(dim, channel).name
     # --- Filter 0-length values ---
-    shapes = [shape(v) for v in values]
     def is_non_zero(s: Shape):
         if dim not in s:
             return True
@@ -473,17 +472,12 @@ Zero-vectors remain zero-vectors.</p>
         if isinstance(size, int):
             return size &gt; 0
         return True
-    filtered_values = [v for v, s in zip(values, shapes) if is_non_zero(s)]
-    if not filtered_values:
-        return values[0]
-    values = filtered_values
-    if len(values) == 1:
-        return values[0]
-    shapes = [s for s in shapes if is_non_zero(s)]
     #  --- Add missing dimensions ---
+    shapes = [shape(v) for v in values]
     if expand_values:
-        all_dims = merge_shapes(*shapes, allow_varying_sizes=True)
-        all_dims = all_dims.with_dim_size(dim, 1, keep_labels=False)
+        all_other_dims = merge_shapes(*[s - dim for s in shapes], allow_varying_sizes=True)
+        dim_candidate = merge_shapes(*[s.only(dim) for s in shapes], allow_varying_sizes=True, allow_varying_labels=True)
+        all_dims = all_other_dims + dim_candidate.with_dim_size(dim_candidate.name, 1, keep_labels=False)
         values = [expand(v, all_dims - s) for v, s in zip(values, shapes)]
     else:
         for v, s in zip(values, shapes):
@@ -492,6 +486,14 @@ Zero-vectors remain zero-vectors.</p>
             assert set(non_batch(v).names) == set(non_batch(values[0]).names), f&#34;Concatenated values must have the same non-batch dims but got {non_batch(values[0])} and {non_batch(v)}&#34;
         all_batch_dims = merge_shapes(*[s.batch - dim for s in shapes])
         values = [expand(v, all_batch_dims) for v in values]
+    shapes = [shape(v) for v in values]
+    # --- Filter out 0-size tensors ---
+    filtered_values_and_shapes = [(v, s) for v, s in zip(values, shapes) if is_non_zero(s)]
+    if not filtered_values_and_shapes:
+        return values[0]
+    values, shapes = zip(*filtered_values_and_shapes)
+    if len(values) == 1:
+        return values[0]
     # --- First try __concat__ ---
     for v in values:
         if isinstance(v, Shapable):
@@ -2378,7 +2380,8 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
                         assert isinstance(result, SHAPE_TYPES) if isinstance(v, SHAPE_TYPES) else isinstance(result, Shapable), &#34;__stack__ must return a Shapable object&#34;
                     return result
         # --- Next: try stacking attributes for tree nodes ---
-        if any(dataclasses.is_dataclass(v) for v in values):
+        from ._tensors import Tensor
+        if any(dataclasses.is_dataclass(v) and not isinstance(v, Tensor) for v in values):
             from ..dataclasses._merge import dc_stack
             try:
                 return dc_stack(values, dim, expand_values=expand_values, simplify=simplify, layout_non_matching=layout_non_matching, **kwargs)
@@ -3432,7 +3435,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f5fd272e0></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff2cccae2a0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3475,7 +3478,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f5fd272e0></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff2cccae2a0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4564,7 +4567,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f5fd272e0></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff2cccae2a0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4607,7 +4610,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f5fd272e0></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff2cccae2a0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -11239,6 +11242,31 @@ class SDFGrid(Geometry):
         values = expand(values, spatial(self.values) - spatial(values))
         return replace(self, values=values)
 
+    def __add__(self, other):
+        if isinstance(other, (Tensor, Number)):
+            return replace(self, values=self.values + other)
+        else:
+            raise NotImplementedError(f&#34;Addition of SDFGrid with {type(other)} is not supported.&#34;)
+
+    def __sub__(self, other):
+        if isinstance(other, (Tensor, Number)):
+            return replace(self, values=self.values - other)
+        else:
+            raise NotImplementedError(f&#34;Subtraction of SDFGrid with {type(other)} is not supported.&#34;)
+
+    def pad(self, widths: Union[int, tuple, dict], mode=math.extrapolation.ZERO_GRADIENT):
+        if isinstance(widths, int):
+            widths = {dim: (widths, widths) for dim in self.resolution.names}
+        elif isinstance(widths, tuple):
+            widths = {dim: widths for dim in self.resolution.names}
+        assert isinstance(widths, dict) and all(dim in self.resolution for dim in widths), f&#34;Widths must be an int, tuple, or dict with keys corresponding to spatial dimensions {self.resolution.names}&#34;
+        bounds = self.grid.padded(widths).bounds
+        values = math.pad(self.values, widths, mode=mode)
+        to_surface = math.pad(self.to_surface, {dim: (w, w) for dim, w in widths.items()}, mode=mode) if self.to_surface is not None else None
+        surf_normal = math.pad(self.surf_normal, {dim: (w, w) for dim, w in widths.items()}, mode=mode) if self.surf_normal is not None else None
+        surf_index = math.pad(self.surf_index, {dim: (w, w) for dim, w in widths.items()}, mode=mode) if self.surf_index is not None else None
+        return replace(self, values=values, bounds=bounds, to_surface=to_surface, surf_normal=surf_normal, surf_index=surf_index)
+
     @property
     def size(self) -&gt; Tensor:
         return self.bounds.size
@@ -11945,6 +11973,29 @@ If these dims are not present on the result, all parts are assumed to have the s
 </dl>
 <h2 id="returns">Returns</h2>
 <p>bool tensor of shape (*location.shape[:-1], 1).</p></div>
+</dd>
+<dt id="phi.geom.SDFGrid.pad"><code class="name flex">
+<span>def <span class="ident">pad</span></span>(<span>self, widths: int | tuple | dict, mode=zero-gradient)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def pad(self, widths: Union[int, tuple, dict], mode=math.extrapolation.ZERO_GRADIENT):
+    if isinstance(widths, int):
+        widths = {dim: (widths, widths) for dim in self.resolution.names}
+    elif isinstance(widths, tuple):
+        widths = {dim: widths for dim in self.resolution.names}
+    assert isinstance(widths, dict) and all(dim in self.resolution for dim in widths), f&#34;Widths must be an int, tuple, or dict with keys corresponding to spatial dimensions {self.resolution.names}&#34;
+    bounds = self.grid.padded(widths).bounds
+    values = math.pad(self.values, widths, mode=mode)
+    to_surface = math.pad(self.to_surface, {dim: (w, w) for dim, w in widths.items()}, mode=mode) if self.to_surface is not None else None
+    surf_normal = math.pad(self.surf_normal, {dim: (w, w) for dim, w in widths.items()}, mode=mode) if self.surf_normal is not None else None
+    surf_index = math.pad(self.surf_index, {dim: (w, w) for dim, w in widths.items()}, mode=mode) if self.surf_index is not None else None
+    return replace(self, values=values, bounds=bounds, to_surface=to_surface, surf_normal=surf_normal, surf_index=surf_index)</code></pre>
+</details>
+<div class="desc"></div>
 </dd>
 <dt id="phi.geom.SDFGrid.rotated"><code class="name flex">
 <span>def <span class="ident">rotated</span></span>(<span>self, angle: phiml.math._tensors.Tensor | float) ‑> phi.geom._geom.Geometry</span>
@@ -13321,7 +13372,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f5fd272e0></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff2cccae2a0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13347,7 +13398,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f5fd272e0></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff2cccae2a0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -14049,6 +14100,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.SDFGrid.grad" href="#phi.geom.SDFGrid.grad">grad</a></code></li>
 <li><code><a title="phi.geom.SDFGrid.grid" href="#phi.geom.SDFGrid.grid">grid</a></code></li>
 <li><code><a title="phi.geom.SDFGrid.lies_inside" href="#phi.geom.SDFGrid.lies_inside">lies_inside</a></code></li>
+<li><code><a title="phi.geom.SDFGrid.pad" href="#phi.geom.SDFGrid.pad">pad</a></code></li>
 <li><code><a title="phi.geom.SDFGrid.points" href="#phi.geom.SDFGrid.points">points</a></code></li>
 <li><code><a title="phi.geom.SDFGrid.resolution" href="#phi.geom.SDFGrid.resolution">resolution</a></code></li>
 <li><code><a title="phi.geom.SDFGrid.rotated" href="#phi.geom.SDFGrid.rotated">rotated</a></code></li>
