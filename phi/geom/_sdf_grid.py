@@ -37,6 +37,31 @@ class SDFGrid(Geometry):
         values = expand(values, spatial(self.values) - spatial(values))
         return replace(self, values=values)
 
+    def __add__(self, other):
+        if isinstance(other, (Tensor, Number)):
+            return replace(self, values=self.values + other)
+        else:
+            raise NotImplementedError(f"Addition of SDFGrid with {type(other)} is not supported.")
+
+    def __sub__(self, other):
+        if isinstance(other, (Tensor, Number)):
+            return replace(self, values=self.values - other)
+        else:
+            raise NotImplementedError(f"Subtraction of SDFGrid with {type(other)} is not supported.")
+
+    def pad(self, widths: Union[int, tuple, dict], mode=math.extrapolation.ZERO_GRADIENT):
+        if isinstance(widths, int):
+            widths = {dim: (widths, widths) for dim in self.resolution.names}
+        elif isinstance(widths, tuple):
+            widths = {dim: widths for dim in self.resolution.names}
+        assert isinstance(widths, dict) and all(dim in self.resolution for dim in widths), f"Widths must be an int, tuple, or dict with keys corresponding to spatial dimensions {self.resolution.names}"
+        bounds = self.grid.padded(widths).bounds
+        values = math.pad(self.values, widths, mode=mode)
+        to_surface = math.pad(self.to_surface, {dim: (w, w) for dim, w in widths.items()}, mode=mode) if self.to_surface is not None else None
+        surf_normal = math.pad(self.surf_normal, {dim: (w, w) for dim, w in widths.items()}, mode=mode) if self.surf_normal is not None else None
+        surf_index = math.pad(self.surf_index, {dim: (w, w) for dim, w in widths.items()}, mode=mode) if self.surf_index is not None else None
+        return replace(self, values=values, bounds=bounds, to_surface=to_surface, surf_normal=surf_normal, surf_index=surf_index)
+
     @property
     def size(self) -> Tensor:
         return self.bounds.size
