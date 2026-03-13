@@ -7,7 +7,7 @@ from typing import Dict, List, Sequence, Union, Any, Tuple, Optional
 import numpy as np
 from scipy.sparse import csr_matrix, coo_matrix, issparse
 
-from phiml import math
+from phiml import math, non_instance
 from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack_dims, unstack, tensor, si2d, non_dual, nonzero, stored_indices, stored_values, scatter, \
     find_closest, sqrt, where, vec_normalize, argmax, broadcast, zeros, EMPTY_SHAPE, meshgrid, mean, reshaped_numpy, range_tensor, convolve, \
     assert_close, shift, pad, extrapolation, sum as sum_, dim_mask, math, Tensor, Shape, channel, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, \
@@ -49,6 +49,8 @@ class Mesh(Geometry):
     """Sparse matrix format for storing quantities that depend on a pair of neighboring elements, e.g. `face_area`, `face_normal`, `face_center`."""
     max_cell_walk: int = None
     """ Maximum number of steps to walk along the element connectivity in order to find a cell, e.g. for sampling at an arbitrary point."""
+    distance_method: str = 'closest-face'
+    """ Must be either 'closest-face' or 'trimesh'. """
 
     variable_attrs: Tuple[str, ...] = ('vertices',)  # PhiML keyword
     value_attrs: Tuple[str, ...] = ()  # PhiML keyword
@@ -361,6 +363,20 @@ class Mesh(Geometry):
         return si2d(self.vertices.center)
 
     @cached_property
+    def _cached_list_of_trimeshes(self):
+        import trimesh
+        result = []
+        for idx in non_instance(self).non_channel.meshgrid():
+            np_pos = self.vertices.center[idx].numpy([instance, 'vector'])
+            elements = self.elements[idx]
+            if isinstance(elements, CompactSparseTensor) and dual(elements._indices).size == 3:
+                faces_np = elements._indices.numpy([instance, dual])
+            else:
+                raise NotImplementedError(self._elements)
+            result.append(trimesh.Trimesh(vertices=np_pos, faces=faces_np))
+        return result
+
+    @cached_property
     def _v_kdtree_i(self):
         return math.find_closest(self.vertices.center, method='kd')
 
@@ -376,46 +392,78 @@ class Mesh(Geometry):
         return ~(leaves_mesh & is_outside)
 
     def approximate_signed_distance(self, location: Union[Tensor, tuple]) -> Tensor:
-        if self.element_rank == 2 and self.spatial_rank == 3:
-            closest_elem = find_closest(self.center, location)
-            center = self.center[closest_elem]
-            normal = self.normals[closest_elem]
-            return plane_sgn_dist(center, normal, location)
-        idx = find_closest(self.center, location)
-        for i in range(self.max_cell_walk):
-            idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
-        return math.max(distances, dual)
-
-    def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
-        def acs_single_mesh(self: Mesh, location: Tensor):
+        if self.distance_method == 'closest-face':
             if self.element_rank == 2 and self.spatial_rank == 3:
                 closest_elem = find_closest(self.center, location)
-                normal = self.normals[closest_elem]
-                if math.get_format(self.elements) == 'compact-cols' and dual(self.elements._indices).size == 3:  # triangle mesh
-                    three_vertices = self.elements[closest_elem]._indices
-                    v1, v2, v3 = unstack(self.vertices.center[{instance: three_vertices}], dual(self.elements))
-                    surf_pos = closest_on_triangle(v1, v2, v3, location, exact_edges=True)
-                    delta = surf_pos - location
-                    sgn_dist = vec_length(delta) * -sign(delta.vector @ normal)
-                    return sgn_dist, delta, normal, None, closest_elem
                 center = self.center[closest_elem]
-                face_size = sqrt(self.volume) * 2
-                size = face_size[closest_elem]
-                sgn_dist = plane_sgn_dist(center, normal, location)
-                delta_far = center - location  # this is not accurate...
-                delta_near = normal * -sgn_dist
-                far_fac = minimum(1, abs(sgn_dist) / size)
-                delta = far_fac * delta_far + (1 - far_fac) * delta_near
-                return sgn_dist, delta, normal, None, closest_elem
-            # idx = find_closest(self.center, location)
-            # for i in range(self.max_cell_walk):
-            #     idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
-            # sgn_dist = max(distances, dual)
-            # cell_normals = self.face_normals[idx]
-            # normal = cell_normals[{dual: nb_idx}]
-            # return sgn_dist, delta, normal, offset, face_index
-            raise NotImplementedError
-        return math.map(acs_single_mesh, self, location, dims=batch(self.elements), map_name="Mesh.approximate_closest_surface")
+                normal = self.normals[closest_elem]
+                return plane_sgn_dist(center, normal, location)
+            idx = find_closest(self.center, location)
+            for i in range(self.max_cell_walk):
+                idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
+            return math.max(distances, dual)
+        elif self.distance_method == 'trimesh':
+            import trimesh
+            assert self.element_rank == 2 and self.spatial_rank == 3, f"trimesh distance only supports surface meshes in 3D. (distance_method='trimesh')"
+            split_dims = non_channel(self).non_instance
+            result = []
+            for idx, tmesh in zip(split_dims.meshgrid(), self._cached_list_of_trimeshes):
+                loc_np = location[idx].numpy([..., 'vector'])
+                sdf = - trimesh.proximity.signed_distance(tmesh, loc_np)
+                sdf = wrap(sdf, [location.shape - split_dims - 'vector'])
+                result.append(sdf)
+            return stack(result, split_dims)
+
+    def approximate_closest_surface(self, location: Tensor) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
+        if self.distance_method == 'closest-face':
+            def acs_single_mesh(self: Mesh, location: Tensor):
+                if self.element_rank == 2 and self.spatial_rank == 3:
+                    closest_elem = find_closest(self.center, location)
+                    normal = self.normals[closest_elem]
+                    if math.get_format(self.elements) == 'compact-cols' and dual(self.elements._indices).size == 3:  # triangle mesh
+                        three_vertices = self.elements[closest_elem]._indices
+                        v1, v2, v3 = unstack(self.vertices.center[{instance: three_vertices}], dual(self.elements))
+                        surf_pos = closest_on_triangle(v1, v2, v3, location, exact_edges=True)
+                        delta = surf_pos - location
+                        sgn_dist = vec_length(delta) * -sign(delta.vector @ normal)
+                        return sgn_dist, delta, normal, None, closest_elem
+                    center = self.center[closest_elem]
+                    face_size = sqrt(self.volume) * 2
+                    size = face_size[closest_elem]
+                    sgn_dist = plane_sgn_dist(center, normal, location)
+                    delta_far = center - location  # this is not accurate...
+                    delta_near = normal * -sgn_dist
+                    far_fac = minimum(1, abs(sgn_dist) / size)
+                    delta = far_fac * delta_far + (1 - far_fac) * delta_near
+                    return sgn_dist, delta, normal, None, closest_elem
+                # idx = find_closest(self.center, location)
+                # for i in range(self.max_cell_walk):
+                #     idx, leaves_mesh, is_outside, distances, nb_idx = self.cell_walk_towards(location, idx, allow_exit=False)
+                # sgn_dist = max(distances, dual)
+                # cell_normals = self.face_normals[idx]
+                # normal = cell_normals[{dual: nb_idx}]
+                # return sgn_dist, delta, normal, offset, face_index
+                raise NotImplementedError
+            return math.map(acs_single_mesh, self, location, dims=batch(self.elements), map_name="Mesh.approximate_closest_surface")
+        elif self.distance_method == 'trimesh':
+            import trimesh
+            assert self.element_rank == 2 and self.spatial_rank == 3, f"trimesh distance only supports surface meshes in 3D. (distance_method='trimesh')"
+            split_dims = non_channel(self).non_instance
+            loc_batch = location.shape - split_dims - 'vector'
+            res_sdf, res_delta, res_normal, res_idx = [], [], [], []
+            for idx, tmesh in zip(split_dims.meshgrid(), self._cached_list_of_trimeshes):
+                loc_np = location[idx].numpy([..., 'vector'])
+                pq = trimesh.proximity.ProximityQuery(tmesh)
+                closest_points, distances, face_index = pq.on_surface(loc_np)
+                face_normal = tmesh.face_normals[face_index]
+                delta = closest_points - loc_np
+                is_outside = (face_normal * delta).sum(-1) < 0
+                sgn_dist = np.where(is_outside, distances, -distances)
+                res_sdf.append(wrap(sgn_dist, [loc_batch]))
+                res_delta.append(wrap(delta, [loc_batch, location.shape['vector']]))
+                res_normal.append(wrap(face_normal, [loc_batch, location.shape['vector']]))
+                res_idx.append(wrap(face_index, loc_batch))
+            return stack(res_sdf, split_dims), stack(res_delta, split_dims), stack(res_normal, split_dims), None, stack(res_idx, split_dims)
 
     def cell_walk_towards(self, location: Tensor, start_cell_idx: Tensor, allow_exit=False):
         """
