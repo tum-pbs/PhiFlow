@@ -2353,9 +2353,9 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
     if expand_values:
         all_dims = merge_shapes(*shapes, allow_varying_sizes=True)
         if isinstance(values, dict):
-            values = {k: expand(v, all_dims - s) for (k, v), s in zip(values.items(), shapes)}
+            values = {k: expand(v, all_dims.with_sizes(s)) for (k, v), s in zip(values.items(), shapes)}
         else:
-            values = [expand(v, all_dims - s) for v, s in zip(values, shapes)]
+            values = [expand(v, all_dims.with_sizes(s)) for v, s in zip(values, shapes)]
     else:
         all_batch_dims = merge_shapes(*[s.batch for s in shapes], allow_varying_sizes=True)
         if isinstance(values, dict):
@@ -3435,7 +3435,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f34b41ba520></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f27b69da0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3478,7 +3478,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f34b41ba520></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f27b69da0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4567,7 +4567,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f34b41ba520></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f27b69da0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4610,7 +4610,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f34b41ba520></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f27b69da0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -8878,6 +8878,8 @@ class Mesh(Geometry):
         for idx in non_instance(self).non_channel.meshgrid():
             np_pos = self.vertices.center[idx].numpy([instance, &#39;vector&#39;])
             elements = self.elements[idx]
+            if not isinstance(elements, CompactSparseTensor):
+                elements = math.to_format(elements, &#39;compact-cols&#39;)
             if isinstance(elements, CompactSparseTensor) and dual(elements._indices).size == 3:
                 faces_np = elements._indices.numpy([instance, dual])
             else:
@@ -13456,7 +13458,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f34b41ba520></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f27b69da0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13482,7 +13484,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f34b41ba520></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f27b69da0></span>
 </code></dt>
 <dd>
 <details class="source">
