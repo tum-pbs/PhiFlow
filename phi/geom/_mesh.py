@@ -13,7 +13,7 @@ from phiml.math import to_format, is_sparse, non_channel, non_batch, batch, pack
     assert_close, shift, pad, extrapolation, sum as sum_, dim_mask, math, Tensor, Shape, channel, shape, instance, dual, rename_dims, expand, spatial, wrap, sparse_tensor, \
     stack, tensor_like, pairwise_distances, concat, Extrapolation, dsum, reshaped_tensor, dmean, icat, vec, minimum, sign
 from phiml.dataclasses import getitem, replace, sliceable
-from phiml.math._sparse import CompactSparseTensor
+from phiml.math._sparse import CompactSparseTensor, CompressedSparseMatrix
 from phiml.math.extrapolation import as_extrapolation, PERIODIC
 from phiml.math.magic import slicing_dict
 
@@ -369,6 +369,8 @@ class Mesh(Geometry):
         for idx in non_instance(self).non_channel.meshgrid():
             np_pos = self.vertices.center[idx].numpy([instance, 'vector'])
             elements = self.elements[idx]
+            if not isinstance(elements, CompactSparseTensor):
+                elements = math.to_format(elements, 'compact-cols')
             if isinstance(elements, CompactSparseTensor) and dual(elements._indices).size == 3:
                 faces_np = elements._indices.numpy([instance, dual])
             else:
