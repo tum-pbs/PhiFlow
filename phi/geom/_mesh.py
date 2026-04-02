@@ -49,8 +49,8 @@ class Mesh(Geometry):
     """Sparse matrix format for storing quantities that depend on a pair of neighboring elements, e.g. `face_area`, `face_normal`, `face_center`."""
     max_cell_walk: int = None
     """ Maximum number of steps to walk along the element connectivity in order to find a cell, e.g. for sampling at an arbitrary point."""
-    distance_method: str = 'closest-face'
-    """ Must be either 'closest-face' or 'trimesh'. """
+    distance_method: str = 'point-cloud-utils'
+    """ Must be either 'closest-face' or 'trimesh' or 'pcu'. """
 
     variable_attrs: Tuple[str, ...] = ('vertices',)  # PhiML keyword
     value_attrs: Tuple[str, ...] = ()  # PhiML keyword
@@ -363,8 +363,7 @@ class Mesh(Geometry):
         return si2d(self.vertices.center)
 
     @cached_property
-    def _cached_list_of_trimeshes(self):
-        import trimesh
+    def _cached_list_of_triangles(self):
         result = []
         for idx in non_instance(self).non_channel.meshgrid():
             np_pos = self.vertices.center[idx].numpy([instance, 'vector'])
@@ -373,10 +372,16 @@ class Mesh(Geometry):
                 elements = math.to_format(elements, 'compact-cols')
             if isinstance(elements, CompactSparseTensor) and dual(elements._indices).size == 3:
                 faces_np = elements._indices.numpy([instance, dual])
+                f2e = np.arange(faces_np.shape[0])  # element index by face
             else:
                 raise NotImplementedError(self._elements)
-            result.append(trimesh.Trimesh(vertices=np_pos, faces=faces_np))
+            result.append((np_pos, faces_np, f2e))
         return result
+
+    @cached_property
+    def _cached_list_of_trimeshes(self):
+        import trimesh
+        return [trimesh.Trimesh(vertices=pos, faces=fac) for pos, fac, f2e in self._cached_list_of_triangles]
 
     @cached_property
     def _v_kdtree_i(self):
@@ -411,7 +416,26 @@ class Mesh(Geometry):
             result = []
             for idx, tmesh in zip(split_dims.meshgrid(), self._cached_list_of_trimeshes):
                 loc_np = location[idx].numpy([..., 'vector'])
-                sdf = - trimesh.proximity.signed_distance(tmesh, loc_np)
+                sdf = np.zeros(len(loc_np))
+                batch_size = 512 * 1024
+                for i in range(0, len(loc_np), batch_size):
+                    loc_batch = loc_np[i: i + batch_size]
+                    sdf[i: i + batch_size] = - trimesh.proximity.signed_distance(tmesh, loc_batch)
+                sdf = wrap(sdf, [location.shape - split_dims - 'vector'])
+                result.append(sdf)
+            return stack(result, split_dims)
+        elif self.distance_method == 'point-cloud-utils':
+            import point_cloud_utils as pcu
+            assert self.element_rank == 2 and self.spatial_rank == 3, f"trimesh distance only supports surface meshes in 3D. (distance_method='trimesh')"
+            split_dims = non_channel(self).non_instance
+            result = []
+            for idx, (v, f, _) in zip(split_dims.meshgrid(), self._cached_list_of_triangles):
+                loc_np = location[idx].numpy([..., 'vector'])
+                sdf, f_idx, bary_coord = pcu.signed_distance_to_mesh(loc_np, v, f)
+                closest_point = (v[f[f_idx]] * bary_coord[:, :, np.newaxis]).sum(axis=1)
+                delta = closest_point - loc_np
+                dist = np.linalg.norm(delta, axis=-1)
+                sdf = np.copysign(dist, sdf)  # for some reason, sdf does not work correctly for all meshes, so we only use the sign
                 sdf = wrap(sdf, [location.shape - split_dims - 'vector'])
                 result.append(sdf)
             return stack(result, split_dims)
@@ -465,6 +489,26 @@ class Mesh(Geometry):
                 res_delta.append(wrap(delta, [loc_batch, location.shape['vector']]))
                 res_normal.append(wrap(face_normal, [loc_batch, location.shape['vector']]))
                 res_idx.append(wrap(face_index, loc_batch))
+            return stack(res_sdf, split_dims), stack(res_delta, split_dims), stack(res_normal, split_dims), None, stack(res_idx, split_dims)
+        elif self.distance_method == 'point-cloud-utils':
+            import point_cloud_utils as pcu
+            assert self.element_rank == 2 and self.spatial_rank == 3, f"trimesh distance only supports surface meshes in 3D. (distance_method='trimesh')"
+            split_dims = non_channel(self).non_instance
+            loc_batch = location.shape - split_dims - 'vector'
+            res_sdf, res_delta, res_normal, res_idx = [], [], [], []
+            for idx, (v, f, f2e) in zip(split_dims.meshgrid(), self._cached_list_of_triangles):
+                loc_np = location[idx].numpy([..., 'vector'])
+                sdf, f_idx, bary_coord = pcu.signed_distance_to_mesh(loc_np, v, f)
+                face_normal = pcu.estimate_mesh_face_normals(v, f)[f_idx]
+                closest_point = (v[f[f_idx]] * bary_coord[:, :, np.newaxis]).sum(axis=1)
+                delta = closest_point - loc_np
+                dist = np.linalg.norm(delta, axis=-1)
+                sdf = np.copysign(dist, sdf)  # for some reason, sdf does not work correctly for all meshes, so we only use the sign
+                e_idx = f2e[f_idx]
+                res_sdf.append(wrap(sdf, [loc_batch]))
+                res_delta.append(wrap(delta, [loc_batch, location.shape['vector']]))
+                res_normal.append(wrap(face_normal, [loc_batch, location.shape['vector']]))
+                res_idx.append(wrap(e_idx, [loc_batch]))
             return stack(res_sdf, split_dims), stack(res_delta, split_dims), stack(res_normal, split_dims), None, stack(res_idx, split_dims)
 
     def cell_walk_towards(self, location: Tensor, start_cell_idx: Tensor, allow_exit=False):
