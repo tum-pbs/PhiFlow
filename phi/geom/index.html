@@ -3435,7 +3435,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f27b69da0></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f5fd7caa480></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3478,7 +3478,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f27b69da0></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f5fd7caa480></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4567,7 +4567,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f27b69da0></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f5fd7caa480></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4610,7 +4610,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f27b69da0></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f5fd7caa480></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -8526,7 +8526,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 </dd>
 <dt id="phi.geom.Mesh"><code class="flex name class">
 <span>class <span class="ident">Mesh</span></span>
-<span>(</span><span>vertices: phi.geom._geom.Geometry,<br>elements: phiml.math._tensors.Tensor,<br>element_rank: int,<br>boundaries: Dict[str, Dict[str, slice]],<br>periodic: Sequence[str],<br>face_format: str = 'csc',<br>max_cell_walk: int = None,<br>distance_method: str = 'closest-face',<br>variable_attrs: Tuple[str, ...] = ('vertices',),<br>value_attrs: Tuple[str, ...] = ())</span>
+<span>(</span><span>vertices: phi.geom._geom.Geometry,<br>elements: phiml.math._tensors.Tensor,<br>element_rank: int,<br>boundaries: Dict[str, Dict[str, slice]],<br>periodic: Sequence[str],<br>face_format: str = 'csc',<br>max_cell_walk: int = None,<br>distance_method: str = 'point-cloud-utils',<br>variable_attrs: Tuple[str, ...] = ('vertices',),<br>value_attrs: Tuple[str, ...] = ())</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -8558,8 +8558,8 @@ class Mesh(Geometry):
     &#34;&#34;&#34;Sparse matrix format for storing quantities that depend on a pair of neighboring elements, e.g. `face_area`, `face_normal`, `face_center`.&#34;&#34;&#34;
     max_cell_walk: int = None
     &#34;&#34;&#34; Maximum number of steps to walk along the element connectivity in order to find a cell, e.g. for sampling at an arbitrary point.&#34;&#34;&#34;
-    distance_method: str = &#39;closest-face&#39;
-    &#34;&#34;&#34; Must be either &#39;closest-face&#39; or &#39;trimesh&#39;. &#34;&#34;&#34;
+    distance_method: str = &#39;point-cloud-utils&#39;
+    &#34;&#34;&#34; Must be either &#39;closest-face&#39; or &#39;trimesh&#39; or &#39;pcu&#39;. &#34;&#34;&#34;
 
     variable_attrs: Tuple[str, ...] = (&#39;vertices&#39;,)  # PhiML keyword
     value_attrs: Tuple[str, ...] = ()  # PhiML keyword
@@ -8872,8 +8872,7 @@ class Mesh(Geometry):
         return si2d(self.vertices.center)
 
     @cached_property
-    def _cached_list_of_trimeshes(self):
-        import trimesh
+    def _cached_list_of_triangles(self):
         result = []
         for idx in non_instance(self).non_channel.meshgrid():
             np_pos = self.vertices.center[idx].numpy([instance, &#39;vector&#39;])
@@ -8882,10 +8881,16 @@ class Mesh(Geometry):
                 elements = math.to_format(elements, &#39;compact-cols&#39;)
             if isinstance(elements, CompactSparseTensor) and dual(elements._indices).size == 3:
                 faces_np = elements._indices.numpy([instance, dual])
+                f2e = np.arange(faces_np.shape[0])  # element index by face
             else:
                 raise NotImplementedError(self._elements)
-            result.append(trimesh.Trimesh(vertices=np_pos, faces=faces_np))
+            result.append((np_pos, faces_np, f2e))
         return result
+
+    @cached_property
+    def _cached_list_of_trimeshes(self):
+        import trimesh
+        return [trimesh.Trimesh(vertices=pos, faces=fac) for pos, fac, f2e in self._cached_list_of_triangles]
 
     @cached_property
     def _v_kdtree_i(self):
@@ -8920,7 +8925,26 @@ class Mesh(Geometry):
             result = []
             for idx, tmesh in zip(split_dims.meshgrid(), self._cached_list_of_trimeshes):
                 loc_np = location[idx].numpy([..., &#39;vector&#39;])
-                sdf = - trimesh.proximity.signed_distance(tmesh, loc_np)
+                sdf = np.zeros(len(loc_np))
+                batch_size = 512 * 1024
+                for i in range(0, len(loc_np), batch_size):
+                    loc_batch = loc_np[i: i + batch_size]
+                    sdf[i: i + batch_size] = - trimesh.proximity.signed_distance(tmesh, loc_batch)
+                sdf = wrap(sdf, [location.shape - split_dims - &#39;vector&#39;])
+                result.append(sdf)
+            return stack(result, split_dims)
+        elif self.distance_method == &#39;point-cloud-utils&#39;:
+            import point_cloud_utils as pcu
+            assert self.element_rank == 2 and self.spatial_rank == 3, f&#34;trimesh distance only supports surface meshes in 3D. (distance_method=&#39;trimesh&#39;)&#34;
+            split_dims = non_channel(self).non_instance
+            result = []
+            for idx, (v, f, _) in zip(split_dims.meshgrid(), self._cached_list_of_triangles):
+                loc_np = location[idx].numpy([..., &#39;vector&#39;])
+                sdf, f_idx, bary_coord = pcu.signed_distance_to_mesh(loc_np, v, f)
+                closest_point = (v[f[f_idx]] * bary_coord[:, :, np.newaxis]).sum(axis=1)
+                delta = closest_point - loc_np
+                dist = np.linalg.norm(delta, axis=-1)
+                sdf = np.copysign(dist, sdf)  # for some reason, sdf does not work correctly for all meshes, so we only use the sign
                 sdf = wrap(sdf, [location.shape - split_dims - &#39;vector&#39;])
                 result.append(sdf)
             return stack(result, split_dims)
@@ -8974,6 +8998,26 @@ class Mesh(Geometry):
                 res_delta.append(wrap(delta, [loc_batch, location.shape[&#39;vector&#39;]]))
                 res_normal.append(wrap(face_normal, [loc_batch, location.shape[&#39;vector&#39;]]))
                 res_idx.append(wrap(face_index, loc_batch))
+            return stack(res_sdf, split_dims), stack(res_delta, split_dims), stack(res_normal, split_dims), None, stack(res_idx, split_dims)
+        elif self.distance_method == &#39;point-cloud-utils&#39;:
+            import point_cloud_utils as pcu
+            assert self.element_rank == 2 and self.spatial_rank == 3, f&#34;trimesh distance only supports surface meshes in 3D. (distance_method=&#39;trimesh&#39;)&#34;
+            split_dims = non_channel(self).non_instance
+            loc_batch = location.shape - split_dims - &#39;vector&#39;
+            res_sdf, res_delta, res_normal, res_idx = [], [], [], []
+            for idx, (v, f, f2e) in zip(split_dims.meshgrid(), self._cached_list_of_triangles):
+                loc_np = location[idx].numpy([..., &#39;vector&#39;])
+                sdf, f_idx, bary_coord = pcu.signed_distance_to_mesh(loc_np, v, f)
+                face_normal = pcu.estimate_mesh_face_normals(v, f)[f_idx]
+                closest_point = (v[f[f_idx]] * bary_coord[:, :, np.newaxis]).sum(axis=1)
+                delta = closest_point - loc_np
+                dist = np.linalg.norm(delta, axis=-1)
+                sdf = np.copysign(dist, sdf)  # for some reason, sdf does not work correctly for all meshes, so we only use the sign
+                e_idx = f2e[f_idx]
+                res_sdf.append(wrap(sdf, [loc_batch]))
+                res_delta.append(wrap(delta, [loc_batch, location.shape[&#39;vector&#39;]]))
+                res_normal.append(wrap(face_normal, [loc_batch, location.shape[&#39;vector&#39;]]))
+                res_idx.append(wrap(e_idx, [loc_batch]))
             return stack(res_sdf, split_dims), stack(res_delta, split_dims), stack(res_normal, split_dims), None, stack(res_idx, split_dims)
 
     def cell_walk_towards(self, location: Tensor, start_cell_idx: Tensor, allow_exit=False):
@@ -9244,7 +9288,7 @@ def distance_matrix(self):
 </dd>
 <dt id="phi.geom.Mesh.distance_method"><code class="name">var <span class="ident">distance_method</span> : str</code></dt>
 <dd>
-<div class="desc"><p>Must be either 'closest-face' or 'trimesh'.</p></div>
+<div class="desc"><p>Must be either 'closest-face' or 'trimesh' or 'pcu'.</p></div>
 </dd>
 <dt id="phi.geom.Mesh.element_connectivity"><code class="name">var <span class="ident">element_connectivity</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -9656,6 +9700,26 @@ def volume(self) -&gt; Tensor:
             res_delta.append(wrap(delta, [loc_batch, location.shape[&#39;vector&#39;]]))
             res_normal.append(wrap(face_normal, [loc_batch, location.shape[&#39;vector&#39;]]))
             res_idx.append(wrap(face_index, loc_batch))
+        return stack(res_sdf, split_dims), stack(res_delta, split_dims), stack(res_normal, split_dims), None, stack(res_idx, split_dims)
+    elif self.distance_method == &#39;point-cloud-utils&#39;:
+        import point_cloud_utils as pcu
+        assert self.element_rank == 2 and self.spatial_rank == 3, f&#34;trimesh distance only supports surface meshes in 3D. (distance_method=&#39;trimesh&#39;)&#34;
+        split_dims = non_channel(self).non_instance
+        loc_batch = location.shape - split_dims - &#39;vector&#39;
+        res_sdf, res_delta, res_normal, res_idx = [], [], [], []
+        for idx, (v, f, f2e) in zip(split_dims.meshgrid(), self._cached_list_of_triangles):
+            loc_np = location[idx].numpy([..., &#39;vector&#39;])
+            sdf, f_idx, bary_coord = pcu.signed_distance_to_mesh(loc_np, v, f)
+            face_normal = pcu.estimate_mesh_face_normals(v, f)[f_idx]
+            closest_point = (v[f[f_idx]] * bary_coord[:, :, np.newaxis]).sum(axis=1)
+            delta = closest_point - loc_np
+            dist = np.linalg.norm(delta, axis=-1)
+            sdf = np.copysign(dist, sdf)  # for some reason, sdf does not work correctly for all meshes, so we only use the sign
+            e_idx = f2e[f_idx]
+            res_sdf.append(wrap(sdf, [loc_batch]))
+            res_delta.append(wrap(delta, [loc_batch, location.shape[&#39;vector&#39;]]))
+            res_normal.append(wrap(face_normal, [loc_batch, location.shape[&#39;vector&#39;]]))
+            res_idx.append(wrap(e_idx, [loc_batch]))
         return stack(res_sdf, split_dims), stack(res_delta, split_dims), stack(res_normal, split_dims), None, stack(res_idx, split_dims)</code></pre>
 </details>
 <div class="desc"><p>Find the closest surface face of this geometry given a point that can be outside or inside the geometry.</p>
@@ -9706,7 +9770,26 @@ Positive values indicate the point lies outside the geometry, negative values in
         result = []
         for idx, tmesh in zip(split_dims.meshgrid(), self._cached_list_of_trimeshes):
             loc_np = location[idx].numpy([..., &#39;vector&#39;])
-            sdf = - trimesh.proximity.signed_distance(tmesh, loc_np)
+            sdf = np.zeros(len(loc_np))
+            batch_size = 512 * 1024
+            for i in range(0, len(loc_np), batch_size):
+                loc_batch = loc_np[i: i + batch_size]
+                sdf[i: i + batch_size] = - trimesh.proximity.signed_distance(tmesh, loc_batch)
+            sdf = wrap(sdf, [location.shape - split_dims - &#39;vector&#39;])
+            result.append(sdf)
+        return stack(result, split_dims)
+    elif self.distance_method == &#39;point-cloud-utils&#39;:
+        import point_cloud_utils as pcu
+        assert self.element_rank == 2 and self.spatial_rank == 3, f&#34;trimesh distance only supports surface meshes in 3D. (distance_method=&#39;trimesh&#39;)&#34;
+        split_dims = non_channel(self).non_instance
+        result = []
+        for idx, (v, f, _) in zip(split_dims.meshgrid(), self._cached_list_of_triangles):
+            loc_np = location[idx].numpy([..., &#39;vector&#39;])
+            sdf, f_idx, bary_coord = pcu.signed_distance_to_mesh(loc_np, v, f)
+            closest_point = (v[f[f_idx]] * bary_coord[:, :, np.newaxis]).sum(axis=1)
+            delta = closest_point - loc_np
+            dist = np.linalg.norm(delta, axis=-1)
+            sdf = np.copysign(dist, sdf)  # for some reason, sdf does not work correctly for all meshes, so we only use the sign
             sdf = wrap(sdf, [location.shape - split_dims - &#39;vector&#39;])
             result.append(sdf)
         return stack(result, split_dims)</code></pre>
@@ -13458,7 +13541,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f27b69da0></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f5fd7caa480></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13484,7 +13567,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f6f27b69da0></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f5fd7caa480></span>
 </code></dt>
 <dd>
 <details class="source">

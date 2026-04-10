@@ -874,7 +874,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f6ecc8e4fe0></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f5fd7bbec00></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3055,7 +3055,7 @@ The sign of 0 is undefined.</p>
             return result  # must return exactly `x` so gradient isn&#39;t computed w.r.t. other quantities
 
         _matrix_solve = attach_gradient_solve(_matrix_solve_forward, auxiliary_args=f&#39;is_backprop,solve{&#34;,matrix&#34; if matrix.backend == NUMPY else &#34;&#34;}&#39;, matrix_adjoint=grad_for_f)
-        return _matrix_solve(y_tensors[0], solve, matrix)
+        return _matrix_solve(assemble_tree(y_tree, y_tensors), solve, matrix)
     else:  # Matrix-free solve
         from ._ops import cached
         f_args = cached(f_args)

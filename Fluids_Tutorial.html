@@ -15182,7 +15182,7 @@ We sample the smoke field at the cell centers and the velocity in <a href="https
 <span class="ansi-red-fg">ValueError</span>                                Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[2]</span><span class="ansi-green-fg">, line 2</span>
 <span class="ansi-green-fg">      1</span> smoke = CenteredGrid(<span class="ansi-green-fg">0</span>, extrapolation.BOUNDARY, x=<span class="ansi-green-fg">32</span>, y=<span class="ansi-green-fg">40</span>, bounds=Box(x=<span class="ansi-green-fg">32</span>, y=<span class="ansi-green-fg">40</span>))  <span style="color: rgb(95,135,135)"># sampled at cell centers</span>
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">2</span> velocity = <span class="ansi-yellow-bg">StaggeredGrid</span><span class="ansi-yellow-bg">(</span><span class="ansi-green-fg ansi-yellow-bg">0</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">extrapolation</span><span class="ansi-yellow-bg">.</span><span class="ansi-yellow-bg">ZERO</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">=</span><span class="ansi-green-fg ansi-yellow-bg">32</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">y</span><span class="ansi-yellow-bg">=</span><span class="ansi-green-fg ansi-yellow-bg">40</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">bounds</span><span class="ansi-yellow-bg">=</span><span class="ansi-yellow-bg">Box</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">=</span><span class="ansi-green-fg ansi-yellow-bg">32</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">y</span><span class="ansi-yellow-bg">=</span><span class="ansi-green-fg ansi-yellow-bg">40</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">)</span>  <span style="color: rgb(95,135,135)"># sampled in staggered form at face centers</span>
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">2</span> velocity = StaggeredGrid(<span class="ansi-green-fg">0</span>, extrapolation.ZERO, x=<span class="ansi-green-fg">32</span>, y=<span class="ansi-green-fg">40</span>, bounds=Box(x=<span class="ansi-green-fg">32</span>, y=<span class="ansi-green-fg">40</span>))  <span style="color: rgb(95,135,135)"># sampled in staggered form at face centers</span>
 
 <span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/site-packages/phi/field/_grid.py:176</span>, in <span class="ansi-cyan-fg">StaggeredGrid</span><span class="ansi-blue-fg">(values, boundary, bounds, resolution, extrapolation, convert, **resolution_)</span>
 <span class="ansi-green-fg">    174</span> <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> values.shape.spatial_rank == elements.bounds.spatial_rank, <span class="ansi-yellow-fg">f</span><span class="ansi-yellow-fg">&#34;</span><span class="ansi-yellow-fg">Spatial dimensions of values (</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>values.shape<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg">) do not match elements </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>elements<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg">&#34;</span>
@@ -15195,7 +15195,7 @@ We sample the smoke field at the cell centers and the velocity in <a href="https
 <span class="ansi-green-fg">---&gt; </span><span class="ansi-green-fg">46</span> <span class="ansi-yellow-bg">result</span><span class="ansi-yellow-bg">.</span><span class="ansi-blue-fg ansi-yellow-bg">__init__</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">geometry</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">values</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">boundary</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">variable_attrs</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">value_attrs</span><span class="ansi-yellow-bg">)</span>  <span style="color: rgb(95,135,135)"># also calls __post_init__()</span>
 <span class="ansi-green-fg">     47</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> result
 
-<span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">&lt;string&gt;:8</span>, in <span class="ansi-cyan-fg">__init__</span><span class="ansi-blue-fg">(self, geometry, values, boundary, variable_attrs, value_attrs)</span>
+<span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">&lt;string&gt;:8</span>, in <span class="ansi-cyan-fg">__create_fn__.&lt;locals&gt;.__init__</span><span class="ansi-blue-fg">(self, geometry, values, boundary, variable_attrs, value_attrs)</span>
 
 <span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/site-packages/phi/field/_field.py:85</span>, in <span class="ansi-cyan-fg">Field.__post_init__</span><span class="ansi-blue-fg">(self)</span>
 <span class="ansi-green-fg">     84</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-blue-fg">__post_init__</span>(<span style="color: rgb(0,135,0)">self</span>):
@@ -15317,10 +15317,10 @@ Like tensors, grids also have the <code>shape</code> attribute which lists all b
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[4]</span><span class="ansi-green-fg">, line 2</span>
-<span class="ansi-green-fg">      1</span> <span style="color: rgb(0,135,0)">print</span>(<span class="ansi-yellow-fg">f</span><span class="ansi-yellow-fg">&#34;</span><span class="ansi-yellow-fg">Smoke: </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>smoke.shape<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg">&#34;</span>)
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">2</span> <span style="color: rgb(0,135,0)">print</span>(<span class="ansi-yellow-fg">f</span><span class="ansi-yellow-fg">&#34;</span><span class="ansi-yellow-fg">Velocity: </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span><span class="ansi-yellow-bg">velocity</span>.shape<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg">&#34;</span>)
-<span class="ansi-green-fg">      3</span> <span style="color: rgb(0,135,0)">print</span>(<span class="ansi-yellow-fg">f</span><span class="ansi-yellow-fg">&#34;</span><span class="ansi-yellow-fg">Inflow: </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>INFLOW.shape<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg">&#34;</span>)
-<span class="ansi-green-fg">      4</span> <span style="color: rgb(0,135,0)">print</span>(<span class="ansi-yellow-fg">f</span><span class="ansi-yellow-fg">&#34;</span><span class="ansi-yellow-fg">Inflow, spatial only: </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>INFLOW.shape.spatial<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg">&#34;</span>)
+<span class="ansi-green-fg">      1</span> print(f&#34;Smoke: {smoke.shape}&#34;)
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">2</span> print(f&#34;Velocity: {velocity.shape}&#34;)
+<span class="ansi-green-fg">      3</span> print(f&#34;Inflow: {INFLOW.shape}&#34;)
+<span class="ansi-green-fg">      4</span> print(f&#34;Inflow, spatial only: {INFLOW.shape.spatial}&#34;)
 
 <span class="ansi-red-fg">NameError</span>: name &#39;velocity&#39; is not defined</pre>
 </div>
@@ -15386,9 +15386,9 @@ Like tensors, grids also have the <code>shape</code> attribute which lists all b
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[5]</span><span class="ansi-green-fg">, line 2</span>
-<span class="ansi-green-fg">      1</span> <span style="color: rgb(0,135,0)">print</span>(smoke.values)
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">2</span> <span style="color: rgb(0,135,0)">print</span>(<span class="ansi-yellow-bg">velocity</span>.values)
-<span class="ansi-green-fg">      3</span> <span style="color: rgb(0,135,0)">print</span>(INFLOW.values)
+<span class="ansi-green-fg">      1</span> print(smoke.values)
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">2</span> print(velocity.values)
+<span class="ansi-green-fg">      3</span> print(INFLOW.values)
 
 <span class="ansi-red-fg">NameError</span>: name &#39;velocity&#39; is not defined</pre>
 </div>
@@ -15465,9 +15465,10 @@ Finally, we project the velocity field to make it incompressible.</p>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[6]</span><span class="ansi-green-fg">, line 2</span>
 <span class="ansi-green-fg">      1</span> smoke += INFLOW
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">2</span> buoyancy_force = smoke * (<span class="ansi-green-fg">0</span>, <span class="ansi-green-fg">0.5</span>) @ <span class="ansi-yellow-bg">velocity</span>
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">2</span> buoyancy_force = smoke * (<span class="ansi-green-fg">0</span>, <span class="ansi-green-fg">0.5</span>) @ velocity
 <span class="ansi-green-fg">      3</span> velocity += buoyancy_force
 <span class="ansi-green-fg">      4</span> velocity, _ = fluid.make_incompressible(velocity, (), Solve(rank_deficiency=<span class="ansi-green-fg">0</span>))
+<span class="ansi-green-fg">      5</span> 
 
 <span class="ansi-red-fg">NameError</span>: name &#39;velocity&#39; is not defined</pre>
 </div>
@@ -15542,11 +15543,13 @@ Here we use semi-Lagrangian advection for the velocity and MacCormack advection 
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[7]</span><span class="ansi-green-fg">, line 4</span>
-<span class="ansi-green-fg">      2</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> i <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">range</span>(<span class="ansi-green-fg">20</span>):
-<span class="ansi-green-fg">      3</span>   <span style="color: rgb(0,135,0)">print</span>(i, end=<span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg"> </span><span class="ansi-yellow-fg">&#39;</span>)
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">4</span>   smoke = advect.mac_cormack(smoke, <span class="ansi-yellow-bg">velocity</span>, dt=<span class="ansi-green-fg">1</span>) + INFLOW
+<span class="ansi-green-fg">      1</span> trajectory = [smoke]
+<span class="ansi-green-fg">      2</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> i <span class="ansi-bold" style="color: rgb(0,135,0)">in</span> range(<span class="ansi-green-fg">20</span>):
+<span class="ansi-green-fg">      3</span>   print(i, end=<span class="ansi-yellow-fg">&#39; &#39;</span>)
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">4</span>   smoke = advect.mac_cormack(smoke, velocity, dt=<span class="ansi-green-fg">1</span>) + INFLOW
 <span class="ansi-green-fg">      5</span>   buoyancy_force = smoke * (<span class="ansi-green-fg">0</span>, <span class="ansi-green-fg">0.5</span>) @ velocity
 <span class="ansi-green-fg">      6</span>   velocity = advect.semi_lagrangian(velocity, velocity, dt=<span class="ansi-green-fg">1</span>) + buoyancy_force
+<span class="ansi-green-fg">      7</span>   velocity, _ = fluid.make_incompressible(velocity, (), Solve(rank_deficiency=<span class="ansi-green-fg">0</span>))
 
 <span class="ansi-red-fg">NameError</span>: name &#39;velocity&#39; is not defined</pre>
 </div>
@@ -15754,7 +15757,7 @@ Say we want to optimize the initial velocities so that all simulations arrive at
 <span class="ansi-red-fg">ValueError</span>                                Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[12]</span><span class="ansi-green-fg">, line 2</span>
 <span class="ansi-green-fg">      1</span> initial_smoke = CenteredGrid(<span class="ansi-green-fg">0</span>, extrapolation.BOUNDARY, x=<span class="ansi-green-fg">32</span>, y=<span class="ansi-green-fg">40</span>, bounds=Box(x=<span class="ansi-green-fg">32</span>, y=<span class="ansi-green-fg">40</span>))
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">2</span> initial_velocity = <span class="ansi-yellow-bg">StaggeredGrid</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">math</span><span class="ansi-yellow-bg">.</span><span class="ansi-yellow-bg">zeros</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">batch</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">inflow_loc</span><span class="ansi-yellow-bg">=</span><span class="ansi-green-fg ansi-yellow-bg">4</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">extrapolation</span><span class="ansi-yellow-bg">.</span><span class="ansi-yellow-bg">ZERO</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">=</span><span class="ansi-green-fg ansi-yellow-bg">32</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">y</span><span class="ansi-yellow-bg">=</span><span class="ansi-green-fg ansi-yellow-bg">40</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">bounds</span><span class="ansi-yellow-bg">=</span><span class="ansi-yellow-bg">Box</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">=</span><span class="ansi-green-fg ansi-yellow-bg">32</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">y</span><span class="ansi-yellow-bg">=</span><span class="ansi-green-fg ansi-yellow-bg">40</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">2</span> initial_velocity = StaggeredGrid(math.zeros(batch(inflow_loc=<span class="ansi-green-fg">4</span>)), extrapolation.ZERO, x=<span class="ansi-green-fg">32</span>, y=<span class="ansi-green-fg">40</span>, bounds=Box(x=<span class="ansi-green-fg">32</span>, y=<span class="ansi-green-fg">40</span>))
 
 <span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/site-packages/phi/field/_grid.py:176</span>, in <span class="ansi-cyan-fg">StaggeredGrid</span><span class="ansi-blue-fg">(values, boundary, bounds, resolution, extrapolation, convert, **resolution_)</span>
 <span class="ansi-green-fg">    174</span> <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> values.shape.spatial_rank == elements.bounds.spatial_rank, <span class="ansi-yellow-fg">f</span><span class="ansi-yellow-fg">&#34;</span><span class="ansi-yellow-fg">Spatial dimensions of values (</span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>values.shape<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg">) do not match elements </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>elements<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg">&#34;</span>
@@ -15767,7 +15770,7 @@ Say we want to optimize the initial velocities so that all simulations arrive at
 <span class="ansi-green-fg">---&gt; </span><span class="ansi-green-fg">46</span> <span class="ansi-yellow-bg">result</span><span class="ansi-yellow-bg">.</span><span class="ansi-blue-fg ansi-yellow-bg">__init__</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">geometry</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">values</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">boundary</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">variable_attrs</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">value_attrs</span><span class="ansi-yellow-bg">)</span>  <span style="color: rgb(95,135,135)"># also calls __post_init__()</span>
 <span class="ansi-green-fg">     47</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> result
 
-<span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">&lt;string&gt;:8</span>, in <span class="ansi-cyan-fg">__init__</span><span class="ansi-blue-fg">(self, geometry, values, boundary, variable_attrs, value_attrs)</span>
+<span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">&lt;string&gt;:8</span>, in <span class="ansi-cyan-fg">__create_fn__.&lt;locals&gt;.__init__</span><span class="ansi-blue-fg">(self, geometry, values, boundary, variable_attrs, value_attrs)</span>
 
 <span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/site-packages/phi/field/_field.py:85</span>, in <span class="ansi-cyan-fg">Field.__post_init__</span><span class="ansi-blue-fg">(self)</span>
 <span class="ansi-green-fg">     84</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-blue-fg">__post_init__</span>(<span style="color: rgb(0,135,0)">self</span>):
@@ -15870,7 +15873,8 @@ Say we want to optimize the initial velocities so that all simulations arrive at
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[14]</span><span class="ansi-green-fg">, line 1</span>
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> velocity_grad = sim_grad(initial_smoke, <span class="ansi-yellow-bg">initial_velocity</span>)
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> velocity_grad = sim_grad(initial_smoke, initial_velocity)
+<span class="ansi-green-fg">      2</span> 
 <span class="ansi-green-fg">      3</span> vis.plot(velocity_grad)
 
 <span class="ansi-red-fg">NameError</span>: name &#39;initial_velocity&#39; is not defined</pre>
@@ -15928,9 +15932,9 @@ For more advanced optimization techniques and neural network training, see the <
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[15]</span><span class="ansi-green-fg">, line 1</span>
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> <span style="color: rgb(0,135,0)">print</span>(<span class="ansi-yellow-fg">f</span><span class="ansi-yellow-fg">&#34;</span><span class="ansi-yellow-fg">Initial loss: </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>simulate(initial_smoke,<span style="color: rgb(188,188,188)"> </span><span class="ansi-yellow-bg">initial_velocity</span>)[<span class="ansi-green-fg">0</span>]<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg">&#34;</span>)
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> print(f&#34;Initial loss: {simulate(initial_smoke, initial_velocity)[<span class="ansi-green-fg">0</span>]}&#34;)
 <span class="ansi-green-fg">      2</span> initial_velocity -= <span class="ansi-green-fg">0.01</span> * velocity_grad
-<span class="ansi-green-fg">      3</span> <span style="color: rgb(0,135,0)">print</span>(<span class="ansi-yellow-fg">f</span><span class="ansi-yellow-fg">&#34;</span><span class="ansi-yellow-fg">Next loss: </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>simulate(initial_smoke,<span style="color: rgb(188,188,188)"> </span>initial_velocity)[<span class="ansi-green-fg">0</span>]<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg">&#34;</span>)
+<span class="ansi-green-fg">      3</span> print(f&#34;Next loss: {simulate(initial_smoke, initial_velocity)[<span class="ansi-green-fg">0</span>]}&#34;)
 
 <span class="ansi-red-fg">NameError</span>: name &#39;initial_velocity&#39; is not defined</pre>
 </div>
@@ -15977,10 +15981,11 @@ For more advanced optimization techniques and neural network training, see the <
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[16]</span><span class="ansi-green-fg">, line 4</span>
-<span class="ansi-green-fg">      1</span> sim_grad = field.gradient(simulate, wrt=<span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg">velocity</span><span class="ansi-yellow-fg">&#39;</span>, get_output=<span class="ansi-bold" style="color: rgb(0,135,0)">True</span>)
-<span class="ansi-green-fg">      3</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> opt_step <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">range</span>(<span class="ansi-green-fg">4</span>):
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">4</span>   (loss, final_smoke, _v), velocity_grad = sim_grad(initial_smoke, <span class="ansi-yellow-bg">initial_velocity</span>)
-<span class="ansi-green-fg">      5</span>   <span style="color: rgb(0,135,0)">print</span>(<span class="ansi-yellow-fg">f</span><span class="ansi-yellow-fg">&#34;</span><span class="ansi-yellow-fg">Step </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>opt_step<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg">, loss: </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>loss<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg">&#34;</span>)
+<span class="ansi-green-fg">      1</span> sim_grad = field.gradient(simulate, wrt=<span class="ansi-yellow-fg">&#39;velocity&#39;</span>, get_output=<span class="ansi-bold" style="color: rgb(0,135,0)">True</span>)
+<span class="ansi-green-fg">      2</span> 
+<span class="ansi-green-fg">      3</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> opt_step <span class="ansi-bold" style="color: rgb(0,135,0)">in</span> range(<span class="ansi-green-fg">4</span>):
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">4</span>   (loss, final_smoke, _v), velocity_grad = sim_grad(initial_smoke, initial_velocity)
+<span class="ansi-green-fg">      5</span>   print(f&#34;Step {opt_step}, loss: {loss}&#34;)
 <span class="ansi-green-fg">      6</span>   initial_velocity -= <span class="ansi-green-fg">0.01</span> * velocity_grad
 
 <span class="ansi-red-fg">NameError</span>: name &#39;initial_velocity&#39; is not defined</pre>

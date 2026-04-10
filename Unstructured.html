@@ -15196,7 +15196,7 @@ The default, <code>csc</code> allows for efficient boundary condition handling b
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">ModuleNotFoundError</span>                       Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[3]</span><span class="ansi-green-fg">, line 1</span>
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> mesh = <span class="ansi-yellow-bg">geom</span><span class="ansi-yellow-bg">.</span><span class="ansi-yellow-bg">load_su2</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-fg ansi-yellow-bg">&#34;</span><span class="ansi-yellow-fg ansi-yellow-bg">mesh_wedge_inv.su2</span><span class="ansi-yellow-fg ansi-yellow-bg">&#34;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">face_format</span><span class="ansi-yellow-bg">=</span><span class="ansi-yellow-fg ansi-yellow-bg">&#39;</span><span class="ansi-yellow-fg ansi-yellow-bg">csc</span><span class="ansi-yellow-fg ansi-yellow-bg">&#39;</span><span class="ansi-yellow-bg">)</span>
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> mesh = geom.load_su2(<span class="ansi-yellow-fg">&#34;mesh_wedge_inv.su2&#34;</span>, face_format=<span class="ansi-yellow-fg">&#39;csc&#39;</span>)
 
 <span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/site-packages/phiml/math/_functional.py:1285</span>, in <span class="ansi-cyan-fg">broadcast.&lt;locals&gt;.broadcast_</span><span class="ansi-blue-fg">(*args, **kwargs)</span>
 <span class="ansi-green-fg">   1283</span> <span style="color: rgb(175,0,255)">@wraps</span>(function)
@@ -15210,16 +15210,16 @@ The default, <code>csc</code> allows for efficient boundary condition handling b
 <span class="ansi-green-fg">   1418</span>     results.append(f_output)
 <span class="ansi-green-fg">   1419</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(results[<span class="ansi-green-fg">0</span>], <span style="color: rgb(0,135,0)">tuple</span>):
 
-<span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/site-packages/phi/geom/_mesh.py:577</span>, in <span class="ansi-cyan-fg">load_su2</span><span class="ansi-blue-fg">(file_or_mesh, cell_dim, face_format)</span>
-<span class="ansi-green-fg">    563</span> <span class="ansi-yellow-fg">&#34;&#34;&#34;</span>
-<span class="ansi-green-fg">    564</span> <span class="ansi-yellow-fg">Load an unstructured mesh from a `.su2` file.</span>
-<span class="ansi-green-fg">    565</span> 
-<span class="ansi-green-fg">   (...)</span><span class="ansi-green-fg">    574</span> <span class="ansi-yellow-fg">    `Mesh`</span>
-<span class="ansi-green-fg">    575</span> <span class="ansi-yellow-fg">&#34;&#34;&#34;</span>
-<span class="ansi-green-fg">    576</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(file_or_mesh, <span style="color: rgb(0,135,0)">str</span>):
-<span class="ansi-green-fg">--&gt; </span><span class="ansi-green-fg">577</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">from</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-blue-intense-fg ansi-bold">ezmesh</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-bold" style="color: rgb(0,135,0)">import</span> import_from_file
-<span class="ansi-green-fg">    578</span>     mesh = import_from_file(file_or_mesh)
-<span class="ansi-green-fg">    579</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
+<span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/site-packages/phi/geom/_mesh.py:621</span>, in <span class="ansi-cyan-fg">load_su2</span><span class="ansi-blue-fg">(file_or_mesh, cell_dim, face_format)</span>
+<span class="ansi-green-fg">    607</span> <span class="ansi-yellow-fg">&#34;&#34;&#34;</span>
+<span class="ansi-green-fg">    608</span> <span class="ansi-yellow-fg">Load an unstructured mesh from a `.su2` file.</span>
+<span class="ansi-green-fg">    609</span> 
+<span class="ansi-green-fg">   (...)</span><span class="ansi-green-fg">    618</span> <span class="ansi-yellow-fg">    `Mesh`</span>
+<span class="ansi-green-fg">    619</span> <span class="ansi-yellow-fg">&#34;&#34;&#34;</span>
+<span class="ansi-green-fg">    620</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(file_or_mesh, <span style="color: rgb(0,135,0)">str</span>):
+<span class="ansi-green-fg">--&gt; </span><span class="ansi-green-fg">621</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">from</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-blue-intense-fg ansi-bold">ezmesh</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-bold" style="color: rgb(0,135,0)">import</span> import_from_file
+<span class="ansi-green-fg">    622</span>     mesh = import_from_file(file_or_mesh)
+<span class="ansi-green-fg">    623</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
 
 <span class="ansi-red-fg">ModuleNotFoundError</span>: No module named &#39;ezmesh&#39;</pre>
 </div>
@@ -15273,7 +15273,7 @@ The default, <code>csc</code> allows for efficient boundary condition handling b
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[4]</span><span class="ansi-green-fg">, line 1</span>
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> plot(<span class="ansi-yellow-bg">mesh</span>)
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> plot(mesh)
 
 <span class="ansi-red-fg">NameError</span>: name &#39;mesh&#39; is not defined</pre>
 </div>
@@ -15330,7 +15330,7 @@ Let's start with all centroids having value 1 while the boundary faces get value
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[5]</span><span class="ansi-green-fg">, line 1</span>
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> F = Field(<span class="ansi-yellow-bg">mesh</span>, values=<span class="ansi-green-fg">1</span>, boundary=<span class="ansi-green-fg">0</span>)
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> F = Field(mesh, values=<span class="ansi-green-fg">1</span>, boundary=<span class="ansi-green-fg">0</span>)
 <span class="ansi-green-fg">      2</span> plot(F)
 
 <span class="ansi-red-fg">NameError</span>: name &#39;mesh&#39; is not defined</pre>
@@ -15386,7 +15386,7 @@ Next, let's see the boundary influence by interpolating the values first to the 
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[6]</span><span class="ansi-green-fg">, line 1</span>
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> plot(<span class="ansi-yellow-bg">F</span>.at_faces(order=<span class="ansi-green-fg">2</span>, boundary=extrapolation.NONE).at_centers())
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> plot(F.at_faces(order=<span class="ansi-green-fg">2</span>, boundary=extrapolation.NONE).at_centers())
 
 <span class="ansi-red-fg">NameError</span>: name &#39;F&#39; is not defined</pre>
 </div>
@@ -15444,8 +15444,8 @@ We can define a boundary condition for each of these, choosing from constant val
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[7]</span><span class="ansi-green-fg">, line 2</span>
-<span class="ansi-green-fg">      1</span> boundaries = {<span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg">inlet</span><span class="ansi-yellow-fg">&#39;</span>: vec(x=<span class="ansi-green-fg">1</span>, y=<span class="ansi-green-fg">0</span>), <span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg">upper</span><span class="ansi-yellow-fg">&#39;</span>: ZERO_GRADIENT, <span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg">lower</span><span class="ansi-yellow-fg">&#39;</span>: ZERO_GRADIENT, <span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg">outlet</span><span class="ansi-yellow-fg">&#39;</span>: <span class="ansi-green-fg">0</span>}
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">2</span> F = Field(<span class="ansi-yellow-bg">mesh</span>, values=vec(x=<span class="ansi-green-fg">0</span>, y=<span class="ansi-green-fg">0</span>), boundary=boundaries)
+<span class="ansi-green-fg">      1</span> boundaries = {<span class="ansi-yellow-fg">&#39;inlet&#39;</span>: vec(x=<span class="ansi-green-fg">1</span>, y=<span class="ansi-green-fg">0</span>), <span class="ansi-yellow-fg">&#39;upper&#39;</span>: ZERO_GRADIENT, <span class="ansi-yellow-fg">&#39;lower&#39;</span>: ZERO_GRADIENT, <span class="ansi-yellow-fg">&#39;outlet&#39;</span>: <span class="ansi-green-fg">0</span>}
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">2</span> F = Field(mesh, values=vec(x=<span class="ansi-green-fg">0</span>, y=<span class="ansi-green-fg">0</span>), boundary=boundaries)
 <span class="ansi-green-fg">      3</span> plot(F.at_faces(order=<span class="ansi-green-fg">2</span>, boundary=extrapolation.NONE).at_centers())
 
 <span class="ansi-red-fg">NameError</span>: name &#39;mesh&#39; is not defined</pre>
@@ -15500,7 +15500,7 @@ We can define a boundary condition for each of these, choosing from constant val
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[8]</span><span class="ansi-green-fg">, line 1</span>
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> plot(Field(<span class="ansi-yellow-bg">mesh</span>, Sphere(vec(x=<span class="ansi-green-fg">.5</span>, y=<span class="ansi-green-fg">.5</span>), radius=<span class="ansi-green-fg">.3</span>), <span class="ansi-green-fg">0</span>))
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> plot(Field(mesh, Sphere(vec(x=<span class="ansi-green-fg">.5</span>, y=<span class="ansi-green-fg">.5</span>), radius=<span class="ansi-green-fg">.3</span>), <span class="ansi-green-fg">0</span>))
 
 <span class="ansi-red-fg">NameError</span>: name &#39;mesh&#39; is not defined</pre>
 </div>
@@ -15556,7 +15556,7 @@ Let's sample a Gaussian distribution in <em>x</em> with $\sigma=0.2$ at the cell
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[9]</span><span class="ansi-green-fg">, line 1</span>
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> T = Field(<span class="ansi-yellow-bg">mesh</span>, <span class="ansi-bold" style="color: rgb(0,135,0)">lambda</span> x, y: math.exp(-<span class="ansi-green-fg">.5</span> * (x-<span class="ansi-green-fg">.5</span>)**<span class="ansi-green-fg">2</span> / <span class="ansi-green-fg">.2</span>**<span class="ansi-green-fg">2</span>), <span class="ansi-green-fg">0</span>)
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> T = Field(mesh, <span class="ansi-bold" style="color: rgb(0,135,0)">lambda</span> x, y: math.exp(-<span class="ansi-green-fg">.5</span> * (x-<span class="ansi-green-fg">.5</span>)**<span class="ansi-green-fg">2</span> / <span class="ansi-green-fg">.2</span>**<span class="ansi-green-fg">2</span>), <span class="ansi-green-fg">0</span>)
 <span class="ansi-green-fg">      2</span> plot(T)
 
 <span class="ansi-red-fg">NameError</span>: name &#39;mesh&#39; is not defined</pre>
@@ -15613,7 +15613,7 @@ Let's sample a Gaussian distribution in <em>x</em> with $\sigma=0.2$ at the cell
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[10]</span><span class="ansi-green-fg">, line 2</span>
 <span class="ansi-green-fg">      1</span> grid = CenteredGrid(Noise(scale=<span class="ansi-green-fg">.5</span>), x=<span class="ansi-green-fg">20</span>, y=<span class="ansi-green-fg">20</span>, bounds=Box(x=(<span class="ansi-green-fg">0</span>, <span class="ansi-green-fg">1.5</span>), y=(<span class="ansi-green-fg">0</span>, <span class="ansi-green-fg">1</span>)))
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">2</span> plot(grid, Field(<span class="ansi-yellow-bg">mesh</span>, grid, <span class="ansi-green-fg">0</span>))
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">2</span> plot(grid, Field(mesh, grid, <span class="ansi-green-fg">0</span>))
 
 <span class="ansi-red-fg">NameError</span>: name &#39;mesh&#39; is not defined</pre>
 </div>
@@ -15670,7 +15670,7 @@ This dimension is an instance dimension, typically called <code>cells</code>, an
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[11]</span><span class="ansi-green-fg">, line 1</span>
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> dim = instance(<span class="ansi-yellow-bg">mesh</span>)
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> dim = instance(mesh)
 <span class="ansi-green-fg">      2</span> dim
 
 <span class="ansi-red-fg">NameError</span>: name &#39;mesh&#39; is not defined</pre>
@@ -15727,7 +15727,7 @@ This dimension is an instance dimension, typically called <code>cells</code>, an
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[12]</span><span class="ansi-green-fg">, line 1</span>
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> rnd_scalar = Field(<span class="ansi-yellow-bg">mesh</span>, math.random_uniform(dim), <span class="ansi-green-fg">0</span>)
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> rnd_scalar = Field(mesh, math.random_uniform(dim), <span class="ansi-green-fg">0</span>)
 <span class="ansi-green-fg">      2</span> rnd_vector = Field(mesh, vec(x=math.random_normal(dim), y=math.random_normal(dim)), <span class="ansi-green-fg">0</span>)
 <span class="ansi-green-fg">      3</span> plot(rnd_scalar, rnd_vector * <span class="ansi-green-fg">.05</span>)
 

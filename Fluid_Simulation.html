@@ -15159,10 +15159,11 @@ In this case, we will create a 64×96 grid, sampling velocity vectors <a href="S
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[1]</span><span class="ansi-green-fg">, line 4</span>
-<span class="ansi-green-fg">      1</span> <span class="ansi-bold" style="color: rgb(0,135,0)">from</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-blue-intense-fg ansi-bold">tqdm</span><span class="ansi-blue-intense-fg ansi-bold">.</span><span class="ansi-blue-intense-fg ansi-bold">notebook</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-bold" style="color: rgb(0,135,0)">import</span> trange
-<span class="ansi-green-fg">      2</span> <span class="ansi-bold" style="color: rgb(0,135,0)">from</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-blue-intense-fg ansi-bold">phi</span><span class="ansi-blue-intense-fg ansi-bold">.</span><span class="ansi-blue-intense-fg ansi-bold">jax</span><span class="ansi-blue-intense-fg ansi-bold">.</span><span class="ansi-blue-intense-fg ansi-bold">flow</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-bold" style="color: rgb(0,135,0)">import</span> *  <span style="color: rgb(95,135,135)"># imports sub-modules + core classes</span>
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">4</span> velocity = <span class="ansi-yellow-bg">StaggeredGrid</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">Noise</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">)</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-fg ansi-yellow-bg">&#39;</span><span class="ansi-yellow-fg ansi-yellow-bg">periodic</span><span class="ansi-yellow-fg ansi-yellow-bg">&#39;</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">x</span><span class="ansi-yellow-bg">=</span><span class="ansi-green-fg ansi-yellow-bg">64</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">y</span><span class="ansi-yellow-bg">=</span><span class="ansi-green-fg ansi-yellow-bg">96</span><span class="ansi-yellow-bg">)</span>
-<span class="ansi-green-fg">      5</span> plot({<span class="ansi-yellow-fg">&#34;</span><span class="ansi-yellow-fg">velocity</span><span class="ansi-yellow-fg">&#34;</span>: velocity, <span class="ansi-yellow-fg">&#34;</span><span class="ansi-yellow-fg">vorticity</span><span class="ansi-yellow-fg">&#34;</span>: field.curl(velocity)})
+<span class="ansi-green-fg">      1</span> <span class="ansi-bold" style="color: rgb(0,135,0)">from</span> tqdm.notebook <span class="ansi-bold" style="color: rgb(0,135,0)">import</span> trange
+<span class="ansi-green-fg">      2</span> <span class="ansi-bold" style="color: rgb(0,135,0)">from</span> phi.jax.flow <span class="ansi-bold" style="color: rgb(0,135,0)">import</span> *  <span style="color: rgb(95,135,135)"># imports sub-modules + core classes</span>
+<span class="ansi-green-fg">      3</span> 
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">4</span> velocity = StaggeredGrid(Noise(), <span class="ansi-yellow-fg">&#39;periodic&#39;</span>, x=<span class="ansi-green-fg">64</span>, y=<span class="ansi-green-fg">96</span>)
+<span class="ansi-green-fg">      5</span> plot({<span class="ansi-yellow-fg">&#34;velocity&#34;</span>: velocity, <span class="ansi-yellow-fg">&#34;vorticity&#34;</span>: field.curl(velocity)})
 
 <span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/site-packages/phi/field/_grid.py:158</span>, in <span class="ansi-cyan-fg">StaggeredGrid</span><span class="ansi-blue-fg">(values, boundary, bounds, resolution, extrapolation, convert, **resolution_)</span>
 <span class="ansi-green-fg">    156</span>             <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> <span style="color: rgb(0,135,0)">set</span>(resolution_from_staggered_tensor(values, extrapolation)) == <span style="color: rgb(0,135,0)">set</span>(resolution), <span class="ansi-yellow-fg">f</span><span class="ansi-yellow-fg">&#34;</span><span class="ansi-yellow-fg">Failed to create StaggeredGrid: values </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>values.shape<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg"> do not match given resolution </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>resolution<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg"> for extrapolation </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>extrapolation<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg">. See https://tum-pbs.github.io/PhiFlow/Staggered_Grids.html</span><span class="ansi-yellow-fg">&#34;</span>
@@ -15209,7 +15210,7 @@ In this case, we will create a 64×96 grid, sampling velocity vectors <a href="S
 <span class="ansi-green-fg">--&gt; </span><span class="ansi-green-fg">524</span> <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> dims.volume == <span class="ansi-green-fg">1</span>, <span class="ansi-yellow-fg">f</span><span class="ansi-yellow-fg">&#34;</span><span class="ansi-yellow-fg">Cannot squeeze non-singleton dims </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>dims<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg"> from </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>x<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg">&#34;</span>
 <span class="ansi-green-fg">    525</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> x[{d: <span class="ansi-green-fg">0</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> d <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> dims.names}]
 
-<span class="ansi-red-fg">AssertionError</span>: Cannot squeeze non-singleton dims (~vectorᵈ=x,y) from <span class="ansi-green-intense-fg">(~vectorᵈ=x,y, xˢ=64, yˢ=96)</span> <span class="ansi-blue-intense-fg">3.43e-08 ± 9.9e-01</span> <span class="ansi-white-fg">(-4e+00...3e+00)</span></pre>
+<span class="ansi-red-fg">AssertionError</span>: Cannot squeeze non-singleton dims (~vectorᵈ=x,y) from <span class="ansi-green-intense-fg">(~vectorᵈ=x,y, xˢ=64, yˢ=96)</span> <span class="ansi-blue-intense-fg">3.23e-08 ± 9.9e-01</span> <span class="ansi-white-fg">(-4e+00...3e+00)</span></pre>
 </div>
 </div>
 
@@ -15279,11 +15280,13 @@ In the following example, the velocity is self-advected and made incompressible,
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[2]</span><span class="ansi-green-fg">, line 8</span>
+<span class="ansi-green-fg">      4</span>     v = diffuse.explicit(v, viscosity, dt)
 <span class="ansi-green-fg">      5</span>     v, p = fluid.make_incompressible(v, (), Solve(x0=p, rank_deficiency=<span class="ansi-green-fg">0</span>))
 <span class="ansi-green-fg">      6</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> v, p
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">8</span> velocity0, pressure0 = fluid.make_incompressible(<span class="ansi-yellow-bg">velocity</span>)
+<span class="ansi-green-fg">      7</span> 
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">8</span> velocity0, pressure0 = fluid.make_incompressible(velocity)
 <span class="ansi-green-fg">      9</span> velocity1, pressure1 = operator_split_step(velocity0, <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>, dt=<span class="ansi-green-fg">1.</span>)
-<span class="ansi-green-fg">     10</span> plot({<span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg">initial vorticity</span><span class="ansi-yellow-fg">&#39;</span>: field.curl(velocity0), <span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg">after step</span><span class="ansi-yellow-fg">&#39;</span>: field.curl(velocity1)})
+<span class="ansi-green-fg">     10</span> plot({<span class="ansi-yellow-fg">&#39;initial vorticity&#39;</span>: field.curl(velocity0), <span class="ansi-yellow-fg">&#39;after step&#39;</span>: field.curl(velocity1)})
 
 <span class="ansi-red-fg">NameError</span>: name &#39;velocity&#39; is not defined</pre>
 </div>
@@ -15334,11 +15337,13 @@ In the following example, the velocity is self-advected and made incompressible,
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[3]</span><span class="ansi-green-fg">, line 8</span>
+<span class="ansi-green-fg">      4</span>     v = diffuse.explicit(v, <span class="ansi-green-fg">0.1</span>, dt)
 <span class="ansi-green-fg">      5</span>     v, p = fluid.make_incompressible(v, (), Solve(x0=p, rank_deficiency=<span class="ansi-green-fg">0</span>))
 <span class="ansi-green-fg">      6</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> v, p
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">8</span> velocity0, pressure0 = fluid.make_incompressible(<span class="ansi-yellow-bg">velocity</span>)
+<span class="ansi-green-fg">      7</span> 
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">8</span> velocity0, pressure0 = fluid.make_incompressible(velocity)
 <span class="ansi-green-fg">      9</span> velocity1, pressure1 = operator_split_step(velocity0, <span class="ansi-bold" style="color: rgb(0,135,0)">None</span>, dt=<span class="ansi-green-fg">1.</span>)
-<span class="ansi-green-fg">     10</span> plot({<span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg">initial vorticity</span><span class="ansi-yellow-fg">&#39;</span>: field.curl(velocity0), <span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg">after step</span><span class="ansi-yellow-fg">&#39;</span>: field.curl(velocity1)})
+<span class="ansi-green-fg">     10</span> plot({<span class="ansi-yellow-fg">&#39;initial vorticity&#39;</span>: field.curl(velocity0), <span class="ansi-yellow-fg">&#39;after step&#39;</span>: field.curl(velocity1)})
 
 <span class="ansi-red-fg">NameError</span>: name &#39;velocity&#39; is not defined</pre>
 </div>
@@ -15393,7 +15398,7 @@ All intermediate states are stacked along the specified dimension which we call 
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[4]</span><span class="ansi-green-fg">, line 1</span>
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> velocity_trj, pressure_trj = iterate(operator_split_step, batch(time=<span class="ansi-green-fg">100</span>), <span class="ansi-yellow-bg">velocity0</span>, pressure0, dt=<span class="ansi-green-fg">1.</span>, <span style="color: rgb(0,135,0)">range</span>=trange)
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> velocity_trj, pressure_trj = iterate(operator_split_step, batch(time=<span class="ansi-green-fg">100</span>), velocity0, pressure0, dt=<span class="ansi-green-fg">1.</span>, range=trange)
 
 <span class="ansi-red-fg">NameError</span>: name &#39;velocity0&#39; is not defined</pre>
 </div>
@@ -15448,7 +15453,7 @@ Now, let's plot this trajectory by animating the <code>time</code> dimension.</p
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NameError</span>                                 Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[5]</span><span class="ansi-green-fg">, line 1</span>
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> plot(field.curl(<span class="ansi-yellow-bg">velocity_trj</span>), animate=<span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg">time</span><span class="ansi-yellow-fg">&#39;</span>, same_scale=<span class="ansi-bold" style="color: rgb(0,135,0)">False</span>)
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> plot(field.curl(velocity_trj), animate=<span class="ansi-yellow-fg">&#39;time&#39;</span>, same_scale=<span class="ansi-bold" style="color: rgb(0,135,0)">False</span>)
 
 <span class="ansi-red-fg">NameError</span>: name &#39;velocity_trj&#39; is not defined</pre>
 </div>
@@ -15544,11 +15549,13 @@ This is considerably more expensive than the previous approach but yields much m
 <span class="ansi-red-fg">---------------------------------------------------------------------------</span>
 <span class="ansi-red-fg">NotImplementedError</span>                       Traceback (most recent call last)
 <span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[7]</span><span class="ansi-green-fg">, line 6</span>
+<span class="ansi-green-fg">      2</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span> rk4_step(v, p, dt):
 <span class="ansi-green-fg">      3</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> fluid.incompressible_rk4(momentum_equation, v, p, dt, pressure_order=<span class="ansi-green-fg">4</span>)
-<span class="ansi-green-fg">      5</span> velocity = CenteredGrid(Noise(vector=<span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg">x,y</span><span class="ansi-yellow-fg">&#39;</span>), <span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg">periodic</span><span class="ansi-yellow-fg">&#39;</span>, x=<span class="ansi-green-fg">64</span>, y=<span class="ansi-green-fg">96</span>)
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">6</span> velocity0, pressure0 = <span class="ansi-yellow-bg">fluid</span><span class="ansi-yellow-bg">.</span><span class="ansi-yellow-bg">make_incompressible</span><span class="ansi-yellow-bg">(</span><span class="ansi-yellow-bg">velocity</span><span class="ansi-yellow-bg">,</span><span class="ansi-yellow-bg"> </span><span class="ansi-yellow-bg">order</span><span class="ansi-yellow-bg">=</span><span class="ansi-green-fg ansi-yellow-bg">4</span><span class="ansi-yellow-bg">)</span>
-<span class="ansi-green-fg">      7</span> velocity_trj, pressure_trj = iterate(rk4_step, batch(time=<span class="ansi-green-fg">100</span>), velocity0, pressure0, dt=<span class="ansi-green-fg">.5</span>, substeps=<span class="ansi-green-fg">2</span>, <span style="color: rgb(0,135,0)">range</span>=trange)
-<span class="ansi-green-fg">      8</span> plot(field.curl(velocity_trj), animate=<span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg">time</span><span class="ansi-yellow-fg">&#39;</span>, same_scale=<span class="ansi-bold" style="color: rgb(0,135,0)">False</span>)
+<span class="ansi-green-fg">      4</span> 
+<span class="ansi-green-fg">      5</span> velocity = CenteredGrid(Noise(vector=<span class="ansi-yellow-fg">&#39;x,y&#39;</span>), <span class="ansi-yellow-fg">&#39;periodic&#39;</span>, x=<span class="ansi-green-fg">64</span>, y=<span class="ansi-green-fg">96</span>)
+<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">6</span> velocity0, pressure0 = fluid.make_incompressible(velocity, order=<span class="ansi-green-fg">4</span>)
+<span class="ansi-green-fg">      7</span> velocity_trj, pressure_trj = iterate(rk4_step, batch(time=<span class="ansi-green-fg">100</span>), velocity0, pressure0, dt=<span class="ansi-green-fg">.5</span>, substeps=<span class="ansi-green-fg">2</span>, range=trange)
+<span class="ansi-green-fg">      8</span> plot(field.curl(velocity_trj), animate=<span class="ansi-yellow-fg">&#39;time&#39;</span>, same_scale=<span class="ansi-bold" style="color: rgb(0,135,0)">False</span>)
 
 <span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/site-packages/phi/physics/fluid.py:137</span>, in <span class="ansi-cyan-fg">make_incompressible</span><span class="ansi-blue-fg">(velocity, obstacles, solve, active, order, correct_skew, wide_stencil)</span>
 <span class="ansi-green-fg">    135</span>     active = accessible.with_extrapolation(extrapolation.NONE) <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> active <span class="ansi-bold" style="color: rgb(175,0,255)">is</span> <span class="ansi-bold" style="color: rgb(0,135,0)">None</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span> active * accessible  <span style="color: rgb(95,135,135)"># no pressure inside obstacles</span>
