@@ -274,11 +274,10 @@ class Mesh(Geometry):
             else:
                 return self.face_areas > 0
         else:  # fallback with no boundaries
-            coo = to_format(self.elements, 'coo').numpy()
-            connected_elements = coo @ coo.T
+            coo = to_format(self.elements, 'coo').numpy().astype(np.int32)
+            connected_elements = (coo @ coo.T) >= 2
             connected_elements.setdiag(0)
             connected_elements.eliminate_zeros()
-            connected_elements.data = np.ones_like(connected_elements.data)
             element_connectivity = wrap(connected_elements, instance(self.elements), instance(self.elements).as_dual())
             return element_connectivity
 
