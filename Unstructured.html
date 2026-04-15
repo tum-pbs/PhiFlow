@@ -15210,16 +15210,16 @@ The default, <code>csc</code> allows for efficient boundary condition handling b
 <span class="ansi-green-fg">   1418</span>     results.append(f_output)
 <span class="ansi-green-fg">   1419</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(results[<span class="ansi-green-fg">0</span>], <span style="color: rgb(0,135,0)">tuple</span>):
 
-<span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/site-packages/phi/geom/_mesh.py:621</span>, in <span class="ansi-cyan-fg">load_su2</span><span class="ansi-blue-fg">(file_or_mesh, cell_dim, face_format)</span>
-<span class="ansi-green-fg">    607</span> <span class="ansi-yellow-fg">&#34;&#34;&#34;</span>
-<span class="ansi-green-fg">    608</span> <span class="ansi-yellow-fg">Load an unstructured mesh from a `.su2` file.</span>
-<span class="ansi-green-fg">    609</span> 
-<span class="ansi-green-fg">   (...)</span><span class="ansi-green-fg">    618</span> <span class="ansi-yellow-fg">    `Mesh`</span>
-<span class="ansi-green-fg">    619</span> <span class="ansi-yellow-fg">&#34;&#34;&#34;</span>
-<span class="ansi-green-fg">    620</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(file_or_mesh, <span style="color: rgb(0,135,0)">str</span>):
-<span class="ansi-green-fg">--&gt; </span><span class="ansi-green-fg">621</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">from</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-blue-intense-fg ansi-bold">ezmesh</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-bold" style="color: rgb(0,135,0)">import</span> import_from_file
-<span class="ansi-green-fg">    622</span>     mesh = import_from_file(file_or_mesh)
-<span class="ansi-green-fg">    623</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
+<span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/site-packages/phi/geom/_mesh.py:620</span>, in <span class="ansi-cyan-fg">load_su2</span><span class="ansi-blue-fg">(file_or_mesh, cell_dim, face_format)</span>
+<span class="ansi-green-fg">    606</span> <span class="ansi-yellow-fg">&#34;&#34;&#34;</span>
+<span class="ansi-green-fg">    607</span> <span class="ansi-yellow-fg">Load an unstructured mesh from a `.su2` file.</span>
+<span class="ansi-green-fg">    608</span> 
+<span class="ansi-green-fg">   (...)</span><span class="ansi-green-fg">    617</span> <span class="ansi-yellow-fg">    `Mesh`</span>
+<span class="ansi-green-fg">    618</span> <span class="ansi-yellow-fg">&#34;&#34;&#34;</span>
+<span class="ansi-green-fg">    619</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">isinstance</span>(file_or_mesh, <span style="color: rgb(0,135,0)">str</span>):
+<span class="ansi-green-fg">--&gt; </span><span class="ansi-green-fg">620</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">from</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-blue-intense-fg ansi-bold">ezmesh</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-bold" style="color: rgb(0,135,0)">import</span> import_from_file
+<span class="ansi-green-fg">    621</span>     mesh = import_from_file(file_or_mesh)
+<span class="ansi-green-fg">    622</span> <span class="ansi-bold" style="color: rgb(0,135,0)">else</span>:
 
 <span class="ansi-red-fg">ModuleNotFoundError</span>: No module named &#39;ezmesh&#39;</pre>
 </div>
