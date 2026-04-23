@@ -15210,7 +15210,7 @@ In this case, we will create a 64×96 grid, sampling velocity vectors <a href="S
 <span class="ansi-green-fg">--&gt; </span><span class="ansi-green-fg">524</span> <span class="ansi-bold" style="color: rgb(0,135,0)">assert</span> dims.volume == <span class="ansi-green-fg">1</span>, <span class="ansi-yellow-fg">f</span><span class="ansi-yellow-fg">&#34;</span><span class="ansi-yellow-fg">Cannot squeeze non-singleton dims </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>dims<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg"> from </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>x<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg">&#34;</span>
 <span class="ansi-green-fg">    525</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> x[{d: <span class="ansi-green-fg">0</span> <span class="ansi-bold" style="color: rgb(0,135,0)">for</span> d <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> dims.names}]
 
-<span class="ansi-red-fg">AssertionError</span>: Cannot squeeze non-singleton dims (~vectorᵈ=x,y) from <span class="ansi-green-intense-fg">(~vectorᵈ=x,y, xˢ=64, yˢ=96)</span> <span class="ansi-blue-intense-fg">0.00e+00 ± 9.9e-01</span> <span class="ansi-white-fg">(-4e+00...3e+00)</span></pre>
+<span class="ansi-red-fg">AssertionError</span>: Cannot squeeze non-singleton dims (~vectorᵈ=x,y) from <span class="ansi-green-intense-fg">(~vectorᵈ=x,y, xˢ=64, yˢ=96)</span> <span class="ansi-blue-intense-fg">1.99e-08 ± 9.9e-01</span> <span class="ansi-white-fg">(-4e+00...3e+00)</span></pre>
 </div>
 </div>
 
