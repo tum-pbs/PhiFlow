@@ -1,6 +1,7 @@
 from typing import Union, Tuple, Dict, Any
 from phi.torch.flow import *
 from phiml.math import Tensor, Shape, extrapolation
+from phiml.math.magic import BoundDim
 
 
 class Voxels(Geometry):
@@ -26,6 +27,9 @@ class Voxels(Geometry):
     def volume(self) -> Tensor:
         dx = self._bounds.size / self.resolution
         return math.prod(dx)
+
+    def __getattr__(self, item):
+        return BoundDim(self, item)
 
     @property
     def faces(self) -> 'Geometry':
@@ -53,7 +57,7 @@ class Voxels(Geometry):
 
     @property
     def face_shape(self) -> Shape:
-        raise NotImplementedError
+        return None
 
     def lies_inside(self, location: Tensor) -> Tensor:
         return self._filled == 1
@@ -62,7 +66,7 @@ class Voxels(Geometry):
         raise NotImplementedError
 
     def approximate_signed_distance(self, location: Tensor) -> Tensor:
-        X, Y, Z = int(location.shape[0]), int(location.shape[1]), int(location.shape[2])
+        X, Y, Z = spatial(location).sizes
 
         # Computing centered grid length using X,Y,Z since in all possible
         # combinations of X,Y,Z one is L+1 and the rest are L
