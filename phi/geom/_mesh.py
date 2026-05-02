@@ -49,8 +49,8 @@ class Mesh(Geometry):
     """Sparse matrix format for storing quantities that depend on a pair of neighboring elements, e.g. `face_area`, `face_normal`, `face_center`."""
     max_cell_walk: int = None
     """ Maximum number of steps to walk along the element connectivity in order to find a cell, e.g. for sampling at an arbitrary point."""
-    distance_method: str = 'point-cloud-utils'
-    """ Must be either 'closest-face' or 'trimesh' or 'pcu'. """
+    distance_method: str = 'closest-face'
+    """ Must be either 'closest-face' or 'trimesh' or 'point-cloud-utils'. """
 
     variable_attrs: Tuple[str, ...] = ('vertices',)  # PhiML keyword
     value_attrs: Tuple[str, ...] = ()  # PhiML keyword
@@ -425,7 +425,7 @@ class Mesh(Geometry):
             return stack(result, split_dims)
         elif self.distance_method == 'point-cloud-utils':
             import point_cloud_utils as pcu
-            assert self.element_rank == 2 and self.spatial_rank == 3, f"trimesh distance only supports surface meshes in 3D. (distance_method='trimesh')"
+            assert self.element_rank == 2 and self.spatial_rank == 3, f"point-cloud-utils distance only supports surface meshes in 3D. (distance_method='point-cloud-utils')"
             split_dims = non_channel(self).non_instance
             result = []
             for idx, (v, f, _) in zip(split_dims.meshgrid(), self._cached_list_of_triangles):
@@ -491,7 +491,7 @@ class Mesh(Geometry):
             return stack(res_sdf, split_dims), stack(res_delta, split_dims), stack(res_normal, split_dims), None, stack(res_idx, split_dims)
         elif self.distance_method == 'point-cloud-utils':
             import point_cloud_utils as pcu
-            assert self.element_rank == 2 and self.spatial_rank == 3, f"trimesh distance only supports surface meshes in 3D. (distance_method='trimesh')"
+            assert self.element_rank == 2 and self.spatial_rank == 3, f"point-cloud-utils distance only supports surface meshes in 3D. (distance_method='point-cloud-utils')"
             split_dims = non_channel(self).non_instance
             loc_batch = location.shape - split_dims - 'vector'
             res_sdf, res_delta, res_normal, res_idx = [], [], [], []
@@ -715,7 +715,8 @@ def mesh_from_numpy(points: Sequence[Sequence],
                     periodic: str = None,
                     cell_dim: Shape = instance('cells'),
                     face_format: str = 'csc',
-                    axes=('x', 'y', 'z')) -> Mesh:
+                    axes=('x', 'y', 'z'),
+                    distance_method='closest-face') -> Mesh:
     """
     Construct an unstructured mesh from vertices.
 
@@ -754,7 +755,7 @@ def mesh_from_numpy(points: Sequence[Sequence],
             ptr = np.pad(np.cumsum(vertex_count), (1, 0))
             mat = csr_matrix((np.ones(indices.shape, dtype=bool), indices, ptr), shape=(len(polygons), len(points)))
             elements = wrap(mat, cell_dim, instance(vertices).as_dual())
-    return mesh(vertices, elements, boundaries, element_rank, periodic, face_format=face_format)
+    return mesh(vertices, elements, boundaries, element_rank, periodic, face_format=face_format, distance_method=distance_method)
 
 
 @broadcast(dims=batch)
@@ -764,7 +765,8 @@ def mesh(vertices: Union[Geometry, Tensor],
          element_rank: int = None,
          periodic: str = None,
          face_format: str = 'csc',
-         max_cell_walk: int = None):
+         max_cell_walk: int = None,
+         distance_method='closest-face'):
     """
     Create a mesh from vertex positions and vertex lists.
 
@@ -808,7 +810,7 @@ def mesh(vertices: Union[Geometry, Tensor],
         assert all(p in vertices.vector.item_names for p in periodic_base), f"Periodic boundaries must be named after axes, e.g. {vertices.vector.item_names} but got {periodic}"
         for base in periodic_base:
             assert base+'+' in boundaries and base+'-' in boundaries, f"Missing boundaries for periodicity '{base}'. Make sure '{base}+' and '{base}-' are keys in boundaries dict, got {tuple(boundaries)}"
-    return Mesh(vertices, elements, element_rank, boundaries, periodic_dims, face_format=face_format, max_cell_walk=max_cell_walk)
+    return Mesh(vertices, elements, element_rank, boundaries, periodic_dims, face_format=face_format, max_cell_walk=max_cell_walk, distance_method=distance_method)
 
 
 def build_faces(vertices: Tensor,  # (vertices:i, vector)
