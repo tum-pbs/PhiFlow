@@ -54,8 +54,8 @@ class TestField(TestCase):
     def test_boundary_slicing(self):
         v = StaggeredGrid(0, vec(x=1, y=-1), x=10, y=10)
         self.assertIn('vector', v.boundary.shape)
-        components = math.unstack(v, 'vector')
-        self.assertNotIn('vector', components[0].boundary.shape)
+        components = math.unstack(v.boundary, 'vector')
+        self.assertNotIn('vector', components[0].shape)
 
     def test_numpy(self):
         g = CenteredGrid(Noise(channel(vector='x,y')), 1, x=10, y=8)

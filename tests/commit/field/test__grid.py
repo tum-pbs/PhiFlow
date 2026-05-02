@@ -27,23 +27,13 @@ class GridTest(TestCase):
         for initializer in [0, Noise(vector=2), (0, 1), Sphere(x=0, y=0, radius=1)]:
             g_const = StaggeredGrid(initializer, extrapolation.ZERO, resolution=s)
             self.assertEqual(g_const.shape, spatial(x=20, y=10) & channel(vector='x,y'))
-            self.assertEqual(spatial(x=19, y=10), g_const.vector[0].values.shape)
+            self.assertEqual(spatial(x=19, y=10), g_const.values['x'].shape)
             g_periodic = StaggeredGrid(initializer, extrapolation.PERIODIC, resolution=s)
             self.assertEqual(g_periodic.shape, spatial(x=20, y=10) & channel(vector='x,y'))
-            self.assertEqual(g_periodic.vector[0].values.shape, spatial(x=20, y=10))
+            self.assertEqual(spatial(x=20, y=10), g_periodic.values['x'].shape)
             g_boundary = StaggeredGrid(initializer, extrapolation.BOUNDARY, resolution=s)
             self.assertEqual(g_boundary.shape, spatial(x=20, y=10) & channel(vector='x,y'))
-            self.assertEqual(g_boundary.vector[0].values.shape, spatial(x=21, y=10))
-
-    def test_slice_staggered_grid_along_vector(self):
-        v = StaggeredGrid(Noise(batch(batch=10)), x=10, y=20)
-        x1 = v[{'vector': 0}]
-        x2 = v.vector[0]
-        x3 = v.vector['x']
-        x4 = field.unstack(v, 'vector')[0]
-        self.assertTrue(x1.is_grid)
-        self.assertTrue(x1.is_centered)
-        field.assert_close(x1, x2, x3, x4)
+            self.assertEqual(spatial(x=21, y=10), g_boundary.values['x'].shape)
 
     def test_slice_staggered_grid_along_batch(self):
         v = StaggeredGrid(Noise(batch(batch=10)), x=10, y=20)
@@ -53,17 +43,6 @@ class GridTest(TestCase):
         self.assertTrue(b1.is_grid)
         self.assertTrue(b1.is_staggered)
         field.assert_close(b1, b2, b3)
-
-    def test_slice_staggered_grid_keeping_staggered(self):
-        grid = StaggeredGrid(0, x=4, y=4, z=4)
-        g1d = grid[{'z': 0, 'y': 0, 'vector': 'x'}]
-        self.assertTrue(g1d.is_grid)
-        self.assertTrue(g1d.is_staggered)
-        self.assertEqual(spatial(x=4), g1d.resolution)
-        g2d = grid[{'z': 0, 'vector': 'x,y'}]
-        self.assertTrue(g2d.is_grid)
-        self.assertTrue(g2d.is_staggered)
-        self.assertEqual(spatial(x=4, y=4), g2d.resolution)
 
     # def test_slice_staggered_grid_along_spatial(self):
     #     v = StaggeredGrid(Noise(batch(batch=10)), x=10, y=20)
@@ -127,10 +106,9 @@ class GridTest(TestCase):
             self.assertEqual(grid.shape, grid_.shape)
 
     def test_iter_dim(self):
-        slices = tuple(StaggeredGrid(0, x=4, y=3).vector)
+        slices = tuple(StaggeredGrid(0, x=4, y=3).values.vector.dual)
         self.assertEqual(2, len(slices))
         self.assertFalse(slices[0].shape.non_spatial)
-        self.assertEqual(('x', 'y'), slices[0].bounds.size.vector.item_names)
 
     def test_sample_function(self):
         self.assertEqual(spatial(x=5), CenteredGrid(lambda x: x, x=5).shape)

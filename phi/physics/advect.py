@@ -14,6 +14,7 @@ from phiml.math import Tensor, Solve, channel
 from phiml.math.extrapolation import NONE
 
 from ..field import Field, PointCloud, Grid, spatial_gradient, reduce_sample, sample
+from ..field._resample import _unstack_staggered_grid
 from ..geom import Geometry
 
 
@@ -106,12 +107,12 @@ def differential(u: Field,
         Differential convection term as `Field` on the same geometry.
     """
     if u.is_grid and u.is_staggered:
-        grad_list = [spatial_gradient(field_component, stack_dim=channel('grad_dim'), order=order, implicit=implicit) for field_component in u.vector]
+        grad_list = [spatial_gradient(field_component, stack_dim=channel('grad_dim'), order=order, implicit=implicit) for field_component in _unstack_staggered_grid(u)]
         grad_grid = u.with_values(math.stack([component.values for component in grad_list], channel(velocity).as_dual()))
         if order == 4:
             amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.grad_dim, velocity.vector)]  # ToDo resampling does not yet support order=4
         else:
-            amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.grad_dim, velocity.vector)]
+            amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.grad_dim, _unstack_staggered_grid(velocity))]
         amount = sum(amounts)
         return u.with_values(- amount)
     elif u.is_grid and u.is_centered:
@@ -126,7 +127,7 @@ def differential(u: Field,
         u = u.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
         velocity = velocity.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
         conv = density * u.mesh.integrate_surface(u.values * (velocity.values.vector @ velocity.face_normals.vector)) / u.mesh.volume
-        return Field(u.geometry, -conv, 0)
+        return Field(u.geometry, -conv, 0, 'center')
     raise NotImplementedError(u)
 
 

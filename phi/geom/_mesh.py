@@ -123,8 +123,10 @@ class Mesh(Geometry):
 
     @property
     def sets(self):
+        el_dim = non_batch(self)-'vector'
         return {
-            'center': non_batch(self)-'vector',
+            'center': el_dim,
+            'face': el_dim.as_dual() + el_dim,
             'vertex': instance(self.vertices),
             '~vertex': dual(self.elements)
         }

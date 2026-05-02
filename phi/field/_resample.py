@@ -50,7 +50,7 @@ def resample(value: Union[Field, Geometry, Tensor, float, FieldInitializer], to:
     """
     assert isinstance(to, (Field, Geometry)), f"'to' must be a Field or Geometry but got {to}"
     if isinstance(to, Geometry):
-        to = Field(to, wrap(0.), value.extrapolation if isinstance(value, Field) else 0.)
+        to = Field(to, wrap(0.), value.extrapolation if isinstance(value, Field) else 0., sampled_at='center')
     if not isinstance(value, (Field, Geometry, FieldInitializer)):
         return to.with_values(value)
     if isinstance(value, Field) and keep_boundary:
@@ -60,7 +60,7 @@ def resample(value: Union[Field, Geometry, Tensor, float, FieldInitializer], to:
     else:
         raise AssertionError(f"Boundary cannot be determined, keep_boundary={keep_boundary}, value: {type(value)}, to: {type(to)}")
     resampled = sample(value, to, at=to.sampled_at if isinstance(to, Field) else 'center', boundary=extrap, dot_face_normal=to.geometry, **kwargs)
-    return Field(to.geometry if isinstance(to, Field) else to, resampled, extrap)
+    return Field(to.geometry if isinstance(to, Field) else to, resampled, extrap, sampled_at=to.sampled_at if isinstance(to, Field) else 'center')
 
 
 def reduce_sample(field: Union[Field, Geometry, FieldInitializer, Callable],
@@ -123,10 +123,10 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
                 values = math.stack([values[{'vector': i, '~vector': i}] for i in range(geometry.spatial_rank)], dual(**geometry.shape['vector'].untyped_dict))
             else:
                 raise NotImplementedError
-        field = Field(geometry, values, boundary)
+        field = Field(geometry, values, boundary, sampled_at=at)
     if callable(field):
         values = sample_function(field, geometry, at, boundary)
-        field = Field(geometry, values, boundary)
+        field = Field(geometry, values, boundary, sampled_at=at)
     # --- Resample ---
     assert isinstance(field, Field), f"field must be a Field, Geometry or initializer but got {type(field)}"
     if at == 'center':
@@ -146,13 +146,11 @@ def sample(field: Union[Field, Geometry, FieldInitializer, Callable],
         if field.is_staggered and field.geometry.shallow_equals(geometry) and field.geometry.face_shape == geometry.face_shape and field.geometry.shallow_equals(dot_face_normal):
             return field.values
         elif dot_face_normal is not None and channel(field):
-            if _are_axis_aligned(dot_face_normal.face_normals):
-                components = unstack(field, field.shape.channel.name)
-                faces = math.unstack(slice_off_constant_faces(geometry.faces, geometry.boundary_faces, boundary), dual)
-                sampled = [sample(c, p, **kwargs) for c, p in zip(components, faces)]
-                return math.stack(sampled, dual(dot_face_normal.face_shape))
-            else:
-                raise NotImplementedError
+            assert _are_axis_aligned(dot_face_normal.face_normals)
+            components = _unstack_staggered_grid(field) if field.is_staggered else math.unstack(field, 'vector')
+            faces = math.unstack(slice_off_constant_faces(geometry.faces, geometry.boundary_faces, boundary), dual)
+            sampled = [sample(c, p, **kwargs) for c, p in zip(components, faces)]
+            return math.stack(sampled, dual(dot_face_normal.face_shape))
         elif field.is_grid and field.is_centered:
             return sample_grid_at_faces(field, geometry, boundary, **kwargs)
         elif field.is_grid and field.is_staggered:
@@ -190,6 +188,14 @@ def _get_geometry(geometry):
 
 def _are_axis_aligned(normals: Tensor):
     return not spatial(normals) and not instance(normals) and math.sum(normals != 0) == normals.vector.size
+
+
+def _unstack_staggered_grid(field: Field):
+    assert field.is_grid and field.is_staggered
+    values = math.unstack(field.values, '~vector')
+    boundary = [field.boundary[{'vector': dim}] for dim in field.vector.labels]
+    geometry = field.grid.staggered_cells(field.boundary)
+    return [Field(geometry[dim], v, b, sampled_at='center') for dim, v, b in zip(field.vector.labels, values, boundary)]
 
 
 def scatter_to_centers(self: Field, geometry: Geometry, soft=False, scatter=False, outside_handling='discard', balance=0.5) -> Tensor:
@@ -285,7 +291,7 @@ def sample_staggered_grid(self: Field, geometry: Geometry, **kwargs) -> Tensor:
         c_values = self.values[{'~vector': dim}]
         c_grid = UniformGrid(self.resolution, self.bounds).stagger(dim, *self.extrapolation.valid_outer_faces(dim))
         ext = self.extrapolation[{'vector': dim}]
-        c_sampled = sample_grid_at_centers(Field(c_grid, c_values, ext), geometry, **kwargs)
+        c_sampled = sample_grid_at_centers(Field(c_grid, c_values, ext, sampled_at='center'), geometry, **kwargs)
         components.append(c_sampled)
     return math.stack(components, geometry.shape['vector'])
 

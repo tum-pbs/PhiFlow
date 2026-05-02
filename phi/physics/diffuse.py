@@ -4,7 +4,7 @@ Functions to simulate diffusion processes on `phi.field.Field` objects.
 import warnings
 from typing import Union
 
-from phiml import math
+from phiml import math, channel
 from phiml.math import copy_with, Solve, wrap, spatial, Tensor
 from phiml.math.extrapolation import NONE
 
@@ -133,7 +133,7 @@ def differential(u: Field,
         diffusivity: Field = diffusivity if isinstance(diffusivity, Field) else u.with_values(diffusivity)
         if u.is_grid and u.is_centered:
             face_diffusivity = stagger(diffusivity, math.minimum, NONE)
-            du = u.gradient(boundary=NONE, at='face')
+            du = u.gradient(boundary=NONE, at='face', stack_dim=channel('vector'))
             lap = (face_diffusivity * du).divergence(order=2)
         else:
             raise NotImplementedError("spatially-varying diffusion currently only supported for centered grids")

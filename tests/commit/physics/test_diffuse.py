@@ -43,16 +43,9 @@ class TestDiffusion(TestCase):
         fourier = diffuse.fourier(grid, DIFFUSIVITY, 1)
         field.assert_close(explicit, implicit, rel_tolerance=0, abs_tolerance=0.01)
         field.assert_close(explicit, implicit, fourier, rel_tolerance=0, abs_tolerance=0.1)
-        # print(f"{explicit.values[:6]}  Explicit")
-        # print(f"{implicit.values[:6]}  Implicit")
-        # print(f"{fourier.values[:6]}  Fourier")
-        # print()
         back_explicit = diffuse.explicit(explicit, DIFFUSIVITY, -1, substeps=10)
-        back_implicit = diffuse.implicit(implicit, DIFFUSIVITY, -1, solve=Solve('scipy-direct'))
+        back_implicit = diffuse.implicit(implicit, DIFFUSIVITY, -1, solve=Solve('CG'))
         back_fourier = diffuse.fourier(fourier, DIFFUSIVITY, -1)
-        # print(f"{back_explicit.values[:6]}  Explicit")
-        # print(f"{back_implicit.values[:6]}  Implicit")
-        # print(f"{back_fourier.values[:6]}  Fourier")
         field.assert_close(grid, back_explicit, back_implicit, back_fourier, rel_tolerance=0, abs_tolerance=0.1)
 
     def test_implicit_stability(self):

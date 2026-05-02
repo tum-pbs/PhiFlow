@@ -129,7 +129,7 @@ def make_incompressible(velocity: Field,
     if obstacles:
         accessible_boundary = _accessible_extrapolation(input_velocity.extrapolation)
         with NUMPY:
-            accessible = Field(velocity.geometry, ~union([obs.geometry for obs in obstacles]), accessible_boundary)
+            accessible = Field(velocity.geometry, ~union([obs.geometry for obs in obstacles]), accessible_boundary, 'center')
             # accessible = CenteredGrid(~union([obs.geometry for obs in obstacles]), accessible_boundary, velocity.bounds, velocity.resolution)
             hard_bcs = field.stagger(accessible, math.minimum, velocity.boundary, at=velocity.sampled_at, dims=velocity.vector.item_names)
         active = accessible.with_extrapolation(extrapolation.NONE) if active is None else active * accessible  # no pressure inside obstacles
@@ -147,7 +147,7 @@ def make_incompressible(velocity: Field,
             solve = copy_with(solve, rank_deficiency=1)
     if solve.x0 is None:
         pressure_extrapolation = _pressure_extrapolation(input_velocity.extrapolation)
-        solve = copy_with(solve, x0=Field(div.geometry, 0, pressure_extrapolation))  # convert=False
+        solve = copy_with(solve, x0=Field(div.geometry, 0, pressure_extrapolation, 'center'))  # convert=False
     if (batch(math.merge_shapes(*obstacles)) & batch(velocity)).without(batch(solve.x0.values)):  # The initial pressure guess must contain all batch dimensions
         solve = copy_with(solve, x0=solve.x0.with_values(expand(solve.x0.values, batch(math.merge_shapes(*obstacles)) & batch(velocity))))
     if wide_stencil is None:

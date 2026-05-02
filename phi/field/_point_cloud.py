@@ -53,7 +53,7 @@ def PointCloud(elements: Union[Tensor, Geometry, float], values: Any = 1., extra
         elements = values * 0
     if isinstance(elements, Tensor):
         elements = geom.Point(elements)
-    result = Field(elements, values, extrapolation, variable_attrs, value_attrs)
+    result = Field(elements, values, extrapolation, sampled_at='center', variable_attrs=variable_attrs, value_attrs=value_attrs)
     assert result.boundary is PERIODIC or isinstance(result.boundary, ConstantExtrapolation), f"Unsupported extrapolation for PointCloud: {result._boundary}"
     return result
 

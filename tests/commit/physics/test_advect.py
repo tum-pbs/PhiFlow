@@ -41,5 +41,5 @@ class TestAdvect(TestCase):
     def test_self_advect_staggered(self):
         v0 = StaggeredGrid(Box(x=(.9, 2.6), y=(.9, 2)), 0, x=4, y=3) * (0, 1)
         v = advect.semi_lagrangian(v0, v0, 1)
-        math.assert_close(0, v['x'].values)
-        math.assert_close(wrap([[0, 0, 0, 0], [0, 1, 1, 0]], spatial('y,x')), v['y'].values)
+        math.assert_close(0, v.values['x'])
+        math.assert_close(wrap([[0, 0, 0, 0], [0, 1, 1, 0]], spatial('y,x')), v.values['y'])

@@ -33,7 +33,7 @@ def bake_extrapolation(grid: Field) -> Field:
         padded = []
         for dim in grid.vector.item_names:
             lower, upper = grid.extrapolation.valid_outer_faces(dim)
-            value = grid.vector[dim].values
+            value = grid.values[dim]
             padded.append(math.pad(value, {dim: (0 if lower else 1, 0 if upper else 1)}, grid.extrapolation[{'vector': dim}], bounds=grid.bounds))
         return StaggeredGrid(math.stack(padded, dual(vector=grid.shape.spatial)), bounds=grid.bounds, extrapolation=math.extrapolation.NONE)
     elif grid.is_grid:
@@ -113,7 +113,7 @@ def laplace(u: Field,
             grad = connecting_grad
         laplace_values = u.mesh.integrate_surface(grad) / u.mesh.volume  # 1/V ∑_f ∇T ν A
         result = weights * laplace_values if weights is not None else laplace_values
-        return Field(u.mesh, result, u.boundary - u.boundary)
+        return Field(u.mesh, result, u.boundary - u.boundary, sampled_at='center')
     # --- Grid ---
     laplace_ext = u.extrapolation.spatial_gradient().spatial_gradient()
     laplace_dims = u.shape.only(axes).names
@@ -492,7 +492,7 @@ def green_gauss_gradient(u: Field, boundary: Extrapolation, stack_dim: Shape = c
     normals = rename_dims(u.geometry.face_normals, 'vector', stack_dim)
     grad = u.geometry.integrate_surface(normals * u.values) / u.geometry.volume
     grad = slice_off_constant_faces(grad, u.geometry.boundary_elements, boundary)
-    return Field(u.geometry, grad, boundary)
+    return Field(u.geometry, grad, boundary, sampled_at='center')
 
 
 def least_squares_gradient(u: Field, boundary: Extrapolation, stack_dim: Shape = channel('vector')) -> Field:
@@ -500,7 +500,7 @@ def least_squares_gradient(u: Field, boundary: Extrapolation, stack_dim: Shape =
     u_nb = u.mesh.pad_boundary(u.values, mode=u.boundary)
     du = (u.mesh.connectivity * u_nb - u.values)
     d = u.face_centers - u.center
-    initial_guess = Field(u.geometry, math.zeros(stack_dim.with_size(u.geometry.vector.item_names)), boundary)
+    initial_guess = Field(u.geometry, math.zeros(stack_dim.with_size(u.geometry.vector.item_names)), boundary, sampled_at='center')
     @jit_compile_linear
     def du_from_grad(grad):
         return math.dot(grad.values, stack_dim, d, 'vector')
@@ -575,7 +575,7 @@ def stagger(field: Field,
         all_upper = math.stack(all_upper, dual(vector=dims))
         all_lower = math.stack(all_lower, dual(vector=dims))
         values = face_function(all_lower, all_upper)
-        result = Field(field.geometry, values, boundary)
+        result = Field(field.geometry, values, boundary, sampled_at='face')
         assert result.resolution == field.resolution
         return result
     else:
@@ -612,14 +612,13 @@ def divergence(field: Field, order=2, implicit: Solve = None, upwind: Field = No
     if field.is_mesh:
         field = field.at_faces(boundary=NONE, order=order, upwind=upwind)
         div = field.geometry.integrate_flux(field.values, divide_volume=True)
-        return Field(field.geometry, div, field.boundary.spatial_gradient())
+        return Field(field.geometry, div, field.boundary.spatial_gradient(), sampled_at='center')
     if order == 2:
         if field.is_staggered:
             field = bake_extrapolation(field)
             components = []
             for dim in field.shape.spatial.names:
-                div_dim = math.spatial_gradient(field.vector[dim].values, field.dx, 'forward', None, dims=dim,
-                                                stack_dim=None)
+                div_dim = math.spatial_gradient(field.values[dim], field.dx, 'forward', None, dims=dim, stack_dim=None)
                 components.append(div_dim)
             data = math.sum(components, dim='0')
             return CenteredGrid(data, bounds=field.bounds, extrapolation=field.extrapolation.spatial_gradient())
@@ -657,7 +656,7 @@ def curl(field: Field, at='corner'):
         vx_dy = math.spatial_gradient(vx, dims=y, dx=field.dx[y], padding=None, stack_dim=None, difference='forward')
         curl_val = vy_dx - vx_dy
         corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx / 2, field.bounds.upper + field.dx / 2))
-        return Field(corners, curl_val, field.boundary.spatial_gradient())
+        return Field(corners, curl_val, field.boundary.spatial_gradient(), sampled_at='center')
     elif field.is_grid and field.is_centered and field.spatial_rank == 2 and at == 'corner':
         x, y = field.vector.item_names
         values = pad(field, 1).values
@@ -669,7 +668,7 @@ def curl(field: Field, at='corner'):
         ur = diag_comp[{x: slice(1, None), y: slice(1, None), 'diag': 'neg'}]
         curl_val = ll - ul + lr - ur
         corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx / 2, field.bounds.upper + field.dx / 2))
-        return Field(corners, curl_val, field.boundary.spatial_gradient())
+        return Field(corners, curl_val, field.boundary.spatial_gradient(), sampled_at='center')
     # if field.is_grid and not field.is_staggered and field.spatial_rank == 2:
     #     if 'vector' not in field.shape and at == 'face':
     #         # 2D curl of scalar field
@@ -707,7 +706,7 @@ def curl(field: Field, at='corner'):
         vz_dy = neighbor_mean(math.spatial_gradient(vz, dims=y, dx=field.dx[y], padding=None, stack_dim=None, difference='forward'), x)
         curl_val = math.stack([vz_dy-vy_dz, vx_dz-vz_dx, vy_dx-vx_dy], field.shape['vector'])
         corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx / 2, field.bounds.upper + field.dx / 2))
-        return Field(corners, curl_val, field.boundary.spatial_gradient())
+        return Field(corners, curl_val, field.boundary.spatial_gradient(), sampled_at='center')
     elif field.is_grid and field.is_centered and field.spatial_rank == 3 and at == 'corner':
         raise NotImplementedError
         x, y, z = field.vector.item_names
@@ -722,7 +721,7 @@ def curl(field: Field, at='corner'):
         ur = diag_comp[{x: slice(1, None), y: slice(1, None), 'diag': 'neg'}]
         curl_val = ll - ul + lr - ur
         corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx / 2, field.bounds.upper + field.dx / 2))
-        return Field(corners, curl_val, field.boundary.spatial_gradient())
+        return Field(corners, curl_val, field.boundary.spatial_gradient(), sampled_at='center')
     raise NotImplementedError("Only 2D curl at corner currently supported")
 
 
@@ -938,7 +937,7 @@ def concat(fields: Sequence[Field], dim: str or Shape) -> Field:
     elif fields[0].is_mesh:
         assert all([f.geometry == fields[0].geometry for f in fields])
         values = math.concat([math.expand(f.values, f.shape.only(dim)) for f in fields], dim)
-        return Field(fields[0].geometry, values, fields[0].extrapolation)
+        return Field(fields[0].geometry, values, fields[0].extrapolation, sampled_at=fields[0].sampled_at)
     raise NotImplementedError(type(fields[0]))
 
 
@@ -979,7 +978,7 @@ def stack(fields: Sequence[Field], dim: Shape, dim_bounds: Box = None):
         if isinstance(geometry, Tensor):
             from ..geom._geom_ops import GeometryStack
             geometry = GeometryStack(geometry)
-        return Field(geometry, values, boundary)
+        return Field(geometry, values, boundary, sampled_at=fields[0].sampled_at)
 
 
 def assert_close(*fields: Field or Tensor or Number,
@@ -1176,7 +1175,7 @@ def mask(obj: Field or Geometry) -> Field:
         `Grid` type or `PointCloud`
     """
     if isinstance(obj, Geometry):
-        return Field(obj, 1, 0)
+        return Field(obj, 1, 0, sampled_at='center')
     assert isinstance(obj, Field), f"obj must be a Geometry or Field but got {type(obj)}"
     if obj.is_grid and not obj.is_staggered:
         values = math.cast(obj.values != 0, int)
@@ -1184,7 +1183,7 @@ def mask(obj: Field or Geometry) -> Field:
     elif obj.is_staggered:
         raise NotImplementedError
     else:
-        return Field(obj.elements, 1, math.extrapolation.remove_constant_offset(obj.extrapolation))
+        return Field(obj.elements, 1, math.extrapolation.remove_constant_offset(obj.extrapolation), sampled_at=obj.sampled_at)
 
 
 def get_coefficients(offsets, derivative, lhs_offsets=[], boundary_condition=None):

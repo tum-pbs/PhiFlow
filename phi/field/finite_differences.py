@@ -17,7 +17,7 @@ def central_gradient_from_nodes(node_field: Field, dims=spatial, boundary: Extra
     grad_values = stack(grads, stack_dim)
     if boundary is not None:
         boundary = node_field.boundary.spatial_gradient()
-    return Field(node_field.geometry, grad_values, boundary)
+    return Field(node_field.geometry, grad_values, boundary, sampled_at='center')
 
 
 def nodel_gradient_from_centroids(centroid_field: Field, dims=spatial, boundary: Extrapolation = None, stack_dim='~vector', reduce: DimFilter = None) -> Field:
@@ -35,4 +35,4 @@ def nodel_gradient_from_centroids(centroid_field: Field, dims=spatial, boundary:
     result = stack(result, stack_dim)
     if boundary is not None:
         boundary = centroid_field.boundary.spatial_gradient()
-    return Field(centroid_field.geometry, result, boundary)
+    return Field(centroid_field.geometry, result, boundary, sampled_at='node')

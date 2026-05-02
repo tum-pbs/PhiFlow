@@ -16,7 +16,7 @@ BACKENDS = phi.detect_backends()
 
 class FluidTest(TestCase):
 
-    def _test_make_incompressible(self, grid_type: Callable, extrapolation: math.Extrapolation, **batch_dims):
+    def _test_make_incompressible(self, grid_type, extrapolation, **batch_dims):
         result = None
         for i, backend in enumerate(BACKENDS):
             with backend:
@@ -25,15 +25,15 @@ class FluidTest(TestCase):
                 for _ in range(2):
                     velocity += smoke * (0, 0.1) @ velocity
                     velocity, _ = fluid.make_incompressible(velocity)
-                math.assert_close(0, divergence(velocity).values, abs_tolerance=5e-5)
+                math.assert_close(0, velocity.divergence().values, abs_tolerance=5e-5)
                 if result is None:
                     result = velocity
                 else:
                     field.assert_close(result, abs_tolerance=1e-5, msg=f"Simulation with {backend} does not match {BACKENDS[:i]}")
 
     def test_make_incompressible_centered(self):
-        self._test_make_incompressible(CenteredGrid, ZERO)
-        self._test_make_incompressible(CenteredGrid, BOUNDARY, batch3=3, batch2=2)
+        self._test_make_incompressible(CenteredGrid, 0)
+        self._test_make_incompressible(CenteredGrid, 'zero-gradient', batch3=3, batch2=2)
 
     def test_make_incompressible_staggered_closed(self):
         self._test_make_incompressible(StaggeredGrid, ZERO)
@@ -48,7 +48,7 @@ class FluidTest(TestCase):
         self._test_make_incompressible(StaggeredGrid, PERIODIC, batch3=3, batch2=2)
         
     def test_make_incompressible_staggered(self):
-        ext = combine_sides(x=BOUNDARY, y=(ZERO, BOUNDARY))
+        ext = {'x': 'zero-gradient', 'y': (0, 'zero-gradient')}
         self._test_make_incompressible(StaggeredGrid, ext)
         self._test_make_incompressible(StaggeredGrid, ext, batch3=3, batch2=2)
 

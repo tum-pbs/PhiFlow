@@ -83,7 +83,7 @@ def CenteredGrid(values: Any = 0.,
     assert values.shape.spatial_rank == elements.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
     assert values.shape.spatial_rank == elements.bounds.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
     assert values.shape.instance_rank == 0, f"Instance dimensions not supported for grids. Got values with shape {values.shape}"
-    return Field(elements, values, extrapolation)
+    return Field(elements, values, extrapolation, sampled_at='center')
 
 
 def StaggeredGrid(values: Any = 0.,
@@ -173,7 +173,7 @@ def StaggeredGrid(values: Any = 0.,
     assert values.shape.spatial_rank == elements.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
     assert values.shape.spatial_rank == elements.bounds.spatial_rank, f"Spatial dimensions of values ({values.shape}) do not match elements {elements}"
     assert values.shape.instance_rank == 0, f"Instance dimensions not supported for grids. Got values with shape {values.shape}"
-    return Field(elements, values, extrapolation)
+    return Field(elements, values, extrapolation, sampled_at='face')
 
 
 def unstack_staggered_tensor(data: Tensor, extrapolation: Extrapolation) -> TensorStack:
