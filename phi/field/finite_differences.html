@@ -66,7 +66,7 @@ el.replaceWith(d);
     grad_values = stack(grads, stack_dim)
     if boundary is not None:
         boundary = node_field.boundary.spatial_gradient()
-    return Field(node_field.geometry, grad_values, boundary)</code></pre>
+    return Field(node_field.geometry, grad_values, boundary, sampled_at=&#39;center&#39;)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -93,7 +93,7 @@ el.replaceWith(d);
     result = stack(result, stack_dim)
     if boundary is not None:
         boundary = centroid_field.boundary.spatial_gradient()
-    return Field(centroid_field.geometry, result, boundary)</code></pre>
+    return Field(centroid_field.geometry, result, boundary, sampled_at=&#39;node&#39;)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>

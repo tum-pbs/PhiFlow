@@ -145,12 +145,12 @@ el.replaceWith(d);
         Differential convection term as `Field` on the same geometry.
     &#34;&#34;&#34;
     if u.is_grid and u.is_staggered:
-        grad_list = [spatial_gradient(field_component, stack_dim=channel(&#39;grad_dim&#39;), order=order, implicit=implicit) for field_component in u.vector]
+        grad_list = [spatial_gradient(field_component, stack_dim=channel(&#39;grad_dim&#39;), order=order, implicit=implicit) for field_component in _unstack_staggered_grid(u)]
         grad_grid = u.with_values(math.stack([component.values for component in grad_list], channel(velocity).as_dual()))
         if order == 4:
             amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.grad_dim, velocity.vector)]  # ToDo resampling does not yet support order=4
         else:
-            amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.grad_dim, velocity.vector)]
+            amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.grad_dim, _unstack_staggered_grid(velocity))]
         amount = sum(amounts)
         return u.with_values(- amount)
     elif u.is_grid and u.is_centered:
@@ -165,7 +165,7 @@ el.replaceWith(d);
         u = u.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
         velocity = velocity.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
         conv = density * u.mesh.integrate_surface(u.values * (velocity.values.vector @ velocity.face_normals.vector)) / u.mesh.volume
-        return Field(u.geometry, -conv, 0)
+        return Field(u.geometry, -conv, 0, &#39;center&#39;)
     raise NotImplementedError(u)</code></pre>
 </details>
 <div class="desc"><p>Computes the differential advection term using the differentiation Scheme indicated by <code>order</code>, ´implicit´ and <code>upwind</code>.</p>
@@ -249,12 +249,12 @@ Otherwise, an explicit stencil is used.</dd>
         Differential convection term as `Field` on the same geometry.
     &#34;&#34;&#34;
     if u.is_grid and u.is_staggered:
-        grad_list = [spatial_gradient(field_component, stack_dim=channel(&#39;grad_dim&#39;), order=order, implicit=implicit) for field_component in u.vector]
+        grad_list = [spatial_gradient(field_component, stack_dim=channel(&#39;grad_dim&#39;), order=order, implicit=implicit) for field_component in _unstack_staggered_grid(u)]
         grad_grid = u.with_values(math.stack([component.values for component in grad_list], channel(velocity).as_dual()))
         if order == 4:
             amounts = [grad * vel.at(grad, order=2) for grad, vel in zip(grad_grid.grad_dim, velocity.vector)]  # ToDo resampling does not yet support order=4
         else:
-            amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.grad_dim, velocity.vector)]
+            amounts = [grad * vel.at(grad, order=order, implicit=implicit) for grad, vel in zip(grad_grid.grad_dim, _unstack_staggered_grid(velocity))]
         amount = sum(amounts)
         return u.with_values(- amount)
     elif u.is_grid and u.is_centered:
@@ -269,7 +269,7 @@ Otherwise, an explicit stencil is used.</dd>
         u = u.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
         velocity = velocity.at_faces(boundary=NONE, order=order, upwind=velocity if upwind is True else upwind)
         conv = density * u.mesh.integrate_surface(u.values * (velocity.values.vector @ velocity.face_normals.vector)) / u.mesh.volume
-        return Field(u.geometry, -conv, 0)
+        return Field(u.geometry, -conv, 0, &#39;center&#39;)
     raise NotImplementedError(u)</code></pre>
 </details>
 <div class="desc"><p>Computes the differential advection term using the differentiation Scheme indicated by <code>order</code>, ´implicit´ and <code>upwind</code>.</p>

@@ -1393,7 +1393,7 @@ def load_su2(file_or_mesh: str, cell_dim=instance(&#39;cells&#39;), face_format:
 <p><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code></p></div>
 </dd>
 <dt id="phi.geom.mesh"><code class="name flex">
-<span>def <span class="ident">mesh</span></span>(<span>vertices: phi.geom._geom.Geometry | phiml.math._tensors.Tensor,<br>elements: phiml.math._tensors.Tensor,<br>boundaries: str | Dict[str, List[Sequence]] | None = None,<br>element_rank: int = None,<br>periodic: str = None,<br>face_format: str = 'csc',<br>max_cell_walk: int = None)</span>
+<span>def <span class="ident">mesh</span></span>(<span>vertices: phi.geom._geom.Geometry | phiml.math._tensors.Tensor,<br>elements: phiml.math._tensors.Tensor,<br>boundaries: str | Dict[str, List[Sequence]] | None = None,<br>element_rank: int = None,<br>periodic: str = None,<br>face_format: str = 'csc',<br>max_cell_walk: int = None,<br>distance_method='closest-face')</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -1407,7 +1407,8 @@ def mesh(vertices: Union[Geometry, Tensor],
          element_rank: int = None,
          periodic: str = None,
          face_format: str = &#39;csc&#39;,
-         max_cell_walk: int = None):
+         max_cell_walk: int = None,
+         distance_method=&#39;closest-face&#39;):
     &#34;&#34;&#34;
     Create a mesh from vertex positions and vertex lists.
 
@@ -1451,7 +1452,7 @@ def mesh(vertices: Union[Geometry, Tensor],
         assert all(p in vertices.vector.item_names for p in periodic_base), f&#34;Periodic boundaries must be named after axes, e.g. {vertices.vector.item_names} but got {periodic}&#34;
         for base in periodic_base:
             assert base+&#39;+&#39; in boundaries and base+&#39;-&#39; in boundaries, f&#34;Missing boundaries for periodicity &#39;{base}&#39;. Make sure &#39;{base}+&#39; and &#39;{base}-&#39; are keys in boundaries dict, got {tuple(boundaries)}&#34;
-    return Mesh(vertices, elements, element_rank, boundaries, periodic_dims, face_format=face_format, max_cell_walk=max_cell_walk)</code></pre>
+    return Mesh(vertices, elements, element_rank, boundaries, periodic_dims, face_format=face_format, max_cell_walk=max_cell_walk, distance_method=distance_method)</code></pre>
 </details>
 <div class="desc"><p>Create a mesh from vertex positions and vertex lists.</p>
 <h2 id="args">Args</h2>
@@ -1473,7 +1474,7 @@ The <code>boundaries</code> <code>dict</code> maps boundary names to a list of e
 <p><code><a title="phi.geom.Mesh" href="#phi.geom.Mesh">Mesh</a></code></p></div>
 </dd>
 <dt id="phi.geom.mesh_from_numpy"><code class="name flex">
-<span>def <span class="ident">mesh_from_numpy</span></span>(<span>points: Sequence[Sequence],<br>polygons: Sequence[Sequence],<br>boundaries: str | Dict[str, List[Sequence]] | None = None,<br>element_rank: int = None,<br>periodic: str = None,<br>cell_dim: phiml.math._shape.Shape = (cellsⁱ),<br>face_format: str = 'csc',<br>axes=('x', 'y', 'z')) ‑> phi.geom._mesh.Mesh</span>
+<span>def <span class="ident">mesh_from_numpy</span></span>(<span>points: Sequence[Sequence],<br>polygons: Sequence[Sequence],<br>boundaries: str | Dict[str, List[Sequence]] | None = None,<br>element_rank: int = None,<br>periodic: str = None,<br>cell_dim: phiml.math._shape.Shape = (cellsⁱ),<br>face_format: str = 'csc',<br>axes=('x', 'y', 'z'),<br>distance_method='closest-face') ‑> phi.geom._mesh.Mesh</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -1487,7 +1488,8 @@ The <code>boundaries</code> <code>dict</code> maps boundary names to a list of e
                     periodic: str = None,
                     cell_dim: Shape = instance(&#39;cells&#39;),
                     face_format: str = &#39;csc&#39;,
-                    axes=(&#39;x&#39;, &#39;y&#39;, &#39;z&#39;)) -&gt; Mesh:
+                    axes=(&#39;x&#39;, &#39;y&#39;, &#39;z&#39;),
+                    distance_method=&#39;closest-face&#39;) -&gt; Mesh:
     &#34;&#34;&#34;
     Construct an unstructured mesh from vertices.
 
@@ -1526,7 +1528,7 @@ The <code>boundaries</code> <code>dict</code> maps boundary names to a list of e
             ptr = np.pad(np.cumsum(vertex_count), (1, 0))
             mat = csr_matrix((np.ones(indices.shape, dtype=bool), indices, ptr), shape=(len(polygons), len(points)))
             elements = wrap(mat, cell_dim, instance(vertices).as_dual())
-    return mesh(vertices, elements, boundaries, element_rank, periodic, face_format=face_format)</code></pre>
+    return mesh(vertices, elements, boundaries, element_rank, periodic, face_format=face_format, distance_method=distance_method)</code></pre>
 </details>
 <div class="desc"><p>Construct an unstructured mesh from vertices.</p>
 <h2 id="args">Args</h2>
@@ -2278,14 +2280,14 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
 <p>Squared length as <code>Tensor</code></p></div>
 </dd>
 <dt id="phi.geom.stack"><code class="name flex">
-<span>def <span class="ident">stack</span></span>(<span>values: Sequence[~PhiTreeNodeType] | Dict[str, ~PhiTreeNodeType],<br>dim: phiml.math._shape.Shape | str,<br>expand_values=False,<br>simplify=False,<br>layout_non_matching=False,<br>**kwargs) ‑> ~PhiTreeNodeType</span>
+<span>def <span class="ident">stack</span></span>(<span>values: Sequence[~PhiTreeNodeType] | Dict[str, ~PhiTreeNodeType],<br>dim: phiml.math._shape.Shape | str,<br>expand_values=False,<br>simplify=False,<br>layout_non_matching=False,<br>allow_varying_labels=True,<br>**kwargs) ‑> ~PhiTreeNodeType</span>
 </code></dt>
 <dd>
 <details class="source">
 <summary>
 <span>Expand source code</span>
 </summary>
-<pre><code class="python">def stack(values: Union[Sequence[PhiTreeNodeType], Dict[str, PhiTreeNodeType]], dim: Union[Shape, str], expand_values=False, simplify=False, layout_non_matching=False, **kwargs) -&gt; PhiTreeNodeType:
+<pre><code class="python">def stack(values: Union[Sequence[PhiTreeNodeType], Dict[str, PhiTreeNodeType]], dim: Union[Shape, str], expand_values=False, simplify=False, layout_non_matching=False, allow_varying_labels=True, **kwargs) -&gt; PhiTreeNodeType:
     &#34;&#34;&#34;
     Stacks `values` along the new dimension `dim`.
     All values must have the same spatial, instance and channel dimensions. If the dimension sizes vary, the resulting tensor will be non-uniform.
@@ -2374,7 +2376,7 @@ If <code>None</code> (default), SDF values are queried from <code>geometry</code
         # --- First try __stack__ ---
         for v in values:
             if hasattr(v, &#39;__stack__&#39;):
-                result = v.__stack__(values, dim, **kwargs)
+                result = v.__stack__(values, dim, allow_varying_labels=allow_varying_labels, **kwargs)
                 if result is not NotImplemented:
                     if DEBUG_CHECKS:
                         assert isinstance(result, SHAPE_TYPES) if isinstance(v, SHAPE_TYPES) else isinstance(result, Shapable), &#34;__stack__ must return a Shapable object&#34;
@@ -3435,7 +3437,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f3ea5282480></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f5a326722a0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3478,7 +3480,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f3ea5282480></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f5a326722a0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4567,7 +4569,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f3ea5282480></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f5a326722a0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4610,7 +4612,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f3ea5282480></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f5a326722a0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -8526,7 +8528,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 </dd>
 <dt id="phi.geom.Mesh"><code class="flex name class">
 <span>class <span class="ident">Mesh</span></span>
-<span>(</span><span>vertices: phi.geom._geom.Geometry,<br>elements: phiml.math._tensors.Tensor,<br>element_rank: int,<br>boundaries: Dict[str, Dict[str, slice]],<br>periodic: Sequence[str],<br>face_format: str = 'csc',<br>max_cell_walk: int = None,<br>distance_method: str = 'point-cloud-utils',<br>variable_attrs: Tuple[str, ...] = ('vertices',),<br>value_attrs: Tuple[str, ...] = ())</span>
+<span>(</span><span>vertices: phi.geom._geom.Geometry,<br>elements: phiml.math._tensors.Tensor,<br>element_rank: int,<br>boundaries: Dict[str, Dict[str, slice]],<br>periodic: Sequence[str],<br>face_format: str = 'csc',<br>max_cell_walk: int = None,<br>distance_method: str = 'closest-face',<br>variable_attrs: Tuple[str, ...] = ('vertices',),<br>value_attrs: Tuple[str, ...] = ())</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -8558,8 +8560,8 @@ class Mesh(Geometry):
     &#34;&#34;&#34;Sparse matrix format for storing quantities that depend on a pair of neighboring elements, e.g. `face_area`, `face_normal`, `face_center`.&#34;&#34;&#34;
     max_cell_walk: int = None
     &#34;&#34;&#34; Maximum number of steps to walk along the element connectivity in order to find a cell, e.g. for sampling at an arbitrary point.&#34;&#34;&#34;
-    distance_method: str = &#39;point-cloud-utils&#39;
-    &#34;&#34;&#34; Must be either &#39;closest-face&#39; or &#39;trimesh&#39; or &#39;pcu&#39;. &#34;&#34;&#34;
+    distance_method: str = &#39;closest-face&#39;
+    &#34;&#34;&#34; Must be either &#39;closest-face&#39; or &#39;trimesh&#39; or &#39;point-cloud-utils&#39;. &#34;&#34;&#34;
 
     variable_attrs: Tuple[str, ...] = (&#39;vertices&#39;,)  # PhiML keyword
     value_attrs: Tuple[str, ...] = ()  # PhiML keyword
@@ -8632,8 +8634,10 @@ class Mesh(Geometry):
 
     @property
     def sets(self):
+        el_dim = non_batch(self)-&#39;vector&#39;
         return {
-            &#39;center&#39;: non_batch(self)-&#39;vector&#39;,
+            &#39;center&#39;: el_dim,
+            &#39;face&#39;: el_dim.as_dual() + el_dim,
             &#39;vertex&#39;: instance(self.vertices),
             &#39;~vertex&#39;: dual(self.elements)
         }
@@ -8934,7 +8938,7 @@ class Mesh(Geometry):
             return stack(result, split_dims)
         elif self.distance_method == &#39;point-cloud-utils&#39;:
             import point_cloud_utils as pcu
-            assert self.element_rank == 2 and self.spatial_rank == 3, f&#34;trimesh distance only supports surface meshes in 3D. (distance_method=&#39;trimesh&#39;)&#34;
+            assert self.element_rank == 2 and self.spatial_rank == 3, f&#34;point-cloud-utils distance only supports surface meshes in 3D. (distance_method=&#39;point-cloud-utils&#39;)&#34;
             split_dims = non_channel(self).non_instance
             result = []
             for idx, (v, f, _) in zip(split_dims.meshgrid(), self._cached_list_of_triangles):
@@ -9000,7 +9004,7 @@ class Mesh(Geometry):
             return stack(res_sdf, split_dims), stack(res_delta, split_dims), stack(res_normal, split_dims), None, stack(res_idx, split_dims)
         elif self.distance_method == &#39;point-cloud-utils&#39;:
             import point_cloud_utils as pcu
-            assert self.element_rank == 2 and self.spatial_rank == 3, f&#34;trimesh distance only supports surface meshes in 3D. (distance_method=&#39;trimesh&#39;)&#34;
+            assert self.element_rank == 2 and self.spatial_rank == 3, f&#34;point-cloud-utils distance only supports surface meshes in 3D. (distance_method=&#39;point-cloud-utils&#39;)&#34;
             split_dims = non_channel(self).non_instance
             loc_batch = location.shape - split_dims - &#39;vector&#39;
             res_sdf, res_delta, res_normal, res_idx = [], [], [], []
@@ -9287,7 +9291,7 @@ def distance_matrix(self):
 </dd>
 <dt id="phi.geom.Mesh.distance_method"><code class="name">var <span class="ident">distance_method</span> : str</code></dt>
 <dd>
-<div class="desc"><p>Must be either 'closest-face' or 'trimesh' or 'pcu'.</p></div>
+<div class="desc"><p>Must be either 'closest-face' or 'trimesh' or 'point-cloud-utils'.</p></div>
 </dd>
 <dt id="phi.geom.Mesh.element_connectivity"><code class="name">var <span class="ident">element_connectivity</span> : phiml.math._tensors.Tensor</code></dt>
 <dd>
@@ -9517,8 +9521,10 @@ def relative_face_distance(self):
 </summary>
 <pre><code class="python">@property
 def sets(self):
+    el_dim = non_batch(self)-&#39;vector&#39;
     return {
-        &#39;center&#39;: non_batch(self)-&#39;vector&#39;,
+        &#39;center&#39;: el_dim,
+        &#39;face&#39;: el_dim.as_dual() + el_dim,
         &#39;vertex&#39;: instance(self.vertices),
         &#39;~vertex&#39;: dual(self.elements)
     }</code></pre>
@@ -9701,7 +9707,7 @@ def volume(self) -&gt; Tensor:
         return stack(res_sdf, split_dims), stack(res_delta, split_dims), stack(res_normal, split_dims), None, stack(res_idx, split_dims)
     elif self.distance_method == &#39;point-cloud-utils&#39;:
         import point_cloud_utils as pcu
-        assert self.element_rank == 2 and self.spatial_rank == 3, f&#34;trimesh distance only supports surface meshes in 3D. (distance_method=&#39;trimesh&#39;)&#34;
+        assert self.element_rank == 2 and self.spatial_rank == 3, f&#34;point-cloud-utils distance only supports surface meshes in 3D. (distance_method=&#39;point-cloud-utils&#39;)&#34;
         split_dims = non_channel(self).non_instance
         loc_batch = location.shape - split_dims - &#39;vector&#39;
         res_sdf, res_delta, res_normal, res_idx = [], [], [], []
@@ -9778,7 +9784,7 @@ Positive values indicate the point lies outside the geometry, negative values in
         return stack(result, split_dims)
     elif self.distance_method == &#39;point-cloud-utils&#39;:
         import point_cloud_utils as pcu
-        assert self.element_rank == 2 and self.spatial_rank == 3, f&#34;trimesh distance only supports surface meshes in 3D. (distance_method=&#39;trimesh&#39;)&#34;
+        assert self.element_rank == 2 and self.spatial_rank == 3, f&#34;point-cloud-utils distance only supports surface meshes in 3D. (distance_method=&#39;point-cloud-utils&#39;)&#34;
         split_dims = non_channel(self).non_instance
         result = []
         for idx, (v, f, _) in zip(split_dims.meshgrid(), self._cached_list_of_triangles):
@@ -13539,7 +13545,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f3ea5282480></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f5a326722a0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13565,7 +13571,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f3ea5282480></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f5a326722a0></span>
 </code></dt>
 <dd>
 <details class="source">

@@ -136,7 +136,7 @@ Alternatively, the <code>phi.physics.Domain</code> class provides convenience me
     assert values.shape.spatial_rank == elements.spatial_rank, f&#34;Spatial dimensions of values ({values.shape}) do not match elements {elements}&#34;
     assert values.shape.spatial_rank == elements.bounds.spatial_rank, f&#34;Spatial dimensions of values ({values.shape}) do not match elements {elements}&#34;
     assert values.shape.instance_rank == 0, f&#34;Instance dimensions not supported for grids. Got values with shape {values.shape}&#34;
-    return Field(elements, values, extrapolation)</code></pre>
+    return Field(elements, values, extrapolation, sampled_at=&#39;center&#39;)</code></pre>
 </details>
 <div class="desc"><p>Create an n-dimensional grid with values sampled at the cell centers.
 A centered grid is defined through its <code>CenteredGrid.values</code> <code>phi.math.Tensor</code>, its <code>CenteredGrid.bounds</code> <code><a title="phi.geom.Box" href="../geom/index.html#phi.geom.Box">Box</a></code> describing the physical size, and its <code>CenteredGrid.extrapolation</code> (<code>phi.math.extrapolation.Extrapolation</code>).</p>
@@ -229,7 +229,7 @@ If <code>bounds</code> is given as a <code>Box</code>, the resolution may be spe
         elements = values * 0
     if isinstance(elements, Tensor):
         elements = geom.Point(elements)
-    result = Field(elements, values, extrapolation, variable_attrs, value_attrs)
+    result = Field(elements, values, extrapolation, sampled_at=&#39;center&#39;, variable_attrs=variable_attrs, value_attrs=value_attrs)
     assert result.boundary is PERIODIC or isinstance(result.boundary, ConstantExtrapolation), f&#34;Unsupported extrapolation for PointCloud: {result._boundary}&#34;
     return result</code></pre>
 </details>
@@ -360,7 +360,7 @@ See the description in <code><a title="phi.geom.Geometry.approximate_fraction_in
     assert values.shape.spatial_rank == elements.spatial_rank, f&#34;Spatial dimensions of values ({values.shape}) do not match elements {elements}&#34;
     assert values.shape.spatial_rank == elements.bounds.spatial_rank, f&#34;Spatial dimensions of values ({values.shape}) do not match elements {elements}&#34;
     assert values.shape.instance_rank == 0, f&#34;Instance dimensions not supported for grids. Got values with shape {values.shape}&#34;
-    return Field(elements, values, extrapolation)</code></pre>
+    return Field(elements, values, extrapolation, sampled_at=&#39;face&#39;)</code></pre>
 </details>
 <div class="desc"><p>N-dimensional grid whose vector components are sampled at the respective face centers.
 A staggered grid is defined through its values tensor, its bounds describing the physical size, and its extrapolation.</p>
@@ -525,7 +525,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
         padded = []
         for dim in grid.vector.item_names:
             lower, upper = grid.extrapolation.valid_outer_faces(dim)
-            value = grid.vector[dim].values
+            value = grid.values[dim]
             padded.append(math.pad(value, {dim: (0 if lower else 1, 0 if upper else 1)}, grid.extrapolation[{&#39;vector&#39;: dim}], bounds=grid.bounds))
         return StaggeredGrid(math.stack(padded, dual(vector=grid.shape.spatial)), bounds=grid.bounds, extrapolation=math.extrapolation.NONE)
     elif grid.is_grid:
@@ -690,7 +690,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
     elif fields[0].is_mesh:
         assert all([f.geometry == fields[0].geometry for f in fields])
         values = math.concat([math.expand(f.values, f.shape.only(dim)) for f in fields], dim)
-        return Field(fields[0].geometry, values, fields[0].extrapolation)
+        return Field(fields[0].geometry, values, fields[0].extrapolation, sampled_at=fields[0].sampled_at)
     raise NotImplementedError(type(fields[0]))</code></pre>
 </details>
 <div class="desc"><p>Concatenates the given <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>s along <code>dim</code>.</p>
@@ -796,7 +796,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
         vx_dy = math.spatial_gradient(vx, dims=y, dx=field.dx[y], padding=None, stack_dim=None, difference=&#39;forward&#39;)
         curl_val = vy_dx - vx_dy
         corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx / 2, field.bounds.upper + field.dx / 2))
-        return Field(corners, curl_val, field.boundary.spatial_gradient())
+        return Field(corners, curl_val, field.boundary.spatial_gradient(), sampled_at=&#39;center&#39;)
     elif field.is_grid and field.is_centered and field.spatial_rank == 2 and at == &#39;corner&#39;:
         x, y = field.vector.item_names
         values = pad(field, 1).values
@@ -808,7 +808,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
         ur = diag_comp[{x: slice(1, None), y: slice(1, None), &#39;diag&#39;: &#39;neg&#39;}]
         curl_val = ll - ul + lr - ur
         corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx / 2, field.bounds.upper + field.dx / 2))
-        return Field(corners, curl_val, field.boundary.spatial_gradient())
+        return Field(corners, curl_val, field.boundary.spatial_gradient(), sampled_at=&#39;center&#39;)
     # if field.is_grid and not field.is_staggered and field.spatial_rank == 2:
     #     if &#39;vector&#39; not in field.shape and at == &#39;face&#39;:
     #         # 2D curl of scalar field
@@ -846,7 +846,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
         vz_dy = neighbor_mean(math.spatial_gradient(vz, dims=y, dx=field.dx[y], padding=None, stack_dim=None, difference=&#39;forward&#39;), x)
         curl_val = math.stack([vz_dy-vy_dz, vx_dz-vz_dx, vy_dx-vx_dy], field.shape[&#39;vector&#39;])
         corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx / 2, field.bounds.upper + field.dx / 2))
-        return Field(corners, curl_val, field.boundary.spatial_gradient())
+        return Field(corners, curl_val, field.boundary.spatial_gradient(), sampled_at=&#39;center&#39;)
     elif field.is_grid and field.is_centered and field.spatial_rank == 3 and at == &#39;corner&#39;:
         raise NotImplementedError
         x, y, z = field.vector.item_names
@@ -861,7 +861,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
         ur = diag_comp[{x: slice(1, None), y: slice(1, None), &#39;diag&#39;: &#39;neg&#39;}]
         curl_val = ll - ul + lr - ur
         corners = UniformGrid(field.resolution + 1, Box(field.bounds.lower - field.dx / 2, field.bounds.upper + field.dx / 2))
-        return Field(corners, curl_val, field.boundary.spatial_gradient())
+        return Field(corners, curl_val, field.boundary.spatial_gradient(), sampled_at=&#39;center&#39;)
     raise NotImplementedError(&#34;Only 2D curl at corner currently supported&#34;)</code></pre>
 </details>
 <div class="desc"><p>Computes the finite-difference curl of the give 2D <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">StaggeredGrid()</a></code>.</p>
@@ -874,7 +874,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f3ea51bec00></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f5a325c2980></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -908,14 +908,13 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
     if field.is_mesh:
         field = field.at_faces(boundary=NONE, order=order, upwind=upwind)
         div = field.geometry.integrate_flux(field.values, divide_volume=True)
-        return Field(field.geometry, div, field.boundary.spatial_gradient())
+        return Field(field.geometry, div, field.boundary.spatial_gradient(), sampled_at=&#39;center&#39;)
     if order == 2:
         if field.is_staggered:
             field = bake_extrapolation(field)
             components = []
             for dim in field.shape.spatial.names:
-                div_dim = math.spatial_gradient(field.vector[dim].values, field.dx, &#39;forward&#39;, None, dims=dim,
-                                                stack_dim=None)
+                div_dim = math.spatial_gradient(field.values[dim], field.dx, &#39;forward&#39;, None, dims=dim, stack_dim=None)
                 components.append(div_dim)
             data = math.sum(components, dim=&#39;0&#39;)
             return CenteredGrid(data, bounds=field.bounds, extrapolation=field.extrapolation.spatial_gradient())
@@ -1892,7 +1891,7 @@ For <code>phiml.math.magic.PhiTreeNode</code> objects, only value the sum over a
             grad = connecting_grad
         laplace_values = u.mesh.integrate_surface(grad) / u.mesh.volume  # 1/V ∑_f ∇T ν A
         result = weights * laplace_values if weights is not None else laplace_values
-        return Field(u.mesh, result, u.boundary - u.boundary)
+        return Field(u.mesh, result, u.boundary - u.boundary, sampled_at=&#39;center&#39;)
     # --- Grid ---
     laplace_ext = u.extrapolation.spatial_gradient().spatial_gradient()
     laplace_dims = u.shape.only(axes).names
@@ -1973,7 +1972,7 @@ Otherwise, an explicit stencil is used.</dd>
         `Grid` type or `PointCloud`
     &#34;&#34;&#34;
     if isinstance(obj, Geometry):
-        return Field(obj, 1, 0)
+        return Field(obj, 1, 0, sampled_at=&#39;center&#39;)
     assert isinstance(obj, Field), f&#34;obj must be a Geometry or Field but got {type(obj)}&#34;
     if obj.is_grid and not obj.is_staggered:
         values = math.cast(obj.values != 0, int)
@@ -1981,7 +1980,7 @@ Otherwise, an explicit stencil is used.</dd>
     elif obj.is_staggered:
         raise NotImplementedError
     else:
-        return Field(obj.elements, 1, math.extrapolation.remove_constant_offset(obj.extrapolation))</code></pre>
+        return Field(obj.elements, 1, math.extrapolation.remove_constant_offset(obj.extrapolation), sampled_at=obj.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code> that masks the inside (or non-zero values when <code>obj</code> is a grid) of a physical object.
 The mask takes the value 1 inside the object and 0 outside.
@@ -2569,7 +2568,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
     &#34;&#34;&#34;
     assert isinstance(to, (Field, Geometry)), f&#34;&#39;to&#39; must be a Field or Geometry but got {to}&#34;
     if isinstance(to, Geometry):
-        to = Field(to, wrap(0.), value.extrapolation if isinstance(value, Field) else 0.)
+        to = Field(to, wrap(0.), value.extrapolation if isinstance(value, Field) else 0., sampled_at=&#39;center&#39;)
     if not isinstance(value, (Field, Geometry, FieldInitializer)):
         return to.with_values(value)
     if isinstance(value, Field) and keep_boundary:
@@ -2579,7 +2578,7 @@ If <code>file</code> is a tensor, all contained files are loaded an stacked acco
     else:
         raise AssertionError(f&#34;Boundary cannot be determined, keep_boundary={keep_boundary}, value: {type(value)}, to: {type(to)}&#34;)
     resampled = sample(value, to, at=to.sampled_at if isinstance(to, Field) else &#39;center&#39;, boundary=extrap, dot_face_normal=to.geometry, **kwargs)
-    return Field(to.geometry if isinstance(to, Field) else to, resampled, extrap)</code></pre>
+    return Field(to.geometry if isinstance(to, Field) else to, resampled, extrap, sampled_at=to.sampled_at if isinstance(to, Field) else &#39;center&#39;)</code></pre>
 </details>
 <div class="desc"><p>Samples a <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>, <code>Geometry</code> or value at the sample points of the field <code>to</code>.
 The result will approximate <code>value</code> on the data structure of <code>to</code>.
@@ -2708,10 +2707,10 @@ True
                 values = math.stack([values[{&#39;vector&#39;: i, &#39;~vector&#39;: i}] for i in range(geometry.spatial_rank)], dual(**geometry.shape[&#39;vector&#39;].untyped_dict))
             else:
                 raise NotImplementedError
-        field = Field(geometry, values, boundary)
+        field = Field(geometry, values, boundary, sampled_at=at)
     if callable(field):
         values = sample_function(field, geometry, at, boundary)
-        field = Field(geometry, values, boundary)
+        field = Field(geometry, values, boundary, sampled_at=at)
     # --- Resample ---
     assert isinstance(field, Field), f&#34;field must be a Field, Geometry or initializer but got {type(field)}&#34;
     if at == &#39;center&#39;:
@@ -2730,17 +2729,15 @@ True
     elif at == &#39;face&#39;:
         if field.is_staggered and field.geometry.shallow_equals(geometry) and field.geometry.face_shape == geometry.face_shape and field.geometry.shallow_equals(dot_face_normal):
             return field.values
-        elif dot_face_normal is not None and channel(field):
-            if _are_axis_aligned(dot_face_normal.face_normals):
-                components = unstack(field, field.shape.channel.name)
-                faces = math.unstack(slice_off_constant_faces(geometry.faces, geometry.boundary_faces, boundary), dual)
-                sampled = [sample(c, p, **kwargs) for c, p in zip(components, faces)]
-                return math.stack(sampled, dual(dot_face_normal.face_shape))
-            else:
-                raise NotImplementedError
         elif field.is_grid and field.is_centered:
             return sample_grid_at_faces(field, geometry, boundary, **kwargs)
         elif field.is_grid and field.is_staggered:
+            if dot_face_normal is not None:
+                assert _are_axis_aligned(dot_face_normal.face_normals)
+                components = _unstack_staggered_grid(field)
+                faces = math.unstack(slice_off_constant_faces(geometry.faces, geometry.boundary_faces, boundary), dual)
+                sampled = [sample(c, p, **kwargs) for c, p in zip(components, faces)]
+                return math.stack(sampled, dual(dot_face_normal.face_shape))
             faces = math.unstack(slice_off_constant_faces(geometry.faces, geometry.boundary_faces, boundary), dual)
             sampled = [sample(field, face, **kwargs) for face in faces]
             return math.stack(sampled, dual(geometry.face_shape))
@@ -3025,15 +3022,16 @@ The sign of 0 is undefined.</p>
         def _matrix_solve_forward(y, solve: Solve, matrix: Tensor, is_backprop=False):
             pattern_dims_in = dual(matrix).as_channel().names
             pattern_dims_out = non_dual(matrix).names  # batch dims can be sparse or batched matrices
+            _, y_tensors = disassemble_tree(y, False, value_attributes)
             b = backend_for(*y_tensors, matrix)
             nat_matrix = native_matrix(matrix, b)
             if solve.rank_deficiency:
                 if is_sparse(matrix):
                     N = dual(matrix).volume
-                    if get_format(matrix) == &#39;csr&#39;:
+                    if b.get_sparse_format(nat_matrix) == &#39;csr&#39;:
                         _, (data, idx, ptr) = b.disassemble(nat_matrix)
                         idx = b.csr_to_coo(idx[None, :], ptr[None, :])[0, :]
-                    elif get_format(matrix) == &#39;coo&#39;:
+                    elif b.get_sparse_format(nat_matrix) == &#39;coo&#39;:
                         _, (idx, data) = b.disassemble(nat_matrix)
                     else:
                         raise NotImplementedError
@@ -3442,7 +3440,7 @@ Otherwise, an explicit stencil is used.</dd>
         if isinstance(geometry, Tensor):
             from ..geom._geom_ops import GeometryStack
             geometry = GeometryStack(geometry)
-        return Field(geometry, values, boundary)</code></pre>
+        return Field(geometry, values, boundary, sampled_at=fields[0].sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Stacks the given <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>s along <code>dim</code>.</p>
 <p>See Also:
@@ -3511,7 +3509,7 @@ Otherwise, an explicit stencil is used.</dd>
         all_upper = math.stack(all_upper, dual(vector=dims))
         all_lower = math.stack(all_lower, dual(vector=dims))
         values = face_function(all_lower, all_upper)
-        result = Field(field.geometry, values, boundary)
+        result = Field(field.geometry, values, boundary, sampled_at=&#39;face&#39;)
         assert result.resolution == field.resolution
         return result
     else:
@@ -4019,7 +4017,7 @@ This is the case with rotating rigid bodies, for example.</p></div>
 </dd>
 <dt id="phi.field.Field"><code class="flex name class">
 <span>class <span class="ident">Field</span></span>
-<span>(</span><span>geometry: phi.geom._geom.Geometry,<br>values: phiml.math._tensors.Tensor,<br>boundary: phiml.math.extrapolation.Extrapolation = 0.0,<br>variable_attrs: Tuple[str, ...] = ('values',),<br>value_attrs: Tuple[str, ...] = ('values',))</span>
+<span>(</span><span>geometry: phi.geom._geom.Geometry,<br>values: phiml.math._tensors.Tensor,<br>boundary: phiml.math.extrapolation.Extrapolation = 0.0,<br>sampled_at: str = None,<br>variable_attrs: Tuple[str, ...] = ('values',),<br>value_attrs: Tuple[str, ...] = ('values',))</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4054,6 +4052,8 @@ class Field(metaclass=_FieldType):
     &#34;&#34;&#34; The sampled values, matching some point set of `geometry`, e.g. center points, see `Geometry.sets`.&#34;&#34;&#34;
     boundary: Extrapolation = 0.
     &#34;&#34;&#34; Boundary conditions describe the values outside of `geometry` and are used by numerical solvers to compute edge values. &#34;&#34;&#34;
+    sampled_at: str = None
+    &#34;&#34;&#34; Which point set of `geometry` corresponds to `values`. Typical values are `center`, `face`, `node`. If `None`, will be determined from shape of values or raise an error if ambiguous. &#34;&#34;&#34;
 
     variable_attrs: Tuple[str, ...] = (&#39;values&#39;,)
     &#34;&#34;&#34; Which of the three attributes (geometry,values,boundary) should be traced / optimized. See `phiml.math.magic.PhiTreeNode.__variable_attrs__`&#34;&#34;&#34;
@@ -4061,12 +4061,8 @@ class Field(metaclass=_FieldType):
     &#34;&#34;&#34; Which of the three attributes (geometry,values,boundary) are considered values. See `phiml.math.magic.PhiTreeNode.__value_attrs__`&#34;&#34;&#34;
 
     def __post_init__(self):
-        at = self.sampled_at
-        if at in {&#39;center&#39;, &#39;face&#39;}:
-            math.merge_shapes(self.values, non_batch(self.sampled_elements).non_channel)  # shape check
-        else:
-            points = get_sample_points(self.geometry, at, self.boundary)
-            math.merge_shapes(self.values, points)  # shape check
+        assert self.sampled_at in self.geometry.sets, f&#34;Field.sampled_at=&#39;{self.sampled_at}&#39; which is not a valid point set. Available: {set(self.geometry.sets)}&#34;
+        # math.merge_shapes(self.values, slice_off_constant_faces(self.geometry.sets[self.sampled_at] - &#39;vector&#39;, ))  # shape check
 
     @property
     def grid(self) -&gt; UniformGrid:
@@ -4289,7 +4285,7 @@ class Field(metaclass=_FieldType):
                 size = (bounds.volume / cell_count) ** (1 / self.spatial_rank)
             res = math.maximum(1, math.round(bounds.size / size))
             resolution = spatial(**res.vector)
-        return Field(UniformGrid(resolution, bounds), self, self.boundary)
+        return Field(UniformGrid(resolution, bounds), self, self.boundary, sampled_at=&#39;center&#39;)
 
     def as_points(self, list_dim: Optional[Shape] = instance(&#39;elements&#39;)) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -4312,7 +4308,7 @@ class Field(metaclass=_FieldType):
             dims = non_batch(points).non_channel &amp; non_batch(points).non_channel
             points = pack_dims(points, dims, list_dim)
             values = pack_dims(values, dims, list_dim)
-        return Field(Point(points), values, self.boundary)
+        return Field(Point(points), values, self.boundary, sampled_at=&#39;center&#39;)
 
     def as_spheres(self, list_dim: Optional[Shape] = instance(&#39;elements&#39;)) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -4337,7 +4333,7 @@ class Field(metaclass=_FieldType):
             points = pack_dims(points, dims, list_dim)
             values = pack_dims(values, dims, list_dim)
             volumes = pack_dims(volumes, dims, list_dim)
-        return Field(Sphere(points, volume=volumes), values, self.boundary)
+        return Field(Sphere(points, volume=volumes), values, self.boundary, sampled_at=&#39;center&#39;)
 
     def at_centers(self, **kwargs) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -4356,7 +4352,7 @@ class Field(metaclass=_FieldType):
             return self
         from ._resample import sample
         values = sample(self, self.geometry, at=&#39;center&#39;, boundary=self.boundary, **kwargs)
-        return Field(self.geometry, values, self.boundary)
+        return Field(self.geometry, values, self.boundary, sampled_at=&#39;center&#39;)
 
     def at_faces(self, boundary=None, **kwargs) -&gt; &#39;Field&#39;:
         if self.is_staggered and not boundary:
@@ -4364,18 +4360,7 @@ class Field(metaclass=_FieldType):
         boundary = as_boundary(boundary, self.geometry) if boundary else self.boundary
         from ._resample import sample
         values = sample(self, self.geometry, at=&#39;face&#39;, boundary=boundary, **kwargs)
-        return Field(self.geometry, values, boundary)
-
-    @cached_property
-    def sampled_at(self):
-        &#34;&#34;&#34; Which points of the `geometry` the `values` are sampled at. Typical values are `&#39;center&#39;, &#39;face&#39;, &#39;node&#39;`.&#34;&#34;&#34;
-        v_shape = self.values.shape.non_batch
-        for name, set_shape in self.geometry.sets.items():
-            if set_shape.non_batch in v_shape:  # all necessary dims present in values
-                v_sizes = v_shape.only(set_shape, reorder=True).sizes
-                if all(_size_equal(v_size, set_size) for v_size, set_size in zip(v_sizes, set_shape.sizes)):
-                    return name
-        raise ValueError(f&#34;Could not determine where the values of this Field are sampled. Geometry sets: {self.geometry.sets}, Field values shape: {v_shape}&#34;)
+        return Field(self.geometry, values, boundary, sampled_at=&#39;face&#39;)
 
     def at(self, representation: Union[&#39;Field&#39;, Geometry], keep_boundary=False, **kwargs) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -4445,7 +4430,7 @@ class Field(metaclass=_FieldType):
                 if &#39;~vector&#39; in geo_shape and &#39;vector&#39; in shape(values) and &#39;~vector&#39; not in shape(values):
                     values = values.vector.as_dual()
                 values = expand(wrap(values), geo_shape.non_batch.non_channel)
-        return Field(self.geometry, values, self.boundary)
+        return Field(self.geometry, values, self.boundary, sampled_at=self.sampled_at)
 
     def with_boundary(self, boundary):
         &#34;&#34;&#34; Returns a copy of this field with the `boundary` replaced. &#34;&#34;&#34;
@@ -4454,7 +4439,7 @@ class Field(metaclass=_FieldType):
         old_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if self.boundary.determines_boundary_values(k)}
         new_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if boundary.determines_boundary_values(k)}
         if old_determined_slices.values() == new_determined_slices.values():
-            return Field(self.geometry, self.values, boundary)  # ToDo unnecessary once the rest is implemented
+            return Field(self.geometry, self.values, boundary, sampled_at=self.sampled_at)  # ToDo unnecessary once the rest is implemented
         to_add = {k: sl for k, sl in old_determined_slices.items() if sl not in new_determined_slices.values()}
         to_remove = [sl for sl in new_determined_slices.values() if sl not in old_determined_slices.values()]
         values = math.slice_off(self.values, *to_remove)
@@ -4468,7 +4453,7 @@ class Field(metaclass=_FieldType):
                 values = values.vector.as_dual()
             else:
                 values = math.pad(values, list(to_add.values()), self.boundary, bounds=self.bounds)
-        return Field(self.geometry, values, boundary)
+        return Field(self.geometry, values, boundary, sampled_at=self.sampled_at)
 
     with_extrapolation = with_boundary
 
@@ -4478,12 +4463,12 @@ class Field(metaclass=_FieldType):
         geometry = self.geometry.vector[order]
         new_shape = self.values.shape.without(order) &amp; self.values.shape.only(order, reorder=True)
         values = math.swap_axes(self.values, new_shape)
-        return Field(geometry, values, self.boundary)
+        return Field(geometry, values, self.boundary, sampled_at=self.sampled_at)
 
     def with_geometry(self, elements: Geometry):
         &#34;&#34;&#34; Returns a copy of this field with `elements` replaced. &#34;&#34;&#34;
         assert non_batch(elements) == non_batch(self.geometry), f&#34;Field.with_elements() only accepts elements with equal non-batch dimensions but got {elements.shape} for Field with shape {self.geometry.shape}&#34;
-        return Field(elements, self.values, self.boundary)
+        return Field(elements, self.values, self.boundary, sampled_at=self.sampled_at)
 
     with_elements = with_geometry
 
@@ -4591,7 +4576,7 @@ class Field(metaclass=_FieldType):
         dims = (self.geometry.shape - &#39;vector&#39;).only(dims)
         geometry = self.geometry[{d: 0 for d in dims}] if dims else self.geometry
         boundary = self.boundary[{d: 0 for d in dims}] if dims else self.boundary
-        return Field(geometry, values, boundary, variable_attrs=self.variable_attrs, value_attrs=self.value_attrs)
+        return Field(geometry, values, boundary, sampled_at=self.sampled_at, variable_attrs=self.variable_attrs, value_attrs=self.value_attrs)
 
     def downsample(self, factor: int):
         from ._field_math import downsample2x
@@ -4615,14 +4600,18 @@ class Field(metaclass=_FieldType):
         &#34;&#34;&#34;
         assert self.resolution.names == self.shape.get_item_names(&#39;vector&#39;), &#34;Field.staggered_tensor() only defined for Fields whose vector components match the resolution&#34;
         padded = []
-        for dim, component in zip(self.resolution.names, self.vector):
+        for dim, component in zip(self.resolution.names, unstack(self.values, self.vector_dim)):
             widths = {d: (0, 1) for d in self.resolution.names}
             lo_valid, up_valid = self.extrapolation.valid_outer_faces(dim)
             widths[dim] = (int(not lo_valid), int(not up_valid))
-            padded.append(math.pad(component.values, widths, self.extrapolation[{&#39;vector&#39;: dim}], bounds=self.bounds))
+            padded.append(math.pad(component, widths, self.extrapolation[{&#39;vector&#39;: dim}], bounds=self.bounds))
         result = math.stack(padded, channel(vector=self.resolution))
         assert result.shape.is_uniform
         return result
+
+    @property
+    def vector_dim(self):
+        return self.values.shape[&#39;vector&#39;] if &#39;vector&#39; in self.values.shape else (self.values.shape[&#39;~vector&#39;] if &#39;~vector&#39; in self.values.shape else EMPTY_SHAPE)
 
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -&gt; &#39;Field&#39;:
@@ -4693,21 +4682,9 @@ class Field(metaclass=_FieldType):
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != &#39;vector&#39;}
         geometry = self.geometry[item_without_vec]
         if self.is_staggered and &#39;vector&#39; in item and &#39;~vector&#39; in self.geometry.face_shape:
-            assert isinstance(self.geometry, UniformGrid), f&#34;Vector slicing is only supported for grids&#34;
-            dims = item[&#39;vector&#39;]
-            dims_ = self.geometry.shape[&#39;vector&#39;].after_gather({&#39;vector&#39;: dims})
-            dims = dims_.item_names[0] if dims_ else [dims] if isinstance(dims, str) else [self.geometry.shape[&#39;vector&#39;].item_names[0][dims]]
-            proj_dims = set(self.resolution.names) - set(dims)
-            if any(dim not in item for dim in proj_dims):
-                # warnings.warn(f&#34;Projecting a staggered grid (by slicing &#39;vector&#39; without the corresponding spatial dims) will return a non-staggered grid. The projected dims {proj_dims} were not sliced off.\nFull slice: {item}&#34;)
-                item[&#39;~vector&#39;] = item[&#39;vector&#39;]
-                del item[&#39;vector&#39;]
-                geometry = self.sampled_elements[item]
-            else:
-                item[&#39;~vector&#39;] = dims
-                del item[&#39;vector&#39;]
+            raise AssertionError(f&#34;Staggered fields cannot be unstacked by component. Unstack the values instead. Tried accessing {item[&#39;vector&#39;]} along vector of {self}&#34;)
         values = self.values[item]
-        return Field(geometry, values, boundary)
+        return Field(geometry, values, boundary, sampled_at=self.sampled_at)
 
     def dimension(self, name: str):
         &#34;&#34;&#34;
@@ -4739,7 +4716,7 @@ class Field(metaclass=_FieldType):
         new_dims = concat_shapes(*rename.values())
         elements = math.rename_dims(self.geometry, dims, new_dims)
         extrapolation = math.rename_dims(self.boundary, dims, new_dims, **kwargs)
-        return Field(elements, values, extrapolation)
+        return Field(elements, values, extrapolation, sampled_at=self.sampled_at)
 
     def __eq__(self, other):
         if not isinstance(other, Field):
@@ -4817,12 +4794,12 @@ class Field(metaclass=_FieldType):
             if self.geometry == other.geometry:
                 values = operator(self.values, other.values)
                 extrapolation_ = operator(self.boundary, other.extrapolation)
-                return Field(self.geometry, values, extrapolation_)
+                return Field(self.geometry, values, extrapolation_, sampled_at=self.sampled_at)
             from ._resample import sample
             other_values = sample(other, self.geometry, self.sampled_at, self.boundary, dot_face_normal=self.geometry)
             values = operator(self.values, other_values)
             boundary = operator(self.boundary, other.extrapolation)
-            return Field(self.geometry, values, boundary)
+            return Field(self.geometry, values, boundary, sampled_at=self.sampled_at)
         else:
             if isinstance(other, (tuple, list)) and len(other) == self.spatial_rank:
                 other = math.wrap(other, self.geometry.shape[&#39;vector&#39;])
@@ -4835,10 +4812,10 @@ class Field(metaclass=_FieldType):
             if &#39;vector&#39; in self.shape and &#39;vector&#39; not in self.values.shape and &#39;~vector&#39; in self.values.shape:
                 other = other.vector.as_dual()
             values = operator(self.values, other)
-            return Field(self.geometry, values, boundary)
+            return Field(self.geometry, values, boundary, sampled_at=self.sampled_at)
 
     def __repr__(self):
-        return f&#34;{self.values:summary} @ {self.geometry}:{self.sampled_at}, BC={self.boundary}&#34;
+        return f&#34;{self.values:summary} @ {self.sampled_at} of {self.geometry}, BC={self.boundary}&#34;
 
     def grid_scatter(self, *args, **kwargs):
         &#34;&#34;&#34;Deprecated. Use `sample` with `scatter=True` instead.&#34;&#34;&#34;
@@ -5251,24 +5228,9 @@ def resolution(self):
 </details>
 <div class="desc"></div>
 </dd>
-<dt id="phi.field.Field.sampled_at"><code class="name">var <span class="ident">sampled_at</span></code></dt>
+<dt id="phi.field.Field.sampled_at"><code class="name">var <span class="ident">sampled_at</span> : str</code></dt>
 <dd>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@cached_property
-def sampled_at(self):
-    &#34;&#34;&#34; Which points of the `geometry` the `values` are sampled at. Typical values are `&#39;center&#39;, &#39;face&#39;, &#39;node&#39;`.&#34;&#34;&#34;
-    v_shape = self.values.shape.non_batch
-    for name, set_shape in self.geometry.sets.items():
-        if set_shape.non_batch in v_shape:  # all necessary dims present in values
-            v_sizes = v_shape.only(set_shape, reorder=True).sizes
-            if all(_size_equal(v_size, set_size) for v_size, set_size in zip(v_sizes, set_shape.sizes)):
-                return name
-    raise ValueError(f&#34;Could not determine where the values of this Field are sampled. Geometry sets: {self.geometry.sets}, Field values shape: {v_shape}&#34;)</code></pre>
-</details>
-<div class="desc"><p>Which points of the <code>geometry</code> the <code>values</code> are sampled at. Typical values are <code>'center', 'face', 'node'</code>.</p></div>
+<div class="desc"><p>Which point set of <code>geometry</code> corresponds to <code>values</code>. Typical values are <code>center</code>, <code>face</code>, <code>node</code>. If <code>None</code>, will be determined from shape of values or raise an error if ambiguous.</p></div>
 </dd>
 <dt id="phi.field.Field.sampled_elements"><code class="name">prop <span class="ident">sampled_elements</span> : phi.geom._geom.Geometry</code></dt>
 <dd>
@@ -5351,6 +5313,18 @@ This is equal to the spatial rank of the <code>data</code>.</p></div>
 <dd>
 <div class="desc"><p>Which of the three attributes (geometry,values,boundary) should be traced / optimized. See <code>phiml.math.magic.PhiTreeNode.__variable_attrs__</code></p></div>
 </dd>
+<dt id="phi.field.Field.vector_dim"><code class="name">prop <span class="ident">vector_dim</span></code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def vector_dim(self):
+    return self.values.shape[&#39;vector&#39;] if &#39;vector&#39; in self.values.shape else (self.values.shape[&#39;~vector&#39;] if &#39;~vector&#39; in self.values.shape else EMPTY_SHAPE)</code></pre>
+</details>
+<div class="desc"></div>
+</dd>
 </dl>
 <h3>Methods</h3>
 <dl>
@@ -5409,7 +5383,7 @@ If boundaries outside of this <code><a title="phi.field.Field" href="#phi.field.
         dims = non_batch(points).non_channel &amp; non_batch(points).non_channel
         points = pack_dims(points, dims, list_dim)
         values = pack_dims(values, dims, list_dim)
-    return Field(Point(points), values, self.boundary)</code></pre>
+    return Field(Point(points), values, self.boundary, sampled_at=&#39;center&#39;)</code></pre>
 </details>
 <div class="desc"><p>Returns this field as a PointCloud.
 This replaces the <code><a title="phi.field.Field.geometry" href="#phi.field.Field.geometry">Field.geometry</a></code> with a <code><a title="phi.geom.Point" href="../geom/index.html#phi.geom.Point">Point</a></code> instance while leaving the sample points unchanged.</p>
@@ -5455,7 +5429,7 @@ Defaults to <code>instance('elements')</code>.</dd>
         points = pack_dims(points, dims, list_dim)
         values = pack_dims(values, dims, list_dim)
         volumes = pack_dims(volumes, dims, list_dim)
-    return Field(Sphere(points, volume=volumes), values, self.boundary)</code></pre>
+    return Field(Sphere(points, volume=volumes), values, self.boundary, sampled_at=&#39;center&#39;)</code></pre>
 </details>
 <div class="desc"><p>Returns this field as a PointCloud with spherical / circular elements, preserving element volumes.
 This replaces the <code><a title="phi.field.Field.geometry" href="#phi.field.Field.geometry">Field.geometry</a></code> with a <code><a title="phi.geom.Sphere" href="../geom/index.html#phi.geom.Sphere">Sphere</a></code> instance while leaving the sample points unchanged.</p>
@@ -5522,7 +5496,7 @@ Defaults to <code>instance('elements')</code>.</dd>
         return self
     from ._resample import sample
     values = sample(self, self.geometry, at=&#39;center&#39;, boundary=self.boundary, **kwargs)
-    return Field(self.geometry, values, self.boundary)</code></pre>
+    return Field(self.geometry, values, self.boundary, sampled_at=&#39;center&#39;)</code></pre>
 </details>
 <div class="desc"><p>Interpolates the values to the cell centers.</p>
 <p>See Also:
@@ -5549,7 +5523,7 @@ Defaults to <code>instance('elements')</code>.</dd>
     boundary = as_boundary(boundary, self.geometry) if boundary else self.boundary
     from ._resample import sample
     values = sample(self, self.geometry, at=&#39;face&#39;, boundary=boundary, **kwargs)
-    return Field(self.geometry, values, boundary)</code></pre>
+    return Field(self.geometry, values, boundary, sampled_at=&#39;face&#39;)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -5970,11 +5944,11 @@ or <code>dict</code> mapping dimension names to <code>(lower, upper)</code>.</dd
     &#34;&#34;&#34;
     assert self.resolution.names == self.shape.get_item_names(&#39;vector&#39;), &#34;Field.staggered_tensor() only defined for Fields whose vector components match the resolution&#34;
     padded = []
-    for dim, component in zip(self.resolution.names, self.vector):
+    for dim, component in zip(self.resolution.names, unstack(self.values, self.vector_dim)):
         widths = {d: (0, 1) for d in self.resolution.names}
         lo_valid, up_valid = self.extrapolation.valid_outer_faces(dim)
         widths[dim] = (int(not lo_valid), int(not up_valid))
-        padded.append(math.pad(component.values, widths, self.extrapolation[{&#39;vector&#39;: dim}], bounds=self.bounds))
+        padded.append(math.pad(component, widths, self.extrapolation[{&#39;vector&#39;: dim}], bounds=self.bounds))
     result = math.stack(padded, channel(vector=self.resolution))
     assert result.shape.is_uniform
     return result</code></pre>
@@ -6000,7 +5974,7 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
     dims = (self.geometry.shape - &#39;vector&#39;).only(dims)
     geometry = self.geometry[{d: 0 for d in dims}] if dims else self.geometry
     boundary = self.boundary[{d: 0 for d in dims}] if dims else self.boundary
-    return Field(geometry, values, boundary, variable_attrs=self.variable_attrs, value_attrs=self.value_attrs)</code></pre>
+    return Field(geometry, values, boundary, sampled_at=self.sampled_at, variable_attrs=self.variable_attrs, value_attrs=self.value_attrs)</code></pre>
 </details>
 <div class="desc"><p>Sum values along one dimension. This may reduce the geometry if the axis is spatial.</p></div>
 </dd>
@@ -6026,7 +6000,7 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
             size = (bounds.volume / cell_count) ** (1 / self.spatial_rank)
         res = math.maximum(1, math.round(bounds.size / size))
         resolution = spatial(**res.vector)
-    return Field(UniformGrid(resolution, bounds), self, self.boundary)</code></pre>
+    return Field(UniformGrid(resolution, bounds), self, self.boundary, sampled_at=&#39;center&#39;)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -6069,7 +6043,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     old_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if self.boundary.determines_boundary_values(k)}
     new_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if boundary.determines_boundary_values(k)}
     if old_determined_slices.values() == new_determined_slices.values():
-        return Field(self.geometry, self.values, boundary)  # ToDo unnecessary once the rest is implemented
+        return Field(self.geometry, self.values, boundary, sampled_at=self.sampled_at)  # ToDo unnecessary once the rest is implemented
     to_add = {k: sl for k, sl in old_determined_slices.items() if sl not in new_determined_slices.values()}
     to_remove = [sl for sl in new_determined_slices.values() if sl not in old_determined_slices.values()]
     values = math.slice_off(self.values, *to_remove)
@@ -6083,7 +6057,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
             values = values.vector.as_dual()
         else:
             values = math.pad(values, list(to_add.values()), self.boundary, bounds=self.bounds)
-    return Field(self.geometry, values, boundary)</code></pre>
+    return Field(self.geometry, values, boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with the <code>boundary</code> replaced.</p></div>
 </dd>
@@ -6101,7 +6075,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     geometry = self.geometry.vector[order]
     new_shape = self.values.shape.without(order) &amp; self.values.shape.only(order, reorder=True)
     values = math.swap_axes(self.values, new_shape)
-    return Field(geometry, values, self.boundary)</code></pre>
+    return Field(geometry, values, self.boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with <code>bounds</code> replaced.</p></div>
 </dd>
@@ -6116,7 +6090,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
 <pre><code class="python">def with_geometry(self, elements: Geometry):
     &#34;&#34;&#34; Returns a copy of this field with `elements` replaced. &#34;&#34;&#34;
     assert non_batch(elements) == non_batch(self.geometry), f&#34;Field.with_elements() only accepts elements with equal non-batch dimensions but got {elements.shape} for Field with shape {self.geometry.shape}&#34;
-    return Field(elements, self.values, self.boundary)</code></pre>
+    return Field(elements, self.values, self.boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with <code>elements</code> replaced.</p></div>
 </dd>
@@ -6135,7 +6109,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     old_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if self.boundary.determines_boundary_values(k)}
     new_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if boundary.determines_boundary_values(k)}
     if old_determined_slices.values() == new_determined_slices.values():
-        return Field(self.geometry, self.values, boundary)  # ToDo unnecessary once the rest is implemented
+        return Field(self.geometry, self.values, boundary, sampled_at=self.sampled_at)  # ToDo unnecessary once the rest is implemented
     to_add = {k: sl for k, sl in old_determined_slices.items() if sl not in new_determined_slices.values()}
     to_remove = [sl for sl in new_determined_slices.values() if sl not in old_determined_slices.values()]
     values = math.slice_off(self.values, *to_remove)
@@ -6149,7 +6123,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
             values = values.vector.as_dual()
         else:
             values = math.pad(values, list(to_add.values()), self.boundary, bounds=self.bounds)
-    return Field(self.geometry, values, boundary)</code></pre>
+    return Field(self.geometry, values, boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with the <code>boundary</code> replaced.</p></div>
 </dd>
@@ -6164,7 +6138,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
 <pre><code class="python">def with_geometry(self, elements: Geometry):
     &#34;&#34;&#34; Returns a copy of this field with `elements` replaced. &#34;&#34;&#34;
     assert non_batch(elements) == non_batch(self.geometry), f&#34;Field.with_elements() only accepts elements with equal non-batch dimensions but got {elements.shape} for Field with shape {self.geometry.shape}&#34;
-    return Field(elements, self.values, self.boundary)</code></pre>
+    return Field(elements, self.values, self.boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with <code>elements</code> replaced.</p></div>
 </dd>
@@ -6187,7 +6161,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
             if &#39;~vector&#39; in geo_shape and &#39;vector&#39; in shape(values) and &#39;~vector&#39; not in shape(values):
                 values = values.vector.as_dual()
             values = expand(wrap(values), geo_shape.non_batch.non_channel)
-    return Field(self.geometry, values, self.boundary)</code></pre>
+    return Field(self.geometry, values, self.boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with <code>values</code> replaced.</p></div>
 </dd>
@@ -6195,7 +6169,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
 </dd>
 <dt id="phi.field.Field"><code class="flex name class">
 <span>class <span class="ident">SampledField</span></span>
-<span>(</span><span>geometry: phi.geom._geom.Geometry,<br>values: phiml.math._tensors.Tensor,<br>boundary: phiml.math.extrapolation.Extrapolation = 0.0,<br>variable_attrs: Tuple[str, ...] = ('values',),<br>value_attrs: Tuple[str, ...] = ('values',))</span>
+<span>(</span><span>geometry: phi.geom._geom.Geometry,<br>values: phiml.math._tensors.Tensor,<br>boundary: phiml.math.extrapolation.Extrapolation = 0.0,<br>sampled_at: str = None,<br>variable_attrs: Tuple[str, ...] = ('values',),<br>value_attrs: Tuple[str, ...] = ('values',))</span>
 </code></dt>
 <dd>
 <details class="source">
@@ -6230,6 +6204,8 @@ class Field(metaclass=_FieldType):
     &#34;&#34;&#34; The sampled values, matching some point set of `geometry`, e.g. center points, see `Geometry.sets`.&#34;&#34;&#34;
     boundary: Extrapolation = 0.
     &#34;&#34;&#34; Boundary conditions describe the values outside of `geometry` and are used by numerical solvers to compute edge values. &#34;&#34;&#34;
+    sampled_at: str = None
+    &#34;&#34;&#34; Which point set of `geometry` corresponds to `values`. Typical values are `center`, `face`, `node`. If `None`, will be determined from shape of values or raise an error if ambiguous. &#34;&#34;&#34;
 
     variable_attrs: Tuple[str, ...] = (&#39;values&#39;,)
     &#34;&#34;&#34; Which of the three attributes (geometry,values,boundary) should be traced / optimized. See `phiml.math.magic.PhiTreeNode.__variable_attrs__`&#34;&#34;&#34;
@@ -6237,12 +6213,8 @@ class Field(metaclass=_FieldType):
     &#34;&#34;&#34; Which of the three attributes (geometry,values,boundary) are considered values. See `phiml.math.magic.PhiTreeNode.__value_attrs__`&#34;&#34;&#34;
 
     def __post_init__(self):
-        at = self.sampled_at
-        if at in {&#39;center&#39;, &#39;face&#39;}:
-            math.merge_shapes(self.values, non_batch(self.sampled_elements).non_channel)  # shape check
-        else:
-            points = get_sample_points(self.geometry, at, self.boundary)
-            math.merge_shapes(self.values, points)  # shape check
+        assert self.sampled_at in self.geometry.sets, f&#34;Field.sampled_at=&#39;{self.sampled_at}&#39; which is not a valid point set. Available: {set(self.geometry.sets)}&#34;
+        # math.merge_shapes(self.values, slice_off_constant_faces(self.geometry.sets[self.sampled_at] - &#39;vector&#39;, ))  # shape check
 
     @property
     def grid(self) -&gt; UniformGrid:
@@ -6465,7 +6437,7 @@ class Field(metaclass=_FieldType):
                 size = (bounds.volume / cell_count) ** (1 / self.spatial_rank)
             res = math.maximum(1, math.round(bounds.size / size))
             resolution = spatial(**res.vector)
-        return Field(UniformGrid(resolution, bounds), self, self.boundary)
+        return Field(UniformGrid(resolution, bounds), self, self.boundary, sampled_at=&#39;center&#39;)
 
     def as_points(self, list_dim: Optional[Shape] = instance(&#39;elements&#39;)) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -6488,7 +6460,7 @@ class Field(metaclass=_FieldType):
             dims = non_batch(points).non_channel &amp; non_batch(points).non_channel
             points = pack_dims(points, dims, list_dim)
             values = pack_dims(values, dims, list_dim)
-        return Field(Point(points), values, self.boundary)
+        return Field(Point(points), values, self.boundary, sampled_at=&#39;center&#39;)
 
     def as_spheres(self, list_dim: Optional[Shape] = instance(&#39;elements&#39;)) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -6513,7 +6485,7 @@ class Field(metaclass=_FieldType):
             points = pack_dims(points, dims, list_dim)
             values = pack_dims(values, dims, list_dim)
             volumes = pack_dims(volumes, dims, list_dim)
-        return Field(Sphere(points, volume=volumes), values, self.boundary)
+        return Field(Sphere(points, volume=volumes), values, self.boundary, sampled_at=&#39;center&#39;)
 
     def at_centers(self, **kwargs) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -6532,7 +6504,7 @@ class Field(metaclass=_FieldType):
             return self
         from ._resample import sample
         values = sample(self, self.geometry, at=&#39;center&#39;, boundary=self.boundary, **kwargs)
-        return Field(self.geometry, values, self.boundary)
+        return Field(self.geometry, values, self.boundary, sampled_at=&#39;center&#39;)
 
     def at_faces(self, boundary=None, **kwargs) -&gt; &#39;Field&#39;:
         if self.is_staggered and not boundary:
@@ -6540,18 +6512,7 @@ class Field(metaclass=_FieldType):
         boundary = as_boundary(boundary, self.geometry) if boundary else self.boundary
         from ._resample import sample
         values = sample(self, self.geometry, at=&#39;face&#39;, boundary=boundary, **kwargs)
-        return Field(self.geometry, values, boundary)
-
-    @cached_property
-    def sampled_at(self):
-        &#34;&#34;&#34; Which points of the `geometry` the `values` are sampled at. Typical values are `&#39;center&#39;, &#39;face&#39;, &#39;node&#39;`.&#34;&#34;&#34;
-        v_shape = self.values.shape.non_batch
-        for name, set_shape in self.geometry.sets.items():
-            if set_shape.non_batch in v_shape:  # all necessary dims present in values
-                v_sizes = v_shape.only(set_shape, reorder=True).sizes
-                if all(_size_equal(v_size, set_size) for v_size, set_size in zip(v_sizes, set_shape.sizes)):
-                    return name
-        raise ValueError(f&#34;Could not determine where the values of this Field are sampled. Geometry sets: {self.geometry.sets}, Field values shape: {v_shape}&#34;)
+        return Field(self.geometry, values, boundary, sampled_at=&#39;face&#39;)
 
     def at(self, representation: Union[&#39;Field&#39;, Geometry], keep_boundary=False, **kwargs) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -6621,7 +6582,7 @@ class Field(metaclass=_FieldType):
                 if &#39;~vector&#39; in geo_shape and &#39;vector&#39; in shape(values) and &#39;~vector&#39; not in shape(values):
                     values = values.vector.as_dual()
                 values = expand(wrap(values), geo_shape.non_batch.non_channel)
-        return Field(self.geometry, values, self.boundary)
+        return Field(self.geometry, values, self.boundary, sampled_at=self.sampled_at)
 
     def with_boundary(self, boundary):
         &#34;&#34;&#34; Returns a copy of this field with the `boundary` replaced. &#34;&#34;&#34;
@@ -6630,7 +6591,7 @@ class Field(metaclass=_FieldType):
         old_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if self.boundary.determines_boundary_values(k)}
         new_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if boundary.determines_boundary_values(k)}
         if old_determined_slices.values() == new_determined_slices.values():
-            return Field(self.geometry, self.values, boundary)  # ToDo unnecessary once the rest is implemented
+            return Field(self.geometry, self.values, boundary, sampled_at=self.sampled_at)  # ToDo unnecessary once the rest is implemented
         to_add = {k: sl for k, sl in old_determined_slices.items() if sl not in new_determined_slices.values()}
         to_remove = [sl for sl in new_determined_slices.values() if sl not in old_determined_slices.values()]
         values = math.slice_off(self.values, *to_remove)
@@ -6644,7 +6605,7 @@ class Field(metaclass=_FieldType):
                 values = values.vector.as_dual()
             else:
                 values = math.pad(values, list(to_add.values()), self.boundary, bounds=self.bounds)
-        return Field(self.geometry, values, boundary)
+        return Field(self.geometry, values, boundary, sampled_at=self.sampled_at)
 
     with_extrapolation = with_boundary
 
@@ -6654,12 +6615,12 @@ class Field(metaclass=_FieldType):
         geometry = self.geometry.vector[order]
         new_shape = self.values.shape.without(order) &amp; self.values.shape.only(order, reorder=True)
         values = math.swap_axes(self.values, new_shape)
-        return Field(geometry, values, self.boundary)
+        return Field(geometry, values, self.boundary, sampled_at=self.sampled_at)
 
     def with_geometry(self, elements: Geometry):
         &#34;&#34;&#34; Returns a copy of this field with `elements` replaced. &#34;&#34;&#34;
         assert non_batch(elements) == non_batch(self.geometry), f&#34;Field.with_elements() only accepts elements with equal non-batch dimensions but got {elements.shape} for Field with shape {self.geometry.shape}&#34;
-        return Field(elements, self.values, self.boundary)
+        return Field(elements, self.values, self.boundary, sampled_at=self.sampled_at)
 
     with_elements = with_geometry
 
@@ -6767,7 +6728,7 @@ class Field(metaclass=_FieldType):
         dims = (self.geometry.shape - &#39;vector&#39;).only(dims)
         geometry = self.geometry[{d: 0 for d in dims}] if dims else self.geometry
         boundary = self.boundary[{d: 0 for d in dims}] if dims else self.boundary
-        return Field(geometry, values, boundary, variable_attrs=self.variable_attrs, value_attrs=self.value_attrs)
+        return Field(geometry, values, boundary, sampled_at=self.sampled_at, variable_attrs=self.variable_attrs, value_attrs=self.value_attrs)
 
     def downsample(self, factor: int):
         from ._field_math import downsample2x
@@ -6791,14 +6752,18 @@ class Field(metaclass=_FieldType):
         &#34;&#34;&#34;
         assert self.resolution.names == self.shape.get_item_names(&#39;vector&#39;), &#34;Field.staggered_tensor() only defined for Fields whose vector components match the resolution&#34;
         padded = []
-        for dim, component in zip(self.resolution.names, self.vector):
+        for dim, component in zip(self.resolution.names, unstack(self.values, self.vector_dim)):
             widths = {d: (0, 1) for d in self.resolution.names}
             lo_valid, up_valid = self.extrapolation.valid_outer_faces(dim)
             widths[dim] = (int(not lo_valid), int(not up_valid))
-            padded.append(math.pad(component.values, widths, self.extrapolation[{&#39;vector&#39;: dim}], bounds=self.bounds))
+            padded.append(math.pad(component, widths, self.extrapolation[{&#39;vector&#39;: dim}], bounds=self.bounds))
         result = math.stack(padded, channel(vector=self.resolution))
         assert result.shape.is_uniform
         return result
+
+    @property
+    def vector_dim(self):
+        return self.values.shape[&#39;vector&#39;] if &#39;vector&#39; in self.values.shape else (self.values.shape[&#39;~vector&#39;] if &#39;~vector&#39; in self.values.shape else EMPTY_SHAPE)
 
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -&gt; &#39;Field&#39;:
@@ -6869,21 +6834,9 @@ class Field(metaclass=_FieldType):
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != &#39;vector&#39;}
         geometry = self.geometry[item_without_vec]
         if self.is_staggered and &#39;vector&#39; in item and &#39;~vector&#39; in self.geometry.face_shape:
-            assert isinstance(self.geometry, UniformGrid), f&#34;Vector slicing is only supported for grids&#34;
-            dims = item[&#39;vector&#39;]
-            dims_ = self.geometry.shape[&#39;vector&#39;].after_gather({&#39;vector&#39;: dims})
-            dims = dims_.item_names[0] if dims_ else [dims] if isinstance(dims, str) else [self.geometry.shape[&#39;vector&#39;].item_names[0][dims]]
-            proj_dims = set(self.resolution.names) - set(dims)
-            if any(dim not in item for dim in proj_dims):
-                # warnings.warn(f&#34;Projecting a staggered grid (by slicing &#39;vector&#39; without the corresponding spatial dims) will return a non-staggered grid. The projected dims {proj_dims} were not sliced off.\nFull slice: {item}&#34;)
-                item[&#39;~vector&#39;] = item[&#39;vector&#39;]
-                del item[&#39;vector&#39;]
-                geometry = self.sampled_elements[item]
-            else:
-                item[&#39;~vector&#39;] = dims
-                del item[&#39;vector&#39;]
+            raise AssertionError(f&#34;Staggered fields cannot be unstacked by component. Unstack the values instead. Tried accessing {item[&#39;vector&#39;]} along vector of {self}&#34;)
         values = self.values[item]
-        return Field(geometry, values, boundary)
+        return Field(geometry, values, boundary, sampled_at=self.sampled_at)
 
     def dimension(self, name: str):
         &#34;&#34;&#34;
@@ -6915,7 +6868,7 @@ class Field(metaclass=_FieldType):
         new_dims = concat_shapes(*rename.values())
         elements = math.rename_dims(self.geometry, dims, new_dims)
         extrapolation = math.rename_dims(self.boundary, dims, new_dims, **kwargs)
-        return Field(elements, values, extrapolation)
+        return Field(elements, values, extrapolation, sampled_at=self.sampled_at)
 
     def __eq__(self, other):
         if not isinstance(other, Field):
@@ -6993,12 +6946,12 @@ class Field(metaclass=_FieldType):
             if self.geometry == other.geometry:
                 values = operator(self.values, other.values)
                 extrapolation_ = operator(self.boundary, other.extrapolation)
-                return Field(self.geometry, values, extrapolation_)
+                return Field(self.geometry, values, extrapolation_, sampled_at=self.sampled_at)
             from ._resample import sample
             other_values = sample(other, self.geometry, self.sampled_at, self.boundary, dot_face_normal=self.geometry)
             values = operator(self.values, other_values)
             boundary = operator(self.boundary, other.extrapolation)
-            return Field(self.geometry, values, boundary)
+            return Field(self.geometry, values, boundary, sampled_at=self.sampled_at)
         else:
             if isinstance(other, (tuple, list)) and len(other) == self.spatial_rank:
                 other = math.wrap(other, self.geometry.shape[&#39;vector&#39;])
@@ -7011,10 +6964,10 @@ class Field(metaclass=_FieldType):
             if &#39;vector&#39; in self.shape and &#39;vector&#39; not in self.values.shape and &#39;~vector&#39; in self.values.shape:
                 other = other.vector.as_dual()
             values = operator(self.values, other)
-            return Field(self.geometry, values, boundary)
+            return Field(self.geometry, values, boundary, sampled_at=self.sampled_at)
 
     def __repr__(self):
-        return f&#34;{self.values:summary} @ {self.geometry}:{self.sampled_at}, BC={self.boundary}&#34;
+        return f&#34;{self.values:summary} @ {self.sampled_at} of {self.geometry}, BC={self.boundary}&#34;
 
     def grid_scatter(self, *args, **kwargs):
         &#34;&#34;&#34;Deprecated. Use `sample` with `scatter=True` instead.&#34;&#34;&#34;
@@ -7427,24 +7380,9 @@ def resolution(self):
 </details>
 <div class="desc"></div>
 </dd>
-<dt id="phi.field.Field.sampled_at"><code class="name">var <span class="ident">sampled_at</span></code></dt>
+<dt id="phi.field.Field.sampled_at"><code class="name">var <span class="ident">sampled_at</span> : str</code></dt>
 <dd>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@cached_property
-def sampled_at(self):
-    &#34;&#34;&#34; Which points of the `geometry` the `values` are sampled at. Typical values are `&#39;center&#39;, &#39;face&#39;, &#39;node&#39;`.&#34;&#34;&#34;
-    v_shape = self.values.shape.non_batch
-    for name, set_shape in self.geometry.sets.items():
-        if set_shape.non_batch in v_shape:  # all necessary dims present in values
-            v_sizes = v_shape.only(set_shape, reorder=True).sizes
-            if all(_size_equal(v_size, set_size) for v_size, set_size in zip(v_sizes, set_shape.sizes)):
-                return name
-    raise ValueError(f&#34;Could not determine where the values of this Field are sampled. Geometry sets: {self.geometry.sets}, Field values shape: {v_shape}&#34;)</code></pre>
-</details>
-<div class="desc"><p>Which points of the <code>geometry</code> the <code>values</code> are sampled at. Typical values are <code>'center', 'face', 'node'</code>.</p></div>
+<div class="desc"><p>Which point set of <code>geometry</code> corresponds to <code>values</code>. Typical values are <code>center</code>, <code>face</code>, <code>node</code>. If <code>None</code>, will be determined from shape of values or raise an error if ambiguous.</p></div>
 </dd>
 <dt id="phi.field.Field.sampled_elements"><code class="name">prop <span class="ident">sampled_elements</span> : phi.geom._geom.Geometry</code></dt>
 <dd>
@@ -7527,6 +7465,18 @@ This is equal to the spatial rank of the <code>data</code>.</p></div>
 <dd>
 <div class="desc"><p>Which of the three attributes (geometry,values,boundary) should be traced / optimized. See <code>phiml.math.magic.PhiTreeNode.__variable_attrs__</code></p></div>
 </dd>
+<dt id="phi.field.Field.vector_dim"><code class="name">prop <span class="ident">vector_dim</span></code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def vector_dim(self):
+    return self.values.shape[&#39;vector&#39;] if &#39;vector&#39; in self.values.shape else (self.values.shape[&#39;~vector&#39;] if &#39;~vector&#39; in self.values.shape else EMPTY_SHAPE)</code></pre>
+</details>
+<div class="desc"></div>
+</dd>
 </dl>
 <h3>Methods</h3>
 <dl>
@@ -7585,7 +7535,7 @@ If boundaries outside of this <code><a title="phi.field.Field" href="#phi.field.
         dims = non_batch(points).non_channel &amp; non_batch(points).non_channel
         points = pack_dims(points, dims, list_dim)
         values = pack_dims(values, dims, list_dim)
-    return Field(Point(points), values, self.boundary)</code></pre>
+    return Field(Point(points), values, self.boundary, sampled_at=&#39;center&#39;)</code></pre>
 </details>
 <div class="desc"><p>Returns this field as a PointCloud.
 This replaces the <code><a title="phi.field.Field.geometry" href="#phi.field.Field.geometry">Field.geometry</a></code> with a <code><a title="phi.geom.Point" href="../geom/index.html#phi.geom.Point">Point</a></code> instance while leaving the sample points unchanged.</p>
@@ -7631,7 +7581,7 @@ Defaults to <code>instance('elements')</code>.</dd>
         points = pack_dims(points, dims, list_dim)
         values = pack_dims(values, dims, list_dim)
         volumes = pack_dims(volumes, dims, list_dim)
-    return Field(Sphere(points, volume=volumes), values, self.boundary)</code></pre>
+    return Field(Sphere(points, volume=volumes), values, self.boundary, sampled_at=&#39;center&#39;)</code></pre>
 </details>
 <div class="desc"><p>Returns this field as a PointCloud with spherical / circular elements, preserving element volumes.
 This replaces the <code><a title="phi.field.Field.geometry" href="#phi.field.Field.geometry">Field.geometry</a></code> with a <code><a title="phi.geom.Sphere" href="../geom/index.html#phi.geom.Sphere">Sphere</a></code> instance while leaving the sample points unchanged.</p>
@@ -7698,7 +7648,7 @@ Defaults to <code>instance('elements')</code>.</dd>
         return self
     from ._resample import sample
     values = sample(self, self.geometry, at=&#39;center&#39;, boundary=self.boundary, **kwargs)
-    return Field(self.geometry, values, self.boundary)</code></pre>
+    return Field(self.geometry, values, self.boundary, sampled_at=&#39;center&#39;)</code></pre>
 </details>
 <div class="desc"><p>Interpolates the values to the cell centers.</p>
 <p>See Also:
@@ -7725,7 +7675,7 @@ Defaults to <code>instance('elements')</code>.</dd>
     boundary = as_boundary(boundary, self.geometry) if boundary else self.boundary
     from ._resample import sample
     values = sample(self, self.geometry, at=&#39;face&#39;, boundary=boundary, **kwargs)
-    return Field(self.geometry, values, boundary)</code></pre>
+    return Field(self.geometry, values, boundary, sampled_at=&#39;face&#39;)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -8146,11 +8096,11 @@ or <code>dict</code> mapping dimension names to <code>(lower, upper)</code>.</dd
     &#34;&#34;&#34;
     assert self.resolution.names == self.shape.get_item_names(&#39;vector&#39;), &#34;Field.staggered_tensor() only defined for Fields whose vector components match the resolution&#34;
     padded = []
-    for dim, component in zip(self.resolution.names, self.vector):
+    for dim, component in zip(self.resolution.names, unstack(self.values, self.vector_dim)):
         widths = {d: (0, 1) for d in self.resolution.names}
         lo_valid, up_valid = self.extrapolation.valid_outer_faces(dim)
         widths[dim] = (int(not lo_valid), int(not up_valid))
-        padded.append(math.pad(component.values, widths, self.extrapolation[{&#39;vector&#39;: dim}], bounds=self.bounds))
+        padded.append(math.pad(component, widths, self.extrapolation[{&#39;vector&#39;: dim}], bounds=self.bounds))
     result = math.stack(padded, channel(vector=self.resolution))
     assert result.shape.is_uniform
     return result</code></pre>
@@ -8176,7 +8126,7 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
     dims = (self.geometry.shape - &#39;vector&#39;).only(dims)
     geometry = self.geometry[{d: 0 for d in dims}] if dims else self.geometry
     boundary = self.boundary[{d: 0 for d in dims}] if dims else self.boundary
-    return Field(geometry, values, boundary, variable_attrs=self.variable_attrs, value_attrs=self.value_attrs)</code></pre>
+    return Field(geometry, values, boundary, sampled_at=self.sampled_at, variable_attrs=self.variable_attrs, value_attrs=self.value_attrs)</code></pre>
 </details>
 <div class="desc"><p>Sum values along one dimension. This may reduce the geometry if the axis is spatial.</p></div>
 </dd>
@@ -8202,7 +8152,7 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
             size = (bounds.volume / cell_count) ** (1 / self.spatial_rank)
         res = math.maximum(1, math.round(bounds.size / size))
         resolution = spatial(**res.vector)
-    return Field(UniformGrid(resolution, bounds), self, self.boundary)</code></pre>
+    return Field(UniformGrid(resolution, bounds), self, self.boundary, sampled_at=&#39;center&#39;)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -8245,7 +8195,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     old_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if self.boundary.determines_boundary_values(k)}
     new_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if boundary.determines_boundary_values(k)}
     if old_determined_slices.values() == new_determined_slices.values():
-        return Field(self.geometry, self.values, boundary)  # ToDo unnecessary once the rest is implemented
+        return Field(self.geometry, self.values, boundary, sampled_at=self.sampled_at)  # ToDo unnecessary once the rest is implemented
     to_add = {k: sl for k, sl in old_determined_slices.items() if sl not in new_determined_slices.values()}
     to_remove = [sl for sl in new_determined_slices.values() if sl not in old_determined_slices.values()]
     values = math.slice_off(self.values, *to_remove)
@@ -8259,7 +8209,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
             values = values.vector.as_dual()
         else:
             values = math.pad(values, list(to_add.values()), self.boundary, bounds=self.bounds)
-    return Field(self.geometry, values, boundary)</code></pre>
+    return Field(self.geometry, values, boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with the <code>boundary</code> replaced.</p></div>
 </dd>
@@ -8277,7 +8227,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     geometry = self.geometry.vector[order]
     new_shape = self.values.shape.without(order) &amp; self.values.shape.only(order, reorder=True)
     values = math.swap_axes(self.values, new_shape)
-    return Field(geometry, values, self.boundary)</code></pre>
+    return Field(geometry, values, self.boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with <code>bounds</code> replaced.</p></div>
 </dd>
@@ -8292,7 +8242,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
 <pre><code class="python">def with_geometry(self, elements: Geometry):
     &#34;&#34;&#34; Returns a copy of this field with `elements` replaced. &#34;&#34;&#34;
     assert non_batch(elements) == non_batch(self.geometry), f&#34;Field.with_elements() only accepts elements with equal non-batch dimensions but got {elements.shape} for Field with shape {self.geometry.shape}&#34;
-    return Field(elements, self.values, self.boundary)</code></pre>
+    return Field(elements, self.values, self.boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with <code>elements</code> replaced.</p></div>
 </dd>
@@ -8311,7 +8261,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     old_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if self.boundary.determines_boundary_values(k)}
     new_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if boundary.determines_boundary_values(k)}
     if old_determined_slices.values() == new_determined_slices.values():
-        return Field(self.geometry, self.values, boundary)  # ToDo unnecessary once the rest is implemented
+        return Field(self.geometry, self.values, boundary, sampled_at=self.sampled_at)  # ToDo unnecessary once the rest is implemented
     to_add = {k: sl for k, sl in old_determined_slices.items() if sl not in new_determined_slices.values()}
     to_remove = [sl for sl in new_determined_slices.values() if sl not in old_determined_slices.values()]
     values = math.slice_off(self.values, *to_remove)
@@ -8325,7 +8275,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
             values = values.vector.as_dual()
         else:
             values = math.pad(values, list(to_add.values()), self.boundary, bounds=self.bounds)
-    return Field(self.geometry, values, boundary)</code></pre>
+    return Field(self.geometry, values, boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with the <code>boundary</code> replaced.</p></div>
 </dd>
@@ -8340,7 +8290,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
 <pre><code class="python">def with_geometry(self, elements: Geometry):
     &#34;&#34;&#34; Returns a copy of this field with `elements` replaced. &#34;&#34;&#34;
     assert non_batch(elements) == non_batch(self.geometry), f&#34;Field.with_elements() only accepts elements with equal non-batch dimensions but got {elements.shape} for Field with shape {self.geometry.shape}&#34;
-    return Field(elements, self.values, self.boundary)</code></pre>
+    return Field(elements, self.values, self.boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with <code>elements</code> replaced.</p></div>
 </dd>
@@ -8363,7 +8313,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
             if &#39;~vector&#39; in geo_shape and &#39;vector&#39; in shape(values) and &#39;~vector&#39; not in shape(values):
                 values = values.vector.as_dual()
             values = expand(wrap(values), geo_shape.non_batch.non_channel)
-    return Field(self.geometry, values, self.boundary)</code></pre>
+    return Field(self.geometry, values, self.boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with <code>values</code> replaced.</p></div>
 </dd>
@@ -8405,6 +8355,8 @@ class Field(metaclass=_FieldType):
     &#34;&#34;&#34; The sampled values, matching some point set of `geometry`, e.g. center points, see `Geometry.sets`.&#34;&#34;&#34;
     boundary: Extrapolation = 0.
     &#34;&#34;&#34; Boundary conditions describe the values outside of `geometry` and are used by numerical solvers to compute edge values. &#34;&#34;&#34;
+    sampled_at: str = None
+    &#34;&#34;&#34; Which point set of `geometry` corresponds to `values`. Typical values are `center`, `face`, `node`. If `None`, will be determined from shape of values or raise an error if ambiguous. &#34;&#34;&#34;
 
     variable_attrs: Tuple[str, ...] = (&#39;values&#39;,)
     &#34;&#34;&#34; Which of the three attributes (geometry,values,boundary) should be traced / optimized. See `phiml.math.magic.PhiTreeNode.__variable_attrs__`&#34;&#34;&#34;
@@ -8412,12 +8364,8 @@ class Field(metaclass=_FieldType):
     &#34;&#34;&#34; Which of the three attributes (geometry,values,boundary) are considered values. See `phiml.math.magic.PhiTreeNode.__value_attrs__`&#34;&#34;&#34;
 
     def __post_init__(self):
-        at = self.sampled_at
-        if at in {&#39;center&#39;, &#39;face&#39;}:
-            math.merge_shapes(self.values, non_batch(self.sampled_elements).non_channel)  # shape check
-        else:
-            points = get_sample_points(self.geometry, at, self.boundary)
-            math.merge_shapes(self.values, points)  # shape check
+        assert self.sampled_at in self.geometry.sets, f&#34;Field.sampled_at=&#39;{self.sampled_at}&#39; which is not a valid point set. Available: {set(self.geometry.sets)}&#34;
+        # math.merge_shapes(self.values, slice_off_constant_faces(self.geometry.sets[self.sampled_at] - &#39;vector&#39;, ))  # shape check
 
     @property
     def grid(self) -&gt; UniformGrid:
@@ -8640,7 +8588,7 @@ class Field(metaclass=_FieldType):
                 size = (bounds.volume / cell_count) ** (1 / self.spatial_rank)
             res = math.maximum(1, math.round(bounds.size / size))
             resolution = spatial(**res.vector)
-        return Field(UniformGrid(resolution, bounds), self, self.boundary)
+        return Field(UniformGrid(resolution, bounds), self, self.boundary, sampled_at=&#39;center&#39;)
 
     def as_points(self, list_dim: Optional[Shape] = instance(&#39;elements&#39;)) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -8663,7 +8611,7 @@ class Field(metaclass=_FieldType):
             dims = non_batch(points).non_channel &amp; non_batch(points).non_channel
             points = pack_dims(points, dims, list_dim)
             values = pack_dims(values, dims, list_dim)
-        return Field(Point(points), values, self.boundary)
+        return Field(Point(points), values, self.boundary, sampled_at=&#39;center&#39;)
 
     def as_spheres(self, list_dim: Optional[Shape] = instance(&#39;elements&#39;)) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -8688,7 +8636,7 @@ class Field(metaclass=_FieldType):
             points = pack_dims(points, dims, list_dim)
             values = pack_dims(values, dims, list_dim)
             volumes = pack_dims(volumes, dims, list_dim)
-        return Field(Sphere(points, volume=volumes), values, self.boundary)
+        return Field(Sphere(points, volume=volumes), values, self.boundary, sampled_at=&#39;center&#39;)
 
     def at_centers(self, **kwargs) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -8707,7 +8655,7 @@ class Field(metaclass=_FieldType):
             return self
         from ._resample import sample
         values = sample(self, self.geometry, at=&#39;center&#39;, boundary=self.boundary, **kwargs)
-        return Field(self.geometry, values, self.boundary)
+        return Field(self.geometry, values, self.boundary, sampled_at=&#39;center&#39;)
 
     def at_faces(self, boundary=None, **kwargs) -&gt; &#39;Field&#39;:
         if self.is_staggered and not boundary:
@@ -8715,18 +8663,7 @@ class Field(metaclass=_FieldType):
         boundary = as_boundary(boundary, self.geometry) if boundary else self.boundary
         from ._resample import sample
         values = sample(self, self.geometry, at=&#39;face&#39;, boundary=boundary, **kwargs)
-        return Field(self.geometry, values, boundary)
-
-    @cached_property
-    def sampled_at(self):
-        &#34;&#34;&#34; Which points of the `geometry` the `values` are sampled at. Typical values are `&#39;center&#39;, &#39;face&#39;, &#39;node&#39;`.&#34;&#34;&#34;
-        v_shape = self.values.shape.non_batch
-        for name, set_shape in self.geometry.sets.items():
-            if set_shape.non_batch in v_shape:  # all necessary dims present in values
-                v_sizes = v_shape.only(set_shape, reorder=True).sizes
-                if all(_size_equal(v_size, set_size) for v_size, set_size in zip(v_sizes, set_shape.sizes)):
-                    return name
-        raise ValueError(f&#34;Could not determine where the values of this Field are sampled. Geometry sets: {self.geometry.sets}, Field values shape: {v_shape}&#34;)
+        return Field(self.geometry, values, boundary, sampled_at=&#39;face&#39;)
 
     def at(self, representation: Union[&#39;Field&#39;, Geometry], keep_boundary=False, **kwargs) -&gt; &#39;Field&#39;:
         &#34;&#34;&#34;
@@ -8796,7 +8733,7 @@ class Field(metaclass=_FieldType):
                 if &#39;~vector&#39; in geo_shape and &#39;vector&#39; in shape(values) and &#39;~vector&#39; not in shape(values):
                     values = values.vector.as_dual()
                 values = expand(wrap(values), geo_shape.non_batch.non_channel)
-        return Field(self.geometry, values, self.boundary)
+        return Field(self.geometry, values, self.boundary, sampled_at=self.sampled_at)
 
     def with_boundary(self, boundary):
         &#34;&#34;&#34; Returns a copy of this field with the `boundary` replaced. &#34;&#34;&#34;
@@ -8805,7 +8742,7 @@ class Field(metaclass=_FieldType):
         old_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if self.boundary.determines_boundary_values(k)}
         new_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if boundary.determines_boundary_values(k)}
         if old_determined_slices.values() == new_determined_slices.values():
-            return Field(self.geometry, self.values, boundary)  # ToDo unnecessary once the rest is implemented
+            return Field(self.geometry, self.values, boundary, sampled_at=self.sampled_at)  # ToDo unnecessary once the rest is implemented
         to_add = {k: sl for k, sl in old_determined_slices.items() if sl not in new_determined_slices.values()}
         to_remove = [sl for sl in new_determined_slices.values() if sl not in old_determined_slices.values()]
         values = math.slice_off(self.values, *to_remove)
@@ -8819,7 +8756,7 @@ class Field(metaclass=_FieldType):
                 values = values.vector.as_dual()
             else:
                 values = math.pad(values, list(to_add.values()), self.boundary, bounds=self.bounds)
-        return Field(self.geometry, values, boundary)
+        return Field(self.geometry, values, boundary, sampled_at=self.sampled_at)
 
     with_extrapolation = with_boundary
 
@@ -8829,12 +8766,12 @@ class Field(metaclass=_FieldType):
         geometry = self.geometry.vector[order]
         new_shape = self.values.shape.without(order) &amp; self.values.shape.only(order, reorder=True)
         values = math.swap_axes(self.values, new_shape)
-        return Field(geometry, values, self.boundary)
+        return Field(geometry, values, self.boundary, sampled_at=self.sampled_at)
 
     def with_geometry(self, elements: Geometry):
         &#34;&#34;&#34; Returns a copy of this field with `elements` replaced. &#34;&#34;&#34;
         assert non_batch(elements) == non_batch(self.geometry), f&#34;Field.with_elements() only accepts elements with equal non-batch dimensions but got {elements.shape} for Field with shape {self.geometry.shape}&#34;
-        return Field(elements, self.values, self.boundary)
+        return Field(elements, self.values, self.boundary, sampled_at=self.sampled_at)
 
     with_elements = with_geometry
 
@@ -8942,7 +8879,7 @@ class Field(metaclass=_FieldType):
         dims = (self.geometry.shape - &#39;vector&#39;).only(dims)
         geometry = self.geometry[{d: 0 for d in dims}] if dims else self.geometry
         boundary = self.boundary[{d: 0 for d in dims}] if dims else self.boundary
-        return Field(geometry, values, boundary, variable_attrs=self.variable_attrs, value_attrs=self.value_attrs)
+        return Field(geometry, values, boundary, sampled_at=self.sampled_at, variable_attrs=self.variable_attrs, value_attrs=self.value_attrs)
 
     def downsample(self, factor: int):
         from ._field_math import downsample2x
@@ -8966,14 +8903,18 @@ class Field(metaclass=_FieldType):
         &#34;&#34;&#34;
         assert self.resolution.names == self.shape.get_item_names(&#39;vector&#39;), &#34;Field.staggered_tensor() only defined for Fields whose vector components match the resolution&#34;
         padded = []
-        for dim, component in zip(self.resolution.names, self.vector):
+        for dim, component in zip(self.resolution.names, unstack(self.values, self.vector_dim)):
             widths = {d: (0, 1) for d in self.resolution.names}
             lo_valid, up_valid = self.extrapolation.valid_outer_faces(dim)
             widths[dim] = (int(not lo_valid), int(not up_valid))
-            padded.append(math.pad(component.values, widths, self.extrapolation[{&#39;vector&#39;: dim}], bounds=self.bounds))
+            padded.append(math.pad(component, widths, self.extrapolation[{&#39;vector&#39;: dim}], bounds=self.bounds))
         result = math.stack(padded, channel(vector=self.resolution))
         assert result.shape.is_uniform
         return result
+
+    @property
+    def vector_dim(self):
+        return self.values.shape[&#39;vector&#39;] if &#39;vector&#39; in self.values.shape else (self.values.shape[&#39;~vector&#39;] if &#39;~vector&#39; in self.values.shape else EMPTY_SHAPE)
 
     @staticmethod
     def __stack__(values: tuple, dim: Shape, **kwargs) -&gt; &#39;Field&#39;:
@@ -9044,21 +8985,9 @@ class Field(metaclass=_FieldType):
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != &#39;vector&#39;}
         geometry = self.geometry[item_without_vec]
         if self.is_staggered and &#39;vector&#39; in item and &#39;~vector&#39; in self.geometry.face_shape:
-            assert isinstance(self.geometry, UniformGrid), f&#34;Vector slicing is only supported for grids&#34;
-            dims = item[&#39;vector&#39;]
-            dims_ = self.geometry.shape[&#39;vector&#39;].after_gather({&#39;vector&#39;: dims})
-            dims = dims_.item_names[0] if dims_ else [dims] if isinstance(dims, str) else [self.geometry.shape[&#39;vector&#39;].item_names[0][dims]]
-            proj_dims = set(self.resolution.names) - set(dims)
-            if any(dim not in item for dim in proj_dims):
-                # warnings.warn(f&#34;Projecting a staggered grid (by slicing &#39;vector&#39; without the corresponding spatial dims) will return a non-staggered grid. The projected dims {proj_dims} were not sliced off.\nFull slice: {item}&#34;)
-                item[&#39;~vector&#39;] = item[&#39;vector&#39;]
-                del item[&#39;vector&#39;]
-                geometry = self.sampled_elements[item]
-            else:
-                item[&#39;~vector&#39;] = dims
-                del item[&#39;vector&#39;]
+            raise AssertionError(f&#34;Staggered fields cannot be unstacked by component. Unstack the values instead. Tried accessing {item[&#39;vector&#39;]} along vector of {self}&#34;)
         values = self.values[item]
-        return Field(geometry, values, boundary)
+        return Field(geometry, values, boundary, sampled_at=self.sampled_at)
 
     def dimension(self, name: str):
         &#34;&#34;&#34;
@@ -9090,7 +9019,7 @@ class Field(metaclass=_FieldType):
         new_dims = concat_shapes(*rename.values())
         elements = math.rename_dims(self.geometry, dims, new_dims)
         extrapolation = math.rename_dims(self.boundary, dims, new_dims, **kwargs)
-        return Field(elements, values, extrapolation)
+        return Field(elements, values, extrapolation, sampled_at=self.sampled_at)
 
     def __eq__(self, other):
         if not isinstance(other, Field):
@@ -9168,12 +9097,12 @@ class Field(metaclass=_FieldType):
             if self.geometry == other.geometry:
                 values = operator(self.values, other.values)
                 extrapolation_ = operator(self.boundary, other.extrapolation)
-                return Field(self.geometry, values, extrapolation_)
+                return Field(self.geometry, values, extrapolation_, sampled_at=self.sampled_at)
             from ._resample import sample
             other_values = sample(other, self.geometry, self.sampled_at, self.boundary, dot_face_normal=self.geometry)
             values = operator(self.values, other_values)
             boundary = operator(self.boundary, other.extrapolation)
-            return Field(self.geometry, values, boundary)
+            return Field(self.geometry, values, boundary, sampled_at=self.sampled_at)
         else:
             if isinstance(other, (tuple, list)) and len(other) == self.spatial_rank:
                 other = math.wrap(other, self.geometry.shape[&#39;vector&#39;])
@@ -9186,10 +9115,10 @@ class Field(metaclass=_FieldType):
             if &#39;vector&#39; in self.shape and &#39;vector&#39; not in self.values.shape and &#39;~vector&#39; in self.values.shape:
                 other = other.vector.as_dual()
             values = operator(self.values, other)
-            return Field(self.geometry, values, boundary)
+            return Field(self.geometry, values, boundary, sampled_at=self.sampled_at)
 
     def __repr__(self):
-        return f&#34;{self.values:summary} @ {self.geometry}:{self.sampled_at}, BC={self.boundary}&#34;
+        return f&#34;{self.values:summary} @ {self.sampled_at} of {self.geometry}, BC={self.boundary}&#34;
 
     def grid_scatter(self, *args, **kwargs):
         &#34;&#34;&#34;Deprecated. Use `sample` with `scatter=True` instead.&#34;&#34;&#34;
@@ -9602,24 +9531,9 @@ def resolution(self):
 </details>
 <div class="desc"></div>
 </dd>
-<dt id="phi.field.Field.sampled_at"><code class="name">var <span class="ident">sampled_at</span></code></dt>
+<dt id="phi.field.Field.sampled_at"><code class="name">var <span class="ident">sampled_at</span> : str</code></dt>
 <dd>
-<details class="source">
-<summary>
-<span>Expand source code</span>
-</summary>
-<pre><code class="python">@cached_property
-def sampled_at(self):
-    &#34;&#34;&#34; Which points of the `geometry` the `values` are sampled at. Typical values are `&#39;center&#39;, &#39;face&#39;, &#39;node&#39;`.&#34;&#34;&#34;
-    v_shape = self.values.shape.non_batch
-    for name, set_shape in self.geometry.sets.items():
-        if set_shape.non_batch in v_shape:  # all necessary dims present in values
-            v_sizes = v_shape.only(set_shape, reorder=True).sizes
-            if all(_size_equal(v_size, set_size) for v_size, set_size in zip(v_sizes, set_shape.sizes)):
-                return name
-    raise ValueError(f&#34;Could not determine where the values of this Field are sampled. Geometry sets: {self.geometry.sets}, Field values shape: {v_shape}&#34;)</code></pre>
-</details>
-<div class="desc"><p>Which points of the <code>geometry</code> the <code>values</code> are sampled at. Typical values are <code>'center', 'face', 'node'</code>.</p></div>
+<div class="desc"><p>Which point set of <code>geometry</code> corresponds to <code>values</code>. Typical values are <code>center</code>, <code>face</code>, <code>node</code>. If <code>None</code>, will be determined from shape of values or raise an error if ambiguous.</p></div>
 </dd>
 <dt id="phi.field.Field.sampled_elements"><code class="name">prop <span class="ident">sampled_elements</span> : phi.geom._geom.Geometry</code></dt>
 <dd>
@@ -9702,6 +9616,18 @@ This is equal to the spatial rank of the <code>data</code>.</p></div>
 <dd>
 <div class="desc"><p>Which of the three attributes (geometry,values,boundary) should be traced / optimized. See <code>phiml.math.magic.PhiTreeNode.__variable_attrs__</code></p></div>
 </dd>
+<dt id="phi.field.Field.vector_dim"><code class="name">prop <span class="ident">vector_dim</span></code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">@property
+def vector_dim(self):
+    return self.values.shape[&#39;vector&#39;] if &#39;vector&#39; in self.values.shape else (self.values.shape[&#39;~vector&#39;] if &#39;~vector&#39; in self.values.shape else EMPTY_SHAPE)</code></pre>
+</details>
+<div class="desc"></div>
+</dd>
 </dl>
 <h3>Methods</h3>
 <dl>
@@ -9760,7 +9686,7 @@ If boundaries outside of this <code><a title="phi.field.Field" href="#phi.field.
         dims = non_batch(points).non_channel &amp; non_batch(points).non_channel
         points = pack_dims(points, dims, list_dim)
         values = pack_dims(values, dims, list_dim)
-    return Field(Point(points), values, self.boundary)</code></pre>
+    return Field(Point(points), values, self.boundary, sampled_at=&#39;center&#39;)</code></pre>
 </details>
 <div class="desc"><p>Returns this field as a PointCloud.
 This replaces the <code><a title="phi.field.Field.geometry" href="#phi.field.Field.geometry">Field.geometry</a></code> with a <code><a title="phi.geom.Point" href="../geom/index.html#phi.geom.Point">Point</a></code> instance while leaving the sample points unchanged.</p>
@@ -9806,7 +9732,7 @@ Defaults to <code>instance('elements')</code>.</dd>
         points = pack_dims(points, dims, list_dim)
         values = pack_dims(values, dims, list_dim)
         volumes = pack_dims(volumes, dims, list_dim)
-    return Field(Sphere(points, volume=volumes), values, self.boundary)</code></pre>
+    return Field(Sphere(points, volume=volumes), values, self.boundary, sampled_at=&#39;center&#39;)</code></pre>
 </details>
 <div class="desc"><p>Returns this field as a PointCloud with spherical / circular elements, preserving element volumes.
 This replaces the <code><a title="phi.field.Field.geometry" href="#phi.field.Field.geometry">Field.geometry</a></code> with a <code><a title="phi.geom.Sphere" href="../geom/index.html#phi.geom.Sphere">Sphere</a></code> instance while leaving the sample points unchanged.</p>
@@ -9873,7 +9799,7 @@ Defaults to <code>instance('elements')</code>.</dd>
         return self
     from ._resample import sample
     values = sample(self, self.geometry, at=&#39;center&#39;, boundary=self.boundary, **kwargs)
-    return Field(self.geometry, values, self.boundary)</code></pre>
+    return Field(self.geometry, values, self.boundary, sampled_at=&#39;center&#39;)</code></pre>
 </details>
 <div class="desc"><p>Interpolates the values to the cell centers.</p>
 <p>See Also:
@@ -9900,7 +9826,7 @@ Defaults to <code>instance('elements')</code>.</dd>
     boundary = as_boundary(boundary, self.geometry) if boundary else self.boundary
     from ._resample import sample
     values = sample(self, self.geometry, at=&#39;face&#39;, boundary=boundary, **kwargs)
-    return Field(self.geometry, values, boundary)</code></pre>
+    return Field(self.geometry, values, boundary, sampled_at=&#39;face&#39;)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -10321,11 +10247,11 @@ or <code>dict</code> mapping dimension names to <code>(lower, upper)</code>.</dd
     &#34;&#34;&#34;
     assert self.resolution.names == self.shape.get_item_names(&#39;vector&#39;), &#34;Field.staggered_tensor() only defined for Fields whose vector components match the resolution&#34;
     padded = []
-    for dim, component in zip(self.resolution.names, self.vector):
+    for dim, component in zip(self.resolution.names, unstack(self.values, self.vector_dim)):
         widths = {d: (0, 1) for d in self.resolution.names}
         lo_valid, up_valid = self.extrapolation.valid_outer_faces(dim)
         widths[dim] = (int(not lo_valid), int(not up_valid))
-        padded.append(math.pad(component.values, widths, self.extrapolation[{&#39;vector&#39;: dim}], bounds=self.bounds))
+        padded.append(math.pad(component, widths, self.extrapolation[{&#39;vector&#39;: dim}], bounds=self.bounds))
     result = math.stack(padded, channel(vector=self.resolution))
     assert result.shape.is_uniform
     return result</code></pre>
@@ -10351,7 +10277,7 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
     dims = (self.geometry.shape - &#39;vector&#39;).only(dims)
     geometry = self.geometry[{d: 0 for d in dims}] if dims else self.geometry
     boundary = self.boundary[{d: 0 for d in dims}] if dims else self.boundary
-    return Field(geometry, values, boundary, variable_attrs=self.variable_attrs, value_attrs=self.value_attrs)</code></pre>
+    return Field(geometry, values, boundary, sampled_at=self.sampled_at, variable_attrs=self.variable_attrs, value_attrs=self.value_attrs)</code></pre>
 </details>
 <div class="desc"><p>Sum values along one dimension. This may reduce the geometry if the axis is spatial.</p></div>
 </dd>
@@ -10377,7 +10303,7 @@ The shape of the returned tensor is exactly one cell larger than the grid <code>
             size = (bounds.volume / cell_count) ** (1 / self.spatial_rank)
         res = math.maximum(1, math.round(bounds.size / size))
         resolution = spatial(**res.vector)
-    return Field(UniformGrid(resolution, bounds), self, self.boundary)</code></pre>
+    return Field(UniformGrid(resolution, bounds), self, self.boundary, sampled_at=&#39;center&#39;)</code></pre>
 </details>
 <div class="desc"></div>
 </dd>
@@ -10420,7 +10346,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     old_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if self.boundary.determines_boundary_values(k)}
     new_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if boundary.determines_boundary_values(k)}
     if old_determined_slices.values() == new_determined_slices.values():
-        return Field(self.geometry, self.values, boundary)  # ToDo unnecessary once the rest is implemented
+        return Field(self.geometry, self.values, boundary, sampled_at=self.sampled_at)  # ToDo unnecessary once the rest is implemented
     to_add = {k: sl for k, sl in old_determined_slices.items() if sl not in new_determined_slices.values()}
     to_remove = [sl for sl in new_determined_slices.values() if sl not in old_determined_slices.values()]
     values = math.slice_off(self.values, *to_remove)
@@ -10434,7 +10360,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
             values = values.vector.as_dual()
         else:
             values = math.pad(values, list(to_add.values()), self.boundary, bounds=self.bounds)
-    return Field(self.geometry, values, boundary)</code></pre>
+    return Field(self.geometry, values, boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with the <code>boundary</code> replaced.</p></div>
 </dd>
@@ -10452,7 +10378,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     geometry = self.geometry.vector[order]
     new_shape = self.values.shape.without(order) &amp; self.values.shape.only(order, reorder=True)
     values = math.swap_axes(self.values, new_shape)
-    return Field(geometry, values, self.boundary)</code></pre>
+    return Field(geometry, values, self.boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with <code>bounds</code> replaced.</p></div>
 </dd>
@@ -10467,7 +10393,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
 <pre><code class="python">def with_geometry(self, elements: Geometry):
     &#34;&#34;&#34; Returns a copy of this field with `elements` replaced. &#34;&#34;&#34;
     assert non_batch(elements) == non_batch(self.geometry), f&#34;Field.with_elements() only accepts elements with equal non-batch dimensions but got {elements.shape} for Field with shape {self.geometry.shape}&#34;
-    return Field(elements, self.values, self.boundary)</code></pre>
+    return Field(elements, self.values, self.boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with <code>elements</code> replaced.</p></div>
 </dd>
@@ -10486,7 +10412,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
     old_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if self.boundary.determines_boundary_values(k)}
     new_determined_slices = {k: s for k, s in getattr(self.geometry, boundary_elements).items() if boundary.determines_boundary_values(k)}
     if old_determined_slices.values() == new_determined_slices.values():
-        return Field(self.geometry, self.values, boundary)  # ToDo unnecessary once the rest is implemented
+        return Field(self.geometry, self.values, boundary, sampled_at=self.sampled_at)  # ToDo unnecessary once the rest is implemented
     to_add = {k: sl for k, sl in old_determined_slices.items() if sl not in new_determined_slices.values()}
     to_remove = [sl for sl in new_determined_slices.values() if sl not in old_determined_slices.values()]
     values = math.slice_off(self.values, *to_remove)
@@ -10500,7 +10426,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
             values = values.vector.as_dual()
         else:
             values = math.pad(values, list(to_add.values()), self.boundary, bounds=self.bounds)
-    return Field(self.geometry, values, boundary)</code></pre>
+    return Field(self.geometry, values, boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with the <code>boundary</code> replaced.</p></div>
 </dd>
@@ -10515,7 +10441,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
 <pre><code class="python">def with_geometry(self, elements: Geometry):
     &#34;&#34;&#34; Returns a copy of this field with `elements` replaced. &#34;&#34;&#34;
     assert non_batch(elements) == non_batch(self.geometry), f&#34;Field.with_elements() only accepts elements with equal non-batch dimensions but got {elements.shape} for Field with shape {self.geometry.shape}&#34;
-    return Field(elements, self.values, self.boundary)</code></pre>
+    return Field(elements, self.values, self.boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with <code>elements</code> replaced.</p></div>
 </dd>
@@ -10538,7 +10464,7 @@ If <code>values</code> is not uniform, it is padded as in <code>StaggeredGrid.st
             if &#39;~vector&#39; in geo_shape and &#39;vector&#39; in shape(values) and &#39;~vector&#39; not in shape(values):
                 values = values.vector.as_dual()
             values = expand(wrap(values), geo_shape.non_batch.non_channel)
-    return Field(self.geometry, values, self.boundary)</code></pre>
+    return Field(self.geometry, values, self.boundary, sampled_at=self.sampled_at)</code></pre>
 </details>
 <div class="desc"><p>Returns a copy of this field with <code>values</code> replaced.</p></div>
 </dd>
@@ -12198,6 +12124,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <li><code><a title="phi.field.Field.value_attrs" href="#phi.field.Field.value_attrs">value_attrs</a></code></li>
 <li><code><a title="phi.field.Field.values" href="#phi.field.Field.values">values</a></code></li>
 <li><code><a title="phi.field.Field.variable_attrs" href="#phi.field.Field.variable_attrs">variable_attrs</a></code></li>
+<li><code><a title="phi.field.Field.vector_dim" href="#phi.field.Field.vector_dim">vector_dim</a></code></li>
 <li><code><a title="phi.field.Field.with_boundary" href="#phi.field.Field.with_boundary">with_boundary</a></code></li>
 <li><code><a title="phi.field.Field.with_bounds" href="#phi.field.Field.with_bounds">with_bounds</a></code></li>
 <li><code><a title="phi.field.Field.with_elements" href="#phi.field.Field.with_elements">with_elements</a></code></li>
@@ -12268,6 +12195,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <li><code><a title="phi.field.Field.value_attrs" href="#phi.field.Field.value_attrs">value_attrs</a></code></li>
 <li><code><a title="phi.field.Field.values" href="#phi.field.Field.values">values</a></code></li>
 <li><code><a title="phi.field.Field.variable_attrs" href="#phi.field.Field.variable_attrs">variable_attrs</a></code></li>
+<li><code><a title="phi.field.Field.vector_dim" href="#phi.field.Field.vector_dim">vector_dim</a></code></li>
 <li><code><a title="phi.field.Field.with_boundary" href="#phi.field.Field.with_boundary">with_boundary</a></code></li>
 <li><code><a title="phi.field.Field.with_bounds" href="#phi.field.Field.with_bounds">with_bounds</a></code></li>
 <li><code><a title="phi.field.Field.with_elements" href="#phi.field.Field.with_elements">with_elements</a></code></li>
@@ -12338,6 +12266,7 @@ scene format specification at <a href="https://tum-pbs.github.io/PhiFlow/Scene_F
 <li><code><a title="phi.field.Field.value_attrs" href="#phi.field.Field.value_attrs">value_attrs</a></code></li>
 <li><code><a title="phi.field.Field.values" href="#phi.field.Field.values">values</a></code></li>
 <li><code><a title="phi.field.Field.variable_attrs" href="#phi.field.Field.variable_attrs">variable_attrs</a></code></li>
+<li><code><a title="phi.field.Field.vector_dim" href="#phi.field.Field.vector_dim">vector_dim</a></code></li>
 <li><code><a title="phi.field.Field.with_boundary" href="#phi.field.Field.with_boundary">with_boundary</a></code></li>
 <li><code><a title="phi.field.Field.with_bounds" href="#phi.field.Field.with_bounds">with_bounds</a></code></li>
 <li><code><a title="phi.field.Field.with_elements" href="#phi.field.Field.with_elements">with_elements</a></code></li>

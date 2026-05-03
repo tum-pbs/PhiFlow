@@ -90,7 +90,7 @@ el.replaceWith(d);
         diffusivity: Field = diffusivity if isinstance(diffusivity, Field) else u.with_values(diffusivity)
         if u.is_grid and u.is_centered:
             face_diffusivity = stagger(diffusivity, math.minimum, NONE)
-            du = u.gradient(boundary=NONE, at=&#39;face&#39;)
+            du = u.gradient(boundary=NONE, at=&#39;face&#39;, stack_dim=channel(&#39;vector&#39;))
             lap = (face_diffusivity * du).divergence(order=2)
         else:
             raise NotImplementedError(&#34;spatially-varying diffusion currently only supported for centered grids&#34;)
@@ -262,7 +262,7 @@ If <code>None</code>, approximates the gradient as <code>(u_neighbor - u_self) /
         diffusivity: Field = diffusivity if isinstance(diffusivity, Field) else u.with_values(diffusivity)
         if u.is_grid and u.is_centered:
             face_diffusivity = stagger(diffusivity, math.minimum, NONE)
-            du = u.gradient(boundary=NONE, at=&#39;face&#39;)
+            du = u.gradient(boundary=NONE, at=&#39;face&#39;, stack_dim=channel(&#39;vector&#39;))
             lap = (face_diffusivity * du).divergence(order=2)
         else:
             raise NotImplementedError(&#34;spatially-varying diffusion currently only supported for centered grids&#34;)
