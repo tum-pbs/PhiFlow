@@ -523,7 +523,7 @@ TensorFlow and PyTorch return 0 while Jax returns 1.</p>
         return grid
     if grid.is_grid and grid.is_staggered:
         padded = []
-        for dim in grid.vector.item_names:
+        for dim in grid.vector.labels:
             lower, upper = grid.extrapolation.valid_outer_faces(dim)
             value = grid.values[dim]
             padded.append(math.pad(value, {dim: (0 if lower else 1, 0 if upper else 1)}, grid.extrapolation[{&#39;vector&#39;: dim}], bounds=grid.bounds))
@@ -874,7 +874,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f5a325c2980></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7f27959bb9c0></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -904,7 +904,6 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
     Returns:
         Divergence field as `CenteredGrid`
     &#34;&#34;&#34;
-
     if field.is_mesh:
         field = field.at_faces(boundary=NONE, order=order, upwind=upwind)
         div = field.geometry.integrate_flux(field.values, divide_volume=True)
@@ -924,12 +923,9 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
             components = [grad.vector[i].div_[i] for i in grad.div_.item_names]
             result = sum(components)
             return result
-
     else:
-        components = [
-            spatial_gradient(f, dims=dim, at=&#39;center&#39;, order=order, implicit=implicit, implicitness=implicitness,
-                             stack_dim=&#34;sum:b&#34;).sum[0] for f, dim in zip(field.vector, field.shape.only(spatial).names)]
-
+        components = [spatial_gradient(f, dims=dim, at=&#39;center&#39;, order=order, implicit=implicit, implicitness=implicitness, stack_dim=&#34;d_sum:b&#34;).d_sum[0]
+                      for f, dim in zip(field.vector, field.shape.only(spatial).names)]
     return sum(components)</code></pre>
 </details>
 <div class="desc"><p>Computes the divergence of a grid using finite differences.</p>
@@ -1045,7 +1041,7 @@ The new values are determined via linear interpolation.</p>
         new_values = math.finite_fill(grid.values, distance=distance, diagonal=diagonal, padding=grid.extrapolation)
         return grid.with_values(new_values)
     elif grid.is_grid and grid.is_staggered:
-        new_values = [finite_fill(c, distance=distance, diagonal=diagonal).values for c in grid.vector]
+        new_values = [math.finite_fill(c, distance=distance, diagonal=diagonal, padding=grid.extrapolation) for c in math.unstack(grid.values, &#39;~vector&#39;)]
         return grid.with_values(math.stack(new_values, channel(grid).as_dual()))
     else:
         raise ValueError(grid)</code></pre>
@@ -2729,15 +2725,15 @@ True
     elif at == &#39;face&#39;:
         if field.is_staggered and field.geometry.shallow_equals(geometry) and field.geometry.face_shape == geometry.face_shape and field.geometry.shallow_equals(dot_face_normal):
             return field.values
+        elif dot_face_normal is not None and channel(field):
+            assert _are_axis_aligned(dot_face_normal.face_normals)
+            components = _unstack_staggered_grid(field) if field.is_staggered else math.unstack(field, &#39;vector&#39;)
+            faces = math.unstack(slice_off_constant_faces(geometry.faces, geometry.boundary_faces, boundary), dual)
+            sampled = [sample(c, p, **kwargs) for c, p in zip(components, faces)]
+            return math.stack(sampled, dual(dot_face_normal.face_shape))
         elif field.is_grid and field.is_centered:
             return sample_grid_at_faces(field, geometry, boundary, **kwargs)
         elif field.is_grid and field.is_staggered:
-            if dot_face_normal is not None:
-                assert _are_axis_aligned(dot_face_normal.face_normals)
-                components = _unstack_staggered_grid(field)
-                faces = math.unstack(slice_off_constant_faces(geometry.faces, geometry.boundary_faces, boundary), dual)
-                sampled = [sample(c, p, **kwargs) for c, p in zip(components, faces)]
-                return math.stack(sampled, dual(dot_face_normal.face_shape))
             faces = math.unstack(slice_off_constant_faces(geometry.faces, geometry.boundary_faces, boundary), dual)
             sampled = [sample(field, face, **kwargs) for face in faces]
             return math.stack(sampled, dual(geometry.face_shape))
@@ -3031,10 +3027,14 @@ The sign of 0 is undefined.</p>
                     if b.get_sparse_format(nat_matrix) == &#39;csr&#39;:
                         _, (data, idx, ptr) = b.disassemble(nat_matrix)
                         idx = b.csr_to_coo(idx[None, :], ptr[None, :])[0, :]
+                    elif b.get_sparse_format(nat_matrix) == &#39;csc&#39;:
+                        _, (data, ptr, idx) = b.disassemble(nat_matrix)
+                        idx = b.csr_to_coo(idx[None, :], ptr[None, :])[0, :]
+                        idx = b.flip(idx, (-1,))
                     elif b.get_sparse_format(nat_matrix) == &#39;coo&#39;:
                         _, (idx, data) = b.disassemble(nat_matrix)
                     else:
-                        raise NotImplementedError
+                        raise NotImplementedError(b.get_sparse_format(nat_matrix))
                     # --- Add a row and column of ones to the matrix to make the system non-singular ---
                     data = b.pad(data, [(0, 2*N)], constant_values=1)
                     i = b.range(N, dtype=b.dtype(idx))
@@ -3272,7 +3272,6 @@ The output of <code>f</code> must match <code>y</code>.</dd>
     Returns:
         spatial_gradient field of type `type`.
     &#34;&#34;&#34;
-
     assert at in [&#39;face&#39;, &#39;center&#39;]
     stack_dim = auto(stack_dim)
     if gradient_extrapolation is not None:
@@ -3290,44 +3289,34 @@ The output of <code>f</code> must match <code>y</code>.</dd>
         elif scheme == &#39;least-squares&#39;:
             return least_squares_gradient(field, stack_dim=stack_dim, boundary=boundary)
         raise NotImplementedError(scheme)
-
     if &#39;vector&#39; in field.shape:
         assert stack_dim.name != &#39;vector&#39;, &#34;`stack_dim=vector` is inadmissible if the input is a vector grid&#34;
         if field == StaggeredGrid:
             assert at == &#39;faces&#39;, &#34;for a `StaggeredGrid` input only `type == StaggeredGrid` is possible&#34;
-
     if at == &#39;faces&#39;:
         assert stack_dim.name == &#39;vector&#39;, f&#34;spatial_gradient with type=StaggeredGrid requires stack_dim.name == &#39;vector&#39; but got &#39;{stack_dim.name}&#39;&#34;
-
     if gradient_extrapolation is None:
         gradient_extrapolation = field.extrapolation.spatial_gradient()
-
     if implicitness is None:
         implicitness = 0 if implicit is None else 2
     elif implicitness != 0:
         assert implicit is not None, &#34;for implicit treatment a `Solve` is required&#34;
-
     grad_dims = field.shape.only(dims).names
-
     if stack_dim is None:
         assert len(grad_dims) == 1, &#34;`stack_dim` `None` is only possible with single `grad_dim`&#34;
     else:
         stack_dim = stack_dim.with_size(grad_dims)
-
+    # --- Second-order ---
     if order == 2:
         if at == &#39;center&#39;:
-            values = math.spatial_gradient(field.values, field.dx.vector.as_channel(name=stack_dim.name),
-                                           difference=&#39;central&#39;, padding=field.extrapolation, stack_dim=stack_dim)
+            values = math.spatial_gradient(field.values, field.dx.vector.as_channel(name=stack_dim.name), difference=&#39;central&#39;, padding=field.extrapolation, stack_dim=stack_dim)
             return CenteredGrid(values, bounds=field.bounds, extrapolation=gradient_extrapolation)
         elif at == &#39;face&#39;:
             assert stack_dim.name == &#39;vector&#39;
             return stagger(field, lambda lower, upper: (upper - lower) / field.dx.vector.as_dual(), gradient_extrapolation)
-
-    result_components = [
-        perform_finite_difference_operation(field.values, dim, 1, field.dx.vector[dim], field.extrapolation,
-                                            gradient_extrapolation, at, order, implicit, implicitness)
-        for dim in field.shape.only(grad_dims).names]
-
+    # --- Higher-order---
+    result_components = [perform_finite_difference_operation(field.values, dim, 1, field.dx.vector[dim], field.extrapolation, gradient_extrapolation, at, order, implicit, implicitness)
+                         for dim in field.shape.only(grad_dims).names]
     if at == &#39;center&#39;:
         result = field.with_values(math.stack(result_components, stack_dim))
         result = result.with_extrapolation(gradient_extrapolation)
@@ -3335,12 +3324,10 @@ The output of <code>f</code> must match <code>y</code>.</dd>
         result = StaggeredGrid(
             math.stack(result_components, stack_dim.as_dual()),
             bounds=field.bounds, extrapolation=gradient_extrapolation)
-
     if at == &#39;center&#39; and gradient_extrapolation == math.extrapolation.NONE:
         result = result.with_bounds(Box(field.bounds.lower - field.dx, field.bounds.upper + field.dx))
     else:
         result = result.with_bounds(field.bounds)
-
     return result</code></pre>
 </details>
 <div class="desc"><p>Finite difference spatial_gradient.</p>
