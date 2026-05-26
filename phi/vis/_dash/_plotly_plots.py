@@ -16,7 +16,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from plotly.tools import DEFAULT_PLOTLY_COLORS
 
-from phiml import math
+from phiml import math, isize
 from phiml.math import reshaped_numpy, dual, instance, non_dual, merge_shapes, pack_dims, dsum, close, equal, NAN, batch, Shape, Tensor, spatial, channel, non_channel
 from phiml.math._tensors import Layout
 from phiml.math._sparse import CompactSparseTensor
@@ -214,12 +214,12 @@ class LinePlot(Recipe):
         if channels.rank == 1 and channels.item_names[0] is not None:
             for i, name in enumerate(channels.item_names[0]):
                 y = math.reshaped_native(real_values(data[{channels.name: i}]), [data.shape.spatial], to_numpy=True)
-                figure.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers', name=name), row=row, col=col)
+                figure.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines', name=name), row=row, col=col)
             figure.update_layout(showlegend=True)
         else:
             for ch_idx in channels.meshgrid():
                 y = math.reshaped_native(real_values(data[ch_idx]), [data.shape.spatial], to_numpy=True)
-                figure.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines+markers', name='Multi-channel'), row=row, col=col)
+                figure.add_trace(graph_objects.Scatter(x=x, y=y, mode='lines', name='Multi-channel'), row=row, col=col)
             figure.update_layout(showlegend=False)
         if min_val is not None and max_val is not None:
             subplot.yaxis.update(range=(min_val - .02 * (max_val - min_val), max_val + .02 * (max_val - min_val)))
@@ -522,13 +522,15 @@ class Scatter3D(Recipe):
                 color_i = data[idx].values.numpy([math.shape]).astype(np.float32)
             else:
                 color_i = plotly_color(color[idx], non_channel(data.geometry))
+            points_dim = data.shape.non_channel
+            labels = points_dim.labels if points_dim.rank == 1 and points_dim.size <= 200 else None
             if spatial(data.geometry):
                 for sdim in spatial(data.geometry):
                     xyz = math.reshaped_numpy(data[idx].points.vector[dims], [vector, ..., sdim])
                     xyz_padded = [[i.tolist() + [None] for i in c] for c in xyz]
                     x, y, z = [sum(c, []) for c in xyz_padded]
                     mode = 'markers+lines' if data.shape.non_channel.volume <= 100 else 'lines'
-                    figure.add_scatter3d(mode=mode, x=x, y=y, z=z, row=row, col=col, line=dict(color=color_i, width=2), opacity=float(alpha))
+                    figure.add_scatter3d(mode=mode, x=x, y=y, z=z, row=row, col=col, line=dict(color=color_i, width=2), opacity=float(alpha), marker=dict(size=2.5))
                 continue
             # if data.points.shape.non_channel.rank > 1:
             #     data_list = field.unstack(data, data.points.shape.non_channel[0].name)
@@ -551,7 +553,8 @@ class Scatter3D(Recipe):
                 marker_size = 20
             marker_size *= size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5
             marker = graph_objects.scatter3d.Marker(size=marker_size, color=color_i, colorscale='Viridis', sizemode='diameter', symbol=symbol)
-            figure.add_scatter3d(mode='markers', x=x, y=y, z=z, marker=marker, row=row, col=col)
+            text_kwargs = dict(text=list(labels[0]), mode='markers+text', textposition='top center') if labels is not None and labels[0] is not None else dict(mode='markers')
+            figure.add_scatter3d(x=x, y=y, z=z, marker=marker, row=row, col=col, **text_kwargs)
             figure.update_layout(showlegend=False)
 
 
@@ -613,6 +616,8 @@ class SurfaceMesh3D(Recipe):
         v1, v2, v3 = [], [], []
         for bi in batch_dims.meshgrid():
             mesh = data.mesh[bi]
+            if isize(mesh.elements) == 0:
+                continue
             if isinstance(mesh.elements, CompactSparseTensor):
                 polygons = mesh.elements._indices
                 math.assert_close(1, mesh.elements._values)
