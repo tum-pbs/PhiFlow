@@ -789,7 +789,7 @@ class Field(metaclass=_FieldType):
         if isinstance(other, Geometry):
             raise ValueError(f"Cannot combine {self.__class__.__name__} with a Geometry, got {type(other)}")
         if isinstance(other, Field):
-            if self.geometry == other.geometry:
+            if self.geometry == other.geometry and self.sampled_at == other.sampled_at:
                 values = operator(self.values, other.values)
                 extrapolation_ = operator(self.boundary, other.extrapolation)
                 return Field(self.geometry, values, extrapolation_)

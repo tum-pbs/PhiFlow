@@ -103,3 +103,19 @@ class TestField(TestCase):
         grid = v.to_grid(x=10, y=10)
         self.assertEqual(resolution.with_sizes(10), grid.resolution)
         self.assertEqual(grid.bounds, mesh.bounds)
+
+    def test_op2_different_sampling_resamples(self):
+        # A StaggeredGrid and a CenteredGrid share the same geometry but sample at different
+        # locations (faces vs. cell centers). Binary operations between them must resample one
+        # onto the other instead of multiplying the raw (differently-shaped) value tensors.
+        # Regression test for #210 (StaggeredGrid * CenteredGrid).
+        velocity = StaggeredGrid(1, 0, x=8, y=8)
+        mask = CenteredGrid(2, 0, x=8, y=8)
+        product = velocity * mask
+        self.assertEqual('face', product.sampled_at)
+        math.assert_close(2, product.values)  # 1 (face) * 2 (mask resampled to faces)
+        # A zero mask must zero out the velocity field everywhere.
+        math.assert_close(0, (velocity * CenteredGrid(0, 0, x=8, y=8)).values)
+        # Same-sampling operations must still take the fast path and stay correct.
+        math.assert_close(4, (mask * mask).values)
+        self.assertEqual('face', (velocity * velocity).sampled_at)
