@@ -95,15 +95,18 @@ def StaggeredGrid(values: Any = 0.,
                   **resolution_: int or Tensor) -> Field:
     """
     N-dimensional grid whose vector components are sampled at the respective face centers.
-    A staggered grid is defined through its values tensor, its bounds describing the physical size, and its extrapolation.
+    A staggered grid is defined through its values tensor, its bounds describing the physical size, and its boundary conditions.
 
     Staggered grids support batch and spatial dimensions but only one channel dimension for the staggered vector components.
+
+    Note that the outer-most face values are only stored where the boundary does not determine them.
+    For example with `boundary=0`, the outer faces are not part of `values` and the resulting tensor is smaller compared to `boundary='zero-gradient'`.
 
     See Also:
         `CenteredGrid`,
         `Grid`,
         `Field`,
-        `Field`,
+        [Documentation](https://tum-pbs.github.io/PhiFlow/Staggered_Grids.html),
         module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
 
     Args:
@@ -128,6 +131,31 @@ def StaggeredGrid(values: Any = 0.,
             If `bounds` is given as a `Box`, the resolution may be specified as an `int` to be equal along all axes.
         convert: Whether to convert `values` to the default backend.
         **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
+
+    Example:
+        The following examples all create a 2D staggered grid with 10×10 cells.
+
+        >>> from phi.flow import *
+
+        >>> StaggeredGrid((1, 0), boundary='periodic', x=10, y=10)
+
+        >>> StaggeredGrid(Noise(), boundary='zero-gradient', x=10, y=10)
+
+        >>> StaggeredGrid(lambda x, y: exp(-x) + exp(-y), x=10, y=10, boundary=0)
+
+        >>> StaggeredGrid(Sphere(x=0, y=0, radius=1), x=10, y=10, boundary=0)
+
+        >>> vx = tensor(np.zeros([11, 10]), 'x,y')
+        >>> vy = tensor(np.zeros([10, 11]), 'x,y')
+        >>> StaggeredGrid(stack([vx, vy], '~(x,y)'), boundary='zero-gradient')
+
+        >>> vx = tensor(np.zeros([10, 10]), 'x,y')
+        >>> vy = tensor(np.zeros([10, 10]), 'x,y')
+        >>> StaggeredGrid(stack([vx, vy], '~(x,y)'), boundary='periodic')
+
+        >>> vx = tensor(np.zeros([9, 10]), 'x,y')
+        >>> vy = tensor(np.zeros([10, 9]), 'x,y')
+        >>> StaggeredGrid(stack([vx, vy], '~(x,y)'), boundary=0)
     """
     extrapolation = boundary if extrapolation is None else extrapolation
     extrapolation = as_boundary(extrapolation, UniformGrid)
