@@ -282,15 +282,18 @@ See the description in <code><a title="phi.geom.Geometry.approximate_fraction_in
                   **resolution_: int or Tensor) -&gt; Field:
     &#34;&#34;&#34;
     N-dimensional grid whose vector components are sampled at the respective face centers.
-    A staggered grid is defined through its values tensor, its bounds describing the physical size, and its extrapolation.
+    A staggered grid is defined through its values tensor, its bounds describing the physical size, and its boundary conditions.
 
     Staggered grids support batch and spatial dimensions but only one channel dimension for the staggered vector components.
+
+    Note that the outer-most face values are only stored where the boundary does not determine them.
+    For example with `boundary=0`, the outer faces are not part of `values` and the resulting tensor is smaller compared to `boundary=&#39;zero-gradient&#39;`.
 
     See Also:
         `CenteredGrid`,
         `Grid`,
         `Field`,
-        `Field`,
+        [Documentation](https://tum-pbs.github.io/PhiFlow/Staggered_Grids.html),
         module documentation at https://tum-pbs.github.io/PhiFlow/Fields.html
 
     Args:
@@ -315,6 +318,31 @@ See the description in <code><a title="phi.geom.Geometry.approximate_fraction_in
             If `bounds` is given as a `Box`, the resolution may be specified as an `int` to be equal along all axes.
         convert: Whether to convert `values` to the default backend.
         **resolution_: Spatial dimensions as keyword arguments. Typically either `resolution` or `spatial_dims` are specified.
+
+    Example:
+        The following examples all create a 2D staggered grid with 10×10 cells.
+
+        &gt;&gt;&gt; from phi.flow import *
+
+        &gt;&gt;&gt; StaggeredGrid((1, 0), boundary=&#39;periodic&#39;, x=10, y=10)
+
+        &gt;&gt;&gt; StaggeredGrid(Noise(), boundary=&#39;zero-gradient&#39;, x=10, y=10)
+
+        &gt;&gt;&gt; StaggeredGrid(lambda x, y: exp(-x) + exp(-y), x=10, y=10, boundary=0)
+
+        &gt;&gt;&gt; StaggeredGrid(Sphere(x=0, y=0, radius=1), x=10, y=10, boundary=0)
+
+        &gt;&gt;&gt; vx = tensor(np.zeros([11, 10]), &#39;x,y&#39;)
+        &gt;&gt;&gt; vy = tensor(np.zeros([10, 11]), &#39;x,y&#39;)
+        &gt;&gt;&gt; StaggeredGrid(stack([vx, vy], &#39;~(x,y)&#39;), boundary=&#39;zero-gradient&#39;)
+
+        &gt;&gt;&gt; vx = tensor(np.zeros([10, 10]), &#39;x,y&#39;)
+        &gt;&gt;&gt; vy = tensor(np.zeros([10, 10]), &#39;x,y&#39;)
+        &gt;&gt;&gt; StaggeredGrid(stack([vx, vy], &#39;~(x,y)&#39;), boundary=&#39;periodic&#39;)
+
+        &gt;&gt;&gt; vx = tensor(np.zeros([9, 10]), &#39;x,y&#39;)
+        &gt;&gt;&gt; vy = tensor(np.zeros([10, 9]), &#39;x,y&#39;)
+        &gt;&gt;&gt; StaggeredGrid(stack([vx, vy], &#39;~(x,y)&#39;), boundary=0)
     &#34;&#34;&#34;
     extrapolation = boundary if extrapolation is None else extrapolation
     extrapolation = as_boundary(extrapolation, UniformGrid)
@@ -363,13 +391,15 @@ See the description in <code><a title="phi.geom.Geometry.approximate_fraction_in
     return Field(elements, values, extrapolation, sampled_at=&#39;face&#39;)</code></pre>
 </details>
 <div class="desc"><p>N-dimensional grid whose vector components are sampled at the respective face centers.
-A staggered grid is defined through its values tensor, its bounds describing the physical size, and its extrapolation.</p>
+A staggered grid is defined through its values tensor, its bounds describing the physical size, and its boundary conditions.</p>
 <p>Staggered grids support batch and spatial dimensions but only one channel dimension for the staggered vector components.</p>
+<p>Note that the outer-most face values are only stored where the boundary does not determine them.
+For example with <code>boundary=0</code>, the outer faces are not part of <code>values</code> and the resulting tensor is smaller compared to <code>boundary='zero-gradient'</code>.</p>
 <p>See Also:
 <code><a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a></code>,
 <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>,
 <code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>,
-<code><a title="phi.field.Field" href="#phi.field.Field">Field</a></code>,
+<a href="https://tum-pbs.github.io/PhiFlow/Staggered_Grids.html">Documentation</a>,
 module documentation at <a href="https://tum-pbs.github.io/PhiFlow/Fields.html">https://tum-pbs.github.io/PhiFlow/Fields.html</a></p>
 <h2 id="args">Args</h2>
 <dl>
@@ -402,7 +432,31 @@ If <code>bounds</code> is given as a <code>Box</code>, the resolution may be spe
 <dd>Whether to convert <code>values</code> to the default backend.</dd>
 <dt><strong><code>**resolution_</code></strong></dt>
 <dd>Spatial dimensions as keyword arguments. Typically either <code>resolution</code> or <code>spatial_dims</code> are specified.</dd>
-</dl></div>
+</dl>
+<h2 id="example">Example</h2>
+<p>The following examples all create a 2D staggered grid with 10×10 cells.</p>
+<pre><code class="language-python-repl">&gt;&gt;&gt; from phi.flow import *
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; StaggeredGrid((1, 0), boundary='periodic', x=10, y=10)
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; StaggeredGrid(Noise(), boundary='zero-gradient', x=10, y=10)
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; StaggeredGrid(lambda x, y: exp(-x) + exp(-y), x=10, y=10, boundary=0)
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; StaggeredGrid(Sphere(x=0, y=0, radius=1), x=10, y=10, boundary=0)
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; vx = tensor(np.zeros([11, 10]), 'x,y')
+&gt;&gt;&gt; vy = tensor(np.zeros([10, 11]), 'x,y')
+&gt;&gt;&gt; StaggeredGrid(stack([vx, vy], '~(x,y)'), boundary='zero-gradient')
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; vx = tensor(np.zeros([10, 10]), 'x,y')
+&gt;&gt;&gt; vy = tensor(np.zeros([10, 10]), 'x,y')
+&gt;&gt;&gt; StaggeredGrid(stack([vx, vy], '~(x,y)'), boundary='periodic')
+</code></pre>
+<pre><code class="language-python-repl">&gt;&gt;&gt; vx = tensor(np.zeros([9, 10]), 'x,y')
+&gt;&gt;&gt; vy = tensor(np.zeros([10, 9]), 'x,y')
+&gt;&gt;&gt; StaggeredGrid(stack([vx, vy], '~(x,y)'), boundary=0)
+</code></pre></div>
 </dd>
 <dt id="phi.field.abs"><code class="name flex">
 <span>def <span class="ident">abs</span></span>(<span>x: ~TensorOrTree) ‑> ~TensorOrTree</span>
@@ -874,7 +928,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fa09611b9c0></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7ff8660051c0></span>
 </code></dt>
 <dd>
 <details class="source">
