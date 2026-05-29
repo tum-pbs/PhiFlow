@@ -15447,31 +15447,17 @@ When selecting a vector component, such as <code>x</code> or <code>y</code>, the
 
 
 <div class="jp-OutputArea jp-Cell-outputArea">
-<div class="jp-OutputArea-child">
+<div class="jp-OutputArea-child jp-OutputArea-executeResult">
     
-    <div class="jp-OutputPrompt jp-OutputArea-prompt"></div>
+    <div class="jp-OutputPrompt jp-OutputArea-prompt">Out[6]:</div>
 
 
-<div class="jp-RenderedText jp-OutputArea-output" data-mime-type="application/vnd.jupyter.stderr">
-<pre>
-<span class="ansi-red-fg">---------------------------------------------------------------------------</span>
-<span class="ansi-red-fg">AssertionError</span>                            Traceback (most recent call last)
-<span class="ansi-cyan-fg">Cell</span><span class="ansi-cyan-fg"> </span><span class="ansi-green-fg">In[6]</span><span class="ansi-green-fg">, line 1</span>
-<span class="ansi-green-fg">----&gt; </span><span class="ansi-green-fg">1</span> grid.vector[<span class="ansi-yellow-fg">&#39;x&#39;</span>]  <span style="color: rgb(95,135,135)"># select component</span>
 
-<span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/site-packages/phiml/math/magic.py:559</span>, in <span class="ansi-cyan-fg">BoundDim.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
-<span class="ansi-green-fg">    558</span> <span class="ansi-bold" style="color: rgb(0,135,0)">def</span><span style="color: rgb(188,188,188)"> </span><span class="ansi-blue-fg">__getitem__</span>(<span style="color: rgb(0,135,0)">self</span>, item):
-<span class="ansi-green-fg">--&gt; </span><span class="ansi-green-fg">559</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> <span class="ansi-black-fg ansi-yellow-bg">self</span><span class="ansi-black-fg ansi-yellow-bg">.</span><span class="ansi-black-fg ansi-yellow-bg">obj</span><span class="ansi-black-fg ansi-yellow-bg">[</span><span class="ansi-black-fg ansi-yellow-bg">{</span><span class="ansi-black-fg ansi-yellow-bg">self</span><span class="ansi-black-fg ansi-yellow-bg">.</span><span class="ansi-black-fg ansi-yellow-bg">name</span><span class="ansi-black-fg ansi-yellow-bg">:</span><span class="ansi-black-fg ansi-yellow-bg"> </span><span class="ansi-black-fg ansi-yellow-bg">item</span><span class="ansi-black-fg ansi-yellow-bg">}</span><span class="ansi-black-fg ansi-yellow-bg">]</span>
 
-<span class="ansi-cyan-fg">File </span><span class="ansi-green-fg">/opt/hostedtoolcache/Python/3.12.13/x64/lib/python3.12/site-packages/phi/field/_field.py:712</span>, in <span class="ansi-cyan-fg">Field.__getitem__</span><span class="ansi-blue-fg">(self, item)</span>
-<span class="ansi-green-fg">    710</span> geometry = <span style="color: rgb(0,135,0)">self</span>.geometry[item_without_vec]
-<span class="ansi-green-fg">    711</span> <span class="ansi-bold" style="color: rgb(0,135,0)">if</span> <span style="color: rgb(0,135,0)">self</span>.is_staggered <span class="ansi-bold" style="color: rgb(175,0,255)">and</span> <span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg">vector</span><span class="ansi-yellow-fg">&#39;</span> <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> item <span class="ansi-bold" style="color: rgb(175,0,255)">and</span> <span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg">~vector</span><span class="ansi-yellow-fg">&#39;</span> <span class="ansi-bold" style="color: rgb(175,0,255)">in</span> <span style="color: rgb(0,135,0)">self</span>.geometry.face_shape:
-<span class="ansi-green-fg">--&gt; </span><span class="ansi-green-fg">712</span>     <span class="ansi-bold" style="color: rgb(0,135,0)">raise</span> <span class="ansi-bold" style="color: rgb(215,95,95)">AssertionError</span>(<span class="ansi-yellow-fg">f</span><span class="ansi-yellow-fg">&#34;</span><span class="ansi-yellow-fg">Staggered fields cannot be unstacked by component. Unstack the values instead. Tried accessing </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span>item[<span class="ansi-yellow-fg">&#39;</span><span class="ansi-yellow-fg">vector</span><span class="ansi-yellow-fg">&#39;</span>]<span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg"> along vector of </span><span class="ansi-bold" style="color: rgb(175,95,135)">{</span><span style="color: rgb(0,135,0)">self</span><span class="ansi-bold" style="color: rgb(175,95,135)">}</span><span class="ansi-yellow-fg">&#34;</span>)
-<span class="ansi-green-fg">    713</span> values = <span style="color: rgb(0,135,0)">self</span>.values[item]
-<span class="ansi-green-fg">    714</span> <span class="ansi-bold" style="color: rgb(0,135,0)">return</span> Field(geometry, values, boundary, sampled_at=<span style="color: rgb(0,135,0)">self</span>.sampled_at)
-
-<span class="ansi-red-fg">AssertionError</span>: Staggered fields cannot be unstacked by component. Unstack the values instead. Tried accessing x along vector of <span class="ansi-green-intense-fg">(~vectorᵈ=x,y, xˢ=~</span><span class="ansi-blue-intense-fg">(x=9, y=10)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">, yˢ=~</span><span class="ansi-blue-intense-fg">(x=10, y=9)</span><span class="ansi-green-intense-fg"> </span><span class="ansi-yellow-intense-fg">int64</span><span class="ansi-green-intense-fg">)</span> <span class="ansi-blue-intense-fg">0.808 ± 0.378</span> <span class="ansi-white-fg">(0e+00...1e+00)</span> @ face of UniformGrid[(vectorᶜ=x,y, xˢ=10, yˢ=10)], BC=<span class="ansi-blue-intense-fg">0</span></pre>
+<div class="jp-RenderedText jp-OutputArea-output jp-OutputArea-executeResult" data-mime-type="text/plain">
+<pre><span class="ansi-green-intense-fg">(xˢ=9, yˢ=10)</span> <span class="ansi-blue-intense-fg">0.808 ± 0.378</span> <span class="ansi-white-fg">(0e+00...1e+00)</span> @ center of UniformGrid[(vectorᶜ=x,y, xˢ=9, yˢ=10)], BC=<span class="ansi-blue-intense-fg">0</span></pre>
 </div>
+
 </div>
 
 </div>
