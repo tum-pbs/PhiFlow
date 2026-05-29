@@ -709,7 +709,16 @@ class Field(metaclass=_FieldType):
         item_without_vec = {dim: selection for dim, selection in item.items() if dim != 'vector'}
         geometry = self.geometry[item_without_vec]
         if self.is_staggered and 'vector' in item and '~vector' in self.geometry.face_shape:
-            raise AssertionError(f"Staggered fields cannot be unstacked by component. Unstack the values instead. Tried accessing {item['vector']} along vector of {self}")
+            if self.is_grid:  # backwards compatibility: return centered grids for now
+                values = self.values[{'~vector': item['vector']}]
+                geometry = self.grid.staggered_cells(self.boundary)
+                component = item['vector']
+                if isinstance(component, int):
+                    component = self.vector_dim.lables[0][component]
+                assert isinstance(component, str), f"can slice 'vector' of staggered grid only by int or str"
+                return Field(geometry[component], values, boundary, sampled_at='center')
+            else:
+                raise AssertionError(f"Staggered fields cannot be unstacked by component. Unstack the values instead. Tried accessing {item['vector']} along vector of {self}")
         values = self.values[item]
         return Field(geometry, values, boundary, sampled_at=self.sampled_at)
 
