@@ -18,7 +18,7 @@ def test_billiards():
     def physics_step(v: PointCloud, dt: float, elasticity=0.8):
         v_next = advect.points(v, v, dt)
         x_diff = math.pairwise_differences(v_next.points)
-        dist = math.vec_length(x_diff, eps=1e-4)
+        dist = length(x_diff, epsilon=1e-4)
         rel_v = -math.pairwise_differences(v.values)
         dist_dir = -math.safe_div(x_diff, dist)
         projected_v = dist_dir.vector * rel_v.vector
