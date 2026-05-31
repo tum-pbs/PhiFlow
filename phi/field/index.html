@@ -928,7 +928,7 @@ For <code><a title="phi.field.StaggeredGrid" href="#phi.field.StaggeredGrid">Sta
 </dl></div>
 </dd>
 <dt id="phi.field.divergence"><code class="name flex">
-<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7ff229019300></span>
+<span>def <span class="ident">divergence</span></span>(<span>field: phi.field._field.Field,<br>order=2,<br>implicit: phiml.math._optimize.Solve = None,<br>upwind: phi.field._field.Field = None,<br>implicitness: int = None) ‑> <function <a title="phi.field.CenteredGrid" href="#phi.field.CenteredGrid">CenteredGrid()</a> at 0x7fe803021300></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4841,7 +4841,7 @@ class Field(metaclass=_FieldType):
         if isinstance(other, Geometry):
             raise ValueError(f&#34;Cannot combine {self.__class__.__name__} with a Geometry, got {type(other)}&#34;)
         if isinstance(other, Field):
-            if self.geometry == other.geometry:
+            if self.geometry == other.geometry and self.sampled_at == other.sampled_at:
                 values = operator(self.values, other.values)
                 extrapolation_ = operator(self.boundary, other.extrapolation)
                 return Field(self.geometry, values, extrapolation_, sampled_at=self.sampled_at)
@@ -7002,7 +7002,7 @@ class Field(metaclass=_FieldType):
         if isinstance(other, Geometry):
             raise ValueError(f&#34;Cannot combine {self.__class__.__name__} with a Geometry, got {type(other)}&#34;)
         if isinstance(other, Field):
-            if self.geometry == other.geometry:
+            if self.geometry == other.geometry and self.sampled_at == other.sampled_at:
                 values = operator(self.values, other.values)
                 extrapolation_ = operator(self.boundary, other.extrapolation)
                 return Field(self.geometry, values, extrapolation_, sampled_at=self.sampled_at)
@@ -9162,7 +9162,7 @@ class Field(metaclass=_FieldType):
         if isinstance(other, Geometry):
             raise ValueError(f&#34;Cannot combine {self.__class__.__name__} with a Geometry, got {type(other)}&#34;)
         if isinstance(other, Field):
-            if self.geometry == other.geometry:
+            if self.geometry == other.geometry and self.sampled_at == other.sampled_at:
                 values = operator(self.values, other.values)
                 extrapolation_ = operator(self.boundary, other.extrapolation)
                 return Field(self.geometry, values, extrapolation_, sampled_at=self.sampled_at)
