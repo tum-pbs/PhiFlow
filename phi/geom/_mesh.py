@@ -320,7 +320,7 @@ class Mesh(Geometry):
         #     vertex_connectivity = sparse_tensor(vertex_connectivity, stored_values(self._vertex_connectivity), non_batch(self._vertex_connectivity).with_sizes(instance(vertices).size), False)
         if isinstance(self.elements, CompactSparseTensor):
             indices = new_index_t[{dual: self.elements._indices}]
-            elements = CompactSparseTensor(indices, self.elements._values, self.elements._compressed_dims.with_size(instance(vertices).volume), self.elements._indices_constant, self.elements._matrix_rank)
+            elements = CompactSparseTensor(indices, self.elements._values, self.elements._compressed_dims.with_size(instance(vertices).volume), self.elements._indices_constant, self.elements._prop)
         else:
             filtered_coo = coo_matrix((coo.data, (coo.row, new_index[coo.col])), shape=(instance(self.elements).volume, instance(vertices).volume))  # ToDo keep sparse format
             elements = wrap(filtered_coo, self.elements.shape.without_sizes())
