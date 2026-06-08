@@ -577,13 +577,41 @@ class Graph3D(Recipe):
         dims = space.vector.item_names
         row, col = subplot
         xyz = reshaped_numpy(data.graph.center.vector[dims], ['vector', instance])
+        if instance(data.values) and dual(data.values):
+            values = data.values.numpy().tocoo()
+        else:
+            values = None
         connectivity: coo_matrix = data.graph.connectivity.numpy().tocoo()
         x1, y1, z1 = xyz[:, connectivity.col]
         x2, y2, z2 = xyz[:, connectivity.row]
         x = np.stack([x1, x2, np.nan + x1], -1).flatten()
         y = np.stack([y1, y2, np.nan + y1], -1).flatten()
         z = np.stack([z1, z2, np.nan + z1], -1).flatten()
-        figure.add_scatter3d(x=x, y=y, z=z, mode='lines', row=row, col=col)
+        if values is not None and values.nnz > 0:
+            # Match each plotted edge to a scalar value, falling back to NaN if missing.
+            value_by_edge = {(r, c): v for r, c, v in zip(values.row, values.col, values.data)}
+            edge_values = np.asarray([value_by_edge.get((r, c), np.nan) for r, c in zip(connectivity.row, connectivity.col)], dtype=np.float32)
+            finite = edge_values[np.isfinite(edge_values)]
+            if finite.size > 0:
+                edge_colors = np.stack([edge_values, edge_values, np.nan + edge_values], -1).flatten()
+                figure.add_scatter3d(
+                    x=x, y=y, z=z,
+                    mode='lines',
+                    row=row, col=col,
+                    line=dict(color=edge_colors,
+                              colorscale='Viridis',
+                              cmin=float(np.min(finite)),
+                              cmax=float(np.max(finite)),
+                              width=3,
+                              showscale=show_color_bar),
+                    opacity=float(alpha),
+                )
+                return
+        line_color = plotly_color(color) if color != 'cmap' else None
+        line_kwargs = dict(width=3)
+        if line_color is not None:
+            line_kwargs['color'] = line_color
+        figure.add_scatter3d(x=x, y=y, z=z, mode='lines', row=row, col=col, line=line_kwargs, opacity=float(alpha))
 
 
 class SurfaceMesh3D(Recipe):
