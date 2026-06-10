@@ -632,3 +632,10 @@ def is_jupyter():
         'ZMQInteractiveShell': True,  # Jupyter notebook or qtconsole
         'TerminalInteractiveShell': False  # Jupyter notebook or qtconsole
     }.get(ipy, False)
+
+
+def size_le(dim: Shape, compare: int):
+    if isinstance(dim.size, int):
+        return dim.size <= compare
+    else:
+        return (dim.size <= compare).all

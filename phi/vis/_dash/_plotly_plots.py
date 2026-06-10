@@ -28,7 +28,7 @@ from ...geom import Sphere, BaseBox, Point, Box, SDF, SDFGrid, Cylinder, Mesh
 from ...geom._geom_ops import GeometryStack
 from .._dash.colormaps import COLORMAPS
 from .._plot_util import smooth_uniform_curve, down_sample_curve
-from .._vis_base import PlottingLibrary, Recipe, is_jupyter, display_name, to_field
+from .._vis_base import PlottingLibrary, Recipe, is_jupyter, display_name, to_field, size_le
 
 
 class PlotlyPlots(PlottingLibrary):
@@ -523,12 +523,24 @@ class Scatter3D(Recipe):
             else:
                 color_i = plotly_color(color[idx], non_channel(data.geometry))
             points_dim = data.shape.non_channel
-            labels = points_dim.labels if points_dim.rank == 1 and points_dim.size <= 200 else None
+            labels = points_dim.labels if points_dim.rank == 1 and size_le(points_dim, 200) else None
             if spatial(data.geometry):
                 for sdim in spatial(data.geometry):
-                    xyz = math.reshaped_numpy(data[idx].points.vector[dims], [vector, ..., sdim])
-                    xyz_padded = [[i.tolist() + [None] for i in c] for c in xyz]
-                    x, y, z = [sum(c, []) for c in xyz_padded]
+                    points_i = data[idx].points.vector[dims]
+                    if points_i.shape.is_uniform:
+                        xyz = math.reshaped_numpy(points_i, [vector, ..., sdim.name])
+                        xyz_padded = [[i.tolist() + [None] for i in c] for c in xyz]
+                        x, y, z = [sum(c, []) for c in xyz_padded]
+                    else:
+                        x, y, z = [], [], []
+                        for uniform_slice in points_i.shape.non_uniform_shape.meshgrid():
+                            x_sl, y_sl, z_sl = points_i[uniform_slice].numpy([vector, sdim.name])
+                            x.extend(x_sl)
+                            x.append(None)
+                            y.extend(y_sl)
+                            y.append(None)
+                            z.extend(z_sl)
+                            z.append(None)
                     mode = 'markers+lines' if data.shape.non_channel.volume <= 100 else 'lines'
                     figure.add_scatter3d(mode=mode, x=x, y=y, z=z, row=row, col=col, line=dict(color=color_i, width=2), opacity=float(alpha), marker=dict(size=2.5))
                 continue
