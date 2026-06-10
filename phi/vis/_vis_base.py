@@ -6,11 +6,12 @@ from math import log10
 from threading import Lock
 from typing import Tuple, Any, Optional, Dict, Callable, Union, Sequence
 
+from phiml import dual, primal, rename_dims
 from .. import field, math, geom
 from ..field import Field, Scene, PointCloud, CenteredGrid
 from ..field._field_math import data_bounds
 from ..geom import Box, Cuboid, Geometry
-from phiml.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel, expand, non_batch, vec, concat, tensor_like
+from phiml.math import Shape, EMPTY_SHAPE, Tensor, spatial, instance, wrap, channel, expand, non_batch, vec, concat, tensor_like, dense
 
 Control = namedtuple('Control', [
     'name',
@@ -506,6 +507,12 @@ def to_field(obj) -> Field:
     if isinstance(obj, Tensor):
         arbitrary_lines_1d = spatial(obj).rank == 1 and 'vector' in obj.shape
         point_cloud = instance(obj) and 'vector' in obj.shape
+        matrix = primal(obj) and dual(obj) and 'vector' not in obj.shape
+        if matrix:
+            obj = dense(obj)
+            obj = rename_dims(obj, instance, spatial)
+            obj = rename_dims(obj, dual(obj), spatial(**{n[1:] + '__': None for n in dual(obj).names}))
+            return CenteredGrid(obj)
         if point_cloud or arbitrary_lines_1d:
             if math.get_format(obj) != 'dense':
                 obj = math.stored_values(obj)
