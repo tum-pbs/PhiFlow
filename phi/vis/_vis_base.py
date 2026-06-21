@@ -500,8 +500,6 @@ def to_field(obj) -> Field:
         return math.map(to_field, obj, dims=object)
     if isinstance(obj, Field):
         return obj
-    if isinstance(obj, geom.Graph):
-        return Field(obj, obj.edges)
     if isinstance(obj, Geometry):
         return Field(obj, math.NAN, math.NAN)
     if isinstance(obj, Tensor):

@@ -523,7 +523,7 @@ class Scatter3D(Recipe):
             else:
                 color_i = plotly_color(color[idx], non_channel(data.geometry))
             points_dim = data.shape.non_channel
-            labels = points_dim.labels if points_dim.rank == 1 and size_le(points_dim, 200) else None
+            labels = points_dim.labels if points_dim.rank == 1 and size_le(points_dim, 500) else None
             if spatial(data.geometry):
                 for sdim in spatial(data.geometry):
                     points_i = data[idx].points.vector[dims]
@@ -594,36 +594,69 @@ class Graph3D(Recipe):
         else:
             values = None
         connectivity: coo_matrix = data.graph.connectivity.numpy().tocoo()
+        if connectivity.nnz == 0:
+            return
         x1, y1, z1 = xyz[:, connectivity.col]
         x2, y2, z2 = xyz[:, connectivity.row]
-        x = np.stack([x1, x2, np.nan + x1], -1).flatten()
-        y = np.stack([y1, y2, np.nan + y1], -1).flatten()
-        z = np.stack([z1, z2, np.nan + z1], -1).flatten()
+        strength = abs(data.graph.edges.numpy().tocoo())
+        max_strength = strength.data.max() if strength.nnz else 0
+        rel_strength = np.zeros_like(strength.data, dtype=np.float32) if max_strength == 0 else (strength.data / max_strength).astype(np.float32, copy=False)
+        line_color = plotly_color(color) if color != 'cmap' else None
         if values is not None and values.nnz > 0:
             # Match each plotted edge to a scalar value, falling back to NaN if missing.
             value_by_edge = {(r, c): v for r, c, v in zip(values.row, values.col, values.data)}
             edge_values = np.asarray([value_by_edge.get((r, c), np.nan) for r, c in zip(connectivity.row, connectivity.col)], dtype=np.float32)
             finite = edge_values[np.isfinite(edge_values)]
             if finite.size > 0:
-                edge_colors = np.stack([edge_values, edge_values, np.nan + edge_values], -1).flatten()
-                figure.add_scatter3d(
-                    x=x, y=y, z=z,
-                    mode='lines',
-                    row=row, col=col,
-                    line=dict(color=edge_colors,
-                              colorscale='Viridis',
-                              cmin=float(np.min(finite)),
-                              cmax=float(np.max(finite)),
-                              width=3,
-                              showscale=show_color_bar),
-                    opacity=float(alpha),
-                )
-                return
-        line_color = plotly_color(color) if color != 'cmap' else None
-        line_kwargs = dict(width=3)
-        if line_color is not None:
-            line_kwargs['color'] = line_color
-        figure.add_scatter3d(x=x, y=y, z=z, mode='lines', row=row, col=col, line=line_kwargs, opacity=float(alpha))
+                line_color = edge_values  # use color map
+        if rel_strength.max() == rel_strength.min():
+            widths = rel_strength * 0 + 3.
+        else:  # plot width line width scaling with rel_strength (grouped by width bins)
+            min_width, max_width = .5, 6.0
+            width_scale = (rel_strength - rel_strength.min()) / (rel_strength.max() - rel_strength.min())
+            widths = min_width + width_scale * (max_width - min_width)
+        # Group edges by width bins (0.5 increments from 0.5 to 5.0)
+        bin_edges = np.arange(0.5, 5.5, 0.5)
+        width_bins = {}
+        for i, width in enumerate(widths):
+            # Find which bin this width belongs to (round to nearest bin)
+            bin_idx = np.argmin(np.abs(bin_edges - width))
+            bin_width = bin_edges[bin_idx]
+            if bin_width not in width_bins:
+                width_bins[bin_width] = []
+            width_bins[bin_width].append(i)
+        # Add traces for each bin that has edges
+        added_line_colorbar = False
+        for bin_width in sorted(width_bins.keys()):
+            indices = width_bins[bin_width]
+            indices_set = set(indices)
+            # Flatten coordinates for this bin with None separators between edges
+            x_flat = []
+            y_flat = []
+            z_flat = []
+            color_flat = []
+            for i in range(len(x1)):
+                if i in indices_set:
+                    x_flat.extend([x1[i], x2[i], None])
+                    y_flat.extend([y1[i], y2[i], None])
+                    z_flat.extend([z1[i], z2[i], None])
+                    if isinstance(line_color, np.ndarray):
+                        # Scatter3d line color arrays are defined per vertex; duplicate per segment endpoint.
+                        color_flat.extend([line_color[i], line_color[i], line_color[i]])
+            if x_flat:  # Only add trace if there are edges in this bin
+                line_kwargs = dict(width=float(bin_width))
+                if isinstance(line_color, np.ndarray):
+                    finite = line_color[np.isfinite(line_color)]
+                    if finite.size > 0:
+                        line_kwargs.update(color=color_flat, colorscale='Viridis', cmin=float(finite.min()), cmax=float(finite.max()), showscale=show_color_bar and not added_line_colorbar)
+                        if show_color_bar and not added_line_colorbar:
+                            line_kwargs['colorbar'] = dict(title='Edges')
+                            added_line_colorbar = True
+                    else:
+                        line_kwargs.update(color=plotly_color(0))
+                else:
+                    line_kwargs.update(color=line_color)
+                figure.add_scatter3d(x=x_flat, y=y_flat, z=z_flat, mode='lines', row=row, col=col, line=line_kwargs, opacity=float(alpha), showlegend=False)
 
 
 class SurfaceMesh3D(Recipe):
