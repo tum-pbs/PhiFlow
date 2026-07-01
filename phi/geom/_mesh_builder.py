@@ -11,7 +11,7 @@ class MeshBuilder:
         self.element_rank = element_rank
         self.batch_dims = batch_dims or EMPTY_SHAPE
         self.axes = None
-        self.v_buffer = np.empty((batch_dims.volume, 0, 3))
+        self.v_buffer = np.empty((self.batch_dims.volume, 0, 3))
         self.v_positions: Dict[str, Tensor] = {}
         self.v_indices: Dict[str, Tensor] = {}
         self.elements = []
@@ -73,7 +73,7 @@ class MeshBuilder:
         self.add_quads(indices, source_idx, flip=flip)
         return indices
 
-    def add_quads(self, indices2d: Tensor, source_idx: Tensor = None, /, mask: Tensor = None, flip: Union[Tensor, bool] = False):
+    def add_quads(self, indices2d: Tensor | list[list[Tensor]], source_idx: Tensor = None, /, mask: Tensor = None, flip: Union[Tensor, bool] = False):
         """
         Add quads to the mesh, connecting previously added vertices.
 
@@ -85,6 +85,8 @@ class MeshBuilder:
             flip: Whether to flip the quad orientation, i.e. reverse the order in which the vertices are listed per quad.
                 Can have fewer dims than `indices2d`.
         """
+        if isinstance(indices2d, list):
+            indices2d = stack([stack(row, spatial('v')) for row in indices2d], spatial('u'))
         mask_per_part = mask is not None and (non_spatial(indices2d) in mask.shape or self.batch_dims)
         if self.source_idx is not None:
             source_idx = source_idx[self.source_face_shape.name_list]
