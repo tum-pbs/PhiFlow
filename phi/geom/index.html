@@ -865,7 +865,7 @@ must_contain: (Optional) Indices of points that must be contained in the sample.
     This is done using a PCA on the covariance matrix.
 
     Args:
-        points: (Batched) List of at least three points.
+        points: (Batched) List of at least three points. Must have a `vector` dim with at least two components.
         reduce: List dimensions of points. Different planes will be fit along non-reduced dimensions.
 
     Returns:
@@ -880,8 +880,8 @@ must_contain: (Optional) Indices of points that must be contained in the sample.
     cov = math.sum(centered.Tc * centered, reduce)
     _, vals, vecs = eig(cov)
     normal_idx = argmin(vals.eigenvalues.T, &#39;~eigenvalues&#39;)
-    u_dir = vecs[(normal_idx + 1) % 3]
-    v_dir = vecs[(normal_idx + 2) % 3]
+    u_dir = vecs[(normal_idx + 1) % points.vector.size]
+    v_dir = vecs[(normal_idx + 2) % points.vector.size]
     normal = vecs[normal_idx]
     basis = stack({&#39;u&#39;: u_dir, &#39;v&#39;: v_dir}, &#39;~vector&#39;)
     coords_uv = basis.Tc @ centered
@@ -892,7 +892,7 @@ This is done using a PCA on the covariance matrix.</p>
 <h2 id="args">Args</h2>
 <dl>
 <dt><strong><code>points</code></strong></dt>
-<dd>(Batched) List of at least three points.</dd>
+<dd>(Batched) List of at least three points. Must have a <code>vector</code> dim with at least two components.</dd>
 <dt><strong><code>reduce</code></strong></dt>
 <dd>List dimensions of points. Different planes will be fit along non-reduced dimensions.</dd>
 </dl>
@@ -3494,7 +3494,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f2234f22d40></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fbaa837ed40></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3537,7 +3537,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f2234f22d40></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fbaa837ed40></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4626,7 +4626,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f2234f22d40></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fbaa837ed40></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4669,7 +4669,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f2234f22d40></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fbaa837ed40></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13602,7 +13602,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f2234f22d40></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fbaa837ed40></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13628,7 +13628,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f2234f22d40></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7fbaa837ed40></span>
 </code></dt>
 <dd>
 <details class="source">
