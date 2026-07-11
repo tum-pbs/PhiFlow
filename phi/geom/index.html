@@ -851,6 +851,63 @@ must_contain: (Optional) Indices of points that must be contained in the sample.
 <dd>(M, 3) array of sampled points.</dd>
 </dl></div>
 </dd>
+<dt id="phi.geom.fit_plane"><code class="name flex">
+<span>def <span class="ident">fit_plane</span></span>(<span>points: phiml.math._tensors.Tensor, reduce=&lt;function non_batch&gt;)</span>
+</code></dt>
+<dd>
+<details class="source">
+<summary>
+<span>Expand source code</span>
+</summary>
+<pre><code class="python">def fit_plane(points: Tensor, reduce=non_batch):
+    &#34;&#34;&#34;
+    Fits a least-squares plane through `points`.
+    This is done using a PCA on the covariance matrix.
+
+    Args:
+        points: (Batched) List of at least three points.
+        reduce: List dimensions of points. Different planes will be fit along non-reduced dimensions.
+
+    Returns:
+        center: Plane offset points, center of points
+        normal: Plane normals
+        basis: Plane bases with `u` and `v` directions listed along `~vector`
+        coords_uv: Point coordinates in the plane basis.
+    &#34;&#34;&#34;
+    reduce = points.shape.only(reduce) - &#39;vector&#39;
+    center = mean(points, reduce)
+    centered = points - center
+    cov = math.sum(centered.Tc * centered, reduce)
+    _, vals, vecs = eig(cov)
+    normal_idx = argmin(vals.eigenvalues.T, &#39;~eigenvalues&#39;)
+    u_dir = vecs[(normal_idx + 1) % 3]
+    v_dir = vecs[(normal_idx + 2) % 3]
+    normal = vecs[normal_idx]
+    basis = stack({&#39;u&#39;: u_dir, &#39;v&#39;: v_dir}, &#39;~vector&#39;)
+    coords_uv = basis.Tc @ centered
+    return center, normal, basis, coords_uv</code></pre>
+</details>
+<div class="desc"><p>Fits a least-squares plane through <code>points</code>.
+This is done using a PCA on the covariance matrix.</p>
+<h2 id="args">Args</h2>
+<dl>
+<dt><strong><code>points</code></strong></dt>
+<dd>(Batched) List of at least three points.</dd>
+<dt><strong><code>reduce</code></strong></dt>
+<dd>List dimensions of points. Different planes will be fit along non-reduced dimensions.</dd>
+</dl>
+<h2 id="returns">Returns</h2>
+<dl>
+<dt><code>center</code></dt>
+<dd>Plane offset points, center of points</dd>
+<dt><code>normal</code></dt>
+<dd>Plane normals</dd>
+<dt><code>basis</code></dt>
+<dd>Plane bases with <code>u</code> and <code>v</code> directions listed along <code>~vector</code></dd>
+<dt><code>coords_uv</code></dt>
+<dd>Point coordinates in the plane basis.</dd>
+</dl></div>
+</dd>
 <dt id="phi.geom.graph"><code class="name flex">
 <span>def <span class="ident">graph</span></span>(<span>nodes: phi.geom._geom.Geometry | phiml.math._tensors.Tensor,<br>edges: phiml.math._tensors.Tensor,<br>boundary: Dict[str, Dict[str, slice]] = None,<br>build_distances=True,<br>build_bounding_distance=False) ‑> phi.geom._graph.Graph</span>
 </code></dt>
@@ -3437,7 +3494,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff4a34b6700></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f2234f22d40></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -3480,7 +3537,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff4a34b6700></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f2234f22d40></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4569,7 +4626,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff4a34b6700></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f2234f22d40></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -4612,7 +4669,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.Box.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff4a34b6700></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f2234f22d40></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13545,7 +13602,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.center_representation"><code class="name flex">
-<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff4a34b6700></span>
+<span>def <span class="ident">center_representation</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f2234f22d40></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13571,7 +13628,7 @@ If these dims are not present on the result, all parts are assumed to have the s
 <div class="desc"></div>
 </dd>
 <dt id="phi.geom.UniformGrid.cuboid"><code class="name flex">
-<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7ff4a34b6700></span>
+<span>def <span class="ident">cuboid</span></span>(<span>self, size_variable=True) ‑> <function <a title="phi.geom.Cuboid" href="#phi.geom.Cuboid">Cuboid()</a> at 0x7f2234f22d40></span>
 </code></dt>
 <dd>
 <details class="source">
@@ -13810,6 +13867,7 @@ However, if <code>True</code> is returned, the geometries are guaranteed to be e
 <li><code><a title="phi.geom.embed" href="#phi.geom.embed">embed</a></code></li>
 <li><code><a title="phi.geom.enclosing_grid" href="#phi.geom.enclosing_grid">enclosing_grid</a></code></li>
 <li><code><a title="phi.geom.farthest_points" href="#phi.geom.farthest_points">farthest_points</a></code></li>
+<li><code><a title="phi.geom.fit_plane" href="#phi.geom.fit_plane">fit_plane</a></code></li>
 <li><code><a title="phi.geom.graph" href="#phi.geom.graph">graph</a></code></li>
 <li><code><a title="phi.geom.infinite_cylinder" href="#phi.geom.infinite_cylinder">infinite_cylinder</a></code></li>
 <li><code><a title="phi.geom.intersection" href="#phi.geom.intersection">intersection</a></code></li>
