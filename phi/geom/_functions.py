@@ -2,9 +2,10 @@ from typing import Sequence, Union, Optional, Tuple
 
 import numpy as np
 
-from phiml import math
-from phiml.math import Tensor, channel, Shape, normalize, vec, sqrt, maximum, clip, vec_squared, norm, where, stack, dual, argmin, safe_div, arange, wrap, to_float, rename_dims, expand
-from phiml.math._shape import parse_dim_order, DimFilter, shape
+from phiml import math, non_channel, mean
+from phiml.math import Tensor, channel, Shape, normalize, vec, sqrt, maximum, clip, vec_squared, norm, where, stack, dual, argmin, safe_div, arange, wrap, to_float, rename_dims, \
+    expand, eig
+from phiml.math._shape import parse_dim_order, DimFilter, shape, non_batch
 
 
 # No dependence on Geometry
@@ -144,6 +145,35 @@ def plane_sgn_dist(plane_offset: Tensor, plane_normal: Tensor, point: Tensor):
 def closest_on_plane(plane_offset: Tensor, plane_normal: Tensor, point: Tensor):
     sgn_dist = plane_sgn_dist(plane_offset, plane_normal, point)
     return point - sgn_dist * plane_normal
+
+
+def fit_plane(points: Tensor, reduce=non_batch):
+    """
+    Fits a least-squares plane through `points`.
+    This is done using a PCA on the covariance matrix.
+
+    Args:
+        points: (Batched) List of at least three points. Must have a `vector` dim with at least two components.
+        reduce: List dimensions of points. Different planes will be fit along non-reduced dimensions.
+
+    Returns:
+        center: Plane offset points, center of points
+        normal: Plane normals
+        basis: Plane bases with `u` and `v` directions listed along `~vector`
+        coords_uv: Point coordinates in the plane basis.
+    """
+    reduce = points.shape.only(reduce) - 'vector'
+    center = mean(points, reduce)
+    centered = points - center
+    cov = math.sum(centered.Tc * centered, reduce)
+    _, vals, vecs = eig(cov)
+    normal_idx = argmin(vals.eigenvalues.T, '~eigenvalues')
+    u_dir = vecs[(normal_idx + 1) % points.vector.size]
+    v_dir = vecs[(normal_idx + 2) % points.vector.size]
+    normal = vecs[normal_idx]
+    basis = stack({'u': u_dir, 'v': v_dir}, '~vector')
+    coords_uv = basis.Tc @ centered
+    return center, normal, basis, coords_uv
 
 
 def closest_on_triangle(A: Tensor, B: Tensor, C: Tensor, query: Tensor, exact_edges=True) -> Tensor:
