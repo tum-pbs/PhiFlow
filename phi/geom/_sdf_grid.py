@@ -3,9 +3,10 @@ from functools import cached_property
 from numbers import Number
 from typing import Union, Tuple, Dict, Any, Optional, Sequence
 
-from phiml import math, cprod
+from phiml import math, cprod, maximum
 from phiml.dataclasses import sliceable, replace
 from phiml.math import Shape, Tensor, spatial, channel, non_spatial, expand, instance, dual, clip, wrap
+from phiml.math.nd import smooth
 from ._geom import Geometry
 from ._functions import clip_length, vec_length
 from ._grid import UniformGrid
@@ -128,6 +129,23 @@ class SDFGrid(Geometry):
     def corners(self) -> Tensor:
         raise NotImplementedError(f"SDF does not support corners")
 
+    def eval(self, location: Tensor, props=('sdf', 'grad')):
+        props_ = [props] if isinstance(props, str) else props
+        if self.approximate_outside:
+            location = self.bounds.push(location, outward=False)
+        float_idx = (location - self.bounds.lower) / self.size * self.resolution
+        result = []
+        if 'sdf' in props_:
+            sgn_dist = math.grid_sample(self.values, float_idx - .5, math.extrapolation.ZERO_GRADIENT)
+            result.append(sgn_dist)
+        if 'grad' in props_:
+            if self.to_surface is not None:
+                sdf_grad = math.grid_sample(self.to_surface, float_idx - .5, math.extrapolation.ZERO_GRADIENT)
+            else:
+                sdf_grad = math.grid_sample(self.grad, float_idx - 1, math.extrapolation.ZERO_GRADIENT)
+            result.append(math.vec_normalize(sdf_grad, allow_zero=True))
+        return result[0] if isinstance(props, str) else result
+
     def lies_inside(self, location: Tensor) -> Tensor:
         float_idx = (location - self.bounds.lower) / self.size * self.resolution
         sdf_val = math.grid_sample(self.values, float_idx - .5, math.extrapolation.ZERO_GRADIENT)
@@ -171,6 +189,17 @@ class SDFGrid(Geometry):
             return math.where(within_bounds, sdf_val, dist_from_center)
         else:
             return sdf_val
+
+    def smoothed_normal(self, location: Tensor, radius_voxels: float, weight=None, eps=1e-5) -> Tensor:
+        if self.approximate_outside:
+            location = self.bounds.push(location, outward=False)
+        float_idx = (location - self.bounds.lower) / self.size * self.resolution
+        grad = self.grad
+        if weight == 'inverse-distance':
+            sdf_values = math.neighbor_mean(self.values)
+            grad *= 1. / maximum(abs(sdf_values), eps)
+        grad = math.grid_sample(smooth(grad, radius_voxels), float_idx - 1, math.extrapolation.ZERO_GRADIENT)
+        return math.vec_normalize(grad, allow_zero=True)
 
     def sample_uniform(self, *shape: math.Shape) -> Tensor:
         raise NotImplementedError
