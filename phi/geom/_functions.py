@@ -2,10 +2,10 @@ from typing import Sequence, Union, Optional, Tuple
 
 import numpy as np
 
-from phiml import math, non_channel, mean
+from phiml import math, non_channel, mean, arccos
 from phiml.math import Tensor, channel, Shape, normalize, vec, sqrt, maximum, clip, vec_squared, norm, where, stack, dual, argmin, safe_div, arange, wrap, to_float, rename_dims, \
-    expand, eig
-from phiml.math._shape import parse_dim_order, DimFilter, shape, non_batch
+    expand, eig, PI, squared_norm
+from phiml.math._shape import parse_dim_order, DimFilter, shape, non_batch, spatial
 
 
 # No dependence on Geometry
@@ -253,6 +253,39 @@ def distance_line_point(line_offset: Tensor, line_direction: Tensor, point: Tens
     return c
 
 
+def closest_line_line(offset1, direction1, offset2, direction2, eps: float | None = 1e-10, where_parallel=float('inf'), are_directions_normalized=False):
+    """
+    Computes the point on line 1 closest to line 2.
+
+    Args:
+        offset1: Line 1 offset point.
+        direction1: Line 1 direction vector.
+        offset2: Line 2 offset point.
+        direction2: Line 2 direction vector.
+        eps: Used to determine whether the lines are parallel. Set to `None` to skip check. This can result in undesired outputs if the lines are parallel.
+        where_parallel: Desired result if lines are parallel. Only used if `eps` is not `None`.
+        are_directions_normalized: Whether the direction vectors are already normalized.
+
+    Returns:
+        Parameter `t`, such that `offset1 + t * direction1` is closest to line 2.
+    """
+    delta = offset2 - offset1
+    if not are_directions_normalized:
+        l1 = squared_norm(direction1, 'vector')
+        l2 = squared_norm(direction2, 'vector')
+    else:
+        l1 = 1
+        l2 = 1
+    dir_dot = direction1.vector @ direction2.vector
+    d1d = delta.vector @ direction1.vector
+    d2d = delta.vector @ direction2.vector
+    denom = l1 * l2 - dir_dot * dir_dot
+    non_parallel_result = (l2 * d1d - dir_dot * d2d) / denom
+    if eps is None:
+        return non_parallel_result
+    return where(abs(denom) < eps, where_parallel, non_parallel_result)
+
+
 def closest_normal_vector(target: Tensor, normal: Tensor, is_normalized=False, eps=1e-10):
     """Finds a vector orthogonal to `normal` that approximately points along `target`."""
     if not is_normalized:
@@ -473,3 +506,21 @@ def farthest_points(points: Tensor, list_dim: Shape, must_contain: Tensor = None
         sampled_indices[i] = np.argmax(distances)  # Select the farthest point
     sampled_indices = expand(wrap(sampled_indices, list_dim), channel(index=(points.shape-'vector').name_list))
     return sampled_indices, points[sampled_indices]
+
+
+def curvature_radius_from_pair(point1: Tensor, direction1: Tensor, point2: Tensor, direction2: Tensor, /, *, reduce=None, eps=1e-8):
+    dot = direction1.vector * direction2.vector
+    dist = vec_length(point2 - point1)
+    rad = dist / sqrt(maximum(eps, 2 - 2 * dot))
+    return math.mean(rad, reduce)
+
+
+def projected_turning_angle(tangents: Tensor, projection_dir: Tensor, /, is_direction_normalized=False):
+    assert spatial(tangents).rank == 1, f"tangent vector must have one spatial dim, but got {tangents.shape}"
+    tangents = normalize(tangents)
+    projection_dir = projection_dir if is_direction_normalized else normalize(projection_dir)
+    l, r = math.shift(normalize(tangents), (-1, 0), stack_dim=None, padding='periodic')
+    l_angle = arccos(l.vector @ projection_dir)
+    r_angle = arccos(r.vector @ projection_dir)
+    turning_angle = r_angle + l_angle - PI
+    return turning_angle
