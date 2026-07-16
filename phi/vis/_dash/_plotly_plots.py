@@ -401,11 +401,7 @@ class PointCloud2D(Recipe):
                 dx, dy = data.geometry.dx[dims].numpy()
                 sdf = np.where(sdf > (dx ** 2 + dy ** 2) ** .5, np.nan, sdf)
                 colorscale = [[0, 'blue'], [.5, 'white'], [1, 'rgba(0.,0.,0.,0.)']]
-                contour = go.Contour(
-                    x=x, y=y, z=sdf.T,
-                    contours=dict(start=-.001, end=.001, size=.002),
-                    colorscale=colorscale, showscale=False,
-                )
+                contour = go.Contour(x=x, y=y, z=sdf.T, contours=dict(start=-.001, end=.001, size=.002), colorscale=colorscale, showscale=False)
                 figure.add_trace(contour)
             else:
                 subplot_height = (subplot.yaxis.domain[1] - subplot.yaxis.domain[0]) * size[1] * 100 if size[1] is not None else None
@@ -417,7 +413,7 @@ class PointCloud2D(Recipe):
                     marker_size = data.elements.bounding_radius().numpy()
                 if subplot_height:
                     marker_size *= subplot_height / (yrange[1] - yrange[0])
-                marker = graph_objects.scatter.Marker(size=marker_size, color=hex_color, sizemode='diameter', symbol=symbol)
+                marker = graph_objects.scatter.Marker(size=marker_size, color=hex_color, sizemode='diameter', symbol=symbol, opacity=float(alpha))
                 figure.add_scatter(mode='markers', x=x, y=y, marker=marker, row=row, col=col)
         figure.update_layout(showlegend=False)
 
@@ -523,7 +519,7 @@ class Scatter3D(Recipe):
             else:
                 color_i = plotly_color(color[idx], non_channel(data.geometry))
             points_dim = data.shape.non_channel
-            labels = points_dim.labels if points_dim.rank == 1 and size_le(points_dim, 500) else None
+            labels = points_dim.labels if points_dim.rank == 1 and size_le(points_dim, 1000) else None
             if spatial(data.geometry):
                 for sdim in spatial(data.geometry):
                     points_i = data[idx].points.vector[dims]
@@ -542,7 +538,7 @@ class Scatter3D(Recipe):
                             z.extend(z_sl)
                             z.append(None)
                     mode = 'markers+lines' if data.shape.non_channel.volume <= 100 else 'lines'
-                    figure.add_scatter3d(mode=mode, x=x, y=y, z=z, row=row, col=col, line=dict(color=color_i, width=2), opacity=float(alpha), marker=dict(size=2.5))
+                    figure.add_scatter3d(mode=mode, x=x, y=y, z=z, row=row, col=col, line=dict(color=color_i, width=2), opacity=float(alpha), marker=dict(size=2.5, opacity=float(alpha)))
                 continue
             # if data.points.shape.non_channel.rank > 1:
             #     data_list = field.unstack(data, data.points.shape.non_channel[0].name)
@@ -564,7 +560,7 @@ class Scatter3D(Recipe):
                 symbol = 'diamond-open'
                 marker_size = 20
             marker_size *= size[1] * (domain_y[1] - domain_y[0]) / (yrange[1] - yrange[0]) * 0.5
-            marker = graph_objects.scatter3d.Marker(size=marker_size, color=color_i, colorscale='Viridis', sizemode='diameter', symbol=symbol)
+            marker = graph_objects.scatter3d.Marker(size=marker_size, color=color_i, colorscale='Viridis', sizemode='diameter', symbol=symbol, opacity=float(alpha))
             text_kwargs = dict(text=list(labels[0]), mode='markers+text', textposition='top center') if labels is not None and labels[0] is not None else dict(mode='markers')
             figure.add_scatter3d(x=x, y=y, z=z, marker=marker, row=row, col=col, **text_kwargs)
             figure.update_layout(showlegend=False)
