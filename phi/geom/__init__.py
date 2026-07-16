@@ -23,6 +23,7 @@ from ._cylinder import Cylinder, cylinder
 from ._grid import UniformGrid, enclosing_grid
 from ._graph import Graph, graph
 from ._mesh import Mesh, mesh, load_su2, load_gmsh, load_stl, mesh_from_numpy, build_mesh, join_meshes
+from ._mesh_builder import MeshBuilder
 from ._heightmap import Heightmap
 from ._sdf_grid import SDFGrid, sample_sdf
 from ._sdf import SDF, numpy_sdf

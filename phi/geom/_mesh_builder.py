@@ -1,9 +1,129 @@
 from typing import Union, Dict
+from importlib import import_module
+from math import acos
 
 import numpy as np
 
-from phiml.math import Tensor, range_tensor, non_spatial, spatial, instance, Shape, EMPTY_SHAPE, math, stack, channel, expand, wrap
+from phiml.math import Tensor, range_tensor, non_spatial, spatial, instance, Shape, EMPTY_SHAPE, stack, channel, expand, wrap
 from ._mesh import Mesh, mesh_from_numpy
+
+
+def _triangle_quality_2d(a: np.ndarray, b: np.ndarray, c: np.ndarray) -> tuple[float, float, float, float]:
+    ab = float(np.linalg.norm(b - a))
+    bc = float(np.linalg.norm(c - b))
+    ca = float(np.linalg.norm(a - c))
+    if min(ab, bc, ca) <= 0:
+        return (-np.inf, -np.inf, -np.inf, -np.inf)
+    cos_a = (ab * ab + ca * ca - bc * bc) / (2 * ab * ca)
+    cos_b = (ab * ab + bc * bc - ca * ca) / (2 * ab * bc)
+    cos_c = (bc * bc + ca * ca - ab * ab) / (2 * bc * ca)
+    cos_a = -1.0 if cos_a < -1.0 else 1.0 if cos_a > 1.0 else cos_a
+    cos_b = -1.0 if cos_b < -1.0 else 1.0 if cos_b > 1.0 else cos_b
+    cos_c = -1.0 if cos_c < -1.0 else 1.0 if cos_c > 1.0 else cos_c
+    angle_a = float(acos(cos_a))
+    angle_b = float(acos(cos_b))
+    angle_c = float(acos(cos_c))
+    return float(min(angle_a, angle_b, angle_c)), float(-max(angle_a, angle_b, angle_c)), float(-(ab + bc + ca)), float(-max(ab, bc, ca))
+
+
+def _polygon_area_2d(points: np.ndarray):
+    return 0.5 * np.sum(points[:-1, 0] * points[1:, 1] - points[1:, 0] * points[:-1, 1]) + 0.5 * (points[-1, 0] * points[0, 1] - points[0, 0] * points[-1, 1])
+
+
+def _cross2d(u: np.ndarray, v: np.ndarray):
+    return float(u[0] * v[1] - u[1] * v[0])
+
+
+def _point_in_triangle_2d(point: np.ndarray, a: np.ndarray, b: np.ndarray, c: np.ndarray, eps=1e-12):
+    return (_cross2d(b - a, point - a) > eps) and (_cross2d(c - b, point - b) > eps) and (_cross2d(a - c, point - c) > eps)
+
+
+def _triangulate_polygon_fast(points_2d: np.ndarray, vertex_ids: np.ndarray):
+    try:
+        Polygon = import_module("shapely.geometry").Polygon
+        import trimesh
+    except Exception:
+        return None
+    try:
+        polygon = Polygon(points_2d)
+        if not polygon.is_valid or polygon.area <= 0:
+            return None
+        vertices, faces = trimesh.creation.triangulate_polygon(polygon)
+    except Exception:
+        return None
+    keys = {tuple(np.round(p, 12)): int(i) for i, p in zip(vertex_ids, points_2d)}
+    try:
+        mapped = np.array([[keys[tuple(np.round(v, 12))] for v in tri] for tri in vertices[faces]], dtype=np.int32)
+    except Exception:
+        return None
+    return mapped
+
+
+def _triangulate_polygon_fallback(points_2d: np.ndarray, vertex_ids: np.ndarray):
+    points_2d = np.asarray(points_2d, dtype=float)
+    vertex_ids = np.asarray(vertex_ids, dtype=np.int32)
+    if vertex_ids.shape[0] == 3:
+        return vertex_ids[None]
+    if vertex_ids.shape[0] < 3:
+        raise ValueError(f"Cannot triangulate loop with fewer than 3 vertices but got {vertex_ids.shape[0]}")
+    signed_area = _polygon_area_2d(points_2d)
+    if abs(signed_area) < 1e-14:
+        raise ValueError(f"Cannot triangulate degenerate loop with near-zero area {signed_area}")
+    reverse_output = signed_area < 0
+    if reverse_output:
+        points_2d = points_2d[::-1]
+        vertex_ids = vertex_ids[::-1]
+    active = list(range(vertex_ids.shape[0]))
+    triangles = []
+    max_iter = vertex_ids.shape[0] ** 2 + 1
+    while len(active) > 3 and max_iter > 0:
+        max_iter -= 1
+        best = None
+        best_score = None
+        m = len(active)
+        for pos, curr in enumerate(active):
+            prev_idx = active[pos - 1]
+            next_idx = active[(pos + 1) % m]
+            a, b, c = points_2d[prev_idx], points_2d[curr], points_2d[next_idx]
+            if _cross2d(b - a, c - a) <= 1e-12:
+                continue
+            if any(_point_in_triangle_2d(points_2d[other], a, b, c) for other in active if other not in (prev_idx, curr, next_idx)):
+                continue
+            score = _triangle_quality_2d(a, b, c)
+            if best is None or score > best_score:
+                best = (prev_idx, curr, next_idx)
+                best_score = score
+        if best is None:
+            # Numerical fallback: clip the first available ear-like triangle.
+            curr = active[0]
+            best = (active[-1], curr, active[1])
+        triangles.append(vertex_ids[list(best)])
+        active.remove(best[1])
+    triangles.append(vertex_ids[active])
+    triangles = np.asarray(triangles, dtype=np.int32)
+    if reverse_output:
+        triangles = triangles[:, [0, 2, 1]]
+    return triangles
+
+
+def _triangulate_loop(points: np.ndarray, vertex_ids: np.ndarray, flip=False):
+    points = np.asarray(points, dtype=float)
+    vertex_ids = np.asarray(vertex_ids, dtype=np.int32)
+    if vertex_ids.shape[0] > 1 and vertex_ids[0] == vertex_ids[-1]:
+        vertex_ids = vertex_ids[:-1]
+        points = points[:-1]
+    if points.shape[-1] > 2:
+        centered = points - np.mean(points, axis=0, keepdims=True)
+        _, _, vh = np.linalg.svd(centered, full_matrices=False)
+        points_2d = centered @ vh[:2].T
+    else:
+        points_2d = points[..., :2]
+    triangles = _triangulate_polygon_fast(points_2d, vertex_ids)
+    if triangles is None:
+        triangles = _triangulate_polygon_fallback(points_2d, vertex_ids)
+    if flip:
+        triangles = triangles[:, [0, 2, 1]]
+    return triangles
 
 
 class MeshBuilder:
@@ -135,11 +255,38 @@ class MeshBuilder:
                 self.source_idx.extend(source_idx[tri].numpy([spatial(indices1d)-1, self.batch_dims, channel]))
                 assert len(self.source_idx) == len(self.elements)
 
-    def debug_show(self, normals=True):
+    def triangulate(self, loop_indices: Tensor, /, flip: Union[Tensor, bool] = False):
+        """
+        Fills a closed loop of vertices by triangulating it.
+        The triangles are chosen to have similar angles (large minimum, small maximum), and short edge lengths.
+
+        Args:
+            loop_indices: Ordered sequence(s) of vertex ids forming closed loops.
+            flip: Whether to flip the triangle orientations, i.e. reverse the order in which the vertices are listed.
+        """
+        if isinstance(loop_indices, list):
+            loop_indices = stack(loop_indices, spatial('loop'))
+        for strip in (non_spatial(loop_indices) - self.batch_dims).meshgrid():
+            loop_np = loop_indices[strip].numpy([spatial, self.batch_dims])
+            if isinstance(flip, Tensor):
+                flip_strip = flip[strip]
+                flip_np = np.asarray(flip_strip.numpy([self.batch_dims]), dtype=bool).reshape(-1)
+            else:
+                flip_np = np.full(self.batch_dims.volume, bool(flip), dtype=bool)
+            triangles_per_batch = []
+            for bi in range(self.batch_dims.volume):
+                triangles_per_batch.append(_triangulate_loop(self.v_buffer[bi, loop_np[:, bi], :], loop_np[:, bi], flip=bool(flip_np[bi])))
+            triangles_per_batch = np.asarray(triangles_per_batch, dtype=np.int32)
+            assert len({tri.shape[0] for tri in triangles_per_batch}) == 1, "Triangulation must yield the same triangle count for all batches"
+            self.elements.extend(np.swapaxes(triangles_per_batch, 0, 1))
+
+    def debug_show(self, edges=True, normals=True):
         from ..field import PointCloud
         from ..vis import show
         mesh = self.build_mesh()
         plot = [mesh, mesh.vertices]
+        if edges:
+            plot.append(mesh.vertex_graph)
         if normals:
-            plot.append(PointCloud(mesh.center, mesh.normals * .05))
+            plot.append(PointCloud(mesh.center, mesh.normals * .05))  # type: ignore[arg-type]
         show(plot, overlay='list')
