@@ -44,7 +44,7 @@ class Noise(FieldInitializer):
         rndj = math.to_complex(random_normal(shape)) + 1j * math.to_complex(random_normal(shape))  # Note: there is no complex32
         # --- Compute 1 / k^2 ---
         k_vec = math.fftfreq(resolution, size) * resolution * math.tensor(self.scale)  # in physical units
-        k2 = math.vec_squared(k_vec)
+        k2 = math.squared_norm(k_vec)
         lowest_frequency = 0.1
         weight_mask = math.to_float(k2 > lowest_frequency)
         inv_k2 = math.divide_no_nan(1, k2)
